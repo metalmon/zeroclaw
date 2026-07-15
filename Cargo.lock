@@ -13495,6 +13495,7 @@ dependencies = [
  "zeroclaw-config",
  "zeroclaw-log",
  "zeroclaw-spawn",
+ "zeroclaw-tool-call-parser",
 ]
 
 [[package]]

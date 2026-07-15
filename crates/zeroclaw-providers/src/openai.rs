@@ -1943,7 +1943,7 @@ mod tests {
         assert_eq!(native.len(), 1);
         let tool_calls = native[0].tool_calls.as_ref().unwrap();
         assert_eq!(tool_calls.len(), 1);
-        assert_eq!(tool_calls[0].function.arguments, "{}");
+        assert_eq!(tool_calls[0].function.arguments, r#"{"path": "unclosed"}"#);
     }
 
     #[test]

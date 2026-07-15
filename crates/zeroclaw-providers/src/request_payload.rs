@@ -9,8 +9,9 @@ pub(crate) fn non_empty_string_field(value: &serde_json::Value, field: &str) -> 
 /// Normalize native tool-call `arguments` for OpenAI-format wire export.
 ///
 /// Providers require each `function.arguments` field to be a parseable JSON
-/// value string. Malformed model output is replaced with `{}` so the outbound
-/// request is not rejected with HTTP 400.
+/// value string. After parse failure, attempts conservative in-house object
+/// repair; if repair fails, malformed model output is replaced with `{}` so
+/// the outbound request is not rejected with HTTP 400.
 pub(crate) fn normalize_native_tool_arguments(raw: &str, function_name: &str) -> String {
     let arguments = if raw.trim().is_empty() {
         "{}".to_string()
@@ -20,6 +21,21 @@ pub(crate) fn normalize_native_tool_arguments(raw: &str, function_name: &str) ->
 
     if serde_json::from_str::<serde_json::Value>(&arguments).is_ok() {
         return arguments;
+    }
+
+    if let Some(repaired) = zeroclaw_tool_call_parser::repair_json_object_string(&arguments) {
+        ::zeroclaw_log::record!(
+            INFO,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
+                .with_attrs(::serde_json::json!({
+                    "function": function_name,
+                    "arguments": arguments,
+                    "repaired": repaired,
+                })),
+            "Repaired malformed JSON in native tool-call arguments"
+        );
+        return repaired;
     }
 
     ::zeroclaw_log::record!(
@@ -64,11 +80,15 @@ mod tests {
     }
 
     #[test]
-    fn normalize_native_tool_arguments_malformed_to_empty_object() {
+    fn normalize_native_tool_arguments_repairs_unclosed_object() {
         assert_eq!(
             normalize_native_tool_arguments(r#"{"path": "unclosed"#, "file_write"),
-            "{}"
+            r#"{"path": "unclosed"}"#
         );
+    }
+
+    #[test]
+    fn normalize_native_tool_arguments_malformed_to_empty_object() {
         assert_eq!(
             normalize_native_tool_arguments("not json at all", "shell"),
             "{}"
