@@ -8,6 +8,10 @@
 //! This crate has no dependency on agent state, memory, model_providers, or channels.
 //! It is pure text transformation.
 
+mod json_repair;
+
+pub use json_repair::repair_json_object_string;
+
 use regex::Regex;
 use std::{collections::HashSet, sync::LazyLock};
 
