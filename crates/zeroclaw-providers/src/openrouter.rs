@@ -1204,6 +1204,71 @@ mod tests {
         assert!(!json.contains("stream"));
     }
 
+    /// Regression: `stream_chat` must merge `provider_extra` into the same
+    /// `NativeChatRequest` payload shape used for non-streaming `chat`.
+    #[test]
+    fn native_stream_request_merges_provider_extra() {
+        let model_provider = OpenRouterModelProvider::new("test", Some("key"), None)
+            .with_extra_body(serde_json::json!({"reasoning": {"exclude": true}}));
+        let request = NativeChatRequest {
+            model: "qwen/qwen3.6-35b-a3b".into(),
+            messages: vec![],
+            temperature: Some(0.7),
+            tools: None,
+            tool_choice: None,
+            max_tokens: None,
+            stream: Some(true),
+        };
+
+        let merged = model_provider.merge_extra_body(&request).unwrap();
+        let obj = merged.as_object().unwrap();
+        assert_eq!(obj.get("stream").unwrap(), &serde_json::json!(true));
+        assert_eq!(
+            obj.get("reasoning").unwrap(),
+            &serde_json::json!({"exclude": true})
+        );
+        assert_eq!(obj.get("model").unwrap(), "qwen/qwen3.6-35b-a3b");
+    }
+
+    #[tokio::test]
+    async fn stream_chat_rejects_non_object_provider_extra() {
+        use crate::traits::{ChatMessage, ChatRequest};
+        use futures_util::StreamExt as _;
+
+        let model_provider = OpenRouterModelProvider::new("test", Some("key"), None)
+            .with_extra_body(serde_json::json!(["not", "an", "object"]));
+        let messages = vec![ChatMessage {
+            role: "user".into(),
+            content: "hello".into(),
+        }];
+        let request = ChatRequest {
+            messages: &messages,
+            tools: None,
+            thinking: None,
+        };
+
+        let mut stream = model_provider.stream_chat(
+            request,
+            "qwen/qwen3.6-35b-a3b",
+            Some(0.0),
+            crate::traits::StreamOptions {
+                enabled: true,
+                count_tokens: false,
+            },
+        );
+
+        let first = stream
+            .next()
+            .await
+            .expect("stream should yield an error event");
+        assert!(first.is_err(), "expected merge_extra_body failure");
+        let msg = first.unwrap_err().to_string();
+        assert!(
+            msg.contains("provider_extra must be a JSON object"),
+            "unexpected error: {msg}"
+        );
+    }
+
     #[test]
     fn creates_with_key() {
         let model_provider = OpenRouterModelProvider::builder("test")
