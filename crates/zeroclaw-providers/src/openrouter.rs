@@ -864,10 +864,13 @@ impl ModelProvider for OpenRouterModelProvider {
             stream: Some(true),
         };
 
-        let payload = match serde_json::to_value(&native_request) {
+        // Must merge provider_extra (e.g. `reasoning.enabled`) like the non-streaming
+        // `chat` path — ACP/Telegram streaming would otherwise ignore operator config.
+        let payload = match self.merge_extra_body(&native_request) {
             Ok(v) => v,
             Err(e) => {
-                return stream::once(async move { Err(StreamError::Json(e)) }).boxed();
+                let msg = e.to_string();
+                return stream::once(async move { Err(StreamError::ModelProvider(msg)) }).boxed();
             }
         };
 
