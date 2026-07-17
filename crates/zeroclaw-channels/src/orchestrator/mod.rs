@@ -9932,13 +9932,17 @@ pub async fn start_channels(
                     match zeroclaw_runtime::tools::McpRegistry::connect_all(&agent_mcp_servers).await {
                         Ok(registry) => {
                             let registry = std::sync::Arc::new(registry);
-                            ch_mcp_elevation_arcs =
-                                zeroclaw_runtime::tools::collect_mcp_elevation_arcs(&registry).await;
+                            ch_mcp_elevation_arcs = zeroclaw_runtime::tools::collect_mcp_elevation_arcs(
+                                &registry,
+                                &security,
+                            )
+                            .await;
                             let mcp_policy = mcp_tool_access_policy(security.as_ref(), None);
                             if config.mcp.deferred_loading {
                                 let deferred_set =
                                     zeroclaw_runtime::tools::DeferredMcpToolSet::from_registry(
                                         std::sync::Arc::clone(&registry),
+                                        std::sync::Arc::clone(&security),
                                     )
                                     .await;
                                 ::zeroclaw_log::record!(
@@ -9986,6 +9990,7 @@ pub async fn start_channels(
                                                 name,
                                                 def,
                                                 std::sync::Arc::clone(&registry),
+                                                std::sync::Arc::clone(&security),
                                             ),
                                         );
                                         if register_eager_mcp_tool_if_allowed(

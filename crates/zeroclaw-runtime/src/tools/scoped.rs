@@ -258,7 +258,8 @@ impl ScopedToolRegistry {
                     // elevation in step 5; skip the collection when no skills are
                     // registered through this assembly.
                     if !skills.is_empty() {
-                        mcp_elevation_arcs = tools::collect_mcp_elevation_arcs(&registry).await;
+                        mcp_elevation_arcs =
+                            tools::collect_mcp_elevation_arcs(&registry, security).await;
                     }
                     let mcp_policy = mcp_tool_access_policy(security.as_ref(), caller_allowed);
                     // Generic MCP resource/prompt capability tools (policy-gated in
@@ -285,8 +286,11 @@ impl ScopedToolRegistry {
                     )
                     .await;
                     if config.mcp.deferred_loading {
-                        let deferred_set =
-                            tools::DeferredMcpToolSet::from_registry(Arc::clone(&registry)).await;
+                        let deferred_set = tools::DeferredMcpToolSet::from_registry(
+                            Arc::clone(&registry),
+                            Arc::clone(security),
+                        )
+                        .await;
                         if emit_assembly_logs {
                             ::zeroclaw_log::record!(
                                 INFO,
@@ -308,8 +312,10 @@ impl ScopedToolRegistry {
                                 {
                                     continue;
                                 }
-                                let wrapper: Arc<dyn Tool> =
-                                    Arc::new(stub.activate(Arc::clone(&registry)));
+                                let wrapper: Arc<dyn Tool> = Arc::new(stub.activate(
+                                    Arc::clone(&registry),
+                                    Arc::clone(security),
+                                ));
                                 register_eager_mcp_tool_if_allowed(
                                     wrapper,
                                     &mut tools_registry,
@@ -402,6 +408,7 @@ impl ScopedToolRegistry {
                                     name,
                                     def,
                                     Arc::clone(&registry),
+                                    Arc::clone(security),
                                 ));
                                 if register_eager_mcp_tool_if_allowed(
                                     wrapper,
