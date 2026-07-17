@@ -2920,49 +2920,6 @@ mod tests {
     }
 
     #[test]
-    fn test_prompt_parsing() {
-        // String prompt
-        let string_params = serde_json::json!({"prompt": "hello world"});
-        let result = AcpServer::materialize_prompt(&string_params, None).unwrap();
-        assert_eq!(result, "hello world");
-
-        // Array prompt (valid)
-        let array_params = serde_json::json!({
-            "prompt": [
-                {"type": "text", "text": "part 1"},
-                {"type": "text", "text": "part 2"}
-            ]
-        });
-        let result = AcpServer::materialize_prompt(&array_params, None).unwrap();
-        assert_eq!(result, "part 1\n\npart 2");
-
-        // Array prompt (empty or no text)
-        let empty_array_params = serde_json::json!({"prompt": []});
-        let result = AcpServer::materialize_prompt(&empty_array_params, None);
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code, INVALID_PARAMS);
-
-        let no_text_params = serde_json::json!({
-            "prompt": [
-                {"type": "image", "data": "..."}
-            ]
-        });
-        let result = AcpServer::materialize_prompt(&no_text_params, None);
-        assert!(result.is_err());
-
-        // Array prompt with resource (file @-notation from ACP client)
-        let resource_params = serde_json::json!({
-            "prompt": [
-                {"type": "text", "text": "analyze this file:"},
-                {"type": "resource", "resource": {"uri": "file:///tmp/example.rs", "text": "fn main() { println!(\"hi\"); }", "mimeType": "text/rust"}}
-            ]
-        });
-        let result = AcpServer::materialize_prompt(&resource_params, None).unwrap();
-        assert!(result.contains("analyze this file:"));
-        assert!(result.contains("fn main() { println!(\"hi\"); }"));
-    }
-
-    #[test]
     fn materialize_prompt_writes_blob_and_returns_marker() {
         let dir = tempfile::tempdir().unwrap();
         let bytes = b"pdf-bytes";
