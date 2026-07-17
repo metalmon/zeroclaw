@@ -1929,6 +1929,67 @@ fn to_acp_content(name: &str, args: &Value) -> Value {
     }
 }
 
+/// Parse `acp.deliver_file path=… mimeType=…` trailer from `deliver_file` tool output.
+///
+/// Path may contain spaces; `mimeType=` is the final key and ends the path value.
+fn parse_deliver_file_trailer(output: &str) -> Option<(String, String)> {
+    for line in output.lines().rev() {
+        let line = line.trim();
+        let Some(rest) = line.strip_prefix("acp.deliver_file ") else {
+            continue;
+        };
+        let path_key = "path=";
+        let mime_key = " mimeType=";
+        let path_start = rest.find(path_key)?;
+        let after_path = &rest[path_start + path_key.len()..];
+        let mime_at = after_path.rfind(mime_key)?;
+        let path = after_path[..mime_at].to_string();
+        let mime = after_path[mime_at + mime_key.len()..].trim().to_string();
+        if path.is_empty() || mime.is_empty() {
+            continue;
+        }
+        return Some((path, mime));
+    }
+    None
+}
+
+/// Build ACP `tool_call_update.content` with embedded `resource`+`blob` for `deliver_file`.
+///
+/// Returns `None` to fall back to text-only content (wrong tool name, bad trailer, IO error).
+fn deliver_file_tool_result_content(name: &str, output: &str) -> Option<Value> {
+    if name != "deliver_file" {
+        return None;
+    }
+    let (path, mime_type) = parse_deliver_file_trailer(output)?;
+    let bytes = std::fs::read(&path).ok()?;
+    let blob = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
+    let filename = Path::new(&path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("file");
+    let uri = format!("attachment://deliver/{filename}");
+    Some(serde_json::json!([
+        {
+            "type": "content",
+            "content": {
+                "type": "text",
+                "text": output
+            }
+        },
+        {
+            "type": "content",
+            "content": {
+                "type": "resource",
+                "resource": {
+                    "uri": uri,
+                    "mimeType": mime_type,
+                    "blob": blob
+                }
+            }
+        }
+    ]))
+}
+
 fn map_tool_kind(name: &str) -> &'static str {
     match name {
         "ask_user" | "calculator" | "claude_code" | "claude_code_runner" | "codex_cli"
@@ -2023,30 +2084,35 @@ fn notification_for_turn_event(session_id: &str, event: &TurnEvent) -> Option<Js
                 }),
             }
         }
-        TurnEvent::ToolResult { id, name, output } => JsonRpcNotification {
-            jsonrpc: "2.0",
-            method: "session/update",
-            params: serde_json::json!({
-                "sessionId": session_id,
-                "update": {
-                    "sessionUpdate": "tool_call_update",
-                    "toolCallId": id,
-                    "name": name,
-                    "title": name,
-                    "kind": map_tool_kind(name),
-                    "status": "completed",
-                    "rawOutput": output,
-                    "body": output,
-                    "content": [{
-                        "type": "content",
-                        "content": {
-                            "type": "text",
-                            "text": output
-                        }
-                    }]
-                }
-            }),
-        },
+        TurnEvent::ToolResult { id, name, output } => {
+            let content = deliver_file_tool_result_content(name, output).unwrap_or_else(|| {
+                serde_json::json!([{
+                    "type": "content",
+                    "content": {
+                        "type": "text",
+                        "text": output
+                    }
+                }])
+            });
+            JsonRpcNotification {
+                jsonrpc: "2.0",
+                method: "session/update",
+                params: serde_json::json!({
+                    "sessionId": session_id,
+                    "update": {
+                        "sessionUpdate": "tool_call_update",
+                        "toolCallId": id,
+                        "name": name,
+                        "title": name,
+                        "kind": map_tool_kind(name),
+                        "status": "completed",
+                        "rawOutput": output,
+                        "body": output,
+                        "content": content
+                    }
+                }),
+            }
+        }
         TurnEvent::Thinking { delta } => JsonRpcNotification {
             jsonrpc: "2.0",
             method: "session/update",
@@ -3205,6 +3271,44 @@ mod tests {
             result_value["params"]["update"]["content"][0]["content"]["text"],
             "file1.txt\nfile2.txt"
         );
+    }
+
+    #[test]
+    fn deliver_file_tool_result_includes_resource_blob_not_in_raw_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("x.pdf");
+        std::fs::write(&path, b"%PDF").unwrap();
+        let abs = path.to_string_lossy();
+        let output = format!(
+            "Delivered x.pdf (4 bytes)\nacp.deliver_file path={abs} mimeType=application/pdf"
+        );
+
+        let event = TurnEvent::ToolResult {
+            id: "tc1".into(),
+            name: "deliver_file".into(),
+            output: output.clone(),
+        };
+        let n = notification_for_turn_event("s1", &event).unwrap();
+        let update = &n.params["update"];
+        assert_eq!(update["rawOutput"], output);
+        let content = update["content"].as_array().unwrap();
+        assert!(content.iter().any(|c| {
+            c.pointer("/content/type").and_then(|v| v.as_str()) == Some("resource")
+                && c.pointer("/content/resource/blob")
+                    .and_then(|v| v.as_str())
+                    .is_some()
+                && c.pointer("/content/resource/mimeType").and_then(|v| v.as_str())
+                    == Some("application/pdf")
+        }));
+        let raw = update["rawOutput"].as_str().unwrap();
+        assert!(!raw.contains("JVBE") && raw.len() < 10_000);
+        let blob = content
+            .iter()
+            .find_map(|c| c.pointer("/content/resource/blob").and_then(|v| v.as_str()))
+            .unwrap();
+        let decoded = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, blob)
+            .unwrap();
+        assert_eq!(decoded, b"%PDF");
     }
 
     #[test]
