@@ -4,7 +4,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -24,6 +24,7 @@ use zeroclaw_runtime::agent::agent::{Agent, TurnEvent};
 use zeroclaw_runtime::tools::CanvasStore;
 
 use crate::acp_channel::AcpChannel;
+use super::acp_embedded;
 
 // ── Configuration ────────────────────────────────────────────────
 
@@ -59,6 +60,8 @@ struct Session {
     model_provider: String,
     /// Model identifier (e.g. `"claude-sonnet-4-6"`) for attributable span logs.
     model: String,
+    /// Session cwd / workspace jail root (absolute), used for embedded blob materialization.
+    workspace_dir: String,
 }
 
 // ── ACP Server ───────────────────────────────────────────────────
@@ -437,7 +440,7 @@ impl AcpServer {
                 "promptCapabilities": {
                     "image": false,
                     "audio": false,
-                    "embeddedContext": false,
+                    "embeddedContext": true,
                 },
                 "mcpCapabilities": {
                     "http": false,
@@ -629,6 +632,7 @@ impl AcpServer {
                         .model_provider_for_agent(&agent_alias)
                         .and_then(|mp| mp.model.clone())
                         .unwrap_or_default(),
+                    workspace_dir: workspace_dir.clone(),
                 })),
             );
         }
@@ -840,6 +844,7 @@ impl AcpServer {
                         .model_provider_for_agent(&restore_alias)
                         .and_then(|mp| mp.model.clone())
                         .unwrap_or_default(),
+                    workspace_dir: workspace_dir.to_string_lossy().into_owned(),
                 })),
             );
         }
@@ -1051,6 +1056,7 @@ impl AcpServer {
                         .model_provider_for_agent(&restore_alias)
                         .and_then(|mp| mp.model.clone())
                         .unwrap_or_default(),
+                    workspace_dir: workspace_dir.to_string_lossy().into_owned(),
                 })),
             );
         }
@@ -1179,8 +1185,6 @@ impl AcpServer {
             })?
             .to_string();
 
-        let prompt = Self::parse_prompt(params)?;
-
         // Clone the Arc so the session stays visible in the map throughout the
         // turn. `session/stop` and the reaper can still find it; they will
         // block on the inner Mutex until the turn completes.
@@ -1193,8 +1197,9 @@ impl AcpServer {
             })?
         };
 
-        // Snapshot attribution fields before releasing the outer lock.
-        let (agent_alias, model_provider, model) = {
+        // Snapshot attribution + workspace before releasing the outer lock.
+        // Workspace is required to materialize `resource.blob` into uploads/.
+        let (agent_alias, model_provider, model, workspace_dir) = {
             // Try-lock: if the inner lock is held by an active turn, we'll
             // reject below via register_cancel_token anyway. Use a brief
             // non-blocking peek so we can log the alias even on the error path.
@@ -1203,11 +1208,21 @@ impl AcpServer {
                     s.agent_alias.clone(),
                     s.model_provider.clone(),
                     s.model.clone(),
+                    s.workspace_dir.clone(),
                 )
             } else {
-                (String::new(), String::new(), String::new())
+                (String::new(), String::new(), String::new(), String::new())
             }
         };
+
+        let prompt = Self::materialize_prompt(
+            params,
+            if workspace_dir.is_empty() {
+                None
+            } else {
+                Some(Path::new(&workspace_dir))
+            },
+        )?;
 
         let session_id_s = session_id.clone();
         let agent_alias_s = agent_alias.clone();
@@ -1569,7 +1584,12 @@ impl AcpServer {
         }
     }
 
-    fn parse_prompt(params: &Value) -> std::result::Result<String, RpcError> {
+    /// Join prompt parts into a string. When `workspace_dir` is set, ACP
+    /// `resource.blob` parts are materialized under `{workspace}/uploads/`.
+    fn materialize_prompt(
+        params: &Value,
+        workspace_dir: Option<&Path>,
+    ) -> std::result::Result<String, RpcError> {
         match params.get("prompt") {
             Some(Value::String(s)) => Ok(s.clone()),
             Some(Value::Array(arr)) => {
@@ -1585,13 +1605,38 @@ impl AcpServer {
                     }
                     // Support ACP resource blocks for @-notation file attachments
                     // (clients send {"type":"resource","resource":{"uri":"...","text":"..."}})
-                    if let Some(res) = part.get("resource")
-                        && let Some(text) = res.get("text").and_then(|v| v.as_str())
-                    {
-                        if added || !joined.is_empty() {
-                            joined.push_str("\n\n");
+                    // and embedded binary context via `resource.blob` (base64).
+                    if let Some(res) = part.get("resource") {
+                        if let Some(text) = res.get("text").and_then(|v| v.as_str()) {
+                            if added || !joined.is_empty() {
+                                joined.push_str("\n\n");
+                            }
+                            joined.push_str(text);
+                            added = true;
                         }
-                        joined.push_str(text);
+                        if let Some(blob) = res.get("blob").and_then(|v| v.as_str()) {
+                            let Some(ws) = workspace_dir else {
+                                return Err(RpcError {
+                                    code: INVALID_PARAMS,
+                                    message: "resource.blob requires an active session workspace"
+                                        .to_string(),
+                                    data: None,
+                                });
+                            };
+                            let uri = res.get("uri").and_then(|v| v.as_str());
+                            let mime = res.get("mimeType").and_then(|v| v.as_str());
+                            let materialized =
+                                acp_embedded::materialize_resource_blob(ws, uri, mime, blob)
+                                    .map_err(|e| RpcError {
+                                        code: INVALID_PARAMS,
+                                        message: e.0,
+                                        data: None,
+                                    })?;
+                            if added || !joined.is_empty() {
+                                joined.push_str("\n\n");
+                            }
+                            joined.push_str(&materialized.marker);
+                        }
                     }
                 }
                 if joined.is_empty() {
@@ -1611,6 +1656,11 @@ impl AcpServer {
                 data: None,
             }),
         }
+    }
+
+    /// Backward-compatible wrapper (no blob materialization).
+    fn parse_prompt(params: &Value) -> std::result::Result<String, RpcError> {
+        Self::materialize_prompt(params, None)
     }
 
     async fn handle_session_stop(&self, params: &Value) -> RpcResult {
@@ -2261,6 +2311,10 @@ mod tests {
             false
         );
         assert_eq!(
+            result["agentCapabilities"]["promptCapabilities"]["embeddedContext"],
+            true
+        );
+        assert_eq!(
             result["agentCapabilities"]["mcpCapabilities"]["http"],
             false
         );
@@ -2827,6 +2881,59 @@ mod tests {
         let result = AcpServer::parse_prompt(&resource_params).unwrap();
         assert!(result.contains("analyze this file:"));
         assert!(result.contains("fn main() { println!(\"hi\"); }"));
+    }
+
+    #[test]
+    fn materialize_prompt_writes_blob_and_returns_marker() {
+        let dir = tempfile::tempdir().unwrap();
+        let bytes = b"pdf-bytes";
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);
+        let params = serde_json::json!({
+            "prompt": [{
+                "type": "resource",
+                "resource": {
+                    "uri": "file:///docs/a.pdf",
+                    "mimeType": "application/pdf",
+                    "blob": b64
+                }
+            }]
+        });
+        let result = AcpServer::materialize_prompt(&params, Some(dir.path())).unwrap();
+        assert!(result.contains("[Document: a.pdf]"));
+        assert!(result.contains("uploads"));
+        let uploads = dir.path().join("uploads");
+        assert!(uploads.exists());
+        let written: Vec<_> = std::fs::read_dir(&uploads).unwrap().collect();
+        assert_eq!(written.len(), 1);
+        assert_eq!(std::fs::read(written[0].as_ref().unwrap().path()).unwrap(), bytes);
+    }
+
+    #[test]
+    fn materialize_prompt_blob_without_workspace_is_invalid() {
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"x");
+        let params = serde_json::json!({
+            "prompt": [{
+                "type": "resource",
+                "resource": { "uri": "file:///x.bin", "blob": b64 }
+            }]
+        });
+        let err = AcpServer::materialize_prompt(&params, None).unwrap_err();
+        assert_eq!(err.code, INVALID_PARAMS);
+        assert!(err.message.contains("workspace"));
+    }
+
+    #[test]
+    fn materialize_prompt_rejects_bad_blob_base64() {
+        let dir = tempfile::tempdir().unwrap();
+        let params = serde_json::json!({
+            "prompt": [{
+                "type": "resource",
+                "resource": { "uri": "file:///x.bin", "blob": "%%%" }
+            }]
+        });
+        let err = AcpServer::materialize_prompt(&params, Some(dir.path())).unwrap_err();
+        assert_eq!(err.code, INVALID_PARAMS);
+        assert!(err.message.to_lowercase().contains("base64"));
     }
 
     #[test]
