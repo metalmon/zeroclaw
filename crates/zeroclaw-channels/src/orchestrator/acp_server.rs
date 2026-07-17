@@ -1658,11 +1658,6 @@ impl AcpServer {
         }
     }
 
-    /// Backward-compatible wrapper (no blob materialization).
-    fn parse_prompt(params: &Value) -> std::result::Result<String, RpcError> {
-        Self::materialize_prompt(params, None)
-    }
-
     async fn handle_session_stop(&self, params: &Value) -> RpcResult {
         let session_id = params
             .get("sessionId")
