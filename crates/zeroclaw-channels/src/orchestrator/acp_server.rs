@@ -1949,6 +1949,7 @@ fn map_tool_kind(name: &str) -> &'static str {
         | "browser_delegate"
         | "cloud_patterns"
         | "data_management"
+        | "deliver_file"
         | "file_read"
         | "git_operations"
         | "google_workspace"
@@ -3143,6 +3144,7 @@ mod tests {
         assert_eq!(map_tool_kind("memory_purge"), "delete");
         assert_eq!(map_tool_kind("cron_run"), "execute");
         assert_eq!(map_tool_kind("file_read"), "other");
+        assert_eq!(map_tool_kind("deliver_file"), "other");
         assert_eq!(map_tool_kind("knowledge"), "other");
         assert_eq!(map_tool_kind("web_fetch"), "other");
         assert_eq!(map_tool_kind("file_write"), "edit");
