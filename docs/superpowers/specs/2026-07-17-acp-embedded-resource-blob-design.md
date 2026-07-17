@@ -130,18 +130,38 @@ Register the tool in the default/runtime tool set so ACP agents can call it. Non
 - Update `docs/book/src/channels/acp.md` (capability, prompt example with blob, `deliver_file`, limits).
 - Open or link a focused upstream issue: “ACP embedded resource blob + deliver_file” (narrow extension; cite #8798 closure guidance).
 
+## Compatibility roadmap (TB ↔ ZC)
+
+Full Thunderbolt↔ZeroClaw media parity is the product goal; upstream only accepts **narrow** ACP PRs (#8798). Ship as slices. Fork `main` can stack slices via `rebuild-main.ps1` ahead of upstream merge.
+
+| Slice | Side | Scope | Caps / notes |
+|-------|------|--------|----------------|
+| **P0 (this PR)** | ZC | `embeddedContext: true`; inbound `resource.blob`; outbound `deliver_file` → `resource`+`blob`; `image/*` blob → `[IMAGE:…]` for existing multimodal path | `image`/`audio` remain **false** on the wire (no ACP Image/Audio ContentBlocks yet) |
+| **P0b** | TB | Ingest outbound `resource`+`blob` → local attachment → PDF/DOCX sideview | TB already sends inbound `resource`+`blob` when `embeddedContext` |
+| **P1** | ZC | `promptCapabilities.image: true`; parse `{type:"image"}`; uploads + `[IMAGE:]`; `deliver_file` for images emits ACP `type: "image"` | Separate upstream PR; cite P0 |
+| **P1b** | TB | Optionally send images as ACP `type: "image"` (today everything is `resource`) | Only if IDE parity needs it; resource path may suffice |
+| **P2** | ZC | `promptCapabilities.audio: true`; `{type:"audio"}` → transcription pipeline → text in prompt | Separate PR; reuse channel STT path; size/mime limits |
+| **P2b** | TB | Attach/record audio as ACP audio ContentBlock | After P2 |
+| **P3** | ZC (+ TB) | Optional `_meta.zeroclaw` on `session/new`: `vision` / `transcription` hints | Not standard ACP caps; clients must opt in to read `_meta` |
+
+**Why P0 keeps `image: false`:** advertising `image: true` without parsing ACP Image blocks is a lie to clients (Zed etc.). Vision via `resource`+`image/*` + `[IMAGE:]` is enough for Thunderbolt until P1.
+
+**Initialize vs session:** ACP advertises `promptCapabilities` only at connection `initialize` (before agent selection). Per-agent vision/STT remains turn-time (`vision_route` / transcription). Do not block P0–P2 on per-session capability negotiation.
+
 ## Follow-ups (out of this PR)
 
-1. Thunderbolt: ingest outbound `resource`+`blob` → local attachment → PDF/DOCX sideview.
+1. **P0b–P3** as in the roadmap table above.
 2. Optional: extract fully shared helper used by both RPC attach and ACP.
 3. Optional: Glossa/MCP path that materializes KB originals for `deliver_file`.
+4. Upstream issue for P0 that links the roadmap (P1 image, P2 audio) so maintainers see the narrow slice.
 
 ## Decision log
 
 | Topic | Choice |
 |-------|--------|
-| Scope | Inbound + outbound in one Zeroclaw PR |
+| Scope (this PR) | **P0 only** — inbound + outbound embedded resources in one Zeroclaw PR |
 | Inbound storage | Shared helper → `{workspaceDir}/uploads/…`, not RPC `file/attach` |
 | Outbound trigger | Explicit `deliver_file` only |
-| Client | Zeroclaw only; Thunderbolt later |
-| Approach | Minimal ACP surface (standard ContentBlocks) |
+| Image / audio wire caps | Stay `false` until P1 / P2; `image/*` via resource still gets `[IMAGE:]` |
+| Client | Zeroclaw only in P0; Thunderbolt in P0b+ |
+| Approach | Minimal ACP surface (standard ContentBlocks); elephant sliced for upstream |
