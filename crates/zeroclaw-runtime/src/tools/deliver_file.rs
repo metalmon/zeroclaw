@@ -6,6 +6,14 @@ use zeroclaw_api::tool::{Tool, ToolOutput, ToolResult};
 
 const MAX_DELIVER_FILE_BYTES: u64 = 10 * 1024 * 1024;
 
+/// ACP / model citation URI for an outbound delivered file.
+///
+/// Source of truth for the `attachment://deliver/<basename>` string — ACP must
+/// reuse this helper (or the `uri=` line emitted below), not a second formatter.
+pub fn attachment_deliver_uri(basename: &str) -> String {
+    format!("attachment://deliver/{basename}")
+}
+
 /// Deliver a workspace file to an ACP client as an embedded binary resource.
 ///
 /// Returns path/mime metadata (and a machine trailer for ACP) without embedding
@@ -52,7 +60,10 @@ impl Tool for DeliverFileTool {
     fn description(&self) -> &str {
         "Deliver a file from the workspace to the ACP client as an embedded binary resource \
          (PDF, DOCX, images, etc.). Use when the user should download or preview the file. \
-         Path must stay inside the workspace."
+         Path must stay inside the workspace. On success the result includes `uri` \
+         (`attachment://deliver/<basename>`) — cite that exact uri in widgets/`[N]`; \
+         do not invent prefixes. Pretty display names come from `[Document: …]` markers, \
+         not from inventing ACP filename fields."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -77,6 +88,7 @@ impl Tool for DeliverFileTool {
             "type": "object",
             "properties": {
                 "delivered": { "type": "boolean" },
+                "uri": { "type": "string" },
                 "path": { "type": "string" },
                 "filename": { "type": "string" },
                 "mimeType": { "type": "string" },
@@ -172,12 +184,14 @@ impl Tool for DeliverFileTool {
         );
         let abs_path = resolved_path.to_string_lossy().to_string();
         let bytes = meta.len();
+        let uri = attachment_deliver_uri(&filename);
 
         let summary = format!(
-            "Delivered {filename} ({bytes} bytes)\nacp.deliver_file path={abs_path} mimeType={mime_type}"
+            "Delivered {filename} ({bytes} bytes)\nuri={uri}\nacp.deliver_file path={abs_path} mimeType={mime_type}"
         );
         let data = json!({
             "delivered": true,
+            "uri": uri,
             "path": abs_path,
             "filename": filename,
             "mimeType": mime_type,
@@ -223,8 +237,10 @@ mod tests {
         assert!(data["path"].as_str().unwrap().contains("a.pdf"));
         assert_eq!(data["filename"], "a.pdf");
         assert_eq!(data["bytes"], 8);
+        assert_eq!(data["uri"], "attachment://deliver/a.pdf");
         let text = result.output.as_str();
         assert!(text.contains("Delivered a.pdf"));
+        assert!(text.contains("uri=attachment://deliver/a.pdf"));
         assert!(text.contains("acp.deliver_file path="));
         assert!(text.contains("mimeType=application/pdf"));
     }
