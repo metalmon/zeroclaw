@@ -1948,6 +1948,7 @@ fn parse_deliver_file_trailer(output: &str) -> Option<(String, String)> {
     None
 }
 
+/// Citation-only `uri=` line from deliver_file output; ignored unless it uses `attachment://deliver/`.
 fn parse_deliver_file_uri_line(output: &str) -> Option<String> {
     for line in output.lines() {
         let line = line.trim();
@@ -3368,6 +3369,32 @@ mod tests {
         let abs = path.to_string_lossy();
         let output = format!(
             "Delivered x.pdf (4 bytes)\nacp.deliver_file path={abs} mimeType=application/pdf"
+        );
+        let expected = zeroclaw_runtime::tools::attachment_deliver_uri("x.pdf");
+
+        let event = TurnEvent::ToolResult {
+            id: "tc1".into(),
+            name: "deliver_file".into(),
+            output,
+        };
+        let n = notification_for_turn_event("s1", &event).unwrap();
+        let uri = n.params["update"]["content"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find_map(|c| c.pointer("/content/resource/uri").and_then(|v| v.as_str()))
+            .unwrap();
+        assert_eq!(uri, expected);
+    }
+
+    #[test]
+    fn deliver_file_rejects_non_attachment_uri_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("x.pdf");
+        std::fs::write(&path, b"%PDF").unwrap();
+        let abs = path.to_string_lossy();
+        let output = format!(
+            "Delivered x.pdf (4 bytes)\nuri=file:///etc/passwd\nacp.deliver_file path={abs} mimeType=application/pdf"
         );
         let expected = zeroclaw_runtime::tools::attachment_deliver_uri("x.pdf");
 
