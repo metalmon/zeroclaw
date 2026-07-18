@@ -2906,7 +2906,7 @@ mod tests {
     fn test_prompt_parsing() {
         // String prompt
         let string_params = serde_json::json!({"prompt": "hello world"});
-        let result = AcpServer::parse_prompt(&string_params).unwrap();
+        let result = AcpServer::materialize_prompt(&string_params, None).unwrap();
         assert_eq!(result, "hello world");
 
         // Array prompt (valid)
@@ -2916,12 +2916,12 @@ mod tests {
                 {"type": "text", "text": "part 2"}
             ]
         });
-        let result = AcpServer::parse_prompt(&array_params).unwrap();
+        let result = AcpServer::materialize_prompt(&array_params, None).unwrap();
         assert_eq!(result, "part 1\n\npart 2");
 
         // Array prompt (empty or no text)
         let empty_array_params = serde_json::json!({"prompt": []});
-        let result = AcpServer::parse_prompt(&empty_array_params);
+        let result = AcpServer::materialize_prompt(&empty_array_params, None);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code, INVALID_PARAMS);
 
@@ -2930,7 +2930,7 @@ mod tests {
                 {"type": "image", "data": "..."}
             ]
         });
-        let result = AcpServer::parse_prompt(&no_text_params);
+        let result = AcpServer::materialize_prompt(&no_text_params, None);
         assert!(result.is_err());
 
         // Array prompt with resource (file @-notation from ACP client)
@@ -2940,7 +2940,7 @@ mod tests {
                 {"type": "resource", "resource": {"uri": "file:///tmp/example.rs", "text": "fn main() { println!(\"hi\"); }", "mimeType": "text/rust"}}
             ]
         });
-        let result = AcpServer::parse_prompt(&resource_params).unwrap();
+        let result = AcpServer::materialize_prompt(&resource_params, None).unwrap();
         assert!(result.contains("analyze this file:"));
         assert!(result.contains("fn main() { println!(\"hi\"); }"));
     }
@@ -3304,6 +3304,69 @@ mod tests {
         let decoded = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, blob)
             .unwrap();
         assert_eq!(decoded, b"%PDF");
+    }
+
+    #[test]
+    fn deliver_file_resource_uri_matches_summary_uri_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("a1b2c3d4e5f6.pdf");
+        std::fs::write(&path, b"%PDF").unwrap();
+        let abs = path.to_string_lossy();
+        let uri = "attachment://deliver/a1b2c3d4e5f6.pdf";
+        let output = format!(
+            "Delivered a1b2c3d4e5f6.pdf (4 bytes)\nuri={uri}\nacp.deliver_file path={abs} mimeType=application/pdf"
+        );
+
+        let event = TurnEvent::ToolResult {
+            id: "tc1".into(),
+            name: "deliver_file".into(),
+            output: output.clone(),
+        };
+        let n = notification_for_turn_event("s1", &event).unwrap();
+        let update = &n.params["update"];
+        let content = update["content"].as_array().unwrap();
+        let resource_uri = content
+            .iter()
+            .find_map(|c| c.pointer("/content/resource/uri").and_then(|v| v.as_str()))
+            .expect("resource uri");
+        assert_eq!(resource_uri, uri);
+        // No ACP protocol extension for pretty names:
+        assert!(
+            content
+                .iter()
+                .filter_map(|c| c.pointer("/content/resource"))
+                .all(|r| r.get("filename").is_none()),
+            "resource must not carry filename"
+        );
+        let raw = update["rawOutput"].as_str().unwrap();
+        assert!(!raw.contains("JVBE") && raw.len() < 10_000);
+    }
+
+    #[test]
+    fn deliver_file_resource_uri_uses_shared_helper_when_uri_line_absent() {
+        // Backward-compat / trailer-only path: still must match attachment_deliver_uri(basename).
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("x.pdf");
+        std::fs::write(&path, b"%PDF").unwrap();
+        let abs = path.to_string_lossy();
+        let output = format!(
+            "Delivered x.pdf (4 bytes)\nacp.deliver_file path={abs} mimeType=application/pdf"
+        );
+        let expected = zeroclaw_runtime::tools::attachment_deliver_uri("x.pdf");
+
+        let event = TurnEvent::ToolResult {
+            id: "tc1".into(),
+            name: "deliver_file".into(),
+            output,
+        };
+        let n = notification_for_turn_event("s1", &event).unwrap();
+        let uri = n.params["update"]["content"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find_map(|c| c.pointer("/content/resource/uri").and_then(|v| v.as_str()))
+            .unwrap();
+        assert_eq!(uri, expected);
     }
 
     #[test]
