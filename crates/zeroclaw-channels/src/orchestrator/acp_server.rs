@@ -1948,6 +1948,20 @@ fn parse_deliver_file_trailer(output: &str) -> Option<(String, String)> {
     None
 }
 
+fn parse_deliver_file_uri_line(output: &str) -> Option<String> {
+    for line in output.lines() {
+        let line = line.trim();
+        let Some(uri) = line.strip_prefix("uri=") else {
+            continue;
+        };
+        let uri = uri.trim();
+        if uri.starts_with("attachment://deliver/") {
+            return Some(uri.to_string());
+        }
+    }
+    None
+}
+
 /// Build ACP `tool_call_update.content` with embedded `resource`+`blob` for `deliver_file`.
 ///
 /// Returns `None` to fall back to text-only content (wrong tool name, bad trailer, IO error).
@@ -1962,7 +1976,9 @@ fn deliver_file_tool_result_content(name: &str, output: &str) -> Option<Value> {
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("file");
-    let uri = format!("attachment://deliver/{filename}");
+    // Prefer the uri emitted by deliver_file (identical string); else shared helper.
+    let uri = parse_deliver_file_uri_line(output)
+        .unwrap_or_else(|| zeroclaw_runtime::tools::attachment_deliver_uri(filename));
     Some(serde_json::json!([
         {
             "type": "content",
@@ -3312,7 +3328,8 @@ mod tests {
         let path = dir.path().join("a1b2c3d4e5f6.pdf");
         std::fs::write(&path, b"%PDF").unwrap();
         let abs = path.to_string_lossy();
-        let uri = "attachment://deliver/a1b2c3d4e5f6.pdf";
+        // uri= may differ from path basename; resource.uri must follow uri= line.
+        let uri = "attachment://deliver/other-name.pdf";
         let output = format!(
             "Delivered a1b2c3d4e5f6.pdf (4 bytes)\nuri={uri}\nacp.deliver_file path={abs} mimeType=application/pdf"
         );
