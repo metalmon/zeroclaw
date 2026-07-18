@@ -157,6 +157,8 @@ When the agent should hand a workspace file back for download or preview, it cal
 }
 ```
 
+The tool's model-facing result also includes the same `uri` string (structured JSON field `uri`, and a `uri=…` line in the text summary). Clients such as Thunderbolt materialize the outbound blob and build a citation ref-map keyed by that uri. Agents must copy the returned `uri` into `<widget:document-result fileId="…">` / `[N]` citations and must not invent prefixes. Pretty display names come from `[Document: …]` markers in the prompt — there is **no** `filename` field on the ACP `resource` object.
+
 The file must stay inside the session workspace (same jail as `file_read`); oversize files (>10 MB) are rejected by the tool.
 
 ### `session/request_permission` (agent → client, outbound request)
