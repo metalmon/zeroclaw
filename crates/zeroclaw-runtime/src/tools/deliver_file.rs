@@ -269,4 +269,48 @@ mod tests {
                 .contains("File too large")
         );
     }
+
+    #[tokio::test]
+    async fn success_json_includes_attachment_deliver_uri() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a1b2c3d4e5f6.pdf");
+        std::fs::write(&file, b"%PDF-1.4").unwrap();
+        let tool = test_tool(dir.path().to_path_buf());
+        let result = tool
+            .execute(json!({"path": "a1b2c3d4e5f6.pdf", "mimeType": "application/pdf"}))
+            .await
+            .unwrap();
+        assert!(result.success);
+        let data = result.output.data().expect("structured data");
+        assert_eq!(
+            data["uri"].as_str().unwrap(),
+            "attachment://deliver/a1b2c3d4e5f6.pdf"
+        );
+        let text = result.output.as_str();
+        assert!(
+            text.contains("uri=attachment://deliver/a1b2c3d4e5f6.pdf"),
+            "summary must carry uri for models that skim text: {text}"
+        );
+    }
+
+    #[tokio::test]
+    async fn failure_omits_success_uri() {
+        let dir = tempfile::tempdir().unwrap();
+        let tool = test_tool(dir.path().to_path_buf());
+        let result = tool
+            .execute(json!({"path": "../outside.txt"}))
+            .await
+            .unwrap();
+        assert!(!result.success);
+        assert!(result.output.data().is_none());
+        assert!(!result.output.as_str().contains("attachment://deliver/"));
+    }
+
+    #[test]
+    fn attachment_deliver_uri_helper_formats_basename() {
+        assert_eq!(
+            attachment_deliver_uri("report.pdf"),
+            "attachment://deliver/report.pdf"
+        );
+    }
 }
