@@ -148,6 +148,11 @@ function blankSop(name: string): Sop {
     cooldown_secs: 0,
     max_concurrent: 1,
     deterministic: false,
+    // FORK PATCH (drop when upstream updates blankSop): the Rust SOP schema
+    // gained admission_policy + max_pending_approvals; the regenerated Sop type
+    // requires them, so blankSop must supply the defaults (parallel / 0).
+    admission_policy: 'parallel',
+    max_pending_approvals: 0,
   };
 }
 
