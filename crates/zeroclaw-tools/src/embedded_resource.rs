@@ -64,6 +64,23 @@ pub fn content_hash_name(bytes: &[u8], ext: &str) -> String {
     hash16_name(&format!("{:x}", Sha256::digest(bytes)), ext)
 }
 
+/// Decode a base64 embedded blob and enforce the size cap, WITHOUT writing
+/// anything. Lets a caller validate every prompt part up front so an invalid
+/// later part cannot leave earlier parts already materialized on disk.
+pub fn decode_embedded_blob(blob_b64: &str) -> Result<Vec<u8>, EmbeddedResourceError> {
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(blob_b64.trim())
+        .map_err(|e| EmbeddedResourceError(format!("Invalid base64: {e}")))?;
+    if bytes.len() as u64 > MAX_EMBEDDED_FILE_BYTES {
+        return Err(EmbeddedResourceError(format!(
+            "Embedded resource exceeds {} MB limit ({} bytes)",
+            MAX_EMBEDDED_FILE_BYTES / (1024 * 1024),
+            bytes.len()
+        )));
+    }
+    Ok(bytes)
+}
+
 /// Decode `blob_b64`, enforce size limits, write under `{workspace}/uploads/`,
 /// and return a prompt marker (`[Document: …]` or `[IMAGE:…]`). Thin base64
 /// front door over [`materialize_bytes`].
@@ -73,9 +90,7 @@ pub fn materialize_resource_blob(
     mime_type: Option<&str>,
     blob_b64: &str,
 ) -> Result<MaterializedResource, EmbeddedResourceError> {
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(blob_b64.trim())
-        .map_err(|e| EmbeddedResourceError(format!("Invalid base64: {e}")))?;
+    let bytes = decode_embedded_blob(blob_b64)?;
 
     let filename = sanitize_filename(&filename_from_uri(uri));
     let mime = mime_type

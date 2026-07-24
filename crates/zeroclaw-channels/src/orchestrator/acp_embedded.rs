@@ -4,7 +4,7 @@
 
 pub use zeroclaw_tools::embedded_resource::{
     EmbeddedResourceError, MAX_EMBEDDED_FILE_BYTES, MaterializedResource, content_hash_name,
-    materialize_resource_blob,
+    decode_embedded_blob, materialize_resource_blob,
 };
 
 #[cfg(test)]

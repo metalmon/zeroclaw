@@ -1815,6 +1815,31 @@ impl AcpServer {
         match params.get("prompt") {
             Some(Value::String(s)) => Ok(s.clone()),
             Some(Value::Array(arr)) => {
+                // Stage: validate every embedded blob (decode + size cap) before
+                // writing any, so an invalid later part cannot leave earlier parts
+                // already materialized in uploads/.
+                for part in arr {
+                    if let Some(blob) = part
+                        .get("resource")
+                        .and_then(|res| res.get("blob"))
+                        .and_then(|v| v.as_str())
+                    {
+                        if workspace_dir.is_none() {
+                            return Err(RpcError {
+                                code: INVALID_PARAMS,
+                                message: "resource.blob requires an active session workspace"
+                                    .to_string(),
+                                data: None,
+                            });
+                        }
+                        acp_embedded::decode_embedded_blob(blob).map_err(|e| RpcError {
+                            code: INVALID_PARAMS,
+                            message: e.0,
+                            data: None,
+                        })?;
+                    }
+                }
+
                 let mut joined = String::new();
                 for part in arr {
                     let mut added = false;
@@ -3727,6 +3752,34 @@ mod tests {
         let err = AcpServer::materialize_prompt(&params, Some(dir.path())).unwrap_err();
         assert_eq!(err.code, INVALID_PARAMS);
         assert!(err.message.to_lowercase().contains("base64"));
+    }
+
+    #[test]
+    fn materialize_prompt_stages_parts_and_writes_nothing_when_a_later_part_is_invalid() {
+        let dir = tempfile::tempdir().unwrap();
+        let good =
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"first-part");
+        let params = serde_json::json!({
+            "prompt": [
+                { "type": "resource", "resource": { "uri": "file:///a.bin", "blob": good } },
+                { "type": "resource", "resource": { "uri": "file:///b.bin", "blob": "%%%" } }
+            ]
+        });
+        let err = AcpServer::materialize_prompt(&params, Some(dir.path())).unwrap_err();
+        assert_eq!(err.code, INVALID_PARAMS);
+        // Staging validates every part before committing any, so the first (valid)
+        // blob must not have been written when the second part is invalid.
+        let uploads = dir.path().join("uploads");
+        let wrote_any = std::fs::read_dir(&uploads)
+            .map(|rd| {
+                rd.filter_map(|e| e.ok())
+                    .any(|e| e.file_type().map(|t| t.is_file()).unwrap_or(false))
+            })
+            .unwrap_or(false);
+        assert!(
+            !wrote_any,
+            "an invalid later part must leave no earlier file materialized"
+        );
     }
 
     #[test]
