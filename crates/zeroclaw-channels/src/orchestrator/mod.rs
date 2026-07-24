@@ -10242,6 +10242,10 @@ async fn assemble_channel_agent_tools(
                         connect_mcp: true,
                         connect_peripherals: true,
                         exclude_memory: false,
+                        // Channel listeners (Telegram, Slack, ...) do not transport an
+                        // ACP file attachment, so `deliver_file` is dropped here; only
+                        // the ACP turn path (Agent::from_*_backchannel) opts it in.
+                        acp_delivery: false,
                         // Channel startup is an execution surface (the agent actually runs),
                         // so deferral behaves as normal; the dashboard-only per-spec listing
                         // is off, matching `run`/`process_message`.

@@ -245,6 +245,8 @@ impl AcpServer {
                 Some(workspace_dir),
                 enable_mcp,
                 true,
+                // ACP turns transport the typed file attachment `deliver_file` emits.
+                true,
                 self.sop_engine.clone(),
                 self.sop_audit.clone(),
                 self.canvas_store.clone(),
@@ -256,6 +258,8 @@ impl AcpServer {
                 agent_alias,
                 Some(workspace_dir),
                 enable_mcp,
+                true,
+                // ACP turns transport the typed file attachment `deliver_file` emits.
                 true,
                 self.sop_engine.clone(),
                 self.sop_audit.clone(),

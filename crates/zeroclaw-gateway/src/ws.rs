@@ -448,6 +448,8 @@ async fn handle_socket(
             Some(&session_cwd),
             true,
             false,
+            // The gateway WebSocket turn does not transport ACP file attachments.
+            false,
             state.sop_engine.clone(),
             state.sop_audit.clone(),
             Some(state.canvas_store.clone()),
