@@ -31,12 +31,27 @@ impl std::fmt::Display for EmbeddedResourceError {
 
 impl std::error::Error for EmbeddedResourceError {}
 
-/// `<sha16>` (or `<sha16>.<ext>`) given the full lowercase hex SHA-256 digest.
-fn hash16_name(hex: &str, ext: &str) -> String {
-    if ext.is_empty() {
-        hex[..16].to_string()
+/// Normalize a filesystem extension to a strict URI-safe token, or drop it.
+/// Keeps only a short run of ASCII alphanumerics (lowercased); anything with
+/// reserved, percent, whitespace, or control characters, or an over-long value,
+/// yields no extension. This keeps the `<sha16>.<ext>` identity always safe to
+/// embed verbatim in an `attachment://` citation URI.
+fn safe_ext(ext: &str) -> Option<String> {
+    let ext = ext.trim();
+    if ext.is_empty() || ext.len() > 16 || !ext.chars().all(|c| c.is_ascii_alphanumeric()) {
+        None
     } else {
-        format!("{}.{ext}", &hex[..16])
+        Some(ext.to_ascii_lowercase())
+    }
+}
+
+/// `<sha16>` (or `<sha16>.<ext>`) given the full lowercase hex SHA-256 digest.
+/// The extension is normalized through [`safe_ext`], so a caller-supplied
+/// filename can never leak reserved/unsafe characters into the identity.
+fn hash16_name(hex: &str, ext: &str) -> String {
+    match safe_ext(ext) {
+        Some(ext) => format!("{}.{ext}", &hex[..16]),
+        None => hex[..16].to_string(),
     }
 }
 
@@ -386,5 +401,24 @@ mod tests {
             bytes,
             "length-only dedup handed back substituted content"
         );
+    }
+
+    #[test]
+    fn content_hash_name_keeps_the_identity_uri_safe() {
+        let b = b"x";
+        let hash = format!("{:x}", Sha256::digest(b));
+        let stem = &hash[..16];
+        // Safe extensions are kept (lowercased); the stem is always the content hash.
+        assert_eq!(content_hash_name(b, "pdf"), format!("{stem}.pdf"));
+        assert_eq!(content_hash_name(b, "PDF"), format!("{stem}.pdf"));
+        // Reserved / percent / space / control / over-long extensions are dropped,
+        // so the attachment URI can never carry an unsafe character.
+        for bad in ["a?b", "a#b", "a%b", "a b", "a\nb", "a/b", &"a".repeat(17)] {
+            assert_eq!(
+                content_hash_name(b, bad),
+                stem.to_string(),
+                "unsafe ext {bad:?} must be dropped from the identity"
+            );
+        }
     }
 }
