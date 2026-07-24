@@ -2,8 +2,9 @@ use crate::security::SecurityPolicy;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 use std::sync::Arc;
+use tokio::io::AsyncReadExt;
 use zeroclaw_api::tool::{Tool, ToolOutput, ToolResult};
-use zeroclaw_tools::embedded_resource::content_hash_name;
+use zeroclaw_tools::embedded_resource::{content_hash_name, materialize_bytes};
 
 pub const MAX_DELIVER_FILE_BYTES: u64 = 10 * 1024 * 1024;
 
@@ -164,7 +165,39 @@ impl Tool for DeliverFileTool {
             });
         }
 
-        let meta = match tokio::fs::metadata(&resolved_path).await {
+        // Refuse a symlink at the resolved path (no-follow, matching the workspace
+        // write path), then open ONCE and take both size and bytes from that single
+        // handle. Reading through a re-walked pathname (separate metadata + read)
+        // let a symlink swapped in after the check redirect the read outside the
+        // workspace; a single opened handle closes that window.
+        match tokio::fs::symlink_metadata(&resolved_path).await {
+            Ok(m) if m.file_type().is_symlink() => {
+                return Ok(ToolResult {
+                    success: false,
+                    output: ToolOutput::default(),
+                    error: Some(format!("Refusing to deliver a symlink: {path}")),
+                });
+            }
+            Err(e) => {
+                return Ok(ToolResult {
+                    success: false,
+                    output: ToolOutput::default(),
+                    error: Some(format!("Failed to read file metadata: {e}")),
+                });
+            }
+            _ => {}
+        }
+        let mut file = match tokio::fs::File::open(&resolved_path).await {
+            Ok(f) => f,
+            Err(e) => {
+                return Ok(ToolResult {
+                    success: false,
+                    output: ToolOutput::default(),
+                    error: Some(format!("Failed to open file: {e}")),
+                });
+            }
+        };
+        let meta = match file.metadata().await {
             Ok(meta) => meta,
             Err(e) => {
                 return Ok(ToolResult {
@@ -174,7 +207,6 @@ impl Tool for DeliverFileTool {
                 });
             }
         };
-
         if !meta.is_file() {
             return Ok(ToolResult {
                 success: false,
@@ -182,7 +214,6 @@ impl Tool for DeliverFileTool {
                 error: Some(format!("Not a file: {path}")),
             });
         }
-
         if meta.len() > MAX_DELIVER_FILE_BYTES {
             return Ok(ToolResult {
                 success: false,
@@ -193,22 +224,32 @@ impl Tool for DeliverFileTool {
                 )),
             });
         }
+        // Bounded read from the same handle (one extra byte over the cap catches a
+        // grow-after-stat race).
+        let mut content = Vec::with_capacity(meta.len() as usize);
+        if let Err(e) = (&mut file)
+            .take(MAX_DELIVER_FILE_BYTES + 1)
+            .read_to_end(&mut content)
+            .await
+        {
+            return Ok(ToolResult {
+                success: false,
+                output: ToolOutput::default(),
+                error: Some(format!("Failed to read file: {e}")),
+            });
+        }
+        if content.len() as u64 > MAX_DELIVER_FILE_BYTES {
+            return Ok(ToolResult {
+                success: false,
+                output: ToolOutput::default(),
+                error: Some(format!(
+                    "File too large: {}+ bytes (limit: {MAX_DELIVER_FILE_BYTES} bytes)",
+                    content.len()
+                )),
+            });
+        }
 
-        // Read once here for hashing; ACP re-reads and verifies this content hash
-        // before embedding, so a swap between validation and the ACP read is
-        // detected (hash mismatch) rather than trusted.
-        let content = match tokio::fs::read(&resolved_path).await {
-            Ok(c) => c,
-            Err(e) => {
-                return Ok(ToolResult {
-                    success: false,
-                    output: ToolOutput::default(),
-                    error: Some(format!("Failed to read file: {e}")),
-                });
-            }
-        };
-
-        let filename = resolved_path
+        let raw_filename = resolved_path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("file")
@@ -217,36 +258,57 @@ impl Tool for DeliverFileTool {
             &resolved_path,
             args.get("mimeType").and_then(|v| v.as_str()),
         );
-        let abs_path = resolved_path.to_string_lossy().to_string();
-        let bytes = meta.len();
-        // Opaque, content-addressed citation id derived from the bytes, not the
-        // filename: same-name files never collide and the id is always URI-safe.
+
+        // Materialize a content-addressed copy under {workspace}/uploads/ from the
+        // bytes we just read. ACP embeds THIS workspace-internal, content-named file
+        // instead of re-opening the caller-supplied path, so there is no second,
+        // attacker-replaceable read of the original.
+        let materialized = match materialize_bytes(
+            &self.security.workspace_dir,
+            &content,
+            &raw_filename,
+            &mime_type,
+        ) {
+            Ok(m) => m,
+            Err(e) => {
+                return Ok(ToolResult {
+                    success: false,
+                    output: ToolOutput::default(),
+                    error: Some(format!("Failed to materialize delivery: {}", e.0)),
+                });
+            }
+        };
+        let copy_path = materialized.abs_path.to_string_lossy().to_string();
+        let bytes = content.len() as u64;
+        // Opaque, content-addressed citation id derived from the bytes (URI-safe
+        // extension only). Matches the uploads storage name of the copy above.
         let ext = resolved_path
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or_default();
         let uri = attachment_deliver_uri(&content_hash_name(&content, ext));
 
-        // Optional caller-supplied chat label; defaults to the filename. Control
-        // chars are stripped for clean display. The label travels structurally in
-        // `data.title` (surfaced by the channel), not in the model-facing text, so
-        // no delimiter/escaping concerns apply.
+        // Display name is sanitized so reserved/control characters never reach the
+        // model-facing summary or the chat title.
+        let display_filename = {
+            let s = sanitize_display_title(&raw_filename);
+            if s.is_empty() { "file".to_string() } else { s }
+        };
         let title = args
             .get("title")
             .and_then(|v| v.as_str())
             .map(sanitize_display_title)
             .filter(|t| !t.is_empty())
-            .unwrap_or_else(|| filename.clone());
+            .unwrap_or_else(|| display_filename.clone());
 
-        // Model-facing text only. All delivery metadata (path/uri/mime/title/size)
-        // is carried structurally in `data` below and projected into the typed
-        // `ToolArtifact` on the event, so channels never parse this string.
-        let summary = format!("Delivered {filename} ({bytes} bytes)");
+        // Model-facing text: include the citation URI (safe — ACP attaches from the
+        // typed artifact, not by parsing this string) so the model can cite it.
+        let summary = format!("Delivered {display_filename} ({bytes} bytes)\nuri={uri}");
         let data = json!({
             "delivered": true,
             "uri": uri,
-            "path": abs_path,
-            "filename": filename,
+            "path": copy_path,
+            "filename": display_filename,
             "title": title,
             "mimeType": mime_type,
             "bytes": bytes,
@@ -288,7 +350,17 @@ mod tests {
         assert!(result.success);
         let data = result.output.data().expect("structured data");
         assert_eq!(data["mimeType"], "application/pdf");
-        assert!(data["path"].as_str().unwrap().contains("a.pdf"));
+        // path is now the content-addressed copy under uploads/, not the source name.
+        let hash_name = content_hash_name(b"%PDF-1.4", "pdf");
+        assert!(
+            data["path"]
+                .as_str()
+                .unwrap()
+                .replace('\\', "/")
+                .ends_with(&format!("uploads/{hash_name}")),
+            "path must be the content-addressed uploads copy: {}",
+            data["path"]
+        );
         assert_eq!(data["filename"], "a.pdf");
         assert_eq!(data["bytes"], 8);
         // URI is the opaque content hash of the bytes, not the filename.
@@ -458,6 +530,28 @@ mod tests {
         assert!(!result.success);
         assert!(result.output.data().is_none());
         assert!(!result.output.as_str().contains("attachment://deliver/"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn refuses_to_deliver_a_symlink_escaping_the_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("secret.txt"), b"TOPSECRET").unwrap();
+        // A workspace symlink pointing outside must be refused (no-follow), never
+        // read and delivered.
+        std::os::unix::fs::symlink(
+            outside.path().join("secret.txt"),
+            dir.path().join("link.txt"),
+        )
+        .unwrap();
+        let tool = test_tool(dir.path().to_path_buf());
+        let result = tool.execute(json!({"path": "link.txt"})).await.unwrap();
+        assert!(
+            !result.success,
+            "a symlink escaping the workspace must not be delivered"
+        );
+        assert!(result.output.data().is_none());
     }
 
     #[tokio::test]

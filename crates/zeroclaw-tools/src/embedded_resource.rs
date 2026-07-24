@@ -65,7 +65,8 @@ pub fn content_hash_name(bytes: &[u8], ext: &str) -> String {
 }
 
 /// Decode `blob_b64`, enforce size limits, write under `{workspace}/uploads/`,
-/// and return a prompt marker (`[Document: …]` or `[IMAGE:…]`).
+/// and return a prompt marker (`[Document: …]` or `[IMAGE:…]`). Thin base64
+/// front door over [`materialize_bytes`].
 pub fn materialize_resource_blob(
     workspace_dir: &Path,
     uri: Option<&str>,
@@ -76,6 +77,31 @@ pub fn materialize_resource_blob(
         .decode(blob_b64.trim())
         .map_err(|e| EmbeddedResourceError(format!("Invalid base64: {e}")))?;
 
+    let filename = sanitize_filename(&filename_from_uri(uri));
+    let mime = mime_type
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| mime_from_filename(&filename));
+
+    materialize_bytes(workspace_dir, &bytes, &filename, &mime)
+}
+
+/// Persist already-read `bytes` as a content-addressed file under
+/// `{workspace}/uploads/<sha16>.<safe-ext>` and return where it landed. The
+/// on-disk name is the content hash (never a caller-supplied filename), the
+/// write is no-follow (symlinks at the destination are dropped, not followed),
+/// confinement is checked before the write and re-verified after it, and the
+/// input is size-capped. `filename`/`mime` are display metadata only. Used by
+/// both inbound blob intake and outbound `deliver_file`, so ACP consumers can
+/// read this workspace-internal, content-named copy rather than re-opening a
+/// caller-supplied path.
+pub fn materialize_bytes(
+    workspace_dir: &Path,
+    bytes: &[u8],
+    filename: &str,
+    mime: &str,
+) -> Result<MaterializedResource, EmbeddedResourceError> {
     if bytes.len() as u64 > MAX_EMBEDDED_FILE_BYTES {
         return Err(EmbeddedResourceError(format!(
             "Embedded resource exceeds {} MB limit ({} bytes)",
@@ -84,24 +110,17 @@ pub fn materialize_resource_blob(
         )));
     }
 
-    let filename = sanitize_filename(&filename_from_uri(uri));
-    let mime = mime_type
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
-        .unwrap_or_else(|| mime_from_filename(&filename));
-
-    let hex = format!("{:x}", Sha256::digest(&bytes));
-    let ext = Path::new(&filename)
+    let hex = format!("{:x}", Sha256::digest(bytes));
+    let ext = Path::new(filename)
         .extension()
         .map(|e| e.to_string_lossy().to_string())
         .unwrap_or_default();
     let storage_name = hash16_name(&hex, &ext);
 
     // Resolve the workspace to a symlink-free base so containment checks below are
-    // meaningful. The blob producer (MCP server / ACP client) controls the bytes and
-    // therefore the content-hash filename, so it can pre-plant a symlink at the
-    // destination; every write path here must be no-follow and stay inside `ws_root`.
+    // meaningful. The blob producer controls the bytes and therefore the
+    // content-hash filename, so it can pre-plant a symlink at the destination;
+    // every write path here must be no-follow and stay inside `ws_root`.
     let ws_root = std::fs::canonicalize(workspace_dir)
         .map_err(|e| EmbeddedResourceError(format!("Cannot resolve workspace dir: {e}")))?;
 
@@ -143,17 +162,25 @@ pub fn materialize_resource_blob(
     let needs_write = match std::fs::symlink_metadata(&dest) {
         Ok(meta) if meta.file_type().is_file() && meta.len() == bytes.len() as u64 => {
             match std::fs::read(&dest) {
-                Ok(existing) => existing != bytes,
+                Ok(existing) => existing.as_slice() != bytes,
                 Err(_) => true,
             }
         }
         _ => true,
     };
     if needs_write {
-        write_blob_atomic(&upload_real, &dest, &hex, &bytes)?;
+        write_blob_atomic(&upload_real, &dest, &hex, bytes)?;
     }
 
-    let abs_path = std::fs::canonicalize(&dest).unwrap_or(dest);
+    let abs_path = std::fs::canonicalize(&dest).unwrap_or_else(|_| dest.clone());
+    // Re-verify containment after the write: a directory swap racing the checks
+    // above must not leave a file we then hand back from outside the workspace.
+    if !abs_path.starts_with(&ws_root) {
+        let _ = std::fs::remove_file(&dest);
+        return Err(EmbeddedResourceError(
+            "materialized file resolved outside the workspace; refusing".into(),
+        ));
+    }
     let abs_display = strip_windows_verbatim_prefix(&abs_path.to_string_lossy()).into_owned();
     let marker = if mime.starts_with("image/") {
         format!("[IMAGE:{abs_display}]")
@@ -164,8 +191,8 @@ pub fn materialize_resource_blob(
     Ok(MaterializedResource {
         abs_path,
         marker,
-        mime_type: mime,
-        filename,
+        mime_type: mime.to_string(),
+        filename: filename.to_string(),
     })
 }
 
