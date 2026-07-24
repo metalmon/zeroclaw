@@ -10078,7 +10078,7 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
             }
             ChannelHealthState::Timeout => {
                 timeout += 1;
-                println!("  ❱️  {:<9} timed out (>10s)", configured.display_name);
+                println!("  ⏱️  {:<9} timed out (>10s)", configured.display_name);
             }
         }
     }
