@@ -2341,16 +2341,21 @@ fn notification_for_turn_event(session_id: &str, event: &TurnEvent) -> Option<Js
             output,
             artifact,
         } => {
-            let content = deliver_file_tool_result_content(name, output, artifact.as_ref())
-                .unwrap_or_else(|| {
-                    serde_json::json!([{
-                        "type": "content",
-                        "content": {
-                            "type": "text",
-                            "text": output
-                        }
-                    }])
-                });
+            let embedded = deliver_file_tool_result_content(name, output, artifact.as_ref());
+            // A `deliver_file` result that carried an artifact but could not be
+            // embedded (metadata/read/size/hash failure) is a FAILED delivery, not a
+            // silently completed update with the attachment missing.
+            let delivery_failed =
+                name == "deliver_file" && artifact.is_some() && embedded.is_none();
+            let content = embedded.unwrap_or_else(|| {
+                serde_json::json!([{
+                    "type": "content",
+                    "content": {
+                        "type": "text",
+                        "text": output
+                    }
+                }])
+            });
             // `deliver_file` carries a caller-supplied chat label in its typed
             // artifact; surface it as the standard ACP `title` so the client can
             // render a human-readable name for the delivered file. Falls back to
@@ -2361,6 +2366,11 @@ fn notification_for_turn_event(session_id: &str, event: &TurnEvent) -> Option<Js
                 .map(|a| a.title.clone())
                 .filter(|t| !t.is_empty())
                 .unwrap_or_else(|| name.to_string());
+            let status = if delivery_failed {
+                "failed"
+            } else {
+                "completed"
+            };
             JsonRpcNotification {
                 jsonrpc: "2.0",
                 method: "session/update",
@@ -2372,7 +2382,7 @@ fn notification_for_turn_event(session_id: &str, event: &TurnEvent) -> Option<Js
                         "name": name,
                         "title": title,
                         "kind": map_tool_kind(name),
-                        "status": "completed",
+                        "status": status,
                         "rawOutput": output,
                         "body": output,
                         "content": content
@@ -4137,6 +4147,27 @@ mod tests {
                 .iter()
                 .all(|c| c.pointer("/content/type").and_then(|v| v.as_str()) != Some("resource")),
             "swapped content must not be embedded"
+        );
+    }
+
+    #[test]
+    fn deliver_file_failed_embed_reports_failed_status() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("x.pdf");
+        std::fs::write(&path, b"%PDF").unwrap();
+        let artifact = deliver_artifact(&path, "application/pdf", "", "");
+        // Remove the file so the ACP-side embed read fails.
+        std::fs::remove_file(&path).unwrap();
+        let event = TurnEvent::ToolResult {
+            id: "tc1".into(),
+            name: "deliver_file".into(),
+            output: "Delivered x.pdf".into(),
+            artifact: Some(artifact),
+        };
+        let n = notification_for_turn_event("s1", &event).unwrap();
+        assert_eq!(
+            n.params["update"]["status"], "failed",
+            "a deliver_file result whose attachment cannot be embedded must report failed"
         );
     }
 
