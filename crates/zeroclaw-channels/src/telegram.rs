@@ -1025,7 +1025,7 @@ impl TelegramChannel {
         // Wait out any in-flight turn flush so the final send cannot interleave
         // with an intermediate one for the same draft.
         let _flush_guard = flush_lock.lock().await;
-        let (thread_id, mut last_sent_at, pending) = {
+        let (thread_id, mut last_sent_at, pending, restore) = {
             let mut drafts = self.multi_message_drafts.lock();
             let Some(draft) = drafts.remove(&key) else {
                 return Ok(());
@@ -1045,10 +1045,14 @@ impl TelegramChannel {
                         draft.delivered_prefix.clone(),
                     )
                 });
+            // Snapshot the accepted-prefix bookkeeping so a failed pending resend
+            // can restore the draft removed above instead of losing it.
+            let restore = (draft.latest_visible.clone(), draft.sent_text.clone());
             (
-                draft.thread_id.or(parsed_thread),
+                draft.thread_id.clone().or(parsed_thread),
                 draft.last_sent_at,
                 pending,
+                restore,
             )
         };
         self.last_draft_edit.lock().remove(&chat_id);
@@ -1071,12 +1075,39 @@ impl TelegramChannel {
                     0
                 };
                 self.pace_multi_message_send(last_sent_at).await;
-                if self
+                match self
                     .send_text_chunks(cleaned, &chat_id, thread_id.as_deref(), skip)
                     .await
-                    .is_ok()
                 {
-                    last_sent_at = Some(std::time::Instant::now());
+                    Ok(_) => {
+                        last_sent_at = Some(std::time::Instant::now());
+                    }
+                    Err(e) => {
+                        // The draft removed above was the only record of the accepted
+                        // prefix and the still-unsent suffix. Reducing this resend to a
+                        // bool and continuing would drop the middle of the narration
+                        // while the final turn below reports success. Restore the draft
+                        // (advancing the accepted physical prefix exactly as
+                        // `flush_unsent` does) so a later retry resumes, and propagate
+                        // the failure so the final turn never overtakes the lost
+                        // narration.
+                        let (restore_visible, restore_sent) = restore;
+                        let mut st = MultiDraftState::new(thread_id.clone());
+                        st.latest_visible = restore_visible;
+                        st.sent_text = restore_sent;
+                        st.delivered_chunks = e.delivered;
+                        st.delivered_prefix = chunks
+                            .iter()
+                            .take(e.delivered)
+                            .cloned()
+                            .collect::<Vec<_>>()
+                            .concat();
+                        if e.delivered > 0 {
+                            st.last_sent_at = Some(std::time::Instant::now());
+                        }
+                        self.multi_message_drafts.lock().insert(key.clone(), st);
+                        return Err(e.source);
+                    }
                 }
             }
         }
@@ -6058,6 +6089,90 @@ mod tests {
         assert!(
             bodies.iter().any(|b| b.contains("Final answer")),
             "the final turn must still be delivered"
+        );
+    }
+
+    /// Regression (#8561 review): if the pending intermediate narration resend
+    /// fails during finalize, the per-draft state is the only record of the
+    /// accepted prefix and the still-unsent suffix. It must be preserved and the
+    /// failure propagated — never silently dropped while the final turn reports
+    /// success and overtakes the lost narration.
+    #[tokio::test]
+    async fn finalize_preserves_pending_narration_when_its_send_fails() {
+        use wiremock::matchers::{body_json, body_string_contains, method, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let mock_server = MockServer::start().await;
+        // The pending intermediate suffix (the 'B' chunk) fails permanently...
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .and(body_string_contains(&"B".repeat(200)))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&mock_server)
+            .await;
+        // ...while the final turn WOULD succeed if it were (wrongly) attempted,
+        // so a false-success finalize is observable as a delivered final answer.
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .and(body_json(serde_json::json!({
+                "chat_id": "123",
+                "text": "Final answer",
+            })))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 9 } }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let ch =
+            multi_message_test_channel("telegram_test_alias", 0).with_api_base(mock_server.uri());
+        let recipient = "123";
+        let draft_id = TelegramChannel::new_multi_message_draft_id();
+        let key = TelegramChannel::multi_draft_key(recipient, &draft_id);
+
+        // chunk 0 ('A') was accepted by a prior partial flush; the 'B' suffix is
+        // still unsent, exactly the recovery point finalize must not lose.
+        let narration = format!(
+            "{}{}",
+            "A".repeat(TELEGRAM_MAX_MESSAGE_LENGTH),
+            "B".repeat(500)
+        );
+        let chunks = split_message_for_telegram(&narration);
+        assert!(chunks.len() >= 2, "narration must span multiple chunks");
+        {
+            let mut drafts = ch.multi_message_drafts.lock();
+            let mut st = MultiDraftState::new(None);
+            st.latest_visible = narration.clone();
+            st.sent_text = String::new();
+            st.delivered_chunks = 1;
+            st.delivered_prefix = chunks[..1].concat();
+            drafts.insert(key.clone(), st);
+        }
+
+        let result = ch
+            .finalize_draft(recipient, &draft_id, "Final answer", false)
+            .await;
+
+        assert!(
+            result.is_err(),
+            "finalize must propagate the pending-suffix send failure instead of reporting success"
+        );
+        assert!(
+            ch.multi_message_drafts.lock().contains_key(&key),
+            "pending narration state must be preserved for a later retry, not destroyed"
+        );
+        let bodies: Vec<String> = mock_server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .map(|r| String::from_utf8_lossy(&r.body).into_owned())
+            .collect();
+        assert!(
+            !bodies.iter().any(|b| b.contains("Final answer")),
+            "the final turn must not overtake the lost middle narration"
         );
     }
 
