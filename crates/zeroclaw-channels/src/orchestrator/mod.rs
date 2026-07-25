@@ -17438,7 +17438,7 @@ BTC is currently around $65,000 based on latest tool output."#
         );
     }
 
-    /// Regression (#8561 review, Blocker 1): pre-tool narration is a permanent
+    /// Regression (multi_message review, Blocker 1): pre-tool narration is a permanent
     /// external send, so it must cross the same leak-detection boundary as the
     /// final reply. A credential in the narration must be redacted before it
     /// reaches Telegram — never posted raw ahead of the guarded final response.
@@ -17626,7 +17626,7 @@ BTC is currently around $65,000 based on latest tool output."#
         );
     }
 
-    /// Regression (#8561 review, Blocker 1): an `on_message_sending` hook that
+    /// Regression (multi_message review, Blocker 1): an `on_message_sending` hook that
     /// rewrites the outbound content must apply to the permanent narration send —
     /// the raw pre-hook narration must never reach Telegram, since the hook cannot
     /// retract an already-posted message.

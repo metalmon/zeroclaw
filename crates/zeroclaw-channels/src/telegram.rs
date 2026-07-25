@@ -6092,7 +6092,7 @@ mod tests {
         );
     }
 
-    /// Regression (#8561 review): if the pending intermediate narration resend
+    /// Regression (multi_message finalize review): if the pending narration resend
     /// fails during finalize, the per-draft state is the only record of the
     /// accepted prefix and the still-unsent suffix. It must be preserved and the
     /// failure propagated — never silently dropped while the final turn reports
