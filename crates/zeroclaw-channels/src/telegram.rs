@@ -6106,7 +6106,7 @@ mod tests {
         // The pending intermediate suffix (the 'B' chunk) fails permanently...
         Mock::given(method("POST"))
             .and(path_regex(r"/bot[^/]+/sendMessage$"))
-            .and(body_string_contains(&"B".repeat(200)))
+            .and(body_string_contains("B".repeat(200)))
             .respond_with(ResponseTemplate::new(500))
             .mount(&mock_server)
             .await;
