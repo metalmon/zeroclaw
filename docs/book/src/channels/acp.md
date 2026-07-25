@@ -161,7 +161,7 @@ When the agent should hand a workspace file back for download or preview, it cal
   "content": {
     "type": "resource",
     "resource": {
-      "uri": "attachment://deliver/9f2c1a7b0e4d5f6a.pdf",
+      "uri": "attachment://deliver/9f2c1a7b0e4d5f6a3b8c2d1e0f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d.pdf",
       "mimeType": "application/pdf",
       "blob": "<base64>"
     }
@@ -169,7 +169,7 @@ When the agent should hand a workspace file back for download or preview, it cal
 }
 ```
 
-The `uri` is an opaque, content-addressed identity: `attachment://deliver/<sha16>.<ext>`, the first 16 hex chars of the file's SHA-256. It is URI-safe and collision-free across same-named files, and is never derived from the caller-supplied filename. The same `uri` is carried structurally on the tool result (JSON field `uri`) and on the typed tool artifact; there is no machine trailer in the model-facing text. Before embedding the blob, the ACP layer re-reads the file and recomputes this hash, refusing to attach when it no longer matches; a swap between the tool's validation and delivery is detected, not trusted. Clients such as Thunderbolt materialize the outbound blob and build a citation ref-map keyed by that uri; agents must copy the returned `uri` into `<widget:document-result fileId="…">` / `[N]` citations and must not invent prefixes. The **chat display name** is the standard `tool_call_update.title` (the caller's `title`, else the filename). There is **no** `filename` field on the ACP `resource` object, and the `title` is display-only, never the on-disk name.
+The `uri` is an opaque, content-addressed identity: `attachment://deliver/<sha256>.<ext>`, the full hex SHA-256 digest of the file's bytes. It is URI-safe and collision-resistant at the full 256-bit digest strength, and is never derived from the caller-supplied filename. The same full digest is the on-disk `uploads/` storage name, so distinct content never aliases one file or one uri. The same `uri` is carried structurally on the tool result (JSON field `uri`) and on the typed tool artifact; there is no machine trailer in the model-facing text. Before embedding the blob, the ACP layer re-reads the file and recomputes this hash, refusing to attach when it no longer matches; a swap between the tool's validation and delivery is detected, not trusted. Clients such as Thunderbolt materialize the outbound blob and build a citation ref-map keyed by that uri; agents must copy the returned `uri` into `<widget:document-result fileId="…">` / `[N]` citations and must not invent prefixes. The **chat display name** is the standard `tool_call_update.title` (the caller's `title`, else the filename). There is **no** `filename` field on the ACP `resource` object, and the `title` is display-only, never the on-disk name.
 
 The file must stay inside the session workspace (same jail as `file_read`); oversize files (>10 MB) are rejected by the tool.
 

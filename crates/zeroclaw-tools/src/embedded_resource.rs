@@ -45,23 +45,26 @@ fn safe_ext(ext: &str) -> Option<String> {
     }
 }
 
-/// `<sha16>` (or `<sha16>.<ext>`) given the full lowercase hex SHA-256 digest.
-/// The extension is normalized through [`safe_ext`], so a caller-supplied
-/// filename can never leak reserved/unsafe characters into the identity.
-fn hash16_name(hex: &str, ext: &str) -> String {
+/// `<sha256>` (or `<sha256>.<ext>`) given the full lowercase hex SHA-256 digest.
+/// The full 256-bit digest is the identity: a truncated prefix (e.g. 64 bits)
+/// would let two attacker-controlled blobs collide onto one name. The extension
+/// is normalized through [`safe_ext`], so a caller-supplied filename can never
+/// leak reserved/unsafe characters into the identity.
+fn hash_name(hex: &str, ext: &str) -> String {
     match safe_ext(ext) {
-        Some(ext) => format!("{}.{ext}", &hex[..16]),
-        None => hex[..16].to_string(),
+        Some(ext) => format!("{hex}.{ext}"),
+        None => hex.to_string(),
     }
 }
 
-/// Content-addressed identity `<sha16>` / `<sha16>.<ext>` derived from raw bytes
-/// (first 16 hex chars of their SHA-256). Shared by blob materialization and
-/// outbound delivery URIs so both use the same opaque, URI-safe, collision-
-/// resistant name — the identity depends on content, never on a caller-supplied
-/// filename, so same-name files never collide and reserved characters can't leak.
+/// Content-addressed identity `<sha256>` / `<sha256>.<ext>` derived from raw bytes
+/// (the full hex SHA-256 digest). Shared by blob materialization and outbound
+/// delivery URIs so both use the same opaque, URI-safe, collision-resistant name
+/// — the identity is the full 256-bit digest and depends on content, never on a
+/// caller-supplied filename, so distinct content never aliases one name and
+/// reserved characters can't leak.
 pub fn content_hash_name(bytes: &[u8], ext: &str) -> String {
-    hash16_name(&format!("{:x}", Sha256::digest(bytes)), ext)
+    hash_name(&format!("{:x}", Sha256::digest(bytes)), ext)
 }
 
 /// Decode a base64 embedded blob and enforce the size cap, WITHOUT writing
@@ -117,85 +120,12 @@ pub fn materialize_bytes(
     filename: &str,
     mime: &str,
 ) -> Result<MaterializedResource, EmbeddedResourceError> {
-    if bytes.len() as u64 > MAX_EMBEDDED_FILE_BYTES {
-        return Err(EmbeddedResourceError(format!(
-            "Embedded resource exceeds {} MB limit ({} bytes)",
-            MAX_EMBEDDED_FILE_BYTES / (1024 * 1024),
-            bytes.len()
-        )));
-    }
-
-    let hex = format!("{:x}", Sha256::digest(bytes));
     let ext = Path::new(filename)
         .extension()
         .map(|e| e.to_string_lossy().to_string())
         .unwrap_or_default();
-    let storage_name = hash16_name(&hex, &ext);
+    let abs_path = persist_content_addressed(workspace_dir, bytes, &ext)?;
 
-    // Resolve the workspace to a symlink-free base so containment checks below are
-    // meaningful. The blob producer controls the bytes and therefore the
-    // content-hash filename, so it can pre-plant a symlink at the destination;
-    // every write path here must be no-follow and stay inside `ws_root`.
-    let ws_root = std::fs::canonicalize(workspace_dir)
-        .map_err(|e| EmbeddedResourceError(format!("Cannot resolve workspace dir: {e}")))?;
-
-    let upload_dir = ws_root.join("uploads");
-    // A symlinked `uploads/` would redirect every write outside the workspace.
-    if let Ok(meta) = std::fs::symlink_metadata(&upload_dir)
-        && meta.file_type().is_symlink()
-    {
-        return Err(EmbeddedResourceError(
-            "uploads path is a symlink; refusing to materialize blob".into(),
-        ));
-    }
-    std::fs::create_dir_all(&upload_dir)
-        .map_err(|e| EmbeddedResourceError(format!("Cannot create upload dir: {e}")))?;
-    // The real uploads dir must live inside the workspace (guards a symlink planted
-    // on an intermediate component).
-    let upload_real = std::fs::canonicalize(&upload_dir)
-        .map_err(|e| EmbeddedResourceError(format!("Cannot resolve upload dir: {e}")))?;
-    if !upload_real.starts_with(&ws_root) {
-        return Err(EmbeddedResourceError(
-            "upload dir resolves outside the workspace; refusing to materialize blob".into(),
-        ));
-    }
-
-    let dest = upload_real.join(&storage_name);
-    // Never follow a symlink sitting at the destination. Drop it; the atomic rename
-    // below installs a fresh regular file in its place.
-    match std::fs::symlink_metadata(&dest) {
-        Ok(meta) if meta.file_type().is_symlink() => {
-            std::fs::remove_file(&dest).map_err(|e| {
-                EmbeddedResourceError(format!("Cannot clear symlink at upload dest: {e}"))
-            })?;
-        }
-        _ => {}
-    }
-
-    // Content-addressed dedup, but verify content rather than trusting a length match:
-    // an attacker-substituted file of equal length must not be handed back.
-    let needs_write = match std::fs::symlink_metadata(&dest) {
-        Ok(meta) if meta.file_type().is_file() && meta.len() == bytes.len() as u64 => {
-            match std::fs::read(&dest) {
-                Ok(existing) => existing.as_slice() != bytes,
-                Err(_) => true,
-            }
-        }
-        _ => true,
-    };
-    if needs_write {
-        write_blob_atomic(&upload_real, &dest, &hex, bytes)?;
-    }
-
-    let abs_path = std::fs::canonicalize(&dest).unwrap_or_else(|_| dest.clone());
-    // Re-verify containment after the write: a directory swap racing the checks
-    // above must not leave a file we then hand back from outside the workspace.
-    if !abs_path.starts_with(&ws_root) {
-        let _ = std::fs::remove_file(&dest);
-        return Err(EmbeddedResourceError(
-            "materialized file resolved outside the workspace; refusing".into(),
-        ));
-    }
     let abs_display = strip_windows_verbatim_prefix(&abs_path.to_string_lossy()).into_owned();
     let marker = if mime.starts_with("image/") {
         format!("[IMAGE:{abs_display}]")
@@ -211,42 +141,137 @@ pub fn materialize_bytes(
     })
 }
 
-/// Write `bytes` to `dest` atomically without ever following a symlink at `dest`.
+/// Persist `bytes` as a content-addressed file `<sha256>.<safe-ext>` under
+/// `{workspace}/uploads/` and return its absolute on-disk path. This is the
+/// single hardened persistence substrate shared by ACP/MCP blob intake, outbound
+/// `deliver_file`, and the RPC attachment writer.
 ///
-/// Writes to a uniquely-named temp file in the same directory (via `create_new`, so
-/// a pre-planted symlink at the temp path is refused rather than followed), then
-/// renames it over `dest`. `rename` replaces a symlink at `dest` without following it,
-/// and the rename is atomic on the same filesystem.
-fn write_blob_atomic(
-    dir: &Path,
-    dest: &Path,
+/// Every filesystem operation is bound to a directory handle opened once
+/// ([`cap_std::fs::Dir`], beneath/no-follow semantics): the uploads handle is
+/// resolved a single time, and temp creation, rename, dedup reads, and the final
+/// install all go through that handle rather than re-resolving a pathname. A
+/// directory or symlink swapped in after the handle is opened therefore cannot
+/// redirect any write or read outside the workspace — closing the check/act
+/// window a post-write `canonicalize` could only detect after the fact.
+///
+/// The on-disk name is the full-digest content hash (never a caller-supplied
+/// filename), a symlink pre-planted at the destination is dropped (not followed),
+/// dedup verifies bytes rather than trusting a length match, and the input is
+/// size-capped.
+pub fn persist_content_addressed(
+    workspace_dir: &Path,
+    bytes: &[u8],
+    ext: &str,
+) -> Result<PathBuf, EmbeddedResourceError> {
+    use cap_std::ambient_authority;
+    use cap_std::fs::Dir;
+
+    if bytes.len() as u64 > MAX_EMBEDDED_FILE_BYTES {
+        return Err(EmbeddedResourceError(format!(
+            "Embedded resource exceeds {} MB limit ({} bytes)",
+            MAX_EMBEDDED_FILE_BYTES / (1024 * 1024),
+            bytes.len()
+        )));
+    }
+
+    let hex = format!("{:x}", Sha256::digest(bytes));
+    let storage_name = hash_name(&hex, ext);
+
+    // Bind to the workspace via a handle opened once. Every op below is relative
+    // to this handle, so a swapped pathname cannot escape it.
+    let ws = Dir::open_ambient_dir(workspace_dir, ambient_authority())
+        .map_err(|e| EmbeddedResourceError(format!("Cannot open workspace dir: {e}")))?;
+
+    // A symlinked `uploads/` would redirect every write outside the workspace.
+    // Refuse it, then create and open uploads as a bound sub-handle. `open_dir`
+    // itself refuses to traverse a symlink that escapes the workspace.
+    if let Ok(meta) = ws.symlink_metadata("uploads")
+        && meta.is_symlink()
+    {
+        return Err(EmbeddedResourceError(
+            "uploads path is a symlink; refusing to materialize blob".into(),
+        ));
+    }
+    ws.create_dir_all("uploads")
+        .map_err(|e| EmbeddedResourceError(format!("Cannot create upload dir: {e}")))?;
+    let uploads = ws
+        .open_dir("uploads")
+        .map_err(|e| EmbeddedResourceError(format!("Cannot open upload dir: {e}")))?;
+
+    write_blob_content_addressed(&uploads, &storage_name, &hex, bytes)?;
+
+    // Absolute path for display / for telling consumers where the content-named
+    // copy lives. The write itself was confined by the handle; this join is only
+    // used to build markers and locate the file, never to authorize the write.
+    let abs = std::fs::canonicalize(workspace_dir)
+        .map(|w| w.join("uploads").join(&storage_name))
+        .unwrap_or_else(|_| workspace_dir.join("uploads").join(&storage_name));
+    Ok(abs)
+}
+
+/// Install `bytes` as `dest_name` under the already-verified `uploads` directory
+/// handle, content-addressed and atomically, without ever re-resolving a pathname.
+///
+/// All operations go through `uploads` (a bound [`cap_std::fs::Dir`]): a symlink
+/// pre-planted at `dest_name` is dropped (not followed); dedup verifies the bytes
+/// on disk rather than trusting a length match; the write goes to a uniquely-named
+/// temp opened with `create_new` (so a pre-planted temp symlink is refused, not
+/// followed) and is renamed over `dest_name`. Because the handle is bound before
+/// any write, a directory swapped in at the `uploads` pathname afterwards cannot
+/// redirect the temp creation, rename, or dedup read outside the workspace.
+fn write_blob_content_addressed(
+    uploads: &cap_std::fs::Dir,
+    dest_name: &str,
     hex: &str,
     bytes: &[u8],
 ) -> Result<(), EmbeddedResourceError> {
+    use cap_std::fs::OpenOptions;
     use std::io::Write;
     use std::sync::atomic::{AtomicU64, Ordering};
 
+    // Never follow a symlink sitting at the destination. Drop it; the atomic
+    // rename below installs a fresh regular file in its place.
+    if let Ok(meta) = uploads.symlink_metadata(dest_name)
+        && meta.is_symlink()
+    {
+        uploads.remove_file(dest_name).map_err(|e| {
+            EmbeddedResourceError(format!("Cannot clear symlink at upload dest: {e}"))
+        })?;
+    }
+
+    // Content-addressed dedup, but verify content rather than trusting a length
+    // match: an attacker-substituted file of equal length must not be reused.
+    let already_present = matches!(
+        uploads.symlink_metadata(dest_name),
+        Ok(meta) if meta.is_file()
+            && meta.len() == bytes.len() as u64
+            && uploads.read(dest_name).is_ok_and(|b| b.as_slice() == bytes)
+    );
+    if already_present {
+        return Ok(());
+    }
+
     static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
     let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
-    let tmp = dir.join(format!(".tmp-{}-{seq}-{}", std::process::id(), &hex[..16]));
+    let tmp = format!(".tmp-{}-{seq}-{}", std::process::id(), &hex[..16]);
 
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&tmp)
+    let mut opts = OpenOptions::new();
+    opts.write(true).create_new(true);
+    let mut file = uploads
+        .open_with(&tmp, &opts)
         .map_err(|e| EmbeddedResourceError(format!("Cannot create upload temp file: {e}")))?;
     let write_result = file
         .write_all(bytes)
         .and_then(|_| file.sync_all())
         .map_err(|e| EmbeddedResourceError(format!("Cannot write upload: {e}")));
     if let Err(e) = write_result {
-        let _ = std::fs::remove_file(&tmp);
+        let _ = uploads.remove_file(&tmp);
         return Err(e);
     }
     drop(file);
 
-    if let Err(e) = std::fs::rename(&tmp, dest) {
-        let _ = std::fs::remove_file(&tmp);
+    if let Err(e) = uploads.rename(&tmp, uploads, dest_name) {
+        let _ = uploads.remove_file(&tmp);
         return Err(EmbeddedResourceError(format!(
             "Cannot install upload file: {e}"
         )));
@@ -445,12 +470,70 @@ mod tests {
         );
     }
 
+    // Security (#2): the write is bound to the uploads directory HANDLE, not its
+    // pathname. A directory swapped in at the `uploads` path after the handle is
+    // opened must not redirect the write outside the workspace. A pathname-based
+    // writer (canonicalize then write by path) would follow the swapped symlink
+    // and escape; this proves the handle-bound writer does not.
+    #[cfg(unix)]
+    #[test]
+    fn write_is_bound_to_the_handle_not_the_uploads_pathname() {
+        use cap_std::ambient_authority;
+        use cap_std::fs::Dir;
+
+        let ws = tempdir().unwrap();
+        let uploads_path = ws.path().join("uploads");
+        std::fs::create_dir(&uploads_path).unwrap();
+
+        // Bind a handle to the REAL uploads directory (its inode).
+        let ws_dir = Dir::open_ambient_dir(ws.path(), ambient_authority()).unwrap();
+        let uploads = ws_dir.open_dir("uploads").unwrap();
+
+        // Simulate a directory swap AFTER binding: move the real uploads aside and
+        // repoint the `uploads` pathname at a directory outside the workspace.
+        let outside = tempdir().unwrap();
+        let moved = ws.path().join("uploads_real");
+        std::fs::rename(&uploads_path, &moved).unwrap();
+        std::os::unix::fs::symlink(outside.path(), &uploads_path).unwrap();
+
+        let bytes = b"handle-bound-bytes";
+        let hex = format!("{:x}", Sha256::digest(bytes));
+        write_blob_content_addressed(&uploads, "file.bin", &hex, bytes).unwrap();
+
+        // Bytes landed in the ORIGINAL uploads inode (now at `moved`), never in the
+        // swapped-in outside directory.
+        assert_eq!(std::fs::read(moved.join("file.bin")).unwrap(), bytes);
+        assert!(
+            std::fs::read(outside.path().join("file.bin")).is_err(),
+            "write escaped the workspace through the swapped uploads pathname"
+        );
+    }
+
+    #[test]
+    fn identity_uses_full_digest_not_16_char_prefix() {
+        // Two DISTINCT full SHA-256 digests that share the first 16 hex chars must
+        // map to different storage/citation identities. A 64-bit prefix identity
+        // would collapse them onto one dest + one URI (feasible ~2^32 collision
+        // work for an attacker who controls the bytes).
+        let shared = "0123456789abcdef";
+        let a = format!("{shared}{}", "a".repeat(48)); // 64 hex chars
+        let b = format!("{shared}{}", "b".repeat(48));
+        assert_eq!(a.len(), 64);
+        assert_ne!(
+            hash_name(&a, "pdf"),
+            hash_name(&b, "pdf"),
+            "distinct full digests sharing a 16-char prefix must not collapse"
+        );
+        // The identity carries the full digest, not a truncation.
+        assert!(hash_name(&a, "pdf").starts_with(&a));
+    }
+
     #[test]
     fn content_hash_name_keeps_the_identity_uri_safe() {
         let b = b"x";
         let hash = format!("{:x}", Sha256::digest(b));
-        let stem = &hash[..16];
-        // Safe extensions are kept (lowercased); the stem is always the content hash.
+        let stem = hash.as_str();
+        // Safe extensions are kept (lowercased); the stem is the full content hash.
         assert_eq!(content_hash_name(b, "pdf"), format!("{stem}.pdf"));
         assert_eq!(content_hash_name(b, "PDF"), format!("{stem}.pdf"));
         // Reserved / percent / space / control / over-long extensions are dropped,

@@ -1,8 +1,8 @@
 use crate::security::SecurityPolicy;
 use async_trait::async_trait;
 use serde_json::{Value, json};
+use std::path::Path;
 use std::sync::Arc;
-use tokio::io::AsyncReadExt;
 use zeroclaw_api::tool::{Tool, ToolOutput, ToolResult};
 use zeroclaw_tools::embedded_resource::{content_hash_name, materialize_bytes};
 
@@ -73,6 +73,79 @@ impl DeliverFileTool {
             .first_or_octet_stream()
             .to_string()
     }
+}
+
+/// Read a workspace file for delivery through a directory handle bound to its
+/// approved root (cap-std beneath/no-follow), enforcing the size cap. Binding the
+/// open to the verified boundary — rather than re-walking `resolved` by name —
+/// means a file or a parent component swapped to an escaping symlink after the
+/// readability check cannot redirect the read outside the approved root.
+fn read_source_bounded(security: &SecurityPolicy, resolved: &Path) -> Result<Vec<u8>, String> {
+    use cap_std::ambient_authority;
+    use cap_std::fs::Dir;
+
+    match security.approved_read_root(resolved) {
+        Some(root) => {
+            let rel = resolved
+                .strip_prefix(&root)
+                .map_err(|_| "Path escapes its approved root".to_string())?;
+            let dir = Dir::open_ambient_dir(&root, ambient_authority())
+                .map_err(|e| format!("Failed to open approved root: {e}"))?;
+            read_from_dir(&dir, rel)
+        }
+        None => {
+            // No bounded allowlist root (fully permissive policy or a device path):
+            // there is no confinement boundary to bind to. Open the final component
+            // through a handle on its parent so at least a final-component symlink
+            // escaping the parent is refused.
+            let parent = resolved
+                .parent()
+                .ok_or_else(|| "Path has no parent directory".to_string())?;
+            let name = resolved
+                .file_name()
+                .ok_or_else(|| "Path has no file name".to_string())?;
+            let dir = Dir::open_ambient_dir(parent, ambient_authority())
+                .map_err(|e| format!("Failed to open directory: {e}"))?;
+            read_from_dir(&dir, Path::new(name))
+        }
+    }
+}
+
+/// Open `rel` beneath the already-opened directory handle `dir` (cap-std refuses
+/// any component that escapes `dir` via `..` or an escaping symlink), verify it is
+/// a regular file within the delivery size cap, and return its bytes. Every check
+/// and the read use that one opened handle, so nothing swapped in at the pathname
+/// between check and read can redirect the bytes.
+fn read_from_dir(dir: &cap_std::fs::Dir, rel: &Path) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+
+    let file = dir
+        .open(rel)
+        .map_err(|e| format!("Failed to open file: {e}"))?;
+    let meta = file
+        .metadata()
+        .map_err(|e| format!("Failed to read file metadata: {e}"))?;
+    if !meta.is_file() {
+        return Err("Not a file".to_string());
+    }
+    if meta.len() > MAX_DELIVER_FILE_BYTES {
+        return Err(format!(
+            "File too large: {} bytes (limit: {MAX_DELIVER_FILE_BYTES} bytes)",
+            meta.len()
+        ));
+    }
+    // One extra byte over the cap catches a grow-after-stat race.
+    let mut content = Vec::with_capacity(meta.len() as usize);
+    file.take(MAX_DELIVER_FILE_BYTES + 1)
+        .read_to_end(&mut content)
+        .map_err(|e| format!("Failed to read file: {e}"))?;
+    if content.len() as u64 > MAX_DELIVER_FILE_BYTES {
+        return Err(format!(
+            "File too large: {}+ bytes (limit: {MAX_DELIVER_FILE_BYTES} bytes)",
+            content.len()
+        ));
+    }
+    Ok(content)
 }
 
 #[async_trait]
@@ -165,89 +238,22 @@ impl Tool for DeliverFileTool {
             });
         }
 
-        // Refuse a symlink at the resolved path (no-follow, matching the workspace
-        // write path), then open ONCE and take both size and bytes from that single
-        // handle. Reading through a re-walked pathname (separate metadata + read)
-        // let a symlink swapped in after the check redirect the read outside the
-        // workspace; a single opened handle closes that window.
-        match tokio::fs::symlink_metadata(&resolved_path).await {
-            Ok(m) if m.file_type().is_symlink() => {
-                return Ok(ToolResult {
-                    success: false,
-                    output: ToolOutput::default(),
-                    error: Some(format!("Refusing to deliver a symlink: {path}")),
-                });
-            }
+        // Bind the read to the approved root's directory handle (cap-std beneath/
+        // no-follow) instead of re-walking `resolved_path` by name. The opened
+        // handle IS the object that passed the readability check above: a file or a
+        // parent component swapped to a symlink after the check cannot redirect this
+        // open outside the workspace, and both metadata and bytes come from that one
+        // handle. This closes the check/open TOCTOU the separate pathname walk left.
+        let content = match read_source_bounded(&self.security, &resolved_path) {
+            Ok(bytes) => bytes,
             Err(e) => {
                 return Ok(ToolResult {
                     success: false,
                     output: ToolOutput::default(),
-                    error: Some(format!("Failed to read file metadata: {e}")),
-                });
-            }
-            _ => {}
-        }
-        let mut file = match tokio::fs::File::open(&resolved_path).await {
-            Ok(f) => f,
-            Err(e) => {
-                return Ok(ToolResult {
-                    success: false,
-                    output: ToolOutput::default(),
-                    error: Some(format!("Failed to open file: {e}")),
+                    error: Some(e),
                 });
             }
         };
-        let meta = match file.metadata().await {
-            Ok(meta) => meta,
-            Err(e) => {
-                return Ok(ToolResult {
-                    success: false,
-                    output: ToolOutput::default(),
-                    error: Some(format!("Failed to read file metadata: {e}")),
-                });
-            }
-        };
-        if !meta.is_file() {
-            return Ok(ToolResult {
-                success: false,
-                output: ToolOutput::default(),
-                error: Some(format!("Not a file: {path}")),
-            });
-        }
-        if meta.len() > MAX_DELIVER_FILE_BYTES {
-            return Ok(ToolResult {
-                success: false,
-                output: ToolOutput::default(),
-                error: Some(format!(
-                    "File too large: {} bytes (limit: {MAX_DELIVER_FILE_BYTES} bytes)",
-                    meta.len()
-                )),
-            });
-        }
-        // Bounded read from the same handle (one extra byte over the cap catches a
-        // grow-after-stat race).
-        let mut content = Vec::with_capacity(meta.len() as usize);
-        if let Err(e) = (&mut file)
-            .take(MAX_DELIVER_FILE_BYTES + 1)
-            .read_to_end(&mut content)
-            .await
-        {
-            return Ok(ToolResult {
-                success: false,
-                output: ToolOutput::default(),
-                error: Some(format!("Failed to read file: {e}")),
-            });
-        }
-        if content.len() as u64 > MAX_DELIVER_FILE_BYTES {
-            return Ok(ToolResult {
-                success: false,
-                output: ToolOutput::default(),
-                error: Some(format!(
-                    "File too large: {}+ bytes (limit: {MAX_DELIVER_FILE_BYTES} bytes)",
-                    content.len()
-                )),
-            });
-        }
 
         let raw_filename = resolved_path
             .file_name()
@@ -580,6 +586,68 @@ mod tests {
         assert_eq!(
             attachment_deliver_uri("report.pdf"),
             "attachment://deliver/report.pdf"
+        );
+    }
+
+    #[test]
+    fn read_from_dir_reads_a_regular_file() {
+        use cap_std::ambient_authority;
+        use cap_std::fs::Dir;
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("a.txt"), b"hello").unwrap();
+        let dir = Dir::open_ambient_dir(root.path(), ambient_authority()).unwrap();
+        assert_eq!(read_from_dir(&dir, Path::new("a.txt")).unwrap(), b"hello");
+    }
+
+    // Security (#1): the read is bound to a directory HANDLE opened at the approved
+    // root. Replacing the FINAL file with a symlink escaping the root after the
+    // handle is open must be refused (cap-std resolves `rel` beneath the handle),
+    // never followed to the outside target. A pathname check-then-open would follow
+    // the swapped-in symlink.
+    #[cfg(unix)]
+    #[test]
+    fn read_refuses_final_component_swapped_to_escaping_symlink() {
+        use cap_std::ambient_authority;
+        use cap_std::fs::Dir;
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("a.txt"), b"legit").unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("secret"), b"TOPSECRET").unwrap();
+
+        let dir = Dir::open_ambient_dir(root.path(), ambient_authority()).unwrap();
+        std::fs::remove_file(root.path().join("a.txt")).unwrap();
+        std::os::unix::fs::symlink(outside.path().join("secret"), root.path().join("a.txt"))
+            .unwrap();
+
+        let result = read_from_dir(&dir, Path::new("a.txt"));
+        assert!(
+            result.is_err(),
+            "a final component swapped to an escaping symlink must not be read"
+        );
+    }
+
+    // Security (#1): replacing a PARENT directory component with a symlink escaping
+    // the root after the handle is open must also be refused.
+    #[cfg(unix)]
+    #[test]
+    fn read_refuses_parent_component_swapped_to_escaping_symlink() {
+        use cap_std::ambient_authority;
+        use cap_std::fs::Dir;
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir(root.path().join("sub")).unwrap();
+        std::fs::write(root.path().join("sub/a.txt"), b"legit").unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::create_dir(outside.path().join("sub")).unwrap();
+        std::fs::write(outside.path().join("sub/a.txt"), b"TOPSECRET").unwrap();
+
+        let dir = Dir::open_ambient_dir(root.path(), ambient_authority()).unwrap();
+        std::fs::remove_dir_all(root.path().join("sub")).unwrap();
+        std::os::unix::fs::symlink(outside.path().join("sub"), root.path().join("sub")).unwrap();
+
+        let result = read_from_dir(&dir, Path::new("sub/a.txt"));
+        assert!(
+            result.is_err(),
+            "a parent component swapped to an escaping symlink must not be traversed"
         );
     }
 }
