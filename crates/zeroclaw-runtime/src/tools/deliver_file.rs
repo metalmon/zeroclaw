@@ -148,6 +148,28 @@ fn read_from_dir(dir: &cap_std::fs::Dir, rel: &Path) -> Result<Vec<u8>, String> 
     Ok(content)
 }
 
+/// Bounded, no-follow read of an already-delivered artifact under the workspace
+/// `uploads/` directory, for the ACP consumer that embeds the blob. The artifact
+/// is opened once beneath its parent directory handle (cap-std, no-follow), its
+/// size is taken from that handle, and at most `MAX_DELIVER_FILE_BYTES + 1` bytes
+/// are read from the same handle. A workspace writer that grows or replaces the
+/// content-addressed file between the tool's write and this read therefore cannot
+/// cause an unbounded read, and a replacement symlink is refused, not followed.
+pub fn read_delivered_artifact_bounded(path: &Path) -> Result<Vec<u8>, String> {
+    use cap_std::ambient_authority;
+    use cap_std::fs::Dir;
+
+    let parent = path
+        .parent()
+        .ok_or_else(|| "artifact path has no parent directory".to_string())?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| "artifact path has no file name".to_string())?;
+    let dir = Dir::open_ambient_dir(parent, ambient_authority())
+        .map_err(|e| format!("Failed to open artifact directory: {e}"))?;
+    read_from_dir(&dir, Path::new(name))
+}
+
 #[async_trait]
 impl Tool for DeliverFileTool {
     fn name(&self) -> &str {
@@ -649,5 +671,38 @@ mod tests {
             result.is_err(),
             "a parent component swapped to an escaping symlink must not be traversed"
         );
+    }
+
+    #[test]
+    fn read_delivered_artifact_bounded_reads_a_regular_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("art.pdf");
+        std::fs::write(&f, b"%PDF-1.4").unwrap();
+        assert_eq!(read_delivered_artifact_bounded(&f).unwrap(), b"%PDF-1.4");
+    }
+
+    // Security: a workspace writer that replaces the delivered artifact with an
+    // oversized file after the tool wrote it must be rejected by the bounded read,
+    // not loaded unbounded into memory before the later hash comparison.
+    #[test]
+    fn read_delivered_artifact_bounded_rejects_oversized_replacement() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("art.bin");
+        std::fs::write(&f, vec![0u8; (MAX_DELIVER_FILE_BYTES as usize) + 1]).unwrap();
+        let err = read_delivered_artifact_bounded(&f).unwrap_err();
+        assert!(err.contains("File too large"), "err = {err}");
+    }
+
+    // Security: an artifact replaced with a symlink escaping its directory must be
+    // refused (no-follow), never read through.
+    #[cfg(unix)]
+    #[test]
+    fn read_delivered_artifact_bounded_refuses_replacement_symlink() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("secret"), b"TOPSECRET").unwrap();
+        let f = dir.path().join("art.bin");
+        std::os::unix::fs::symlink(outside.path().join("secret"), &f).unwrap();
+        assert!(read_delivered_artifact_bounded(&f).is_err());
     }
 }

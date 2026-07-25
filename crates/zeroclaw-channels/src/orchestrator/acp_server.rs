@@ -2196,15 +2196,13 @@ fn deliver_file_tool_result_content(
         return None;
     }
     // Defense-in-depth: `deliver_file` already validated and size-capped the
-    // path, but we re-read it here. Re-check it is a regular file within the
-    // delivery size limit before loading it, so a swapped/oversized file (or a
-    // path that somehow slipped past the tool) can never load an unbounded blob
-    // into memory. On any mismatch, fall back to text-only content.
-    let meta = std::fs::metadata(path).ok()?;
-    if !meta.is_file() || meta.len() > zeroclaw_runtime::tools::MAX_DELIVER_FILE_BYTES {
-        return None;
-    }
-    let bytes = std::fs::read(path).ok()?;
+    // path, but we re-read it here. Open the materialized artifact once beneath its
+    // parent directory handle and bounded-read at most MAX_DELIVER_FILE_BYTES + 1
+    // from that single handle (no-follow), so a workspace writer that grows or
+    // replaces the content-addressed file between the tool's write and this read
+    // can never load an unbounded blob into memory, and a replacement symlink is
+    // refused, not followed. On any mismatch, fall back to text-only content.
+    let bytes = zeroclaw_runtime::tools::read_delivered_artifact_bounded(Path::new(path)).ok()?;
     // The typed `uri` is a content hash the tool computed over the same file. Recompute
     // it from the bytes we just read and require an exact match: if the file was swapped
     // between the tool's validation and this read, the hash differs and we fall back to
