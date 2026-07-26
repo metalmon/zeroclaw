@@ -5,6 +5,40 @@ use tokio_util::sync::CancellationToken;
 
 use crate::media::MediaAttachment;
 
+/// Error returned by [`Channel::finalize_draft`] when the channel deliberately
+/// retained unsent intermediate content (rather than completing delivery)
+/// because resending it failed — e.g. Telegram multi-message narration whose
+/// held-back suffix could not be delivered before the final turn.
+///
+/// The orchestrator's finalize path MUST detect this (via
+/// `err.downcast_ref::<RetainedNarration>()`) and skip its generic
+/// "send the final answer as a new message" fallback. That fallback is correct
+/// for single-draft channels — a failed edit has nothing held back to overtake —
+/// but for a retained multi-message draft it would push the final answer ahead
+/// of the still-unsent middle narration, the exact ordering the retention
+/// protects. The held state resumes on a later retry instead.
+#[derive(Debug)]
+pub struct RetainedNarration {
+    /// The underlying send failure that triggered retention.
+    pub source: anyhow::Error,
+}
+
+impl fmt::Display for RetainedNarration {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "finalize retained unsent narration for retry: {}",
+            self.source
+        )
+    }
+}
+
+impl std::error::Error for RetainedNarration {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.source.as_ref())
+    }
+}
+
 /// Reserved `ChannelMessage.subject` prefix the git/forge channel uses to
 /// label SOP-ingress events. Routing is NOT keyed on this (see
 /// `ChannelMessage::internal_sop_event`); it exists so channels that fill

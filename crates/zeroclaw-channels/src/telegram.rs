@@ -6,7 +6,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
-use zeroclaw_api::channel::{Channel, ChannelMessage, SendMessage};
+use zeroclaw_api::channel::{Channel, ChannelMessage, RetainedNarration, SendMessage};
 use zeroclaw_config::schema::{
     Config, DEFAULT_MULTI_MESSAGE_DELAY_MS, StreamMode, TELEGRAM_OFFICIAL_API_BASE_URL,
 };
@@ -1106,7 +1106,11 @@ impl TelegramChannel {
                             st.last_sent_at = Some(std::time::Instant::now());
                         }
                         self.multi_message_drafts.lock().insert(key.clone(), st);
-                        return Err(e.source);
+                        // Tag this as retained (not an ordinary finalize failure) so
+                        // the orchestrator suppresses its generic send-the-final
+                        // fallback, which would otherwise overtake the narration we
+                        // just held back for retry.
+                        return Err(RetainedNarration { source: e.source }.into());
                     }
                 }
             }
@@ -3826,17 +3830,12 @@ impl Channel for TelegramChannel {
                 Ok(())
             }
             StreamMode::MultiMessage => {
-                if !Self::is_multi_message_synthetic_draft(message_id) {
-                    return Ok(());
-                }
-                // Sanitize outside the drafts lock: regex passes over the full
-                // accumulated text must not block concurrent flushes.
-                let visible = sanitize_multi_message_visible_text(text);
-                let key = Self::multi_draft_key(recipient, message_id);
-                let mut drafts = self.multi_message_drafts.lock();
-                if let Some(draft) = drafts.get_mut(&key) {
-                    draft.latest_visible = visible;
-                }
+                // Multi-message drafts are never edited in place: the deliverable
+                // state (`latest_visible`) is owned solely by `flush_draft_turn`,
+                // which sets it from the policy-checked narration immediately before
+                // it flushes. Tracking the raw, un-policy-checked accumulation here
+                // would let `finalize`'s pending-resume resurrect narration the
+                // outbound hook cancelled — content never approved for delivery.
                 Ok(())
             }
         }
