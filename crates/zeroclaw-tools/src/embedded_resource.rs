@@ -142,7 +142,16 @@ pub fn materialize_resource_blob(
         .map(str::to_string)
         .unwrap_or_else(|| mime_from_filename(&filename));
 
-    materialize_bytes(workspace_dir, &bytes, &filename, &mime)
+    // When no URI is provided (e.g. MCP image/audio), derive the extension
+    // from the MIME type instead of using the generic "bin" from filename_from_uri.
+    let effective_filename = if uri.is_none() {
+        let ext = ext_from_mime(&mime);
+        format!("upload.{ext}")
+    } else {
+        filename
+    };
+
+    materialize_bytes(workspace_dir, &bytes, &effective_filename, &mime)
 }
 
 /// Persist already-read `bytes` as a content-addressed file under
@@ -502,13 +511,16 @@ pub(crate) fn format_mcp_tool_result_for_model(
                         Ok(materialized) => materialized.marker,
                         Err(e) => format!("[attachment unavailable: {e}]"),
                     };
-                if let Some(obj) = item.as_object_mut() {
-                    obj.remove("data");
-                    obj.insert(
-                        "materialized".to_string(),
-                        serde_json::Value::String(marker),
-                    );
-                }
+                // Replace the entire content item with a text item containing the marker.
+                // The multimodal pipeline (parse_image_markers) will extract the
+                // [IMAGE:<path>] / [AUDIO:<path>] from the text and convert it to
+                // a native provider image/audio part. Leaving mimeType or other MCP
+                // fields on the item would confuse the model (meaningless JSON in
+                // context) and risk breaking the provider's message structure.
+                *item = serde_json::json!({
+                    "type": "text",
+                    "text": marker,
+                });
             }
             _ => {
                 // text, resource_link and unknown content types carry through verbatim.
@@ -553,6 +565,23 @@ fn sanitize_filename(name: &str) -> String {
         "upload.bin".to_string()
     } else {
         sanitized
+    }
+}
+
+fn ext_from_mime(mime: &str) -> &'static str {
+    match mime {
+        "image/png" => "png",
+        "image/jpeg" => "jpg",
+        "image/gif" => "gif",
+        "image/webp" => "webp",
+        "application/pdf" => "pdf",
+        "text/plain" => "txt",
+        "text/markdown" => "md",
+        "application/json" => "json",
+        "audio/wav" => "wav",
+        "audio/mpeg" => "mp3",
+        "audio/ogg" => "ogg",
+        _ => "bin",
     }
 }
 
@@ -926,8 +955,9 @@ mod tests {
 
     #[test]
     fn mcp_intake_image_item_yields_marker_not_base64() {
-        // A non-resource `image` block materializes and emits `[IMAGE:...]`,
-        // never its base64 data.
+        // A non-resource `image` block materializes and emits `[IMAGE:...]` as
+        // a text item, never its base64 data. The old MCP fields (mimeType,
+        // materialized) must NOT leak into the model-facing JSON.
         let dir = tempdir().unwrap();
         let doc_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"doc");
         let img_b64 = base64::Engine::encode(
@@ -957,6 +987,12 @@ mod tests {
             !out.contains(&img_b64),
             "raw image base64 must not reach the model: {out}"
         );
+        // Image item must be replaced with a clean text marker, not leftover MCP fields.
+        assert!(
+            out.contains(r#""type": "text""#),
+            "image item should become text item: {out}"
+        );
+        assert!(!out.contains("image/png"), "mimeType must not leak: {out}");
         assert!(dir.path().join("uploads").exists());
     }
 
