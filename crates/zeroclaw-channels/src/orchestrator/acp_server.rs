@@ -26,6 +26,7 @@ use zeroclaw_runtime::tools::CanvasStore;
 
 use super::acp_embedded;
 use crate::acp_channel::AcpChannel;
+use zeroclaw_runtime::skills::WireSkill;
 
 // ── Configuration ────────────────────────────────────────────────
 
@@ -2593,6 +2594,21 @@ fn history_notifications_for_message(
             })
             .collect(),
     }
+}
+
+/// Extract wire skills from ACP `_meta` extension.
+fn extract_wire_skills_from_meta(meta: Option<&serde_json::Value>) -> Vec<WireSkill> {
+    let Some(meta) = meta else { return Vec::new() };
+    let thunderbolt = meta.get("thunderbird.net/thunderbolt");
+    let Some(skills) = thunderbolt.and_then(|t| t.get("skills")) else {
+        return Vec::new();
+    };
+    let Some(arr) = skills.as_array() else {
+        return Vec::new();
+    };
+    arr.iter()
+        .filter_map(|v| serde_json::from_value(v.clone()).ok())
+        .collect()
 }
 
 // ── Error helper ─────────────────────────────────────────────────
@@ -5967,5 +5983,36 @@ mod tests {
             "second resume must fail with INTERNAL_ERROR, not INVALID_PARAMS (leaked slot); got: {:?}",
             second_err
         );
+    }
+
+    #[test]
+    fn extract_wire_skills_from_meta_valid() {
+        let meta = serde_json::json!({
+            "thunderbird.net/thunderbolt": {
+                "skills": [
+                    {"name": "test", "description": "desc", "instruction": "do it"}
+                ]
+            }
+        });
+        let skills = extract_wire_skills_from_meta(Some(&meta));
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].name, "test");
+    }
+
+    #[test]
+    fn extract_wire_skills_from_meta_empty() {
+        let skills = extract_wire_skills_from_meta(None);
+        assert!(skills.is_empty());
+    }
+
+    #[test]
+    fn extract_wire_skills_from_meta_malformed() {
+        let meta = serde_json::json!({
+            "thunderbird.net/thunderbolt": {
+                "skills": [{"name": 123}]
+            }
+        });
+        let skills = extract_wire_skills_from_meta(Some(&meta));
+        assert!(skills.is_empty());
     }
 }
