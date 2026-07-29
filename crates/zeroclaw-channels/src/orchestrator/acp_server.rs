@@ -668,7 +668,7 @@ impl AcpServer {
         // extra config.
         // NOTE: agent_alias MUST be resolved before workspace_dir so the
         // default fallback can use the per-agent workspace path instead of
-        // the daemon process CWD (see #9534).
+        // the daemon process CWD.
         let agent_alias = params
             .get("agentAlias")
             .or_else(|| params.get("agent_alias"))
