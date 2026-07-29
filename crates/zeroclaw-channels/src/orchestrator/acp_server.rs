@@ -704,16 +704,14 @@ impl AcpServer {
                 std::fs::canonicalize(&p)
                     .map_err(|e| RpcError {
                         code: INVALID_PARAMS,
-                        message: format!(
-                            "cwd is not a usable directory ({}): {e}",
-                            p.display()
-                        ),
+                        message: format!("cwd is not a usable directory ({}): {e}", p.display()),
                         data: None,
                     })
                     .map(|canon| canon.to_string_lossy().into_owned())
             })
             .unwrap_or_else(|| {
-                Ok(config.agent_workspace_dir(&agent_alias)
+                Ok(config
+                    .agent_workspace_dir(&agent_alias)
                     .to_string_lossy()
                     .into_owned())
             })?;
