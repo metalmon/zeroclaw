@@ -9,6 +9,11 @@ use std::path::{Path, PathBuf};
 /// Per-file decoded size limit for embedded blobs (matches RPC attach / ACP).
 pub const MAX_EMBEDDED_FILE_BYTES: u64 = 10 * 1024 * 1024;
 
+/// Estimated aggregate decoded size limit for all embedded blobs in a single
+/// `tools/call` result. Beyond this, every resource blob is replaced with an
+/// aggregate-limit marker and no file is written.
+const MAX_AGGREGATE_BLOB_BYTES: u64 = 10 * 1024 * 1024;
+
 /// Result of writing an embedded resource into the session workspace.
 #[derive(Debug)]
 pub struct MaterializedResource {
@@ -312,6 +317,49 @@ pub(crate) fn format_mcp_tool_result_for_model(
 
     if !content.iter().any(content_item_has_resource_blob) {
         return Ok(serde_json::to_string_pretty(result).unwrap_or_else(|_| result.to_string()));
+    }
+
+    // Preflight: estimate aggregate decoded size of all resource blobs without
+    // decoding them. If the aggregate exceeds the per-call budget, degrade every
+    // resource blob with an aggregate-limit marker and write nothing to disk.
+    let aggregate_estimate: u64 = content
+        .iter()
+        .filter_map(|item| {
+            let blob = item
+                .get("resource")
+                .and_then(|r| r.get("blob"))
+                .and_then(|b| b.as_str())?;
+            Some(blob.len() as u64 * 3 / 4)
+        })
+        .sum();
+    if aggregate_estimate > MAX_AGGREGATE_BLOB_BYTES {
+        let mut redacted = result.clone();
+        if let Some(items) = redacted.get_mut("content").and_then(|c| c.as_array_mut()) {
+            for item in items.iter_mut() {
+                if item.get("type").and_then(|t| t.as_str()) != Some("resource") {
+                    continue;
+                }
+                if item
+                    .get("resource")
+                    .and_then(|r| r.get("blob"))
+                    .and_then(|b| b.as_str())
+                    .is_none()
+                {
+                    continue;
+                }
+                if let Some(res) = item.get_mut("resource").and_then(|r| r.as_object_mut()) {
+                    res.remove("blob");
+                    res.insert(
+                        "materialized".to_string(),
+                        serde_json::Value::String(
+                            "[attachment unavailable: aggregate blob size exceeds limit]"
+                                .to_string(),
+                        ),
+                    );
+                }
+            }
+        }
+        return Ok(serde_json::to_string_pretty(&redacted).unwrap_or_else(|_| redacted.to_string()));
     }
 
     // Preserve the entire result and redact ONLY binary payloads. This keeps the
@@ -929,5 +977,65 @@ mod tests {
             "type": "text",
             "text": "hi"
         })));
+    }
+
+    #[test]
+    fn mcp_intake_within_aggregate_budget() {
+        // Multiple blobs whose total is within the aggregate limit all materialize.
+        let dir = tempdir().unwrap();
+        let blob1 = base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            b"small payload a",
+        );
+        let blob2 = base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            b"small payload b",
+        );
+        let result = json!({
+            "content": [
+                {
+                    "type": "resource",
+                    "resource": { "uri": "file:///a.txt", "blob": blob1 }
+                },
+                {
+                    "type": "resource",
+                    "resource": { "uri": "file:///b.txt", "blob": blob2 }
+                }
+            ]
+        });
+        let out = format_mcp_tool_result_for_model(&result, dir.path()).unwrap();
+        assert!(out.contains("[Document: a.txt]"));
+        assert!(out.contains("[Document: b.txt]"));
+        assert!(dir.path().join("uploads").exists());
+    }
+
+    #[test]
+    fn mcp_intake_exceeds_aggregate_budget() {
+        // When aggregate estimated size exceeds the limit, all resource blobs
+        // are degraded with an aggregate-limit marker and nothing is written.
+        let dir = tempdir().unwrap();
+        let chunk = vec![0u8; (MAX_AGGREGATE_BLOB_BYTES as usize) / 2 + 1]; // > 5 MiB each
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &chunk);
+        let result = json!({
+            "content": [
+                {
+                    "type": "resource",
+                    "resource": { "uri": "file:///a.bin", "blob": b64.clone() }
+                },
+                {
+                    "type": "resource",
+                    "resource": { "uri": "file:///b.bin", "blob": b64.clone() }
+                },
+                {
+                    "type": "text",
+                    "text": "survivor"
+                }
+            ]
+        });
+        let out = format_mcp_tool_result_for_model(&result, dir.path()).unwrap();
+        assert!(!dir.path().join("uploads").exists());
+        assert!(out.contains("aggregate blob size exceeds limit"));
+        assert!(!out.contains("[Document:"));
+        assert!(out.contains("survivor"));
     }
 }
