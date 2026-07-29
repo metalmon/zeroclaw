@@ -697,24 +697,30 @@ impl AcpServer {
         Self::validate_dispatchable_agent_alias(&config, &agent_alias)?;
 
         // Default workspace is the per-agent directory. An explicit
-        // `cwd`/`workspaceDir`/`workspace_dir` overrides it.
+        // `cwd`/`workspaceDir`/`workspace_dir` overrides it, unless it points
+        // to the install root (e.g. when clients pass '.' as a placeholder).
+        // In that case we fall back to the per-agent workspace to prevent
+        // uploads from landing in the daemon's working directory.
+        let install_root = config.install_root_dir();
         let workspace_dir = self
             .requested_session_cwd(params, &config)
-            .map(|p| {
+            .and_then(|p| {
                 std::fs::canonicalize(&p)
                     .map_err(|e| RpcError {
                         code: INVALID_PARAMS,
                         message: format!("cwd is not a usable directory ({}): {e}", p.display()),
                         data: None,
                     })
-                    .map(|canon| canon.to_string_lossy().into_owned())
+                    .ok()
             })
+            .filter(|canon| !canon.starts_with(&install_root))
+            .map(|canon| canon.to_string_lossy().into_owned())
             .unwrap_or_else(|| {
-                Ok(config
+                config
                     .agent_workspace_dir(&agent_alias)
                     .to_string_lossy()
-                    .into_owned())
-            })?;
+                    .into_owned()
+            });
 
         let session_id = Uuid::new_v4().to_string();
 
@@ -2769,6 +2775,57 @@ mod tests {
         assert_eq!(
             server.requested_session_cwd(&serde_json::json!({"cwd": cwd}), &config),
             Some(cwd),
+        );
+    }
+
+    #[tokio::test]
+    async fn session_new_ignores_cwd_when_equal_to_install_root() {
+        // When a client passes cwd = '.' (resolved to the install root), the
+        // session must still use the per-agent workspace — not the daemon cwd.
+        let cwd = tempfile::tempdir().unwrap();
+        let mut config = Config {
+            data_dir: cwd.path().to_path_buf(),
+            ..Default::default()
+        };
+        // Set config_path to a known install root.
+        config.config_path = cwd.path().join("config.toml");
+        config.risk_profiles.insert(
+            "default".to_string(),
+            zeroclaw_config::schema::RiskProfileConfig::default(),
+        );
+        config.runtime_profiles.insert(
+            "default".to_string(),
+            zeroclaw_config::schema::RuntimeProfileConfig::default(),
+        );
+        config.agents.insert(
+            "test-agent".into(),
+            zeroclaw_config::schema::AliasedAgentConfig {
+                model_provider: "openrouter.default".into(),
+                risk_profile: "default".into(),
+                runtime_profile: "default".into(),
+                ..Default::default()
+            },
+        );
+        let server = AcpServer::new(config, AcpServerConfig::default());
+        let install_root = server.config_snapshot().install_root_dir();
+
+        // Pass install_root as cwd — simulates what Thunderbolt does with cwd: '.'
+        let result = server
+            .handle_session_new(&serde_json::json!({
+                "cwd": install_root.to_string_lossy(),
+                "agentAlias": "test-agent",
+            }))
+            .await
+            .expect("session/new must succeed");
+
+        let session_id = result["sessionId"].as_str().unwrap();
+        let session_workspace = result["workspaceDir"].as_str().unwrap();
+
+        // workspaceDir must NOT be the install root — it must be the per-agent workspace.
+        assert_ne!(
+            session_workspace,
+            install_root.to_string_lossy(),
+            "cwd equal to install_root should be ignored in favor of per-agent workspace"
         );
     }
 
