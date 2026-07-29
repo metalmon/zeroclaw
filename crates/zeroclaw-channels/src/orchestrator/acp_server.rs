@@ -659,19 +659,6 @@ impl AcpServer {
 
     async fn handle_session_new(&self, params: &Value) -> RpcResult {
         let config = self.config_snapshot();
-        let requested_cwd = self.requested_session_cwd(params, &config);
-
-        let workspace_dir = std::fs::canonicalize(&requested_cwd)
-            .map_err(|e| RpcError {
-                code: INVALID_PARAMS,
-                message: format!(
-                    "cwd is not a usable directory ({}): {e}",
-                    requested_cwd.display()
-                ),
-                data: None,
-            })?
-            .to_string_lossy()
-            .into_owned();
 
         // Every ACP session is bound to an explicit agent alias.
         // Accept `agentAlias` (camelCase) or `agent_alias` / `agent`,
@@ -679,6 +666,9 @@ impl AcpServer {
         // `[acp].default_agent`. When all are absent and exactly one agent
         // is configured, auto-select it so single-agent setups work without
         // extra config.
+        // NOTE: agent_alias MUST be resolved before workspace_dir so the
+        // default fallback can use the per-agent workspace path instead of
+        // the daemon process CWD (see #9534).
         let agent_alias = params
             .get("agentAlias")
             .or_else(|| params.get("agent_alias"))
@@ -705,6 +695,28 @@ impl AcpServer {
                 data: None,
             })?;
         Self::validate_dispatchable_agent_alias(&config, &agent_alias)?;
+
+        // Default workspace is the per-agent directory. An explicit
+        // `cwd`/`workspaceDir`/`workspace_dir` overrides it.
+        let workspace_dir = self
+            .requested_session_cwd(params, &config)
+            .map(|p| {
+                std::fs::canonicalize(&p)
+                    .map_err(|e| RpcError {
+                        code: INVALID_PARAMS,
+                        message: format!(
+                            "cwd is not a usable directory ({}): {e}",
+                            p.display()
+                        ),
+                        data: None,
+                    })
+                    .map(|canon| canon.to_string_lossy().into_owned())
+            })
+            .unwrap_or_else(|| {
+                Ok(config.agent_workspace_dir(&agent_alias)
+                    .to_string_lossy()
+                    .into_owned())
+            })?;
 
         let session_id = Uuid::new_v4().to_string();
 
@@ -1375,14 +1387,13 @@ impl AcpServer {
         Ok(serde_json::json!({}))
     }
 
-    fn requested_session_cwd(&self, params: &Value, config: &Config) -> PathBuf {
+    fn requested_session_cwd(&self, params: &Value, _config: &Config) -> Option<PathBuf> {
         params
             .get("cwd")
             .or_else(|| params.get("workspaceDir"))
             .or_else(|| params.get("workspace_dir"))
             .and_then(|v| v.as_str())
             .map(PathBuf::from)
-            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| config.data_dir.clone()))
     }
 
     async fn handle_session_prompt(&self, params: &Value, _request_id: &Value) -> RpcResult {
@@ -2737,18 +2748,17 @@ mod tests {
     }
 
     #[test]
-    fn session_new_defaults_to_launch_cwd_when_client_omits_cwd() {
+    fn session_new_omits_cwd_when_client_does_not_specify() {
         let config = Config {
             data_dir: PathBuf::from("/not/the/project"),
             ..Default::default()
         };
         let server = AcpServer::new(config, AcpServerConfig::default());
-        let expected = std::env::current_dir().unwrap();
         let config = server.config_snapshot();
 
         assert_eq!(
             server.requested_session_cwd(&serde_json::json!({}), &config),
-            expected
+            None,
         );
     }
 
@@ -2760,7 +2770,7 @@ mod tests {
 
         assert_eq!(
             server.requested_session_cwd(&serde_json::json!({"cwd": cwd}), &config),
-            cwd
+            Some(cwd),
         );
     }
 
