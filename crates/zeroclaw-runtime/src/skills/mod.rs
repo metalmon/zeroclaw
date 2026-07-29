@@ -314,6 +314,61 @@ pub struct SkillTool {
     pub timeout_secs: Option<u64>,
 }
 
+/// A skill delivered from an ACP client via `_meta` extension.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct WireSkill {
+    pub name: String,
+    pub description: String,
+    pub instruction: String,
+    #[serde(default)]
+    pub tools: Vec<WireSkillTool>,
+    #[serde(default)]
+    pub prompts: Vec<String>,
+}
+
+/// A tool definition inside a wire-delivered skill.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct WireSkillTool {
+    pub name: String,
+    pub description: String,
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub command: String,
+}
+
+/// Convert wire-delivered skills to ZeroClaw Skill structs.
+/// Wire skills get `location: None` (not disk-backed) and `version: "wire"`.
+pub fn wire_skills_to_skills(wire: &[WireSkill]) -> Vec<Skill> {
+    wire.iter()
+        .map(|ws| Skill {
+            name: ws.name.clone(),
+            description: ws.description.clone(),
+            description_localizations: BTreeMap::new(),
+            version: "wire".to_string(),
+            author: None,
+            tags: vec!["wire".to_string()],
+            tools: ws
+                .tools
+                .iter()
+                .map(|wt| SkillTool {
+                    name: wt.name.clone(),
+                    description: wt.description.clone(),
+                    kind: wt.kind.clone(),
+                    command: wt.command.clone(),
+                    args: HashMap::new(),
+                    target: None,
+                    locked_args: HashMap::new(),
+                    timeout_secs: None,
+                })
+                .collect(),
+            prompts: ws.prompts.clone(),
+            slash_options: Vec::new(),
+            location: None,
+        })
+        .collect()
+}
+
 /// Skill manifest parsed from SKILL.toml
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SkillManifest {
@@ -5220,5 +5275,50 @@ version = "0.1.0"
             names.contains(&skill_name),
             "with empty skill_bundles, workspace skills must still load; got: {names:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod wire_skill_tests {
+    use super::*;
+
+    #[test]
+    fn wire_skill_minimal() {
+        let json = r#"{"name":"test","description":"desc","instruction":"do stuff"}"#;
+        let skill: WireSkill = serde_json::from_str(json).unwrap();
+        assert_eq!(skill.name, "test");
+        assert!(skill.tools.is_empty());
+        assert!(skill.prompts.is_empty());
+    }
+
+    #[test]
+    fn wire_skill_with_tools() {
+        let json = r#"{"name":"test","description":"desc","instruction":"do stuff","tools":[{"name":"run","description":"run it","kind":"shell","command":"echo hi"}]}"#;
+        let skill: WireSkill = serde_json::from_str(json).unwrap();
+        assert_eq!(skill.tools.len(), 1);
+        assert_eq!(skill.tools[0].name, "run");
+    }
+
+    #[test]
+    fn wire_skills_to_skills_conversion() {
+        let wire = vec![WireSkill {
+            name: "deploy".to_string(),
+            description: "Deploy safely".to_string(),
+            instruction: "Run tests first".to_string(),
+            tools: vec![WireSkillTool {
+                name: "check".to_string(),
+                description: "Check status".to_string(),
+                kind: "shell".to_string(),
+                command: "echo ok".to_string(),
+            }],
+            prompts: vec!["Be careful".to_string()],
+        }];
+        let skills = wire_skills_to_skills(&wire);
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].name, "deploy");
+        assert_eq!(skills[0].version, "wire");
+        assert!(skills[0].location.is_none());
+        assert_eq!(skills[0].tools.len(), 1);
+        assert_eq!(skills[0].tools[0].name, "check");
     }
 }
