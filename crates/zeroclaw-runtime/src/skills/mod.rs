@@ -314,35 +314,21 @@ pub struct SkillTool {
     pub timeout_secs: Option<u64>,
 }
 
-/// A skill delivered from an ACP client via `_meta` extension.
+/// A skill delivered from an ACP client via the `_meta` extension.
+///
+/// Matches Thunderbolt's `SkillDefinition` (`shared/agent-core/skills.ts`): an
+/// instruction-only bundle. Client capabilities (`ask`, `map`, `say`, …) are NOT
+/// carried here as executable tool specs — they are widgets the model emits as
+/// inline `<widget:...>` markup that the client parses and executes. The agent only
+/// relays that markup and never runs client tools. Unknown wire fields (e.g. a
+/// legacy `tools` array) are tolerantly ignored by serde.
+///
+/// See `docs/acp-widget-skill-contract.md`.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct WireSkill {
     pub name: String,
     pub description: String,
     pub instruction: String,
-    #[serde(default)]
-    pub tools: Vec<WireSkillTool>,
-    #[serde(default)]
-    pub prompts: Vec<String>,
-}
-
-/// A tool definition inside a wire-delivered skill.
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct WireSkillTool {
-    pub name: String,
-    pub description: String,
-    #[serde(default)]
-    pub kind: String,
-    #[serde(default)]
-    pub command: String,
-    #[serde(default)]
-    pub args: HashMap<String, String>,
-    #[serde(default)]
-    pub target: Option<String>,
-    #[serde(default, alias = "default_args")]
-    pub locked_args: HashMap<String, String>,
-    #[serde(default)]
-    pub timeout_secs: Option<u64>,
 }
 
 /// Convert wire-delivered skills to ZeroClaw Skill structs.
@@ -356,25 +342,11 @@ pub fn wire_skills_to_skills(wire: &[WireSkill]) -> Vec<Skill> {
             version: "wire".to_string(),
             author: None,
             tags: vec!["wire".to_string()],
-            tools: ws
-                .tools
-                .iter()
-                .map(|wt| SkillTool {
-                    name: wt.name.clone(),
-                    description: wt.description.clone(),
-                    kind: wt.kind.clone(),
-                    command: wt.command.clone(),
-                    args: wt.args.clone(),
-                    target: wt.target.clone(),
-                    locked_args: wt.locked_args.clone(),
-                    timeout_secs: wt.timeout_secs,
-                })
-                .collect(),
-            prompts: {
-                let mut p = vec![ws.instruction.clone()];
-                p.extend(ws.prompts.clone());
-                p
-            },
+            // Wire skills are instruction-only (Thunderbolt `SkillDefinition`). No
+            // client tools are carried or executed agent-side; the instruction is
+            // the sole progressive-disclosure payload.
+            tools: Vec::new(),
+            prompts: vec![ws.instruction.clone()],
             slash_options: Vec::new(),
             location: None,
         })
@@ -5299,16 +5271,19 @@ mod wire_skill_tests {
         let json = r#"{"name":"test","description":"desc","instruction":"do stuff"}"#;
         let skill: WireSkill = serde_json::from_str(json).unwrap();
         assert_eq!(skill.name, "test");
-        assert!(skill.tools.is_empty());
-        assert!(skill.prompts.is_empty());
+        assert_eq!(skill.description, "desc");
+        assert_eq!(skill.instruction, "do stuff");
     }
 
     #[test]
-    fn wire_skill_with_tools() {
-        let json = r#"{"name":"test","description":"desc","instruction":"do stuff","tools":[{"name":"run","description":"run it","kind":"shell","command":"echo hi"}]}"#;
+    fn wire_skill_ignores_legacy_tools_field() {
+        // A wire skill is instruction-only (Thunderbolt `SkillDefinition`). A client
+        // that still sends a legacy `tools`/`prompts` array must not break parsing —
+        // serde tolerantly ignores the unknown fields; nothing is executed from them.
+        let json = r#"{"name":"test","description":"desc","instruction":"do stuff","tools":[{"name":"run","kind":"shell","command":"echo hi"}],"prompts":["x"]}"#;
         let skill: WireSkill = serde_json::from_str(json).unwrap();
-        assert_eq!(skill.tools.len(), 1);
-        assert_eq!(skill.tools[0].name, "run");
+        assert_eq!(skill.name, "test");
+        assert_eq!(skill.instruction, "do stuff");
     }
 
     #[test]
@@ -5317,24 +5292,14 @@ mod wire_skill_tests {
             name: "deploy".to_string(),
             description: "Deploy safely".to_string(),
             instruction: "Run tests first".to_string(),
-            tools: vec![WireSkillTool {
-                name: "check".to_string(),
-                description: "Check status".to_string(),
-                kind: "shell".to_string(),
-                command: "echo ok".to_string(),
-                args: HashMap::new(),
-                target: None,
-                locked_args: HashMap::new(),
-                timeout_secs: None,
-            }],
-            prompts: vec!["Be careful".to_string()],
         }];
         let skills = wire_skills_to_skills(&wire);
         assert_eq!(skills.len(), 1);
         assert_eq!(skills[0].name, "deploy");
         assert_eq!(skills[0].version, "wire");
         assert!(skills[0].location.is_none());
-        assert_eq!(skills[0].tools.len(), 1);
-        assert_eq!(skills[0].tools[0].name, "check");
+        // Instruction-only: no client tools, and the instruction is the sole prompt.
+        assert!(skills[0].tools.is_empty());
+        assert_eq!(skills[0].prompts, vec!["Run tests first".to_string()]);
     }
 }
