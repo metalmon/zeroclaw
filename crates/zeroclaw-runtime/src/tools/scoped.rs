@@ -544,6 +544,22 @@ impl ScopedToolRegistry {
             runtime,
         );
 
+        // Replace the config-only ReadSkillTool (from all_tools_with_runtime) with
+        // one that carries the merged skills (config + wire). Wire-delivered skills
+        // have no file backing, so `read_skill` must search the merged list to find
+        // them and return their inline instruction text.
+        if matches!(
+            config.effective_skills_prompt_mode(agent_alias),
+            zeroclaw_config::schema::SkillsPromptInjectionMode::Compact
+        ) {
+            tools_registry.retain(|t| t.name() != "read_skill");
+            tools_registry.push(Box::new(crate::tools::ReadSkillTool::with_merged_skills(
+                Arc::new(config.clone()),
+                agent_alias.to_string(),
+                skills.to_vec(),
+            )));
+        }
+
         // Skills and deferred MCP helpers are registered after the built-in filter,
         // so the explicit denylist must subtract once more at the final boundary.
         if let Some(excluded) = security.excluded_tools.as_deref() {
