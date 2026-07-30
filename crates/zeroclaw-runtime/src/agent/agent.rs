@@ -2182,7 +2182,7 @@ impl Agent {
             None,
             None,
             None,
-            None,
+            &[],
         )
         .await
     }
@@ -2197,6 +2197,7 @@ impl Agent {
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         Self::from_config_with_session_cwd_and_mcp_backchannel_with_capability(
             config,
@@ -2209,6 +2210,7 @@ impl Agent {
             sop_audit,
             canvas_store,
             None,
+            wire_skills,
         )
         .await
     }
@@ -2224,6 +2226,7 @@ impl Agent {
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
         execution_capability: Option<AgentExecutionCapability>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
             config,
@@ -2242,6 +2245,7 @@ impl Agent {
             None,
             None,
             execution_capability,
+            wire_skills,
         )
         .await
     }
@@ -2257,6 +2261,7 @@ impl Agent {
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
         acp_session_store: Arc<zeroclaw_infra::acp_session_store::AcpSessionStore>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
             config,
@@ -2275,6 +2280,7 @@ impl Agent {
             None,
             None,
             None,
+            wire_skills,
         )
         .await
     }
@@ -2292,6 +2298,7 @@ impl Agent {
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         Self::from_live_config_with_session_cwd_and_mcp_backchannel_with_capability(
             live_config,
@@ -2304,6 +2311,7 @@ impl Agent {
             sop_audit,
             canvas_store,
             None,
+            wire_skills,
         )
         .await
     }
@@ -2319,6 +2327,7 @@ impl Agent {
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
         execution_capability: Option<AgentExecutionCapability>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         let config = live_config.read().clone();
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
@@ -2338,6 +2347,7 @@ impl Agent {
             None,
             None,
             execution_capability,
+            wire_skills,
         )
         .await
     }
@@ -2365,6 +2375,7 @@ impl Agent {
             sop_engine,
             sop_audit,
             canvas_store,
+            &[],
         )
         .await
     }
@@ -2393,6 +2404,7 @@ impl Agent {
             canvas_store,
             acp_session_store,
             None,
+            &[],
         )
         .await
     }
@@ -2410,6 +2422,7 @@ impl Agent {
         canvas_store: Option<tools::CanvasStore>,
         acp_session_store: Arc<zeroclaw_infra::acp_session_store::AcpSessionStore>,
         execution_capability: Option<AgentExecutionCapability>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         let config = live_config.read().clone();
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
@@ -2429,6 +2442,7 @@ impl Agent {
             None,
             None,
             execution_capability,
+            wire_skills,
         )
         .await
     }
@@ -2490,6 +2504,7 @@ impl Agent {
             None,
             None,
             execution_capability,
+            &[],
         )
         .await
     }
@@ -2632,6 +2647,7 @@ impl Agent {
                 Some(live_config),
                 principal_allowed_tools,
                 execution_capability,
+                &[],
             ));
             drop(construction_admission);
             result
@@ -2662,6 +2678,7 @@ impl Agent {
         // agent). Fed by the RPC dispatcher from the resolved grants.
         principal_allowed_tools: Option<Vec<String>>,
         execution_capability: Option<AgentExecutionCapability>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         let agent_cfg = config
             .agent(agent_alias)
@@ -2819,7 +2836,8 @@ impl Agent {
         // Skills are loaded here and handed to `assemble`, which owns skill
         // registration and resolves builtin/MCP elevation against the pre-filter
         // arcs internally. Bundle-aware via `[agents.<alias>].skill_bundles`.
-        let skills = crate::skills::load_skills_for_agent_from_config(config, agent_alias);
+        let mut skills = crate::skills::load_skills_for_agent_from_config(config, agent_alias);
+        skills.extend(crate::skills::wire_skills_to_skills(wire_skills));
         // Captured before `assemble` consumes the result: the concrete delegate
         // instance this registry built, so live-config regressions can drive its
         // nested-registry construction instead of re-deriving the wiring.
@@ -9501,6 +9519,7 @@ mod tests {
             None,
             None,
             Arc::clone(&store),
+            &[],
         )
         .await
         .expect("ACP agent construction");
@@ -9518,6 +9537,7 @@ mod tests {
             None,
             Arc::clone(&store),
             Some(authority.execution_capability()),
+            &[],
         )
         .await
         .expect("managed ACP agent construction");
