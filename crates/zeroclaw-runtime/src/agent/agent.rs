@@ -1580,7 +1580,10 @@ impl Agent {
         // registration and resolves builtin/MCP elevation against the pre-filter
         // arcs internally. Bundle-aware via `[agents.<alias>].skill_bundles`.
         let mut skills = crate::skills::load_skills_for_agent_from_config(config, agent_alias);
-        skills.extend(crate::skills::wire_skills_to_skills(wire_skills));
+        let wire = crate::skills::wire_skills_to_skills(wire_skills);
+        let wire_names: Vec<&str> = wire.iter().map(|s| s.name.as_str()).collect();
+        skills.retain(|s| !wire_names.contains(&s.name.as_str()));
+        skills.extend(wire);
         let assembled = crate::tools::scoped::ScopedToolRegistry::assemble(
             crate::tools::scoped::ScopedAssembly {
                 config,

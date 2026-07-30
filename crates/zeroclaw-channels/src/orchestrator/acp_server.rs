@@ -585,7 +585,11 @@ impl AcpServer {
                     "sse": false,
                 },
                 "sessionCapabilities": session_capabilities,
-                "skills": true,
+                "_meta": {
+                    "thunderbird.net/thunderbolt": {
+                        "skills": true,
+                    },
+                },
             },
             "agentInfo": {
                 "name": "zeroclaw-acp",
