@@ -1391,6 +1391,7 @@ impl Agent {
             None,
             None,
             None,
+            &[],
         )
         .await
     }
@@ -1405,6 +1406,7 @@ impl Agent {
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
             config,
@@ -1419,6 +1421,7 @@ impl Agent {
             sop_audit,
             canvas_store,
             None,
+            wire_skills,
         )
         .await
     }
@@ -1435,6 +1438,7 @@ impl Agent {
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         let config = live_config.read().clone();
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
@@ -1450,6 +1454,7 @@ impl Agent {
             sop_audit,
             canvas_store,
             Some(live_config),
+            wire_skills,
         )
         .await
     }
@@ -1482,6 +1487,7 @@ impl Agent {
             sop_audit,
             None,
             None,
+            &[],
         )
         .await
     }
@@ -1513,6 +1519,7 @@ impl Agent {
             sop_audit,
             None,
             Some(live_config),
+            &[],
         )
         .await
     }
@@ -1531,6 +1538,7 @@ impl Agent {
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
         live_config: Option<Arc<parking_lot::RwLock<Config>>>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         let agent_cfg = config
             .agent(agent_alias)
@@ -1676,7 +1684,8 @@ impl Agent {
         // Skills are loaded here and handed to `assemble`, which owns skill
         // registration and resolves builtin/MCP elevation against the pre-filter
         // arcs internally. Bundle-aware via `[agents.<alias>].skill_bundles`.
-        let skills = crate::skills::load_skills_for_agent_from_config(config, agent_alias);
+        let mut skills = crate::skills::load_skills_for_agent_from_config(config, agent_alias);
+        skills.extend(crate::skills::wire_skills_to_skills(wire_skills));
         // Captured before `assemble` consumes the result: the concrete delegate
         // instance this registry built, so live-config regressions can drive its
         // nested-registry construction instead of re-deriving the wiring.
