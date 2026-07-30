@@ -2220,7 +2220,7 @@ impl OpenAiCompatibleModelProvider {
         let mut last_assistant_tool_call_ids: Vec<String> = Vec::new();
         let mut tool_name_map = std::collections::HashMap::new();
 
-        messages
+        let native: Vec<NativeMessage> = messages
             .iter()
             .map(|message| {
                 if message.role == "assistant"
@@ -2388,7 +2388,106 @@ impl OpenAiCompatibleModelProvider {
                     name: None,
                 }
             })
-            .collect()
+            .collect();
+        Self::relocate_tool_result_images(native)
+    }
+
+    /// Move `image_url` parts out of `role:"tool"` messages into a following
+    /// synthetic `role:"user"` message. OpenAI-compatible endpoints only accept
+    /// image parts in user messages and reject them (HTTP 400 "Upstream request
+    /// failed" on opencode zen / mimo-v2.5) inside a tool result. Upstream
+    /// normalization already strips images from stale tool results, so any
+    /// image-bearing tool message sits at the tail (the current turn); the
+    /// relocated user message therefore lands last, right before the model
+    /// replies — exactly the shape a bare user-message image request uses.
+    ///
+    /// Images accumulated from a parallel tool-call batch are flushed only once
+    /// the run of tool messages ends, so a relocated user message never splits a
+    /// tool result from its siblings.
+    fn relocate_tool_result_images(messages: Vec<NativeMessage>) -> Vec<NativeMessage> {
+        // Fast path: only tool messages carrying structured parts can hold an
+        // image to relocate; leave the common all-text history untouched.
+        let needs_relocation = messages
+            .iter()
+            .any(|m| m.role == "tool" && matches!(m.content, Some(MessageContent::Parts(_))));
+        if !needs_relocation {
+            return messages;
+        }
+
+        let mut out = Vec::with_capacity(messages.len() + 1);
+        let mut pending_images: Vec<MessagePart> = Vec::new();
+        for mut message in messages {
+            let is_image_tool =
+                message.role == "tool" && matches!(message.content, Some(MessageContent::Parts(_)));
+            if is_image_tool {
+                if let Some(MessageContent::Parts(parts)) = message.content.take() {
+                    let mut texts: Vec<String> = Vec::new();
+                    for part in parts {
+                        match part {
+                            MessagePart::ImageUrl { .. } => pending_images.push(part),
+                            MessagePart::Text { text } => texts.push(text),
+                        }
+                    }
+                    let text = texts.join("\n");
+                    // Tool messages must keep non-empty content on strict
+                    // backends; fall back to a marker when the result was
+                    // image-only.
+                    message.content = Some(MessageContent::Text(if text.is_empty() {
+                        "[image]".to_string()
+                    } else {
+                        text
+                    }));
+                }
+                out.push(message);
+                continue;
+            }
+
+            // Flush images from the preceding tool run before any non-tool
+            // message. A text-only tool message keeps accumulation going so a
+            // parallel batch groups after the whole run. Merge into a following
+            // user turn rather than adding a second user message — strict chat
+            // templates reject two consecutive `role:"user"` messages.
+            if message.role != "tool" && !pending_images.is_empty() {
+                let images = std::mem::take(&mut pending_images);
+                if message.role == "user" {
+                    Self::merge_images_into_user(&mut message, images);
+                } else {
+                    out.push(Self::user_image_message(images));
+                }
+            }
+            out.push(message);
+        }
+        if !pending_images.is_empty() {
+            out.push(Self::user_image_message(pending_images));
+        }
+        out
+    }
+
+    /// Append relocated image parts to an existing user message, upgrading its
+    /// content to a parts array. Keeps the user's own text first, images after —
+    /// the ordering a bare user-message image request already uses.
+    fn merge_images_into_user(message: &mut NativeMessage, images: Vec<MessagePart>) {
+        let mut parts: Vec<MessagePart> = match message.content.take() {
+            Some(MessageContent::Parts(existing)) => existing,
+            Some(MessageContent::Text(text)) if !text.is_empty() => {
+                vec![MessagePart::Text { text }]
+            }
+            _ => Vec::new(),
+        };
+        parts.extend(images);
+        message.content = Some(MessageContent::Parts(parts));
+    }
+
+    fn user_image_message(images: Vec<MessagePart>) -> NativeMessage {
+        NativeMessage {
+            role: "user".to_string(),
+            content: Some(MessageContent::Parts(images)),
+            tool_call_id: None,
+            tool_calls: None,
+            reasoning_content: None,
+            reasoning: None,
+            name: None,
+        }
     }
 
     fn strip_native_tool_messages(&self, messages: &[ChatMessage]) -> Vec<ChatMessage> {
@@ -5017,39 +5116,136 @@ mod tests {
     }
 
     #[test]
-    fn convert_messages_for_native_promotes_tool_result_image_markers() {
+    fn convert_messages_for_native_does_not_inline_tool_image_as_text_blob() {
         // A tool result carrying an inline base64 image marker (e.g. a snapshot
-        // tool) must serialize as structured `image_url` parts, not one large
+        // tool) must serialize as a structured `image_url` part, never a large
         // text blob — vision backends count base64 bytes as text tokens and
-        // reject the request as over-context otherwise
+        // reject the request as over-context otherwise. The image is relocated
+        // to a user message (see the relocation test); the tool message keeps
+        // only its real text with no base64 payload.
         let input = vec![ChatMessage::tool(
             r#"{"tool_call_id":"call_img","content":"snapshot captured\n\n[IMAGE:data:image/jpeg;base64,/9j/4AAQ]"}"#,
         )];
 
         let provider = make_model_provider("test", "https://example.com", None);
         let converted = provider.convert_messages_for_native(&input, true);
-        assert_eq!(converted.len(), 1);
+
+        let tool_text = match converted[0].content.as_ref() {
+            Some(MessageContent::Text(text)) => text.clone(),
+            other => panic!("tool message should be text-only, got {other:?}"),
+        };
+        assert_eq!(tool_text, "snapshot captured");
+        assert!(
+            !tool_text.contains("base64"),
+            "tool message must not inline the base64 image blob: {tool_text}"
+        );
+    }
+
+    #[test]
+    fn convert_messages_for_native_relocates_tool_result_image_to_user_message() {
+        // OpenAI-compatible endpoints reject `image_url` parts inside a
+        // `role:"tool"` message — only `role:"user"` may carry images (verified
+        // against opencode zen / mimo-v2.5: identical image 200s in a user
+        // message, 400s in a tool message). An MCP tool result that returns an
+        // image must therefore keep its text in the tool message and carry the
+        // image in a following synthetic user message.
+        let input = vec![ChatMessage::tool(
+            r#"{"tool_call_id":"call_img","content":"snapshot captured\n\n[IMAGE:data:image/jpeg;base64,/9j/4AAQ]"}"#,
+        )];
+
+        let provider = make_model_provider("test", "https://example.com", None);
+        let converted = provider.convert_messages_for_native(&input, true);
+
+        assert_eq!(
+            converted.len(),
+            2,
+            "tool-result image must be split into a second message"
+        );
+
+        // Tool message keeps only text — no image part, no base64 blob.
         assert_eq!(converted[0].role, "tool");
         assert_eq!(converted[0].tool_call_id.as_deref(), Some("call_img"));
+        assert!(
+            matches!(
+                converted[0].content.as_ref(),
+                Some(MessageContent::Text(value)) if value == "snapshot captured"
+            ),
+            "tool message must keep only text, got {:?}",
+            converted[0].content
+        );
 
-        let value = serde_json::to_value(
-            converted[0]
-                .content
-                .as_ref()
-                .expect("tool message should carry content"),
-        )
-        .unwrap();
+        // Relocated user message carries the image_url part.
+        assert_eq!(converted[1].role, "user");
+        assert!(converted[1].tool_call_id.is_none());
+        let value =
+            serde_json::to_value(converted[1].content.as_ref().expect("user message content"))
+                .unwrap();
         let parts = value
             .as_array()
-            .expect("tool image content should serialize as a parts array");
-        assert_eq!(parts.len(), 2);
-        assert_eq!(parts[0]["type"], "text");
-        assert_eq!(parts[0]["text"], "snapshot captured");
-        assert_eq!(parts[1]["type"], "image_url");
+            .expect("relocated image content should serialize as a parts array");
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0]["type"], "image_url");
         assert_eq!(
-            parts[1]["image_url"]["url"],
+            parts[0]["image_url"]["url"],
             "data:image/jpeg;base64,/9j/4AAQ"
         );
+    }
+
+    #[test]
+    fn convert_messages_for_native_merges_tool_image_into_following_user_message() {
+        // Relocating a tool-result image must never create two consecutive
+        // `role:"user"` messages (strict chat templates reject non-alternating
+        // roles). When a real user message immediately follows the tool result,
+        // the image merges into it rather than becoming a separate user message.
+        let input = vec![
+            ChatMessage::tool(
+                r#"{"tool_call_id":"call_img","content":"snapshot\n\n[IMAGE:data:image/jpeg;base64,/9j/4AAQ]"}"#,
+            ),
+            ChatMessage::user("and now describe it"),
+        ];
+
+        let provider = make_model_provider("test", "https://example.com", None);
+        let converted = provider.convert_messages_for_native(&input, true);
+
+        assert_eq!(
+            converted.len(),
+            2,
+            "image must merge into the following user message, not add a third"
+        );
+        assert_eq!(converted[0].role, "tool");
+        assert!(matches!(
+            converted[0].content.as_ref(),
+            Some(MessageContent::Text(t)) if t == "snapshot"
+        ));
+
+        // Single user message carrying both its own text and the tool image.
+        assert_eq!(converted[1].role, "user");
+        let value =
+            serde_json::to_value(converted[1].content.as_ref().expect("user content")).unwrap();
+        let parts = value
+            .as_array()
+            .expect("merged user content should be parts");
+        let has_user_text = parts
+            .iter()
+            .any(|p| p["type"] == "text" && p["text"] == "and now describe it");
+        let image_parts: Vec<_> = parts.iter().filter(|p| p["type"] == "image_url").collect();
+        assert!(
+            has_user_text,
+            "user's own text must be preserved: {parts:?}"
+        );
+        assert_eq!(image_parts.len(), 1);
+        assert_eq!(
+            image_parts[0]["image_url"]["url"],
+            "data:image/jpeg;base64,/9j/4AAQ"
+        );
+
+        // No two consecutive user messages anywhere.
+        for pair in converted.windows(2) {
+            assert!(
+                !(pair[0].role == "user" && pair[1].role == "user"),
+                "must not emit consecutive user messages"
+            );
+        }
     }
 
     #[test]
