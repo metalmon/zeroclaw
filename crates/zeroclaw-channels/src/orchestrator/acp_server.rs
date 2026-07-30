@@ -344,6 +344,7 @@ impl AcpServer {
         agent_alias: &str,
         workspace_dir: &std::path::Path,
         enable_mcp: bool,
+        wire_skills: &[WireSkill],
     ) -> Result<Agent> {
         let Some(store) = self.store.as_ref() else {
             return if let ConfigSource::Live(live_config) = &self.config_source {
@@ -361,6 +362,7 @@ impl AcpServer {
                         Arc::clone(live_config),
                         self.agent_lifecycle.clone(),
                     )),
+                    wire_skills,
                 )
                 .await
             } else {
@@ -374,6 +376,7 @@ impl AcpServer {
                     self.sop_engine.clone(),
                     self.sop_audit.clone(),
                     self.canvas_store.clone(),
+                    wire_skills,
                 )
                 .await
             };
@@ -396,6 +399,7 @@ impl AcpServer {
                 self.canvas_store.clone(),
                 Arc::clone(store),
                 Some(execution_capability),
+                wire_skills,
             )
             .await
         } else {
@@ -411,6 +415,7 @@ impl AcpServer {
                 self.sop_audit.clone(),
                 self.canvas_store.clone(),
                 Arc::clone(store),
+                wire_skills,
             )
             .await
         }
@@ -753,6 +758,7 @@ impl AcpServer {
                     "sse": false,
                 },
                 "sessionCapabilities": session_capabilities,
+                "skills": true,
             },
             "agentInfo": {
                 "name": "zeroclaw-acp",
@@ -984,12 +990,14 @@ impl AcpServer {
         // by default to keep `session/new` prompt; on to load this agent's
         // `mcp_bundles` tools. Runs without the sessions lock held (see above).
         let enable_mcp = config.agent(&agent_alias).is_some_and(|a| a.acp_enable_mcp);
+        let wire_skills = extract_wire_skills_from_meta(params.get("_meta"));
         let mut agent = match self
             .build_agent(
                 &config,
                 &agent_alias,
                 std::path::Path::new(&workspace_dir),
                 enable_mcp,
+                &wire_skills,
             )
             .await
         {
@@ -1278,8 +1286,15 @@ impl AcpServer {
         let enable_mcp = config
             .agent(&restore_alias)
             .is_some_and(|a| a.acp_enable_mcp);
+        let wire_skills = extract_wire_skills_from_meta(params.get("_meta"));
         let agent_result = self
-            .build_agent(&config, &restore_alias, &workspace_dir, enable_mcp)
+            .build_agent(
+                &config,
+                &restore_alias,
+                &workspace_dir,
+                enable_mcp,
+                &wire_skills,
+            )
             .await
             .map_err(|e| RpcError {
                 code: INTERNAL_ERROR,
@@ -1612,8 +1627,15 @@ impl AcpServer {
         let enable_mcp = config
             .agent(&restore_alias)
             .is_some_and(|a| a.acp_enable_mcp);
+        let wire_skills = extract_wire_skills_from_meta(params.get("_meta"));
         let agent_result = self
-            .build_agent(&config, &restore_alias, &workspace_dir, enable_mcp)
+            .build_agent(
+                &config,
+                &restore_alias,
+                &workspace_dir,
+                enable_mcp,
+                &wire_skills,
+            )
             .await
             .map_err(|e| RpcError {
                 code: INTERNAL_ERROR,
