@@ -335,6 +335,14 @@ pub struct WireSkillTool {
     pub kind: String,
     #[serde(default)]
     pub command: String,
+    #[serde(default)]
+    pub args: HashMap<String, String>,
+    #[serde(default)]
+    pub target: Option<String>,
+    #[serde(default, alias = "default_args")]
+    pub locked_args: HashMap<String, String>,
+    #[serde(default)]
+    pub timeout_secs: Option<u64>,
 }
 
 /// Convert wire-delivered skills to ZeroClaw Skill structs.
@@ -356,13 +364,17 @@ pub fn wire_skills_to_skills(wire: &[WireSkill]) -> Vec<Skill> {
                     description: wt.description.clone(),
                     kind: wt.kind.clone(),
                     command: wt.command.clone(),
-                    args: HashMap::new(),
-                    target: None,
-                    locked_args: HashMap::new(),
-                    timeout_secs: None,
+                    args: wt.args.clone(),
+                    target: wt.target.clone(),
+                    locked_args: wt.locked_args.clone(),
+                    timeout_secs: wt.timeout_secs,
                 })
                 .collect(),
-            prompts: ws.prompts.clone(),
+            prompts: {
+                let mut p = vec![ws.instruction.clone()];
+                p.extend(ws.prompts.clone());
+                p
+            },
             slash_options: Vec::new(),
             location: None,
         })
@@ -5310,6 +5322,10 @@ mod wire_skill_tests {
                 description: "Check status".to_string(),
                 kind: "shell".to_string(),
                 command: "echo ok".to_string(),
+                args: HashMap::new(),
+                target: None,
+                locked_args: HashMap::new(),
+                timeout_secs: None,
             }],
             prompts: vec!["Be careful".to_string()],
         }];
