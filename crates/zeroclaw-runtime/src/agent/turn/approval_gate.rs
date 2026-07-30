@@ -53,7 +53,7 @@ pub(crate) async fn gate_tool_approval(
                 // can overtake it. A flush barrier waits until the updater
                 // consumed (and flushed) the turn's narration, so the user
                 // sees the pre-tool message before the approval prompt.
-                if ch.supports_multi_message_streaming()
+                if ch.supports_turn_flush_narration()
                     && let Some(tx) = ctx.on_delta
                 {
                     let (barrier, ack) = StreamDelta::flush_barrier();

@@ -5433,7 +5433,7 @@ async fn process_channel_message_body(
             let channel = Arc::clone(channel_ref);
             let reply_target = msg.reply_target.clone();
             let draft_id = draft_id_ref.to_string();
-            let multi_message_flush = channel.supports_multi_message_streaming();
+            let turn_flush_narration = channel.supports_turn_flush_narration();
             // Each permanent narration flush must cross the same outbound hook +
             // leak-detection boundary as the final reply; capture the pieces the
             // policy needs since `ctx`/`msg` are not moved into this task.
@@ -5443,11 +5443,10 @@ async fn process_channel_message_body(
             Some(zeroclaw_spawn::spawn!(async move {
                 use zeroclaw_runtime::agent::loop_::StreamDelta;
                 let mut accumulated = String::new();
-                // Once the outbound hook cancels a narration flush, that decision
-                // is durable for the rest of this stream: a later flush (a
-                // subsequent Status or the FlushBarrier) must never re-offer and
-                // resurrect the cancelled narration. See the `None` arms below.
-                let mut narration_cancelled = false;
+                // Hook cancellation is scoped to the narration turn it cancelled:
+                // the `None` arms `discard_draft_turn` that turn so it is never
+                // re-offered or resurrected, while a later turn's narration still
+                // flushes independently through outbound policy.
                 while let Some(event) = rx.recv().await {
                     match event {
                         StreamDelta::Lifecycle(event) => {
@@ -5467,15 +5466,18 @@ async fn process_channel_message_body(
                             }
                         }
                         StreamDelta::Status(text) => {
-                            if multi_message_flush && !narration_cancelled {
-                                let visible = strip_think_tags_inline(&accumulated);
+                            let visible = strip_think_tags_inline(&accumulated);
+                            // Only run outbound policy on real narration: an empty
+                            // pre-narration flush would otherwise consume the hook's
+                            // cancellation, letting the actual narration through.
+                            if turn_flush_narration && !visible.trim().is_empty() {
                                 // `None` => a hook cancelled this narration turn.
                                 match apply_multi_message_narration_policy(
                                     outbound_hooks.as_deref(),
                                     &outbound_leak_detection,
                                     &outbound_channel,
                                     &reply_target,
-                                    visible,
+                                    visible.clone(),
                                 )
                                 .await
                                 {
@@ -5497,10 +5499,27 @@ async fn process_channel_message_body(
                                             );
                                         }
                                     }
-                                    // Latch cancellation: a stateful hook that cancels
-                                    // this flush and allows a later one must never
-                                    // resurrect the narration it cancelled.
-                                    None => narration_cancelled = true,
+                                    // Consume only the cancelled turn: mark it
+                                    // delivered without sending so it is never
+                                    // resurrected, while later turns still flush.
+                                    None => {
+                                        if let Err(e) = channel
+                                            .discard_draft_turn(&reply_target, &draft_id, &visible)
+                                            .await
+                                        {
+                                            ::zeroclaw_log::record!(
+                                                DEBUG,
+                                                ::zeroclaw_log::Event::new(
+                                                    module_path!(),
+                                                    ::zeroclaw_log::Action::Note
+                                                )
+                                                .with_attrs(
+                                                    ::serde_json::json!({"error": format!("{}", e)})
+                                                ),
+                                                "Draft turn discard failed"
+                                            );
+                                        }
+                                    }
                                 }
                             }
                             let visible = strip_think_tags_inline(&text);
@@ -5542,15 +5561,18 @@ async fn process_channel_message_body(
                             // consumed above; flush the turn narration, then
                             // release the agent loop (approval gate) waiting
                             // on the ack.
-                            if multi_message_flush && !narration_cancelled {
-                                let visible = strip_think_tags_inline(&accumulated);
+                            let visible = strip_think_tags_inline(&accumulated);
+                            // Only run outbound policy on real narration: an empty
+                            // pre-narration flush would otherwise consume the hook's
+                            // cancellation, letting the actual narration through.
+                            if turn_flush_narration && !visible.trim().is_empty() {
                                 // `None` => a hook cancelled this narration turn.
                                 match apply_multi_message_narration_policy(
                                     outbound_hooks.as_deref(),
                                     &outbound_leak_detection,
                                     &outbound_channel,
                                     &reply_target,
-                                    visible,
+                                    visible.clone(),
                                 )
                                 .await
                                 {
@@ -5572,10 +5594,27 @@ async fn process_channel_message_body(
                                             );
                                         }
                                     }
-                                    // Latch cancellation: a stateful hook that cancels
-                                    // this flush and allows a later one must never
-                                    // resurrect the narration it cancelled.
-                                    None => narration_cancelled = true,
+                                    // Consume only the cancelled turn: mark it
+                                    // delivered without sending so it is never
+                                    // resurrected, while later turns still flush.
+                                    None => {
+                                        if let Err(e) = channel
+                                            .discard_draft_turn(&reply_target, &draft_id, &visible)
+                                            .await
+                                        {
+                                            ::zeroclaw_log::record!(
+                                                DEBUG,
+                                                ::zeroclaw_log::Event::new(
+                                                    module_path!(),
+                                                    ::zeroclaw_log::Action::Note
+                                                )
+                                                .with_attrs(
+                                                    ::serde_json::json!({"error": format!("{}", e)})
+                                                ),
+                                                "Draft barrier discard failed"
+                                            );
+                                        }
+                                    }
                                 }
                             }
                             StreamDelta::ack_flush_barrier(&ack);
@@ -6347,29 +6386,6 @@ async fn process_channel_message_body(
                             .await
                         {
                             Ok(()) => true,
-                            Err(e)
-                                if e.downcast_ref::<zeroclaw_api::channel::RetainedNarration>()
-                                    .is_some() =>
-                            {
-                                // The channel deliberately held unsent intermediate
-                                // narration for a later retry and did NOT send the
-                                // final answer. Running the generic fallback here
-                                // would push the final answer ahead of the retained
-                                // middle — the exact ordering the retention prevents.
-                                // Report not-delivered (the message_sent hook must not
-                                // fire) and let the held draft resume on retry.
-                                ::zeroclaw_log::record!(
-                                    WARN,
-                                    ::zeroclaw_log::Event::new(
-                                        module_path!(),
-                                        ::zeroclaw_log::Action::Note
-                                    )
-                                    .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
-                                    .with_attrs(::serde_json::json!({"error": format!("{}", e)})),
-                                    "finalize retained pending narration; suppressing final-answer fallback to preserve ordering"
-                                );
-                                false
-                            }
                             Err(e) => {
                                 ::zeroclaw_log::record!(
                                     WARN,
@@ -14293,7 +14309,6 @@ api_key = "anthropic-key"
     struct DraftRecordingChannel {
         finalize_should_fail: bool,
         fallback_send_should_fail: bool,
-        finalize_retains_narration: bool,
         sent_messages: tokio::sync::Mutex<Vec<String>>,
         draft_messages: tokio::sync::Mutex<Vec<String>>,
         progress_messages: tokio::sync::Mutex<Vec<String>>,
@@ -14307,23 +14322,12 @@ api_key = "anthropic-key"
             Self {
                 finalize_should_fail,
                 fallback_send_should_fail,
-                finalize_retains_narration: false,
                 sent_messages: tokio::sync::Mutex::new(Vec::new()),
                 draft_messages: tokio::sync::Mutex::new(Vec::new()),
                 progress_messages: tokio::sync::Mutex::new(Vec::new()),
                 lifecycle_events: tokio::sync::Mutex::new(Vec::new()),
                 finalized_messages: tokio::sync::Mutex::new(Vec::new()),
                 cancelled_drafts: tokio::sync::Mutex::new(Vec::new()),
-            }
-        }
-
-        /// A draft whose `finalize_draft` reports [`RetainedNarration`] — it held
-        /// unsent intermediate content back for a later retry. The orchestrator
-        /// must NOT run its generic send fallback for this error.
-        fn new_retaining() -> Self {
-            Self {
-                finalize_retains_narration: true,
-                ..Self::new(false, false)
             }
         }
     }
@@ -14620,12 +14624,6 @@ api_key = "anthropic-key"
             text: &str,
             _suppress_voice: bool,
         ) -> anyhow::Result<()> {
-            if self.finalize_retains_narration {
-                return Err(zeroclaw_api::channel::RetainedNarration {
-                    source: anyhow::Error::msg("pending narration resend failed"),
-                }
-                .into());
-            }
             if self.finalize_should_fail {
                 anyhow::bail!("finalize boom")
             }
@@ -15498,54 +15496,6 @@ api_key = "anthropic-key"
         );
         assert!(channel_impl.finalized_messages.lock().await.is_empty());
         assert!(channel_impl.sent_messages.lock().await.is_empty());
-        assert!(hook_events.lock().await.is_empty());
-    }
-
-    /// Regression (multi_message review, Blocker B): when `finalize_draft` reports
-    /// [`RetainedNarration`] — the channel deliberately held unsent intermediate
-    /// narration back for a later retry — the orchestrator must NOT run its generic
-    /// send fallback. Running it would push the final answer ahead of the retained
-    /// middle narration, the exact ordering the retention prevents. This drives the
-    /// real caller path (`process_channel_message`), not `finalize_draft` alone,
-    /// which is where the earlier channel-level fix was being overridden.
-    #[tokio::test]
-    async fn process_channel_message_suppresses_fallback_when_finalize_retains_narration() {
-        let channel_impl = Arc::new(DraftRecordingChannel::new_retaining());
-        let channel: Arc<dyn Channel> = channel_impl.clone();
-        let (hook_events, hook_runner) = recording_message_sent_runner();
-
-        let runtime_ctx = test_runtime_ctx_with_config_agent_and_provider_ref(
-            channel,
-            Arc::new(DummyModelProvider),
-            zeroclaw_config::schema::Config::default(),
-            zeroclaw_config::schema::AliasedAgentConfig::default(),
-            "test-provider",
-            Some(hook_runner),
-        );
-
-        process_channel_message(
-            runtime_ctx,
-            message_sent_hook_test_message(),
-            CancellationToken::new(),
-        )
-        .await;
-
-        // The draft was created and finalize was attempted (it retained, so it
-        // recorded nothing).
-        assert_eq!(
-            channel_impl.draft_messages.lock().await.as_slice(),
-            ["chat-42:..."]
-        );
-        assert!(channel_impl.finalized_messages.lock().await.is_empty());
-        // The generic fallback must NOT have sent the final answer — that is the
-        // ordering violation the retention exists to prevent.
-        let sent = channel_impl.sent_messages.lock().await.clone();
-        assert!(
-            sent.is_empty(),
-            "final answer must not be sent as a fallback while narration is retained; sent: {sent:?}"
-        );
-        // Delivery was not reported (reply_delivered = false), so the message_sent
-        // hook must not fire.
         assert!(hook_events.lock().await.is_empty());
     }
 
@@ -17940,14 +17890,17 @@ BTC is currently around $65,000 based on latest tool output."#
         );
     }
 
-    /// Regression (multi_message review, Blocker A): a stateful `on_message_sending`
-    /// hook that cancels the first narration flush (the `Status` flush) and allows a
-    /// later one (the `FlushBarrier`) must never let the cancelled narration reach
-    /// Telegram. Before the durable-cancellation latch, the barrier re-offered the
-    /// same accumulated narration and the now-allowing hook let it through.
+    /// Regression (multi_message review, Blockers A + B1): a stateful
+    /// `on_message_sending` hook that cancels a narration flush must never let that
+    /// same cancelled narration reach Telegram via a later flush of the same buffer.
+    /// Cancellation is turn-scoped — the channel `discard_draft_turn`s the cancelled
+    /// text so a later flush of the unchanged buffer finds no unsent suffix — rather
+    /// than a stream-wide latch that would also gag a genuinely later turn (B1). The
+    /// later-turn liveness direction is covered at the channel layer by
+    /// `discard_draft_turn_consumes_cancelled_turn_but_later_turn_still_flushes`.
     #[cfg(feature = "channel-telegram")]
     #[tokio::test]
-    async fn multi_message_narration_cancellation_is_durable_across_flushes() {
+    async fn multi_message_cancelled_narration_is_not_resurrected_by_a_later_flush() {
         use wiremock::matchers::method;
         use wiremock::{Mock, MockServer, ResponseTemplate};
 

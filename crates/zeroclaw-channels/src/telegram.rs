@@ -6,7 +6,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
-use zeroclaw_api::channel::{Channel, ChannelMessage, RetainedNarration, SendMessage};
+use zeroclaw_api::channel::{Channel, ChannelMessage, SendMessage};
 use zeroclaw_config::schema::{
     Config, DEFAULT_MULTI_MESSAGE_DELAY_MS, StreamMode, TELEGRAM_OFFICIAL_API_BASE_URL,
 };
@@ -88,6 +88,15 @@ impl MultiDraftState {
         }
     }
 }
+
+/// Bounded resend attempts for the pending intermediate narration suffix during
+/// `finalize_multi_message_draft`. Finalize is the terminal lifecycle event —
+/// there is no later production caller to resume a retained draft — so the retry
+/// must happen here. A transient Telegram failure resolves within these attempts
+/// (in-order delivery preserved); a permanent failure drops the narration with a
+/// WARN and still delivers the final answer, rather than stranding unreachable
+/// draft state.
+const MULTI_MESSAGE_FINALIZE_RETRIES: u32 = 3;
 
 /// Strip think blocks and orphan tag fragments before multi-message delivery.
 fn sanitize_multi_message_visible_text(text: &str) -> String {
@@ -1008,16 +1017,15 @@ impl TelegramChannel {
         let text = strip_tool_call_tags(text);
         let (chat_id, parsed_thread) = Self::parse_reply_target(recipient);
 
-        // Skipped when suppress_voice forces text-only delivery (send_via
-        // modality="text"), matching the non-multi-message finalize path.
-        if !suppress_voice {
-            self.try_queue_voice_reply(recipient, &text, true, false);
-        }
-
         let key = Self::multi_draft_key(recipient, message_id);
         let flush_lock = {
             let drafts = self.multi_message_drafts.lock();
             let Some(draft) = drafts.get(&key) else {
+                // No draft to finalize: deliver voice for the final text only,
+                // matching the non-multi-message finalize path.
+                if !suppress_voice {
+                    self.try_queue_voice_reply(recipient, &text, true, false);
+                }
                 return Ok(());
             };
             draft.flush_lock.clone()
@@ -1025,9 +1033,12 @@ impl TelegramChannel {
         // Wait out any in-flight turn flush so the final send cannot interleave
         // with an intermediate one for the same draft.
         let _flush_guard = flush_lock.lock().await;
-        let (thread_id, mut last_sent_at, pending, restore) = {
+        let (thread_id, mut last_sent_at, pending) = {
             let mut drafts = self.multi_message_drafts.lock();
             let Some(draft) = drafts.remove(&key) else {
+                if !suppress_voice {
+                    self.try_queue_voice_reply(recipient, &text, true, false);
+                }
                 return Ok(());
             };
             // Any intermediate narration a partial flush left undelivered must be
@@ -1045,28 +1056,31 @@ impl TelegramChannel {
                         draft.delivered_prefix.clone(),
                     )
                 });
-            // Snapshot the accepted-prefix bookkeeping so a failed pending resend
-            // can restore the draft removed above instead of losing it.
-            let restore = (draft.latest_visible.clone(), draft.sent_text.clone());
             (
                 draft.thread_id.clone().or(parsed_thread),
                 draft.last_sent_at,
                 pending,
-                restore,
             )
         };
         self.last_draft_edit.lock().remove(&chat_id);
 
         // Deliver the pending intermediate suffix before the final turn, resuming
         // past already-accepted physical chunks (validated prefix, same guard as
-        // `flush_unsent`) so nothing is duplicated, and record the successful send
-        // so the final turn still paces off it.
+        // `flush_unsent`) so nothing is duplicated. Finalize is the terminal
+        // lifecycle event: the draft was removed above and there is no later
+        // production caller to resume it, so the retry happens in-line here. A
+        // transient failure resolves within `MULTI_MESSAGE_FINALIZE_RETRIES`
+        // (in-order delivery preserved); a permanent failure drops the narration
+        // with a WARN and still delivers the final answer below, rather than
+        // re-inserting unreachable orphaned draft state.
         if let Some((unsent, delivered_chunks, delivered_prefix)) = pending {
             let cleaned = strip_tool_call_tags(unsent.trim());
             let cleaned = cleaned.trim();
             if !cleaned.is_empty() {
                 let chunks = split_message_for_telegram(cleaned);
-                let skip = if delivered_chunks > 0
+                // Absolute count of physical chunks Telegram already accepted;
+                // advanced across retries so an accepted chunk is never re-sent.
+                let mut skip = if delivered_chunks > 0
                     && chunks.len() >= delivered_chunks
                     && chunks[..delivered_chunks].concat() == delivered_prefix
                 {
@@ -1074,43 +1088,44 @@ impl TelegramChannel {
                 } else {
                     0
                 };
-                self.pace_multi_message_send(last_sent_at).await;
-                match self
-                    .send_text_chunks(cleaned, &chat_id, thread_id.as_deref(), skip)
-                    .await
-                {
-                    Ok(_) => {
-                        last_sent_at = Some(std::time::Instant::now());
-                    }
-                    Err(e) => {
-                        // The draft removed above was the only record of the accepted
-                        // prefix and the still-unsent suffix. Reducing this resend to a
-                        // bool and continuing would drop the middle of the narration
-                        // while the final turn below reports success. Restore the draft
-                        // (advancing the accepted physical prefix exactly as
-                        // `flush_unsent` does) so a later retry resumes, and propagate
-                        // the failure so the final turn never overtakes the lost
-                        // narration.
-                        let (restore_visible, restore_sent) = restore;
-                        let mut st = MultiDraftState::new(thread_id.clone());
-                        st.latest_visible = restore_visible;
-                        st.sent_text = restore_sent;
-                        st.delivered_chunks = e.delivered;
-                        st.delivered_prefix = chunks
-                            .iter()
-                            .take(e.delivered)
-                            .cloned()
-                            .collect::<Vec<_>>()
-                            .concat();
-                        if e.delivered > 0 {
-                            st.last_sent_at = Some(std::time::Instant::now());
+                let mut attempt = 0u32;
+                loop {
+                    self.pace_multi_message_send(last_sent_at).await;
+                    match self
+                        .send_text_chunks(cleaned, &chat_id, thread_id.as_deref(), skip)
+                        .await
+                    {
+                        Ok(_) => {
+                            last_sent_at = Some(std::time::Instant::now());
+                            break;
                         }
-                        self.multi_message_drafts.lock().insert(key.clone(), st);
-                        // Tag this as retained (not an ordinary finalize failure) so
-                        // the orchestrator suppresses its generic send-the-final
-                        // fallback, which would otherwise overtake the narration we
-                        // just held back for retry.
-                        return Err(RetainedNarration { source: e.source }.into());
+                        Err(e) => {
+                            // Resume past chunks this attempt physically delivered
+                            // so a retry never duplicates them.
+                            if e.delivered > skip {
+                                skip = e.delivered;
+                                last_sent_at = Some(std::time::Instant::now());
+                            }
+                            attempt += 1;
+                            if attempt >= MULTI_MESSAGE_FINALIZE_RETRIES {
+                                ::zeroclaw_log::record!(
+                                    WARN,
+                                    ::zeroclaw_log::Event::new(
+                                        module_path!(),
+                                        ::zeroclaw_log::Action::Note
+                                    )
+                                    .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
+                                    .with_attrs(
+                                        ::serde_json::json!({
+                                            "error": format!("{}", e.source),
+                                            "chunks_delivered": skip,
+                                        })
+                                    ),
+                                    "Telegram multi-message pending narration undeliverable after retries; dropping it and delivering the final answer"
+                                );
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -1132,6 +1147,14 @@ impl TelegramChannel {
         for attachment in &attachments {
             self.send_attachment(&chat_id, thread_id.as_deref(), attachment)
                 .await?;
+        }
+
+        // Queue the voice reply only after the pending narration and the final
+        // text have been delivered, so a resend failure or a failed final send is
+        // never overtaken by an immediate TTS reply (send_via modality="text"
+        // still suppresses it entirely). (B3)
+        if !suppress_voice {
+            self.try_queue_voice_reply(recipient, &text, true, false);
         }
 
         Ok(())
@@ -3690,6 +3713,15 @@ impl Channel for TelegramChannel {
         self.stream_mode == StreamMode::MultiMessage
     }
 
+    fn supports_turn_flush_narration(&self) -> bool {
+        // Telegram is the only channel that implements `flush_draft_turn` /
+        // `discard_draft_turn`; scope the orchestrator's narration-policy +
+        // flush-barrier path to it so channels that stream paragraphs another
+        // way (e.g. Matrix `update_draft`) do not run outbound hooks on phantom
+        // flushes that deliver nothing.
+        self.stream_mode == StreamMode::MultiMessage
+    }
+
     fn multi_message_delay_ms(&self) -> u64 {
         self.resolve_multi_message_delay_ms()
     }
@@ -3864,6 +3896,34 @@ impl Channel for TelegramChannel {
             }
         }
         self.flush_unsent(recipient, message_id).await
+    }
+
+    async fn discard_draft_turn(
+        &self,
+        recipient: &str,
+        message_id: &str,
+        text: &str,
+    ) -> anyhow::Result<()> {
+        if self.stream_mode != StreamMode::MultiMessage
+            || !Self::is_multi_message_synthetic_draft(message_id)
+        {
+            return Ok(());
+        }
+        // A hook cancelled this narration turn. Mark it consumed by advancing the
+        // delivered prefix to cover it (same sanitized string space as
+        // `flush_draft_turn`) without sending anything. A later turn appends more
+        // text; its flush then sends only the suffix after this point, so the
+        // cancelled narration is never resurrected while later turns still flow.
+        let visible = sanitize_multi_message_visible_text(text);
+        let key = Self::multi_draft_key(recipient, message_id);
+        let mut drafts = self.multi_message_drafts.lock();
+        if let Some(draft) = drafts.get_mut(&key) {
+            draft.latest_visible = visible.clone();
+            draft.sent_text = visible;
+            draft.delivered_chunks = 0;
+            draft.delivered_prefix = String::new();
+        }
+        Ok(())
     }
 
     async fn update_draft_progress(
@@ -6091,26 +6151,28 @@ mod tests {
         );
     }
 
-    /// Regression (multi_message finalize review): if the pending narration resend
-    /// fails during finalize, the per-draft state is the only record of the
-    /// accepted prefix and the still-unsent suffix. It must be preserved and the
-    /// failure propagated — never silently dropped while the final turn reports
-    /// success and overtakes the lost narration.
+    /// Regression (multi_message review, Blocker B2 — terminal policy): finalize is
+    /// the terminal lifecycle event; there is no later production caller to resume a
+    /// retained draft. When the pending narration suffix is permanently
+    /// undeliverable, finalize must retry it `MULTI_MESSAGE_FINALIZE_RETRIES` times
+    /// (never re-sending an already-accepted chunk), then DROP the draft — no
+    /// orphaned, unreachable state — and still deliver the final answer so the user
+    /// is not left with nothing. The dropped narration is WARN-logged, not silently
+    /// swallowed.
     #[tokio::test]
-    async fn finalize_preserves_pending_narration_when_its_send_fails() {
+    async fn finalize_drops_undeliverable_narration_then_delivers_final_and_cleans_state() {
         use wiremock::matchers::{body_json, body_string_contains, method, path_regex};
         use wiremock::{Mock, MockServer, ResponseTemplate};
 
         let mock_server = MockServer::start().await;
-        // The pending intermediate suffix (the 'B' chunk) fails permanently...
+        // The pending intermediate suffix (the 'B' chunk) fails permanently.
         Mock::given(method("POST"))
             .and(path_regex(r"/bot[^/]+/sendMessage$"))
             .and(body_string_contains("B".repeat(200)))
             .respond_with(ResponseTemplate::new(500))
             .mount(&mock_server)
             .await;
-        // ...while the final turn WOULD succeed if it were (wrongly) attempted,
-        // so a false-success finalize is observable as a delivered final answer.
+        // The final turn succeeds — the user still receives the answer.
         Mock::given(method("POST"))
             .and(path_regex(r"/bot[^/]+/sendMessage$"))
             .and(body_json(serde_json::json!({
@@ -6132,7 +6194,7 @@ mod tests {
         let key = TelegramChannel::multi_draft_key(recipient, &draft_id);
 
         // chunk 0 ('A') was accepted by a prior partial flush; the 'B' suffix is
-        // still unsent, exactly the recovery point finalize must not lose.
+        // still unsent — the resume point that must never be re-sent as a duplicate.
         let narration = format!(
             "{}{}",
             "A".repeat(TELEGRAM_MAX_MESSAGE_LENGTH),
@@ -6155,12 +6217,12 @@ mod tests {
             .await;
 
         assert!(
-            result.is_err(),
-            "finalize must propagate the pending-suffix send failure instead of reporting success"
+            result.is_ok(),
+            "finalize delivers the final answer after giving up on the undeliverable narration"
         );
         assert!(
-            ch.multi_message_drafts.lock().contains_key(&key),
-            "pending narration state must be preserved for a later retry, not destroyed"
+            !ch.multi_message_drafts.lock().contains_key(&key),
+            "the undeliverable draft must be dropped, never left as orphaned unreachable state"
         );
         let bodies: Vec<String> = mock_server
             .received_requests()
@@ -6169,10 +6231,247 @@ mod tests {
             .iter()
             .map(|r| String::from_utf8_lossy(&r.body).into_owned())
             .collect();
-        assert!(
-            !bodies.iter().any(|b| b.contains("Final answer")),
-            "the final turn must not overtake the lost middle narration"
+        assert_eq!(
+            bodies
+                .iter()
+                .filter(|b| b.contains(&"B".repeat(200)))
+                .count(),
+            // Each failed attempt sends the chunk twice (HTML then plain-text
+            // fallback), so a bounded `MULTI_MESSAGE_FINALIZE_RETRIES` attempts
+            // produce twice as many physical requests before giving up.
+            MULTI_MESSAGE_FINALIZE_RETRIES as usize * 2,
+            "the pending suffix must be retried a bounded number of times before giving up"
         );
+        assert!(
+            !bodies.iter().any(|b| b.contains(&"A".repeat(200))),
+            "the already-accepted chunk 0 must never be re-sent, even across retries"
+        );
+        assert!(
+            bodies.iter().any(|b| b.contains("Final answer")),
+            "the final answer must still be delivered once the narration is given up"
+        );
+    }
+
+    /// Regression (multi_message review, Blocker B2 — eventual delivery): a transient
+    /// Telegram failure on the pending narration suffix must resolve within the
+    /// bounded in-line retry, delivering the narration and then the final answer in
+    /// order, and cleaning up the draft state.
+    #[tokio::test]
+    async fn finalize_retries_pending_narration_then_delivers_on_transient_failure() {
+        use wiremock::matchers::{body_string_contains, method, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let mock_server = MockServer::start().await;
+        // The first full attempt fails (both the HTML and the plain-text fallback
+        // request → 2 responses), then the narration succeeds on the next outer
+        // retry. Higher priority + `up_to_n_times(2)` makes that deterministic.
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .and(body_string_contains("Searching the docs"))
+            .respond_with(ResponseTemplate::new(500))
+            .up_to_n_times(2)
+            .with_priority(1)
+            .mount(&mock_server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 1 } }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let ch =
+            multi_message_test_channel("telegram_test_alias", 0).with_api_base(mock_server.uri());
+        let recipient = "123";
+        let draft_id = TelegramChannel::new_multi_message_draft_id();
+        let key = TelegramChannel::multi_draft_key(recipient, &draft_id);
+
+        {
+            let mut drafts = ch.multi_message_drafts.lock();
+            let mut st = MultiDraftState::new(None);
+            st.latest_visible = "Searching the docs...".to_string();
+            st.sent_text = String::new();
+            drafts.insert(key.clone(), st);
+        }
+
+        ch.finalize_draft(recipient, &draft_id, "Final answer", false)
+            .await
+            .expect("transient failure must resolve within the bounded retry");
+
+        assert!(
+            !ch.multi_message_drafts.lock().contains_key(&key),
+            "the draft must be cleaned up after successful delivery"
+        );
+        let bodies: Vec<String> = mock_server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .map(|r| String::from_utf8_lossy(&r.body).into_owned())
+            .collect();
+        assert_eq!(
+            bodies
+                .iter()
+                .filter(|b| b.contains("Searching the docs"))
+                .count(),
+            3,
+            "the narration must be attempted 3 times: a failed attempt (HTML + plain), then a successful retry"
+        );
+        assert!(
+            bodies.iter().any(|b| b.contains("Final answer")),
+            "the final answer must be delivered after the narration succeeds"
+        );
+    }
+
+    /// Regression (multi_message review, Blocker B1 — turn-scoped cancellation):
+    /// when the outbound hook cancels a narration turn, `discard_draft_turn`
+    /// consumes exactly that turn (nothing is sent, and it is never resurrected),
+    /// while a later turn's narration still flushes normally.
+    #[tokio::test]
+    async fn discard_draft_turn_consumes_cancelled_turn_but_later_turn_still_flushes() {
+        use wiremock::matchers::{method, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 1 } }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let ch =
+            multi_message_test_channel("telegram_test_alias", 0).with_api_base(mock_server.uri());
+        let recipient = "123";
+        let draft_id = ch
+            .send_draft(&SendMessage::new("...", recipient))
+            .await
+            .unwrap()
+            .expect("draft id");
+
+        // Turn A is cancelled by the hook → consumed without sending.
+        ch.discard_draft_turn(recipient, &draft_id, "Turn A narration")
+            .await
+            .unwrap();
+        // Turn B appends more narration and flushes normally.
+        ch.flush_draft_turn(recipient, &draft_id, "Turn A narration\n\nTurn B narration")
+            .await
+            .unwrap();
+
+        let bodies: Vec<String> = mock_server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .map(|r| String::from_utf8_lossy(&r.body).into_owned())
+            .collect();
+        assert!(
+            !bodies.iter().any(|b| b.contains("Turn A narration")),
+            "the cancelled turn must never be sent or resurrected; bodies: {bodies:?}"
+        );
+        assert!(
+            bodies.iter().any(|b| b.contains("Turn B narration")),
+            "a later turn's narration must still flush after an earlier one was cancelled"
+        );
+    }
+
+    /// Regression (multi_message review, Blocker B3 — voice ordering): the TTS voice
+    /// reply is queued only after the final text is successfully delivered. If the
+    /// final send fails, finalize returns an error and no TTS synthesis is queued,
+    /// so voice can never overtake unsent text.
+    #[tokio::test]
+    async fn finalize_does_not_queue_voice_when_final_send_fails() {
+        use wiremock::matchers::method;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        use zeroclaw_config::schema::{
+            AliasedAgentConfig, Config, OpenAITtsProviderConfig, TtsProviderConfig,
+        };
+
+        let mock_server = MockServer::start().await;
+        // Every Bot API sendMessage fails; the OpenAI TTS endpoint (if ever hit)
+        // would 200, so a wrongly-queued voice reply is observable as a synthesis
+        // request against `/v1/audio/speech`.
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&mock_server)
+            .await;
+
+        let mut config = Config::default();
+        config.tts.enabled = true;
+        config.agents.insert(
+            "abac".to_string(),
+            AliasedAgentConfig {
+                tts_provider: "openai.default".into(),
+                channels: vec!["telegram.telegram_test_alias".into()],
+                ..AliasedAgentConfig::default()
+            },
+        );
+        config.providers.tts.openai.insert(
+            "default".to_string(),
+            OpenAITtsProviderConfig {
+                base: TtsProviderConfig {
+                    api_key: Some("k".to_string()),
+                    uri: Some(format!("{}/v1/audio/speech", mock_server.uri())),
+                    voice: Some("alloy".to_string()),
+                    ..TtsProviderConfig::default()
+                },
+            },
+        );
+
+        let ch = multi_message_test_channel("telegram_test_alias", 0)
+            .with_api_base(mock_server.uri())
+            .with_voice_peer_resolver(Arc::new(|| vec!["123".to_string()]))
+            .with_tts(&config);
+
+        let draft_id = ch
+            .send_draft(&SendMessage::new("...", "123"))
+            .await
+            .unwrap()
+            .expect("draft id");
+
+        let long_text = "Сбросьте питание контроллера и проверьте терминаторы шины Profibus DP на обоих концах.";
+        let result = ch.finalize_draft("123", &draft_id, long_text, false).await;
+        assert!(
+            result.is_err(),
+            "a failed final text send must propagate, not report success"
+        );
+
+        // The voice reply is only queued after a successful final send, so no TTS
+        // synthesis must have been requested. Poll to catch any spawned task.
+        for _ in 0..10 {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        let tts_hits = mock_server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .filter(|r| r.url.path().ends_with("/v1/audio/speech"))
+            .count();
+        assert_eq!(
+            tts_hits, 0,
+            "no TTS may be queued when the final text send failed"
+        );
+    }
+
+    /// Regression (multi_message review, Blocker B4 — capability scoping): only a
+    /// channel that actually implements the `flush_draft_turn` narration contract
+    /// may opt into the orchestrator's narration-policy + flush-barrier path.
+    /// Telegram in `MultiMessage` mode does; `Off` mode does not.
+    #[tokio::test]
+    async fn telegram_turn_flush_narration_capability_tracks_multi_message_mode() {
+        let multi = multi_message_test_channel("telegram_test_alias", 0);
+        assert!(
+            multi.supports_turn_flush_narration(),
+            "MultiMessage Telegram implements flush_draft_turn and must opt in"
+        );
+        assert!(multi.supports_multi_message_streaming());
     }
 
     #[tokio::test]

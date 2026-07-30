@@ -5,40 +5,6 @@ use tokio_util::sync::CancellationToken;
 
 use crate::media::MediaAttachment;
 
-/// Error returned by [`Channel::finalize_draft`] when the channel deliberately
-/// retained unsent intermediate content (rather than completing delivery)
-/// because resending it failed — e.g. Telegram multi-message narration whose
-/// held-back suffix could not be delivered before the final turn.
-///
-/// The orchestrator's finalize path MUST detect this (via
-/// `err.downcast_ref::<RetainedNarration>()`) and skip its generic
-/// "send the final answer as a new message" fallback. That fallback is correct
-/// for single-draft channels — a failed edit has nothing held back to overtake —
-/// but for a retained multi-message draft it would push the final answer ahead
-/// of the still-unsent middle narration, the exact ordering the retention
-/// protects. The held state resumes on a later retry instead.
-#[derive(Debug)]
-pub struct RetainedNarration {
-    /// The underlying send failure that triggered retention.
-    pub source: anyhow::Error,
-}
-
-impl fmt::Display for RetainedNarration {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "finalize retained unsent narration for retry: {}",
-            self.source
-        )
-    }
-}
-
-impl std::error::Error for RetainedNarration {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(self.source.as_ref())
-    }
-}
-
 /// Reserved `ChannelMessage.subject` prefix the git/forge channel uses to
 /// label SOP-ingress events. Routing is NOT keyed on this (see
 /// `ChannelMessage::internal_sop_event`); it exists so channels that fill
@@ -798,6 +764,21 @@ pub trait Channel: Send + Sync + crate::attribution::Attributable {
         false
     }
 
+    /// Whether this channel implements the turn-flush narration contract:
+    /// `flush_draft_turn` delivers each completed agent text turn as a permanent
+    /// outbound message, and the orchestrator therefore routes that narration
+    /// through the outbound hook + leak-detection boundary and orders it ahead of
+    /// the approval prompt via a flush barrier.
+    ///
+    /// Distinct from [`supports_multi_message_streaming`]: a channel can stream
+    /// multiple messages another way (e.g. paragraph edits via `update_draft`)
+    /// without implementing `flush_draft_turn`. Only channels that override
+    /// `flush_draft_turn` may return `true` here, otherwise the orchestrator runs
+    /// outbound policy on phantom flushes that deliver nothing. Default `false`.
+    fn supports_turn_flush_narration(&self) -> bool {
+        false
+    }
+
     /// Minimum delay (ms) between successive messages in multi-message mode.
     /// The message boundary is channel-specific (for example, Telegram uses
     /// completed agent turns).
@@ -845,6 +826,21 @@ pub trait Channel: Send + Sync + crate::attribution::Attributable {
     /// streaming mode. Called when an LLM turn completes (e.g. before tool
     /// execution). Default: no-op.
     async fn flush_draft_turn(
+        &self,
+        _recipient: &str,
+        _message_id: &str,
+        _text: &str,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    /// Discard a completed agent text turn WITHOUT sending it, marking that
+    /// narration consumed for this draft. Called when the outbound hook cancels a
+    /// narration flush: the cancelled turn must never be re-offered (no
+    /// resurrection), but narration produced by a *later* turn must still be
+    /// deliverable. Advancing the channel's delivered-prefix bookkeeping over the
+    /// cancelled text achieves both. Default: no-op.
+    async fn discard_draft_turn(
         &self,
         _recipient: &str,
         _message_id: &str,
