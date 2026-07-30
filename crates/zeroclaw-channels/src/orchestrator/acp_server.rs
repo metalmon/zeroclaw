@@ -3704,6 +3704,27 @@ mod tests {
         assert!(json.contains(r#""text":"hello""#));
     }
 
+    /// Regression (ACP widget-skill contract): inline `<widget:...>` markup the model
+    /// emits (e.g. `<widget:say>`) must reach the ACP client byte-for-byte. The
+    /// client parses widgets out of the raw assistant text, so the streamed-chunk
+    /// path must never strip, HTML-escape, or reflow the tag. See
+    /// `docs/acp-widget-skill-contract.md`.
+    #[test]
+    fn agent_message_chunk_preserves_widget_markup_verbatim() {
+        // Ampersand + nested angle brackets stress the "no HTML-escaping" guarantee.
+        let markup = r#"<widget:say text="hello & <world>" />"#;
+        let event = TurnEvent::Chunk {
+            delta: markup.to_string(),
+        };
+        let n = notification_for_turn_event("wsession", &event).unwrap();
+        assert_eq!(n.method, "session/update");
+        assert_eq!(n.params["update"]["sessionUpdate"], "agent_message_chunk");
+        assert_eq!(
+            n.params["update"]["content"]["text"], markup,
+            "widget markup must stream to the ACP client unchanged"
+        );
+    }
+
     #[test]
     fn acp_smoke_transcript_initialize_inbound_blob_outbound_delivery() {
         // Scripted end-to-end smoke against the real in-process handlers:
