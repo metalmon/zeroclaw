@@ -943,6 +943,16 @@ fn contains_unsafe_output_redirect(command: &str) -> bool {
     });
 
     let safe = re.replace_all(command, "$2").to_string();
+    // Windows null device: strip `>nul`, `1>nul`, `2>nul`, `2>NUL`, and the
+    // `\\.\nul` device form (case-insensitive) — the platform equivalent of the
+    // `/dev/null` forms stripped above. A trailing non-boundary char (e.g.
+    // `>nul.txt`, `>null`) is left intact so only the bare device matches.
+    static SAFE_NUL_OUTPUT_RE: OnceLock<Regex> = OnceLock::new();
+    let nul_re = SAFE_NUL_OUTPUT_RE.get_or_init(|| {
+        Regex::new(r"(?i)\d*>[ ]?(?:\\\\\.\\)?nul(\s|[;&|)]|$)")
+            .expect("SAFE_NUL_OUTPUT_RE regex must compile")
+    });
+    let safe = nul_re.replace_all(&safe, "$1").to_string();
     // Also strip fd-merge redirects (2>&1, 1>&2, >&N, etc.)
     let safe = strip_fd_merge_redirects(&safe);
     contains_unquoted_char(&safe, '>')
@@ -1122,7 +1132,14 @@ fn safe_device_redirect_names_pattern() -> String {
 }
 
 fn is_safe_device_redirect_target(target: &str) -> bool {
-    SAFE_DEVICE_REDIRECT_TARGETS.contains(&strip_wrapping_quotes(target).trim())
+    let target = strip_wrapping_quotes(target).trim();
+    SAFE_DEVICE_REDIRECT_TARGETS.contains(&target)
+        // Windows null device: `nul`/`NUL` (case-insensitive) and the full
+        // `\\.\nul` device form. On Windows `nul` always resolves to the null
+        // device — no real file of that name can exist — so a redirect to it is
+        // discard-only, exactly like `/dev/null`.
+        || target.eq_ignore_ascii_case("nul")
+        || target.eq_ignore_ascii_case(r"\\.\nul")
 }
 
 /// Extract the basename from a command path, handling both Unix (`/`) and
@@ -3638,6 +3655,31 @@ mod tests {
         assert!(p.is_command_allowed("ls 2> /dev/null"));
         assert!(p.is_command_allowed("find . 2>&1 > /dev/null"));
         assert!(p.is_command_allowed("cat</dev/null"));
+    }
+
+    #[test]
+    fn windows_nul_redirect_allowed() {
+        // Regression: the Windows null device is a safe redirect target,
+        // the platform equivalent of /dev/null.
+        let p = SecurityPolicy {
+            allowed_commands: vec!["git".into(), "echo".into()],
+            ..SecurityPolicy::default()
+        };
+        assert!(p.is_command_allowed("git -C E:/repo ls-tree -r --name-only HEAD path 2>nul"));
+        assert!(p.is_command_allowed("echo x >nul"));
+        assert!(p.is_command_allowed("echo x 1>NUL"));
+        assert!(p.is_command_allowed("echo x 2>Nul"));
+        assert!(p.is_command_allowed("echo x > nul")); // target as a separate token
+        assert!(p.is_command_allowed(r"echo x >\\.\nul")); // full device form
+        // Redirect gate itself treats the forms as safe.
+        assert!(!contains_unsafe_output_redirect("git status 2>nul"));
+        assert!(!contains_unsafe_output_redirect(r"echo x >\\.\nul"));
+        // Regression: /dev/null still safe; a real file target still blocked,
+        // and a non-bare name that merely starts with `nul` is not the device.
+        assert!(p.is_command_allowed("git status 2>/dev/null"));
+        assert!(!p.is_command_allowed("echo secret 2>out.txt"));
+        assert!(!p.is_command_allowed("echo secret >nul.txt"));
+        assert!(contains_unsafe_output_redirect("echo secret >nul.txt"));
     }
 
     #[test]
