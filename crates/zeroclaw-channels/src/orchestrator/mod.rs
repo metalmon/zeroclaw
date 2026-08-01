@@ -3715,6 +3715,81 @@ async fn apply_multi_message_narration_policy(
     ))
 }
 
+/// Run one completed narration turn through outbound policy and flush it to the
+/// channel **exactly once**.
+///
+/// `last_flushed` is the watermark of narration already processed on this stream.
+/// The outbound hook (`run_on_message_sending`) is not idempotent — a stateful
+/// hook can allow the first pass and cancel or rewrite a second — so the same
+/// completed turn must cross it only once. For an approval-requiring tool turn
+/// the runtime emits both a `Status` delta and a following `FlushBarrier`; this
+/// gives the first event that observes the content ownership of the policy+flush,
+/// and lets the approval barrier merely acknowledge a turn already owned rather
+/// than repeating the operation. When the barrier is the first to observe new
+/// narration (no preceding `Status`), it still flushes it — once.
+#[allow(clippy::too_many_arguments)]
+async fn flush_completed_narration_turn(
+    channel: &Arc<dyn Channel>,
+    hooks: Option<&zeroclaw_runtime::hooks::HookRunner>,
+    leak_detection: &zeroclaw_config::schema::LeakDetectionConfig,
+    outbound_channel: &str,
+    reply_target: &str,
+    draft_id: &str,
+    visible: &str,
+    last_flushed: &mut String,
+) {
+    // Only real narration crosses the hook: an empty pre-narration flush would
+    // otherwise consume the hook's cancellation and let the actual narration
+    // through. Content identical to the watermark was already owned by an
+    // earlier event this stream, so skip it — this is what makes the approval
+    // `FlushBarrier` acknowledge rather than re-process a `Status`-flushed turn.
+    if visible.trim().is_empty() || visible == last_flushed {
+        return;
+    }
+    // `None` => a hook cancelled this narration turn.
+    match apply_multi_message_narration_policy(
+        hooks,
+        leak_detection,
+        outbound_channel,
+        reply_target,
+        visible.to_string(),
+    )
+    .await
+    {
+        Some(guarded) => {
+            if let Err(e) = channel
+                .flush_draft_turn(reply_target, draft_id, &guarded)
+                .await
+            {
+                ::zeroclaw_log::record!(
+                    DEBUG,
+                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                        .with_attrs(::serde_json::json!({"error": format!("{}", e)})),
+                    "Draft turn flush failed"
+                );
+            }
+        }
+        // Consume only the cancelled turn: mark it delivered without sending so
+        // it is never resurrected, while later turns still flush.
+        None => {
+            if let Err(e) = channel
+                .discard_draft_turn(reply_target, draft_id, visible)
+                .await
+            {
+                ::zeroclaw_log::record!(
+                    DEBUG,
+                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                        .with_attrs(::serde_json::json!({"error": format!("{}", e)})),
+                    "Draft turn discard failed"
+                );
+            }
+        }
+    }
+    // Advance the watermark whether we sent or discarded: either way this exact
+    // content has now crossed outbound policy and must not be processed again.
+    *last_flushed = visible.to_string();
+}
+
 fn redact_channel_outbound_leaks(
     content: &str,
     leak_detection: &zeroclaw_config::schema::LeakDetectionConfig,
@@ -5443,6 +5518,10 @@ async fn process_channel_message_body(
             Some(zeroclaw_spawn::spawn!(async move {
                 use zeroclaw_runtime::agent::loop_::StreamDelta;
                 let mut accumulated = String::new();
+                // Watermark of narration already run through outbound policy this
+                // stream, so a completed turn crosses the (non-idempotent) hook
+                // exactly once across the `Status` and `FlushBarrier` events.
+                let mut last_flushed = String::new();
                 // Hook cancellation is scoped to the narration turn it cancelled:
                 // the `None` arms `discard_draft_turn` that turn so it is never
                 // re-offered or resurrected, while a later turn's narration still
@@ -5466,61 +5545,19 @@ async fn process_channel_message_body(
                             }
                         }
                         StreamDelta::Status(text) => {
-                            let visible = strip_think_tags_inline(&accumulated);
-                            // Only run outbound policy on real narration: an empty
-                            // pre-narration flush would otherwise consume the hook's
-                            // cancellation, letting the actual narration through.
-                            if turn_flush_narration && !visible.trim().is_empty() {
-                                // `None` => a hook cancelled this narration turn.
-                                match apply_multi_message_narration_policy(
+                            if turn_flush_narration {
+                                let visible = strip_think_tags_inline(&accumulated);
+                                flush_completed_narration_turn(
+                                    &channel,
                                     outbound_hooks.as_deref(),
                                     &outbound_leak_detection,
                                     &outbound_channel,
                                     &reply_target,
-                                    visible.clone(),
+                                    &draft_id,
+                                    &visible,
+                                    &mut last_flushed,
                                 )
-                                .await
-                                {
-                                    Some(guarded) => {
-                                        let flushed = channel
-                                            .flush_draft_turn(&reply_target, &draft_id, &guarded)
-                                            .await;
-                                        if let Err(e) = flushed {
-                                            ::zeroclaw_log::record!(
-                                                DEBUG,
-                                                ::zeroclaw_log::Event::new(
-                                                    module_path!(),
-                                                    ::zeroclaw_log::Action::Note
-                                                )
-                                                .with_attrs(
-                                                    ::serde_json::json!({"error": format!("{}", e)})
-                                                ),
-                                                "Draft turn flush failed"
-                                            );
-                                        }
-                                    }
-                                    // Consume only the cancelled turn: mark it
-                                    // delivered without sending so it is never
-                                    // resurrected, while later turns still flush.
-                                    None => {
-                                        if let Err(e) = channel
-                                            .discard_draft_turn(&reply_target, &draft_id, &visible)
-                                            .await
-                                        {
-                                            ::zeroclaw_log::record!(
-                                                DEBUG,
-                                                ::zeroclaw_log::Event::new(
-                                                    module_path!(),
-                                                    ::zeroclaw_log::Action::Note
-                                                )
-                                                .with_attrs(
-                                                    ::serde_json::json!({"error": format!("{}", e)})
-                                                ),
-                                                "Draft turn discard failed"
-                                            );
-                                        }
-                                    }
-                                }
+                                .await;
                             }
                             let visible = strip_think_tags_inline(&text);
                             if let Err(e) = channel
@@ -5561,61 +5598,19 @@ async fn process_channel_message_body(
                             // consumed above; flush the turn narration, then
                             // release the agent loop (approval gate) waiting
                             // on the ack.
-                            let visible = strip_think_tags_inline(&accumulated);
-                            // Only run outbound policy on real narration: an empty
-                            // pre-narration flush would otherwise consume the hook's
-                            // cancellation, letting the actual narration through.
-                            if turn_flush_narration && !visible.trim().is_empty() {
-                                // `None` => a hook cancelled this narration turn.
-                                match apply_multi_message_narration_policy(
+                            if turn_flush_narration {
+                                let visible = strip_think_tags_inline(&accumulated);
+                                flush_completed_narration_turn(
+                                    &channel,
                                     outbound_hooks.as_deref(),
                                     &outbound_leak_detection,
                                     &outbound_channel,
                                     &reply_target,
-                                    visible.clone(),
+                                    &draft_id,
+                                    &visible,
+                                    &mut last_flushed,
                                 )
-                                .await
-                                {
-                                    Some(guarded) => {
-                                        let flushed = channel
-                                            .flush_draft_turn(&reply_target, &draft_id, &guarded)
-                                            .await;
-                                        if let Err(e) = flushed {
-                                            ::zeroclaw_log::record!(
-                                                DEBUG,
-                                                ::zeroclaw_log::Event::new(
-                                                    module_path!(),
-                                                    ::zeroclaw_log::Action::Note
-                                                )
-                                                .with_attrs(
-                                                    ::serde_json::json!({"error": format!("{}", e)})
-                                                ),
-                                                "Draft barrier flush failed"
-                                            );
-                                        }
-                                    }
-                                    // Consume only the cancelled turn: mark it
-                                    // delivered without sending so it is never
-                                    // resurrected, while later turns still flush.
-                                    None => {
-                                        if let Err(e) = channel
-                                            .discard_draft_turn(&reply_target, &draft_id, &visible)
-                                            .await
-                                        {
-                                            ::zeroclaw_log::record!(
-                                                DEBUG,
-                                                ::zeroclaw_log::Event::new(
-                                                    module_path!(),
-                                                    ::zeroclaw_log::Action::Note
-                                                )
-                                                .with_attrs(
-                                                    ::serde_json::json!({"error": format!("{}", e)})
-                                                ),
-                                                "Draft barrier discard failed"
-                                            );
-                                        }
-                                    }
-                                }
+                                .await;
                             }
                             StreamDelta::ack_flush_barrier(&ack);
                         }
@@ -15897,6 +15892,32 @@ api_key = "anthropic-key"
         }
     }
 
+    /// Records every `on_message_sending` content it observes and passes it
+    /// through unchanged, so a test can assert exactly how many times a given
+    /// narration crosses the (non-idempotent) outbound hook.
+    #[cfg(feature = "channel-telegram")]
+    struct RecordingSendHook {
+        seen: std::sync::Arc<parking_lot::Mutex<Vec<String>>>,
+    }
+
+    #[cfg(feature = "channel-telegram")]
+    #[async_trait::async_trait]
+    impl zeroclaw_runtime::hooks::HookHandler for RecordingSendHook {
+        fn name(&self) -> &str {
+            "recording-send"
+        }
+
+        async fn on_message_sending(
+            &self,
+            channel: String,
+            recipient: String,
+            content: String,
+        ) -> zeroclaw_runtime::hooks::HookResult<(String, String, String)> {
+            self.seen.lock().push(content.clone());
+            zeroclaw_runtime::hooks::HookResult::Continue((channel, recipient, content))
+        }
+    }
+
     struct SessionsCurrentModelProvider;
 
     #[async_trait::async_trait]
@@ -17887,6 +17908,186 @@ BTC is currently around $65,000 based on latest tool output."#
                 .any(|body| body.contains(HOOK_REWRITTEN_NARRATION)),
             "the hook-rewritten narration must be the text actually sent; \
              bodies: {send_message_bodies:?}"
+        );
+    }
+
+    /// Regression (multi_message review, remaining blocker): for an
+    /// approval-requiring tool turn the runtime emits both a `StreamDelta::Status`
+    /// and a following `StreamDelta::FlushBarrier`. The completed narration turn
+    /// must cross the (non-idempotent) `on_message_sending` outbound hook EXACTLY
+    /// ONCE — the barrier only acknowledges a turn a preceding `Status` already
+    /// owned, rather than re-running policy on the same buffer. Before the fix the
+    /// draft updater processed the same accumulated narration twice (once per
+    /// event); Telegram's prefix bookkeeping hid the duplicate *send*, but the
+    /// hook still saw the content twice, so a stateful hook could allow the first
+    /// pass and cancel/rewrite the second.
+    #[cfg(feature = "channel-telegram")]
+    #[tokio::test]
+    async fn multi_message_approval_narration_crosses_outbound_hook_once() {
+        use wiremock::matchers::method;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 1 } }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+
+        use parking_lot::RwLock;
+        use std::sync::Arc;
+        use zeroclaw_config::schema::{Config, TelegramConfig};
+
+        let mut cfg = Config::default();
+        cfg.channels.telegram.insert(
+            "telegram_test_alias".to_string(),
+            TelegramConfig {
+                bot_token: "fake-token".into(),
+                multi_message_delay_ms: 0,
+                ..TelegramConfig::default()
+            },
+        );
+        let config_arc = Arc::new(RwLock::new(cfg));
+
+        let telegram: Arc<dyn Channel> = Arc::new(
+            TelegramChannel::new(
+                "fake-token".into(),
+                "telegram_test_alias",
+                Arc::new(|| vec!["*".into()]),
+                false,
+            )
+            .with_persistence(config_arc)
+            .with_streaming(zeroclaw_config::schema::StreamMode::MultiMessage, 750)
+            .with_api_base(mock_server.uri())
+            .with_approval_timeout_secs(0),
+        );
+
+        let mut channels_by_name = HashMap::new();
+        channels_by_name.insert(telegram.name().to_string(), telegram);
+
+        // Record every outbound-hook crossing so we can count how many times the
+        // completed narration turn passes through it.
+        let seen = Arc::new(parking_lot::Mutex::new(Vec::<String>::new()));
+        let mut hook_runner = zeroclaw_runtime::hooks::HookRunner::new();
+        hook_runner.register(Box::new(RecordingSendHook { seen: seen.clone() }));
+
+        let runtime_ctx = Arc::new(ChannelRuntimeContext {
+            channels_by_name: Arc::new(channels_by_name),
+            model_provider: Arc::new(NarratingNativeToolProvider {
+                calls: AtomicUsize::new(0),
+            }),
+            model_provider_ref: Arc::new("test-provider".to_string()),
+            agent_alias: Arc::new("test-agent".to_string()),
+            agent_cfg: Arc::new(zeroclaw_config::schema::AliasedAgentConfig::default()),
+            memory: Arc::new(NoopMemory),
+            memory_strategy: Arc::new(
+                zeroclaw_runtime::agent::memory_strategy::DefaultMemoryStrategy::with_config(
+                    Arc::new(NoopMemory),
+                    zeroclaw_config::schema::MemoryConfig::default(),
+                    std::path::PathBuf::new(),
+                ),
+            ),
+            tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
+            observer: Arc::new(NoopObserver),
+            system_prompt: Arc::new("test-system-prompt".to_string()),
+            model: Arc::new("test-model".to_string()),
+            temperature: Some(0.0),
+            auto_save_memory: false,
+            max_tool_iterations: 10,
+            min_relevance_score: 0.0,
+            conversation_histories: Arc::new(Mutex::new(lru::LruCache::new(
+                std::num::NonZeroUsize::new(MAX_CONVERSATION_SENDERS).unwrap(),
+            ))),
+            pending_new_sessions: Arc::new(Mutex::new(HashSet::new())),
+            provider_cache: Arc::new(Mutex::new(HashMap::new())),
+            route_overrides: Arc::new(Mutex::new(HashMap::new())),
+            thinking_overrides: Arc::new(Mutex::new(HashMap::new())),
+            scope_overrides: Arc::new(Mutex::new(HashMap::new())),
+            reliability: Arc::new(zeroclaw_config::schema::ReliabilityConfig::default()),
+            provider_runtime_options: zeroclaw_providers::ModelProviderRuntimeOptions::default(),
+            workspace_dir: Arc::new(std::env::temp_dir()),
+            prompt_config: Arc::new(zeroclaw_config::schema::Config::default()),
+            message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
+            interrupt_on_new_message: InterruptOnNewMessageConfig {
+                telegram: false,
+                slack: false,
+                discord: false,
+                mattermost: false,
+                matrix: false,
+                whatsapp: false,
+            },
+            non_cli_excluded_tools: Arc::new(Vec::new()),
+            autonomy_level: AutonomyLevel::default(),
+            tool_call_dedup_exempt: Arc::new(Vec::new()),
+            multimodal: zeroclaw_config::schema::MultimodalConfig::default(),
+            media_pipeline: zeroclaw_config::schema::MediaPipelineConfig::default(),
+            transcription_config: zeroclaw_config::schema::TranscriptionConfig::default(),
+            agent_transcription_provider: String::new(),
+            hooks: Some(Arc::new(hook_runner)),
+            model_routes: Arc::new(Vec::new()),
+            query_classification: zeroclaw_config::schema::QueryClassificationConfig::default(),
+            ack_reactions: true,
+            show_tool_calls: true,
+            session_store: None,
+            approval_manager: Arc::new(ApprovalManager::for_non_interactive(
+                &zeroclaw_config::schema::RiskProfileConfig::default(),
+            )),
+            activated_tools: None,
+            cost_tracking: None,
+            pacing: zeroclaw_config::schema::PacingConfig::default(),
+            max_tool_result_chars: 0,
+            context_token_budget: 0,
+            debouncer: Arc::new(zeroclaw_infra::debounce::MessageDebouncer::new(
+                Duration::ZERO,
+            )),
+            receipt_generator: None,
+            show_receipts_in_response: false,
+            last_applied_config_stamp: Arc::new(Mutex::new(None)),
+            runtime_defaults_override: Arc::new(Mutex::new(None)),
+            persist_locks: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            sop_engine: None,
+            sop_audit: None,
+        });
+
+        process_channel_message(
+            runtime_ctx,
+            zeroclaw_api::channel::ChannelMessage {
+                id: "msg-1".to_string(),
+                sender: "zeroclaw_user".to_string(),
+                reply_target: "123".to_string(),
+                content: "Запусти инструмент".to_string(),
+                channel: "telegram".into(),
+                channel_alias: None,
+                timestamp: 1,
+                thread_ts: None,
+                interruption_scope_id: None,
+                attachments: vec![],
+                subject: None,
+
+                ..Default::default()
+            },
+            CancellationToken::new(),
+        )
+        .await;
+
+        // The completed narration turn ("Понял, запускаю инструмент") must cross
+        // the outbound hook exactly once, even though both `Status` and
+        // `FlushBarrier` observe the same accumulated buffer before the approval
+        // prompt. Before the fix this was 2.
+        let crossings = seen
+            .lock()
+            .iter()
+            .filter(|c| c.contains("запускаю инструмент"))
+            .count();
+        assert_eq!(
+            crossings,
+            1,
+            "completed narration must cross the outbound hook exactly once before \
+             the approval prompt; saw {crossings}. All crossings: {:?}",
+            seen.lock()
         );
     }
 
