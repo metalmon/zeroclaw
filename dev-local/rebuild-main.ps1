@@ -38,6 +38,8 @@ $Branches = @(
     "feat/acp-wire-skills",                   # ACP client-delivered skills via _meta extension
     "fix/acp-session-cwd-fallback",           # PR #9536 - ACP session cwd falls back to per-agent workspace (MCP uploads fix)
     "fix/multimodal-token-estimation",        # fix: multimodal token estimation for vision models
+    "fix/git-subcommand-classifier",          # #9627 - resolve git subcommand past global options (approval-gate fix)
+    "local/git-read-only",                     # local-only: git_read_only risk-profile flag (hard read-only git); stacked on fix/git-subcommand-classifier
     "local/dev-tooling"                       # local-only: fork CI (fork-build.yml) + this script; self-restoring, keep last
 )
 
