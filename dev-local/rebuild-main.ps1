@@ -36,6 +36,7 @@ $Branches = @(
     "fix/mcp-resource-blob-intake",           # PR #9195 - MCP tools/call resource.blob materialization
     "feat/mcp-image-block",                   # PR #9196 - stacked on mcp-resource-blob-intake; image/audio markers
     "feat/acp-wire-skills",                   # ACP client-delivered skills via _meta extension
+    "fix/acp-session-cwd-fallback",           # PR #9536 - ACP session cwd falls back to per-agent workspace (MCP uploads fix)
     "fix/multimodal-token-estimation",        # fix: multimodal token estimation for vision models
     "local/dev-tooling"                       # local-only: fork CI (fork-build.yml) + this script; self-restoring, keep last
 )
