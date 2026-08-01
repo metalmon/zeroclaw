@@ -350,6 +350,10 @@ pub struct SecurityPolicy {
     pub max_cost_per_day_cents: u32,
     pub require_approval_for_medium_risk: bool,
     pub block_high_risk_commands: bool,
+    /// Hard-block state-changing `git` subcommands (read-only git only) when
+    /// set, independent of the approval gate. Sourced from
+    /// `RiskProfileConfig::git_read_only`.
+    pub git_read_only: bool,
     pub shell_env_passthrough: Vec<String>,
     pub shell_timeout_secs: u64,
     /// Tool name allowlist. `None` is unrestricted (default for agents
@@ -769,6 +773,7 @@ impl Default for SecurityPolicy {
             max_cost_per_day_cents: 500,
             require_approval_for_medium_risk: true,
             block_high_risk_commands: true,
+            git_read_only: false,
             shell_env_passthrough: vec![],
             shell_timeout_secs: 60,
             allowed_tools: None,
@@ -3125,6 +3130,35 @@ impl SecurityPolicy {
     // highest risk across all segments wins. This prevents bypasses like
     // `ls && rm -rf /` from being classified as Low just because `ls` is safe.
 
+    /// `git` subcommands that only read repository state. Everything else is a
+    /// write and is hard-blocked under `git_read_only`. Allowlist by design: an
+    /// unknown or newly-added verb defaults to write (blocked), never allowed.
+    const GIT_READONLY_VERBS: &'static [&'static str] = &[
+        "log",
+        "status",
+        "diff",
+        "show",
+        "rev-list",
+        "rev-parse",
+        "for-each-ref",
+        "show-ref",
+        "ls-files",
+        "ls-tree",
+        "ls-remote",
+        "shortlog",
+        "describe",
+        "blame",
+        "cat-file",
+        "name-rev",
+        "reflog",
+        "whatchanged",
+        "grep",
+        "count-objects",
+        "var",
+        "help",
+        "version",
+    ];
+
     /// Classify command risk. Any high-risk segment marks the whole command high.
     pub fn command_risk_level(&self, command: &str) -> CommandRiskLevel {
         self.command_risk_level_for_posix_like_shell(command, ShellDialect::Posix)
@@ -3607,6 +3641,20 @@ impl SecurityPolicy {
                     .any(|arg| matches!(arg.as_str(), "-exec" | "-execdir" | "-ok" | "-okdir"))
             }
             "git" => {
+                // Hard read-only enforcement: under `git_read_only` any verb that
+                // is not a known read is blocked outright (not approval-gated),
+                // resolved past global options so `git -C <path> commit` and
+                // `--git-dir=… push` cannot slip through. Allowlist: an unknown
+                // verb (or none) is treated as a write and blocked.
+                if self.git_read_only
+                    && !git_effective_subcommand_index(args)
+                        .map(|idx| args[idx].as_str())
+                        .is_some_and(|verb| {
+                            Self::GIT_READONLY_VERBS.contains(&verb.to_ascii_lowercase().as_str())
+                        })
+                {
+                    return false;
+                }
                 !args_cased.iter().any(|arg| arg.starts_with("-c"))
                     && !git_delegates_to_external_command(args_cased)
                     && !args.iter().any(|arg| {
@@ -4682,6 +4730,7 @@ impl SecurityPolicy {
             max_cost_per_day_cents: runtime.max_cost_per_day_cents,
             require_approval_for_medium_risk: risk_profile.require_approval_for_medium_risk,
             block_high_risk_commands: risk_profile.block_high_risk_commands,
+            git_read_only: risk_profile.git_read_only,
             shell_env_passthrough: risk_profile.shell_env_passthrough.clone(),
             shell_timeout_secs: runtime.shell_timeout_secs,
             allowed_tools: risk_profile.effective_allowed_tools(),
@@ -5049,6 +5098,7 @@ mod tests {
             forbidden_paths: vec!["/secret".into()],
             require_approval_for_medium_risk: false,
             block_high_risk_commands: false,
+            git_read_only: true,
             shell_env_passthrough: vec!["EDITOR".into(), "PAGER".into()],
             auto_approve: vec!["memory_recall".into()],
             always_ask: vec!["shell".into()],
@@ -5072,6 +5122,7 @@ mod tests {
         assert_eq!(policy.forbidden_paths, vec!["/secret".to_string()]);
         assert!(!policy.require_approval_for_medium_risk);
         assert!(!policy.block_high_risk_commands);
+        assert!(policy.git_read_only, "git_read_only must reach the policy");
         assert_eq!(
             policy.shell_env_passthrough,
             vec!["EDITOR".to_string(), "PAGER".to_string()]
@@ -5583,6 +5634,47 @@ mod tests {
                 "ordinary read behind --attr-source should stay low: {command}"
             );
         }
+    }
+
+    #[test]
+    fn git_read_only_blocks_write_git_even_behind_global_options() {
+        let p = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            git_read_only: true,
+            ..SecurityPolicy::default()
+        };
+        // Read-git is allowed, including behind global options.
+        assert!(p.is_command_allowed("git -C /repo log"));
+        assert!(p.is_command_allowed("git status"));
+        assert!(p.is_command_allowed("git --git-dir=/r/.git rev-parse HEAD"));
+        // Write-git is hard-blocked (not merely approval-gated), including when
+        // the repo is addressed via `-C` / `--git-dir`, and for unknown verbs.
+        for cmd in [
+            "git commit -m x",
+            "git -C /repo commit -m x",
+            "git --git-dir=/r/.git push",
+            "git -C /repo reset --hard HEAD~1",
+            "git -C /repo checkout main",
+            "git stash",    // not a known read => write => blocked
+            "git -C /repo", // no subcommand => blocked
+        ] {
+            assert!(
+                !p.is_command_allowed(cmd),
+                "git_read_only must hard-block: {cmd}"
+            );
+        }
+    }
+
+    #[test]
+    fn git_read_only_default_off_preserves_write_git() {
+        // Default (git_read_only = false): write-git stays allowed by the
+        // allowlist (the medium-risk approval gate still applies separately).
+        let p = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            ..SecurityPolicy::default()
+        };
+        assert!(p.is_command_allowed("git commit -m x"));
+        assert!(p.is_command_allowed("git -C /repo push"));
     }
 
     #[test]
