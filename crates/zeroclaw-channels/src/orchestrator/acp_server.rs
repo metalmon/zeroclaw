@@ -697,30 +697,42 @@ impl AcpServer {
         Self::validate_dispatchable_agent_alias(&config, &agent_alias)?;
 
         // Default workspace is the per-agent directory. An explicit
-        // `cwd`/`workspaceDir`/`workspace_dir` overrides it, unless it points
-        // to the install root (e.g. when clients pass '.' as a placeholder).
-        // In that case we fall back to the per-agent workspace to prevent
-        // uploads from landing in the daemon's working directory.
-        let install_root = config.install_root_dir();
-        let workspace_dir = self
-            .requested_session_cwd(params, &config)
-            .and_then(|p| {
-                std::fs::canonicalize(&p)
-                    .map_err(|e| RpcError {
-                        code: INVALID_PARAMS,
-                        message: format!("cwd is not a usable directory ({}): {e}", p.display()),
-                        data: None,
-                    })
-                    .ok()
-            })
-            .filter(|canon| !canon.starts_with(&install_root))
-            .map(|canon| canon.to_string_lossy().into_owned())
-            .unwrap_or_else(|| {
-                config
-                    .agent_workspace_dir(&agent_alias)
-                    .to_string_lossy()
-                    .into_owned()
-            });
+        // `cwd`/`workspaceDir`/`workspace_dir` overrides it, unless it resolves
+        // under the install root (e.g. when clients pass '.' as a placeholder);
+        // in that case we fall back to the per-agent workspace to keep uploads
+        // and the tool sandbox out of the daemon's working directory.
+        //
+        // Canonicalize the install root too: the explicit cwd goes through
+        // `canonicalize`, so comparing it against a non-canonical install root
+        // silently never matches whenever the path is symlinked or carries a
+        // platform prefix (macOS `/var`->`/private/var`, Windows `\\?\`
+        // verbatim). Both sides must be canonical for `starts_with` to hold.
+        //
+        // An explicitly-provided cwd that cannot be resolved is a client error,
+        // not a silent substitution: fail with INVALID_PARAMS. Only an absent
+        // cwd falls back to the per-agent workspace.
+        let install_root = std::fs::canonicalize(config.install_root_dir())
+            .unwrap_or_else(|_| config.install_root_dir());
+        let workspace_dir = match self.requested_session_cwd(params) {
+            Some(requested) => {
+                let canon = std::fs::canonicalize(&requested).map_err(|e| RpcError {
+                    code: INVALID_PARAMS,
+                    message: format!(
+                        "cwd is not a usable directory ({}): {e}",
+                        requested.display()
+                    ),
+                    data: None,
+                })?;
+                if canon.starts_with(&install_root) {
+                    config.agent_workspace_dir(&agent_alias)
+                } else {
+                    canon
+                }
+            }
+            None => config.agent_workspace_dir(&agent_alias),
+        }
+        .to_string_lossy()
+        .into_owned();
 
         let session_id = Uuid::new_v4().to_string();
 
@@ -1391,7 +1403,7 @@ impl AcpServer {
         Ok(serde_json::json!({}))
     }
 
-    fn requested_session_cwd(&self, params: &Value, _config: &Config) -> Option<PathBuf> {
+    fn requested_session_cwd(&self, params: &Value) -> Option<PathBuf> {
         params
             .get("cwd")
             .or_else(|| params.get("workspaceDir"))
@@ -2758,22 +2770,17 @@ mod tests {
             ..Default::default()
         };
         let server = AcpServer::new(config, AcpServerConfig::default());
-        let config = server.config_snapshot();
 
-        assert_eq!(
-            server.requested_session_cwd(&serde_json::json!({}), &config),
-            None,
-        );
+        assert_eq!(server.requested_session_cwd(&serde_json::json!({})), None);
     }
 
     #[test]
     fn session_new_respects_client_cwd_when_present() {
         let server = AcpServer::new(Config::default(), AcpServerConfig::default());
         let cwd = std::env::current_dir().unwrap();
-        let config = server.config_snapshot();
 
         assert_eq!(
-            server.requested_session_cwd(&serde_json::json!({"cwd": cwd}), &config),
+            server.requested_session_cwd(&serde_json::json!({"cwd": cwd})),
             Some(cwd),
         );
     }
@@ -2783,31 +2790,18 @@ mod tests {
         // When a client passes cwd = '.' (resolved to the install root), the
         // session must still use the per-agent workspace — not the daemon cwd.
         let cwd = tempfile::tempdir().unwrap();
-        let mut config = Config {
-            data_dir: cwd.path().to_path_buf(),
-            ..Default::default()
-        };
-        // Set config_path to a known install root.
+        // A fully-wired config (valid `anthropic.default` provider + `test-agent`)
+        // so agent construction succeeds. A failing construction would emit the
+        // shared "ACP session/new failed" log line and race the attribution test
+        // that matches events by message text alone.
+        let mut config = make_test_config(cwd.path());
+        // Pin the install root to the temp dir (parent of config_path) so
+        // install_root_dir() resolves to a real, canonicalizable directory.
         config.config_path = cwd.path().join("config.toml");
-        config.risk_profiles.insert(
-            "default".to_string(),
-            zeroclaw_config::schema::RiskProfileConfig::default(),
-        );
-        config.runtime_profiles.insert(
-            "default".to_string(),
-            zeroclaw_config::schema::RuntimeProfileConfig::default(),
-        );
-        config.agents.insert(
-            "test-agent".into(),
-            zeroclaw_config::schema::AliasedAgentConfig {
-                model_provider: "openrouter.default".into(),
-                risk_profile: "default".into(),
-                runtime_profile: "default".into(),
-                ..Default::default()
-            },
-        );
         let server = AcpServer::new(config, AcpServerConfig::default());
-        let install_root = server.config_snapshot().install_root_dir();
+        let snapshot = server.config_snapshot();
+        let install_root = snapshot.install_root_dir();
+        let expected_workspace = snapshot.agent_workspace_dir("test-agent");
 
         // Pass install_root as cwd — simulates what Thunderbolt does with cwd: '.'
         let result = server
@@ -2818,14 +2812,17 @@ mod tests {
             .await
             .expect("session/new must succeed");
 
-        let session_id = result["sessionId"].as_str().unwrap();
         let session_workspace = result["workspaceDir"].as_str().unwrap();
 
-        // workspaceDir must NOT be the install root — it must be the per-agent workspace.
-        assert_ne!(
+        // Positive contract: workspaceDir is exactly the per-agent workspace.
+        // Asserting the concrete value (not merely "!= install_root") is what
+        // makes this a real regression test — the per-agent workspace is a
+        // subdirectory of the install root, so an inequality check passes even
+        // when the guard is removed and cannot detect the regression.
+        assert_eq!(
             session_workspace,
-            install_root.to_string_lossy(),
-            "cwd equal to install_root should be ignored in favor of per-agent workspace"
+            expected_workspace.to_string_lossy(),
+            "cwd equal to install_root must resolve to the per-agent workspace"
         );
     }
 
