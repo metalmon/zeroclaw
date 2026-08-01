@@ -12866,6 +12866,13 @@ pub struct RiskProfileConfig {
     pub require_approval_for_medium_risk: bool,
     /// Block high-risk commands even when allowlisted.
     pub block_high_risk_commands: bool,
+    /// Restrict `git` to read-only subcommands (`log`/`status`/`diff`/…).
+    /// When `true`, any state-changing git verb is **hard-blocked** — not
+    /// merely approval-gated — regardless of how the repo is addressed
+    /// (`git -C <path> …`, `--git-dir=…`). Unknown verbs default to write
+    /// (blocked). Default: `false` (git behaves as before). See also
+    /// `block_high_risk_commands`.
+    pub git_read_only: bool,
     /// Environment variable names passed through to shell subprocesses.
     #[credential_class = "legacy_env_path"]
     pub shell_env_passthrough: Vec<String>,
@@ -12947,6 +12954,7 @@ impl Default for RiskProfileConfig {
             forbidden_paths: crate::policy::default_forbidden_paths(),
             require_approval_for_medium_risk: true,
             block_high_risk_commands: true,
+            git_read_only: false,
             shell_env_passthrough: vec![],
             auto_approve: default_auto_approve(),
             always_ask: default_always_ask(),
