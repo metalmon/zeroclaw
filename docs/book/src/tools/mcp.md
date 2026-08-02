@@ -169,6 +169,14 @@ gated by content shape, not by tool name. Materialization does not auto-deliver
 the file to ACP clients; the agent still calls `deliver_file` when outbound
 delivery is needed. See [ACP `session/prompt` blob intake](../channels/acp.md#sessionprompt).
 
+Because the result comes from an untrusted server, two per-call bounds are
+enforced before any blob is decoded, hashed, or written: at most **64** resource
+blobs per `tools/call` result, and an estimated aggregate decoded size of at most
+**10 MiB** across all of them. A result that exceeds either bound has every
+resource blob degraded to an `[attachment unavailable: …]` marker and writes
+nothing to disk, so an array of many empty or tiny blobs cannot force per-item
+work. Each individual blob is still bounded by the same 10 MB per-file limit.
+
 ### Security
 
 Resource and prompt content originates from the configured MCP server and is

@@ -92,7 +92,7 @@ impl Tool for McpToolWrapper {
         };
         match self.registry.call_tool(&self.prefixed_name, args).await {
             Ok(result) => {
-                match format_mcp_tool_result_for_model(&result, &self.security.workspace_dir) {
+                match format_mcp_tool_result_for_model(result, &self.security.workspace_dir) {
                     Ok(output) => Ok(ToolResult {
                         success: true,
                         output: output.into(),
