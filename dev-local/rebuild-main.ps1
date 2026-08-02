@@ -33,8 +33,8 @@ $Branches = @(
     "feat/telegram-multi-message",            # PR #8561 - Telegram multi_message streaming mode
     "fix/pipeline-tool-gating",               # PR pending (#9062) - execute_pipeline per-agent tool gating
     "fix/openrouter-stream-provider-extra",   # fix: merge provider_extra in OpenRouter stream_chat (ACP/Thunderbolt)
-    "fix/mcp-resource-blob-intake",           # PR #9195 - MCP tools/call resource.blob materialization
-    "feat/mcp-image-block",                   # PR #9196 - stacked on mcp-resource-blob-intake; image/audio markers
+    "pr2/mcp-embedded-resource-blob-intake",  # PR #9196 - MCP resource.blob materialization + per-call item/byte caps (supersedes fix/mcp-resource-blob-intake #9195, now merged)
+    "fix/mcp-image-role-user",                # relocate MCP tool-result images to a user message (role:tool 400 fix); no upstream PR yet
     "feat/acp-wire-skills",                   # ACP client-delivered skills via _meta extension
     "fix/acp-session-cwd-fallback",           # PR #9536 - ACP session cwd falls back to per-agent workspace (MCP uploads fix)
     "fix/multimodal-token-estimation",        # fix: multimodal token estimation for vision models
