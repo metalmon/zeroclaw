@@ -254,6 +254,7 @@ impl SessionOwnershipScope {
 pub struct SessionsListTool {
     backend: Arc<dyn SessionBackend>,
     acp_sessions: Option<AcpSessionReadView>,
+    ownership_scope: Option<SessionOwnershipScope>,
 }
 
 impl SessionsListTool {
@@ -261,6 +262,7 @@ impl SessionsListTool {
         Self {
             backend,
             acp_sessions: None,
+            ownership_scope: None,
         }
     }
 
@@ -271,6 +273,37 @@ impl SessionsListTool {
         Self {
             backend,
             acp_sessions: Some(acp_sessions),
+            ownership_scope: None,
+        }
+    }
+
+    /// Scoped constructor: the listing is filtered to sessions the given
+    /// agent owns (by `agent_alias` or owned channel). Sessions owned by
+    /// other agents, and legacy sessions without ownership metadata, are
+    /// hidden (fail-closed).
+    pub fn for_agent(
+        backend: Arc<dyn SessionBackend>,
+        ownership_scope: SessionOwnershipScope,
+    ) -> Self {
+        Self {
+            backend,
+            acp_sessions: None,
+            ownership_scope: Some(ownership_scope),
+        }
+    }
+
+    /// Combined constructor: ACP-visible sessions plus ownership scoping,
+    /// for when a session store's ACP sessions and per-agent isolation are
+    /// both in effect.
+    pub fn with_acp_sessions_and_scope(
+        backend: Arc<dyn SessionBackend>,
+        acp_sessions: AcpSessionReadView,
+        ownership_scope: SessionOwnershipScope,
+    ) -> Self {
+        Self {
+            backend,
+            acp_sessions: Some(acp_sessions),
+            ownership_scope: Some(ownership_scope),
         }
     }
 }
@@ -330,6 +363,18 @@ impl Tool for SessionsListTool {
             metadata.sort_by_key(|entry| std::cmp::Reverse(entry.last_activity));
         }
 
+        // When scoped to an agent, hide sessions the agent does not own.
+        // `authorize` returns `Ok` only for existing sessions whose
+        // ownership matches; legacy/unattributed sessions are refused and
+        // therefore filtered out (fail-closed).
+        let metadata: Vec<_> = match &self.ownership_scope {
+            Some(scope) => metadata
+                .into_iter()
+                .filter(|meta| scope.authorize(self.backend.as_ref(), &meta.key).is_ok())
+                .collect(),
+            None => metadata,
+        };
+
         if metadata.is_empty() {
             return Ok(ToolResult {
                 success: true,
@@ -370,6 +415,7 @@ pub struct SessionsHistoryTool {
     backend: Arc<dyn SessionBackend>,
     security: Arc<SecurityPolicy>,
     acp_sessions: Option<AcpSessionReadView>,
+    ownership_scope: Option<SessionOwnershipScope>,
 }
 
 impl SessionsHistoryTool {
@@ -378,6 +424,7 @@ impl SessionsHistoryTool {
             backend,
             security,
             acp_sessions: None,
+            ownership_scope: None,
         }
     }
 
@@ -390,6 +437,40 @@ impl SessionsHistoryTool {
             backend,
             security,
             acp_sessions: Some(acp_sessions),
+            ownership_scope: None,
+        }
+    }
+
+    /// Scoped constructor: reading a session is authorized against the
+    /// given agent's ownership (by `agent_alias` or owned channel).
+    /// Foreign and legacy/unattributed sessions are refused (fail-closed).
+    pub fn for_agent(
+        backend: Arc<dyn SessionBackend>,
+        security: Arc<SecurityPolicy>,
+        ownership_scope: SessionOwnershipScope,
+    ) -> Self {
+        Self {
+            backend,
+            security,
+            acp_sessions: None,
+            ownership_scope: Some(ownership_scope),
+        }
+    }
+
+    /// Combined constructor: ACP-visible sessions plus ownership scoping,
+    /// for when a session store's ACP sessions and per-agent isolation are
+    /// both in effect.
+    pub fn with_acp_sessions_and_scope(
+        backend: Arc<dyn SessionBackend>,
+        security: Arc<SecurityPolicy>,
+        acp_sessions: AcpSessionReadView,
+        ownership_scope: SessionOwnershipScope,
+    ) -> Self {
+        Self {
+            backend,
+            security,
+            acp_sessions: Some(acp_sessions),
+            ownership_scope: Some(ownership_scope),
         }
     }
 }
@@ -450,6 +531,24 @@ impl Tool for SessionsHistoryTool {
         if let Err(error) = validate_session_id(session_id) {
             return Ok(error.into_tool_result());
         }
+
+        // When scoped to an agent, refuse reading a session the agent does
+        // not own. `authorize` resolves the canonical session key (e.g. the
+        // `gw_` gateway prefix) so scoped reads address the same row.
+        let session_id = match &self.ownership_scope {
+            Some(scope) => match scope.authorize(self.backend.as_ref(), session_id) {
+                Ok(key) => key,
+                Err(error) => {
+                    return Ok(ToolResult {
+                        success: false,
+                        output: ToolOutput::default(),
+                        error: Some(error),
+                    });
+                }
+            },
+            None => session_id.to_string(),
+        };
+        let session_id = session_id.as_str();
 
         #[allow(clippy::cast_possible_truncation)]
         let limit = args
@@ -566,6 +665,7 @@ pub struct SessionsSendTool {
     backend: Arc<dyn SessionBackend>,
     security: Arc<SecurityPolicy>,
     acp_sessions: Option<AcpSessionReadView>,
+    ownership_scope: Option<SessionOwnershipScope>,
 }
 
 impl SessionsSendTool {
@@ -574,6 +674,7 @@ impl SessionsSendTool {
             backend,
             security,
             acp_sessions: None,
+            ownership_scope: None,
         }
     }
 
@@ -586,6 +687,42 @@ impl SessionsSendTool {
             backend,
             security,
             acp_sessions: Some(acp_sessions),
+            ownership_scope: None,
+        }
+    }
+
+    /// Scoped constructor: sending is authorized against the given agent's
+    /// ownership (by `agent_alias` or owned channel). Cross-agent messaging
+    /// is intentionally not served here — use `send_via` (peer-group
+    /// reachability) for that. Foreign and legacy/unattributed sessions are
+    /// refused (fail-closed).
+    pub fn for_agent(
+        backend: Arc<dyn SessionBackend>,
+        security: Arc<SecurityPolicy>,
+        ownership_scope: SessionOwnershipScope,
+    ) -> Self {
+        Self {
+            backend,
+            security,
+            acp_sessions: None,
+            ownership_scope: Some(ownership_scope),
+        }
+    }
+
+    /// Combined constructor: ACP-visible sessions plus ownership scoping,
+    /// for when a session store's ACP sessions and per-agent isolation are
+    /// both in effect.
+    pub fn with_acp_sessions_and_scope(
+        backend: Arc<dyn SessionBackend>,
+        security: Arc<SecurityPolicy>,
+        acp_sessions: AcpSessionReadView,
+        ownership_scope: SessionOwnershipScope,
+    ) -> Self {
+        Self {
+            backend,
+            security,
+            acp_sessions: Some(acp_sessions),
+            ownership_scope: Some(ownership_scope),
         }
     }
 }
@@ -690,6 +827,19 @@ impl Tool for SessionsSendTool {
         else {
             return Ok(session_not_found(session_id));
         };
+
+        // When scoped to an agent, refuse writing into a session the agent
+        // does not own. Cross-agent messaging goes through `send_via`
+        // (peer-group reachability), not raw session writes.
+        if let Some(scope) = &self.ownership_scope
+            && let Err(error) = scope.authorize(self.backend.as_ref(), &target_session_key)
+        {
+            return Ok(ToolResult {
+                success: false,
+                output: ToolOutput::default(),
+                error: Some(error),
+            });
+        }
 
         let chat_msg = zeroclaw_api::model_provider::ChatMessage::user(message);
 
@@ -1370,6 +1520,96 @@ mod tests {
         );
     }
 
+    // ── Ownership-scoped list/history tests ─────────────────────────
+
+    #[tokio::test]
+    async fn list_scoped_hides_other_agents_session() {
+        let (_tmp, backend) = seeded_metadata_backend(vec![
+            session_metadata("telegram__alice", Some("rowan"), None, 2),
+            session_metadata("discord__bob", Some("sable"), None, 1),
+        ]);
+        let tool = SessionsListTool::for_agent(backend, SessionOwnershipScope::for_agent("rowan"));
+
+        let result = tool.execute(json!({})).await.unwrap();
+
+        assert!(result.success);
+        assert!(
+            result.output.contains("telegram__alice"),
+            "own session must be listed"
+        );
+        assert!(
+            !result.output.contains("discord__bob"),
+            "another agent's session must be hidden"
+        );
+    }
+
+    #[tokio::test]
+    async fn list_scoped_hides_legacy_unattributed_session() {
+        let (_tmp, backend) = seeded_metadata_backend(vec![session_metadata(
+            "telegram__alice",
+            Some("rowan"),
+            None,
+            2,
+        )]);
+        // discord__bob is seeded with messages but has no ownership metadata.
+        let tool = SessionsListTool::for_agent(backend, SessionOwnershipScope::for_agent("rowan"));
+
+        let result = tool.execute(json!({})).await.unwrap();
+
+        assert!(result.success);
+        assert!(result.output.contains("telegram__alice"));
+        assert!(
+            !result.output.contains("discord__bob"),
+            "unattributed legacy session must be hidden (fail-closed)"
+        );
+    }
+
+    #[tokio::test]
+    async fn history_scoped_allows_own_session() {
+        let (_tmp, backend) = seeded_metadata_backend(vec![session_metadata(
+            "telegram__alice",
+            Some("rowan"),
+            None,
+            2,
+        )]);
+        let tool = SessionsHistoryTool::for_agent(
+            backend,
+            test_security(),
+            SessionOwnershipScope::for_agent("rowan"),
+        );
+
+        let result = tool
+            .execute(json!({"session_id": "telegram__alice"}))
+            .await
+            .unwrap();
+
+        assert!(result.success);
+        assert!(result.output.contains("Hello from Alice"));
+    }
+
+    #[tokio::test]
+    async fn history_scoped_denies_other_agents_session() {
+        let (_tmp, backend) = seeded_metadata_backend(vec![session_metadata(
+            "telegram__alice",
+            Some("sable"),
+            None,
+            2,
+        )]);
+        let tool = SessionsHistoryTool::for_agent(
+            backend,
+            test_security(),
+            SessionOwnershipScope::for_agent("rowan"),
+        );
+
+        let result = tool
+            .execute(json!({"session_id": "telegram__alice"}))
+            .await
+            .unwrap();
+
+        assert!(!result.success);
+        assert!(result.error.unwrap().contains("owned by agent 'sable'"));
+    }
+
     // ── SessionsSendTool tests ──────────────────────────────────────
 
     #[tokio::test]
@@ -1562,6 +1802,57 @@ mod tests {
                 .unwrap()
                 .contains(&json!("message"))
         );
+    }
+
+    #[tokio::test]
+    async fn send_scoped_denies_other_agents_session() {
+        let (_tmp, backend) = seeded_metadata_backend(vec![session_metadata(
+            "telegram__alice",
+            Some("sable"),
+            None,
+            2,
+        )]);
+        let tool = SessionsSendTool::for_agent(
+            backend.clone(),
+            test_security(),
+            SessionOwnershipScope::for_agent("rowan"),
+        );
+
+        let result = tool
+            .execute(json!({"session_id": "telegram__alice", "message": "hi"}))
+            .await
+            .unwrap();
+
+        assert!(!result.success);
+        assert!(result.error.unwrap().contains("owned by agent 'sable'"));
+        assert_eq!(
+            backend.load("telegram__alice").len(),
+            2,
+            "message must not be appended to a foreign session"
+        );
+    }
+
+    #[tokio::test]
+    async fn send_scoped_allows_own_session() {
+        let (_tmp, backend) = seeded_metadata_backend(vec![session_metadata(
+            "telegram__alice",
+            Some("rowan"),
+            None,
+            2,
+        )]);
+        let tool = SessionsSendTool::for_agent(
+            backend.clone(),
+            test_security(),
+            SessionOwnershipScope::for_agent("rowan"),
+        );
+
+        let result = tool
+            .execute(json!({"session_id": "telegram__alice", "message": "hi"}))
+            .await
+            .unwrap();
+
+        assert!(result.success);
+        assert_eq!(backend.load("telegram__alice").len(), 3);
     }
 
     // ── SessionsCurrentTool tests ──────────────────────────────────
