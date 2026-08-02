@@ -697,16 +697,21 @@ impl AcpServer {
         Self::validate_dispatchable_agent_alias(&config, &agent_alias)?;
 
         // Default workspace is the per-agent directory. An explicit
-        // `cwd`/`workspaceDir`/`workspace_dir` overrides it, unless it resolves
-        // under the install root (e.g. when clients pass '.' as a placeholder);
-        // in that case we fall back to the per-agent workspace to keep uploads
-        // and the tool sandbox out of the daemon's working directory.
+        // `cwd`/`workspaceDir`/`workspace_dir` is the session's file-access
+        // boundary and is honored exactly as given — including a narrower
+        // subdirectory under the install root. The ONE exception is a cwd that
+        // resolves to the install root itself: clients such as Thunderbolt pass
+        // `.` as a placeholder, which canonicalizes to the daemon's working
+        // directory. Treating that lone placeholder as "no meaningful cwd" and
+        // falling back to the per-agent workspace keeps uploads and the tool
+        // sandbox out of the daemon root, without silently broadening any other
+        // explicit path.
         //
         // Canonicalize the install root too: the explicit cwd goes through
         // `canonicalize`, so comparing it against a non-canonical install root
         // silently never matches whenever the path is symlinked or carries a
         // platform prefix (macOS `/var`->`/private/var`, Windows `\\?\`
-        // verbatim). Both sides must be canonical for `starts_with` to hold.
+        // verbatim). Both sides must be canonical for the equality to hold.
         //
         // An explicitly-provided cwd that cannot be resolved is a client error,
         // not a silent substitution: fail with INVALID_PARAMS. Only an absent
@@ -723,7 +728,7 @@ impl AcpServer {
                     ),
                     data: None,
                 })?;
-                if canon.starts_with(&install_root) {
+                if canon == install_root {
                     config.agent_workspace_dir(&agent_alias)
                 } else {
                     canon
@@ -2823,6 +2828,49 @@ mod tests {
             session_workspace,
             expected_workspace.to_string_lossy(),
             "cwd equal to install_root must resolve to the per-agent workspace"
+        );
+    }
+
+    #[tokio::test]
+    async fn session_new_pins_explicit_subdir_under_install_root() {
+        // A client that explicitly narrows the session to a subdirectory under
+        // the install root must have that exact directory honored as the
+        // file-access boundary. Only a cwd equal to the install root itself is
+        // treated as the '.' placeholder; anything narrower must NOT be widened
+        // back to the whole per-agent workspace.
+        let cwd = tempfile::tempdir().unwrap();
+        let mut config = make_test_config(cwd.path());
+        config.config_path = cwd.path().join("config.toml");
+        let server = AcpServer::new(config, AcpServerConfig::default());
+        let snapshot = server.config_snapshot();
+        let install_root = snapshot.install_root_dir();
+        let agent_workspace = snapshot.agent_workspace_dir("test-agent");
+
+        // A real, canonicalizable subdirectory under the install root that is
+        // NOT the per-agent workspace, so the two outcomes are distinguishable.
+        let explicit_subdir = install_root.join("project-subdir");
+        std::fs::create_dir_all(&explicit_subdir).unwrap();
+        let expected = std::fs::canonicalize(&explicit_subdir).unwrap();
+        assert_ne!(
+            expected,
+            std::fs::canonicalize(&agent_workspace).unwrap_or(agent_workspace),
+            "test setup: the explicit subdir must differ from the agent workspace"
+        );
+
+        let result = server
+            .handle_session_new(&serde_json::json!({
+                "cwd": explicit_subdir.to_string_lossy(),
+                "agentAlias": "test-agent",
+            }))
+            .await
+            .expect("session/new must succeed");
+
+        let session_workspace = result["workspaceDir"].as_str().unwrap();
+        assert_eq!(
+            session_workspace,
+            expected.to_string_lossy(),
+            "an explicit subdirectory under the install root must be honored \
+             exactly, not widened to the per-agent workspace"
         );
     }
 
