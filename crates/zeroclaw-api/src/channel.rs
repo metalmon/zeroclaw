@@ -600,6 +600,31 @@ pub struct ForgeApiResponse {
     pub body: serde_json::Value,
 }
 
+/// Error a [`Channel::finalize_draft`] implementation returns when it posted
+/// part of a chunked final answer and could not deliver the remainder. The
+/// accepted prefix is already on the wire, so a caller that falls back to
+/// resending the whole answer would duplicate the delivered chunks. Callers must
+/// treat this as degraded-but-committed delivery: do NOT resend the full answer;
+/// the undelivered suffix is lost. `delivered` is the number of physical chunks
+/// accepted before the failure, for logging only.
+#[derive(Debug)]
+pub struct FinalizePartialDelivery {
+    pub delivered: usize,
+}
+
+impl fmt::Display for FinalizePartialDelivery {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "final answer partially delivered ({} chunk(s) accepted); \
+             remainder undelivered and must not be resent",
+            self.delivered
+        )
+    }
+}
+
+impl std::error::Error for FinalizePartialDelivery {}
+
 /// Core channel trait — implement for any messaging platform.
 ///
 /// Every `Channel` is `Attributable`: the orchestrator's spawn site opens
@@ -851,6 +876,13 @@ pub trait Channel: Send + Sync + crate::attribution::Attributable {
 
     /// Finalize a draft with the complete response (e.g. apply Markdown formatting).
     /// `suppress_voice` forces text delivery even on voice-only peers.
+    ///
+    /// If finalization must chunk a long answer and a later chunk fails after an
+    /// earlier one was accepted, return [`FinalizePartialDelivery`] rather than a
+    /// generic error: it tells the caller the accepted prefix is already posted
+    /// so it must not resend the whole answer (which would duplicate the
+    /// delivered chunks). A generic `Err` still means nothing was committed and a
+    /// full-message fallback is safe.
     async fn finalize_draft(
         &self,
         _recipient: &str,

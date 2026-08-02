@@ -3869,7 +3869,7 @@ fn streaming_key(recipient: &str, message_id: &str) -> Result<streaming::DraftKe
 // ─── tests ─────────────────────────────────────────────────────────────────
 #[cfg(test)]
 mod tests {
-    /// Regression (multi_message review, Blocker B4 — capability scoping): Matrix
+    /// Regression: Matrix
     /// streams paragraphs via `update_draft` and does NOT implement the
     /// `flush_draft_turn` narration contract, so it must NOT opt into the
     /// orchestrator's narration-policy + flush-barrier path. Otherwise outbound

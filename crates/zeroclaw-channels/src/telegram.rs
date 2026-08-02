@@ -3084,6 +3084,48 @@ Allowlist Telegram username (without '@') or numeric user ID.",
         Ok(chunks.len())
     }
 
+    /// Finalize-time chunked send that never duplicates an accepted prefix.
+    ///
+    /// `send_text_chunks` posts a long answer one physical Telegram message at a
+    /// time and reports how many chunks it accepted before a failure. On such a
+    /// partial failure this first *resumes* from the accepted prefix, so a
+    /// transient error still completes the answer without re-posting earlier
+    /// chunks. If the resume also fails after some chunks were accepted, it
+    /// returns [`FinalizePartialDelivery`] so the orchestrator's generic
+    /// finalize fallback does not resend the whole answer and duplicate what
+    /// Telegram already delivered. A failure before any chunk is accepted
+    /// (`delivered == 0`) is returned as the plain source error: nothing is on
+    /// the wire, so a full-message fallback is safe.
+    async fn finalize_send_chunks(
+        &self,
+        text: &str,
+        chat_id: &str,
+        thread_id: Option<&str>,
+    ) -> anyhow::Result<()> {
+        match self.send_text_chunks(text, chat_id, thread_id, 0).await {
+            Ok(_) => Ok(()),
+            Err(SendChunksError {
+                delivered: 0,
+                source,
+            }) => Err(source),
+            Err(SendChunksError { delivered, .. }) => {
+                // Some chunks are already posted. Resume from the first unsent
+                // chunk rather than restarting, then report the accepted prefix
+                // if it still cannot finish.
+                match self
+                    .send_text_chunks(text, chat_id, thread_id, delivered)
+                    .await
+                {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(zeroclaw_api::channel::FinalizePartialDelivery {
+                        delivered: e.delivered.max(delivered),
+                    }
+                    .into()),
+                }
+            }
+        }
+    }
+
     async fn send_media_by_url(
         &self,
         method: &str,
@@ -4018,9 +4060,8 @@ impl Channel for TelegramChannel {
 
             // Send text without markers
             if !text_without_markers.is_empty() {
-                self.send_text_chunks(&text_without_markers, &chat_id, thread_id.as_deref(), 0)
-                    .await
-                    .map_err(|e| e.source)?;
+                self.finalize_send_chunks(&text_without_markers, &chat_id, thread_id.as_deref())
+                    .await?;
             }
 
             // Send attachments
@@ -4048,18 +4089,14 @@ impl Channel for TelegramChannel {
 
             // Fall back to chunked send
             return self
-                .send_text_chunks(text, &chat_id, thread_id.as_deref(), 0)
-                .await
-                .map(|_| ())
-                .map_err(|e| e.source);
+                .finalize_send_chunks(text, &chat_id, thread_id.as_deref())
+                .await;
         }
 
         let Some(id) = msg_id else {
             return self
-                .send_text_chunks(text, &chat_id, thread_id.as_deref(), 0)
-                .await
-                .map(|_| ())
-                .map_err(|e| e.source);
+                .finalize_send_chunks(text, &chat_id, thread_id.as_deref())
+                .await;
         };
 
         // Try editing with HTML formatting
@@ -4127,11 +4164,10 @@ impl Channel for TelegramChannel {
             .await;
 
         match delete_resp {
-            Ok(resp) if resp.status().is_success() => self
-                .send_text_chunks(text, &chat_id, thread_id.as_deref(), 0)
-                .await
-                .map(|_| ())
-                .map_err(|e| e.source),
+            Ok(resp) if resp.status().is_success() => {
+                self.finalize_send_chunks(text, &chat_id, thread_id.as_deref())
+                    .await
+            }
             Ok(resp) => {
                 ::zeroclaw_log::record!(
                     WARN,
@@ -5549,6 +5585,100 @@ mod tests {
         );
     }
 
+    /// Regression: when finalization chunks a long final answer and a later
+    /// chunk fails after an earlier one was accepted, `finalize_draft` must
+    /// surface [`zeroclaw_api::channel::FinalizePartialDelivery`] rather than a
+    /// plain error. A plain error makes the orchestrator fall back to
+    /// `channel.send(full_answer)`, which restarts at chunk zero and re-posts the
+    /// chunk Telegram already accepted. Proving the accepted chunk is sent
+    /// exactly once (across the initial attempt and the internal resume) closes
+    /// that duplication path at the finalizer boundary.
+    #[tokio::test]
+    async fn finalize_draft_partial_chunk_failure_signals_partial_delivery_not_a_resend() {
+        use wiremock::matchers::{method, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        // A final answer that spans more than one physical Telegram message, so
+        // finalization must chunk it. The exact first chunk is captured so
+        // "was the accepted chunk re-posted?" is observable by content.
+        let mut big = "A".repeat(3000);
+        big.push_str(&"B".repeat(6000));
+        let chunks = split_message_for_telegram(&big);
+        assert!(
+            chunks.len() >= 2,
+            "test fixture must span more than one chunk"
+        );
+        let first_chunk = chunks[0].clone();
+
+        let mock_server = MockServer::start().await;
+        // Finalization deletes the draft before chunking the oversized answer.
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/deleteMessage$"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "ok": true, "result": true })),
+            )
+            .mount(&mock_server)
+            .await;
+        // The first physical chunk (chunk 0, all 'A') is accepted exactly once;
+        // every send after it — chunk 1 and the resume attempt — fails in both
+        // HTML and plain-text modes.
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 1 } }),
+                ),
+            )
+            .up_to_n_times(1)
+            .mount(&mock_server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .respond_with(
+                ResponseTemplate::new(500).set_body_json(
+                    serde_json::json!({ "ok": false, "description": "send failed" }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let channel = TelegramChannel::new(
+            "fake-token".into(),
+            "telegram_test_alias",
+            Arc::new(|| vec!["*".into()]),
+            false,
+        )
+        .with_api_base(mock_server.uri());
+
+        let err = channel
+            .finalize_draft("100", "42", &big, false)
+            .await
+            .expect_err("a partial chunk failure must not report success");
+        assert!(
+            err.downcast_ref::<zeroclaw_api::channel::FinalizePartialDelivery>()
+                .is_some(),
+            "partial chunk failure must surface as FinalizePartialDelivery so the \
+             orchestrator does not resend the whole answer; got: {err:#}"
+        );
+
+        // The accepted first chunk must have been posted exactly once — never
+        // re-sent by the internal resume — so a real Telegram user sees no
+        // duplicate of the prefix Telegram already accepted.
+        let first_chunk_posts = mock_server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .filter(|r| r.url.path().ends_with("/sendMessage"))
+            .filter(|r| String::from_utf8_lossy(&r.body).contains(&first_chunk))
+            .count();
+        assert_eq!(
+            first_chunk_posts, 1,
+            "the accepted chunk must be posted exactly once, not duplicated"
+        );
+    }
+
     /// Regression: the delivered-chunk skip count from a prior partial
     /// failure must not be trusted blindly. If the stored `delivered_prefix`
     /// no longer matches the first `delivered_chunks` partitions of the
@@ -6151,7 +6281,7 @@ mod tests {
         );
     }
 
-    /// Regression (multi_message review, Blocker B2 — terminal policy): finalize is
+    /// Regression: finalize is
     /// the terminal lifecycle event; there is no later production caller to resume a
     /// retained draft. When the pending narration suffix is permanently
     /// undeliverable, finalize must retry it `MULTI_MESSAGE_FINALIZE_RETRIES` times
@@ -6252,7 +6382,7 @@ mod tests {
         );
     }
 
-    /// Regression (multi_message review, Blocker B2 — eventual delivery): a transient
+    /// Regression: a transient
     /// Telegram failure on the pending narration suffix must resolve within the
     /// bounded in-line retry, delivering the narration and then the final answer in
     /// order, and cleaning up the draft state.
@@ -6326,7 +6456,7 @@ mod tests {
         );
     }
 
-    /// Regression (multi_message review, Blocker B1 — turn-scoped cancellation):
+    /// Regression:
     /// when the outbound hook cancels a narration turn, `discard_draft_turn`
     /// consumes exactly that turn (nothing is sent, and it is never resurrected),
     /// while a later turn's narration still flushes normally.
@@ -6381,7 +6511,7 @@ mod tests {
         );
     }
 
-    /// Regression (multi_message review, Blocker B3 — voice ordering): the TTS voice
+    /// Regression: the TTS voice
     /// reply is queued only after the final text is successfully delivered. If the
     /// final send fails, finalize returns an error and no TTS synthesis is queued,
     /// so voice can never overtake unsent text.
@@ -6460,7 +6590,7 @@ mod tests {
         );
     }
 
-    /// Regression (multi_message review, Blocker B4 — capability scoping): only a
+    /// Regression: only a
     /// channel that actually implements the `flush_draft_turn` narration contract
     /// may opt into the orchestrator's narration-policy + flush-barrier path.
     /// Telegram in `MultiMessage` mode does; `Off` mode does not.

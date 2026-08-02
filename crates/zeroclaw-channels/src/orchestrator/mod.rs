@@ -3737,28 +3737,47 @@ async fn flush_completed_narration_turn(
     draft_id: &str,
     visible: &str,
     last_flushed: &mut String,
+    owned_guarded: &mut String,
 ) {
-    // Only real narration crosses the hook: an empty pre-narration flush would
-    // otherwise consume the hook's cancellation and let the actual narration
-    // through. Content identical to the watermark was already owned by an
-    // earlier event this stream, so skip it — this is what makes the approval
-    // `FlushBarrier` acknowledge rather than re-process a `Status`-flushed turn.
-    if visible.trim().is_empty() || visible == last_flushed {
+    // Outbound policy owns the newly completed turn, NOT the whole accumulated
+    // history. Narration is append-only, so `last_flushed` (the raw watermark of
+    // everything already run through policy) is a prefix of `visible`; the suffix
+    // is exactly the turn that just completed. Running policy over only that
+    // suffix keeps a non-idempotent `on_message_sending` hook from re-processing
+    // an earlier turn every time a later turn expands the snapshot. A defensive
+    // `unwrap_or` treats the whole snapshot as new if the prefix invariant ever
+    // fails to hold.
+    let new_turn = visible
+        .strip_prefix(last_flushed.as_str())
+        .unwrap_or(visible);
+    // No new narration (e.g. an approval `FlushBarrier` acknowledging a turn a
+    // preceding `Status` already owned): nothing to cross the hook.
+    if new_turn.trim().is_empty() {
+        *last_flushed = visible.to_string();
         return;
     }
-    // `None` => a hook cancelled this narration turn.
+    // `None` => a hook cancelled this narration turn. NOTE: policy (hook +
+    // leak-redaction) now runs per turn, so the "narration before approval"
+    // guarantee holds per delivered turn; a secret split across two turn
+    // boundaries is only caught in the fully-redacted final reply, not mid-turn.
     match apply_multi_message_narration_policy(
         hooks,
         leak_detection,
         outbound_channel,
         reply_target,
-        visible.to_string(),
+        new_turn.to_string(),
     )
     .await
     {
-        Some(guarded) => {
+        Some(guarded_turn) => {
+            // Append this turn's guarded text to the owned narration and hand the
+            // channel the full owned snapshot; its prefix reconciliation then
+            // sends only this turn's suffix. The channel never sees an earlier
+            // turn re-guarded, and a stateful hook rewrite cannot retroactively
+            // alter an already-owned turn.
+            owned_guarded.push_str(&guarded_turn);
             if let Err(e) = channel
-                .flush_draft_turn(reply_target, draft_id, &guarded)
+                .flush_draft_turn(reply_target, draft_id, owned_guarded)
                 .await
             {
                 ::zeroclaw_log::record!(
@@ -3769,11 +3788,13 @@ async fn flush_completed_narration_turn(
                 );
             }
         }
-        // Consume only the cancelled turn: mark it delivered without sending so
-        // it is never resurrected, while later turns still flush.
+        // The cancelled turn is simply never added to the owned narration, so a
+        // later turn's flush excludes it without resurrection. Sync the channel's
+        // delivered-prefix bookkeeping to the unchanged owned snapshot so its
+        // suffix accounting stays aligned with what policy has approved.
         None => {
             if let Err(e) = channel
-                .discard_draft_turn(reply_target, draft_id, visible)
+                .discard_draft_turn(reply_target, draft_id, owned_guarded)
                 .await
             {
                 ::zeroclaw_log::record!(
@@ -5522,6 +5543,11 @@ async fn process_channel_message_body(
                 // stream, so a completed turn crosses the (non-idempotent) hook
                 // exactly once across the `Status` and `FlushBarrier` events.
                 let mut last_flushed = String::new();
+                // The guarded narration already owned + flushed this stream: each
+                // completed turn's policy-checked text, concatenated. The channel
+                // is handed this (never the raw accumulation) so a later turn
+                // cannot re-guard or rewrite an earlier one.
+                let mut owned_guarded = String::new();
                 // Hook cancellation is scoped to the narration turn it cancelled:
                 // the `None` arms `discard_draft_turn` that turn so it is never
                 // re-offered or resurrected, while a later turn's narration still
@@ -5556,6 +5582,7 @@ async fn process_channel_message_body(
                                     &draft_id,
                                     &visible,
                                     &mut last_flushed,
+                                    &mut owned_guarded,
                                 )
                                 .await;
                             }
@@ -5609,6 +5636,7 @@ async fn process_channel_message_body(
                                     &draft_id,
                                     &visible,
                                     &mut last_flushed,
+                                    &mut owned_guarded,
                                 )
                                 .await;
                             }
@@ -6381,6 +6409,34 @@ async fn process_channel_message_body(
                             .await
                         {
                             Ok(()) => true,
+                            Err(e)
+                                if e
+                                    .downcast_ref::<zeroclaw_api::channel::FinalizePartialDelivery>(
+                                    )
+                                    .is_some() =>
+                            {
+                                // The channel already posted part of the chunked
+                                // final answer and could not finish. Resending the
+                                // full answer here would duplicate the delivered
+                                // prefix, so accept degraded delivery instead of
+                                // restarting from chunk zero.
+                                let delivered = e
+                                    .downcast_ref::<zeroclaw_api::channel::FinalizePartialDelivery>()
+                                    .map(|p| p.delivered)
+                                    .unwrap_or(0);
+                                ::zeroclaw_log::record!(
+                                    WARN,
+                                    ::zeroclaw_log::Event::new(
+                                        module_path!(),
+                                        ::zeroclaw_log::Action::Note
+                                    )
+                                    .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
+                                    .with_attrs(::serde_json::json!({"delivered_chunks": delivered})),
+                                    "Final answer partially delivered; not resending to avoid \
+                                     duplicating the accepted prefix"
+                                );
+                                true
+                            }
                             Err(e) => {
                                 ::zeroclaw_log::record!(
                                     WARN,
@@ -17544,7 +17600,7 @@ BTC is currently around $65,000 based on latest tool output."#
         );
     }
 
-    /// Regression (multi_message review, Blocker 1): pre-tool narration is a permanent
+    /// Regression: pre-tool narration is a permanent
     /// external send, so it must cross the same leak-detection boundary as the
     /// final reply. A credential in the narration must be redacted before it
     /// reaches Telegram — never posted raw ahead of the guarded final response.
@@ -17732,7 +17788,7 @@ BTC is currently around $65,000 based on latest tool output."#
         );
     }
 
-    /// Regression (multi_message review, Blocker 1): an `on_message_sending` hook that
+    /// Regression: an `on_message_sending` hook that
     /// rewrites the outbound content must apply to the permanent narration send —
     /// the raw pre-hook narration must never reach Telegram, since the hook cannot
     /// retract an already-posted message.
@@ -17911,7 +17967,7 @@ BTC is currently around $65,000 based on latest tool output."#
         );
     }
 
-    /// Regression (multi_message review, remaining blocker): for an
+    /// Regression: for an
     /// approval-requiring tool turn the runtime emits both a `StreamDelta::Status`
     /// and a following `StreamDelta::FlushBarrier`. The completed narration turn
     /// must cross the (non-idempotent) `on_message_sending` outbound hook EXACTLY
@@ -18091,7 +18147,101 @@ BTC is currently around $65,000 based on latest tool output."#
         );
     }
 
-    /// Regression (multi_message review, Blockers A + B1): a stateful
+    /// Regression: outbound policy owns each completed narration turn, not the
+    /// whole accumulated history. Narration is append-only, so a later turn
+    /// arrives as a superset snapshot ("AAA", then "AAABBB"). The non-idempotent
+    /// `on_message_sending` hook must observe the first turn EXACTLY ONCE — not
+    /// again when the second turn expands the snapshot — and the second turn must
+    /// cross as just its own delta. Before the per-turn fix,
+    /// `flush_completed_narration_turn` ran policy over the whole superset each
+    /// time, so the hook saw the first turn twice and a stateful hook could allow
+    /// it the first time then cancel or rewrite it the second.
+    #[cfg(feature = "channel-telegram")]
+    #[tokio::test]
+    async fn each_completed_narration_turn_crosses_outbound_hook_once() {
+        // A channel whose draft hooks are the trait defaults (no-op): the
+        // outbound hook fires before any channel flush, so what the channel does
+        // with the flushed text is irrelevant to counting hook crossings.
+        struct NoopFlushChannel;
+        impl ::zeroclaw_api::attribution::Attributable for NoopFlushChannel {
+            fn role(&self) -> ::zeroclaw_api::attribution::Role {
+                ::zeroclaw_api::attribution::Role::Channel(
+                    ::zeroclaw_api::attribution::ChannelKind::Webhook,
+                )
+            }
+            fn alias(&self) -> &str {
+                "test"
+            }
+        }
+        #[async_trait::async_trait]
+        impl Channel for NoopFlushChannel {
+            fn name(&self) -> &str {
+                "test-channel"
+            }
+            async fn send(&self, _message: &SendMessage) -> anyhow::Result<()> {
+                Ok(())
+            }
+            async fn listen(
+                &self,
+                _tx: tokio::sync::mpsc::Sender<zeroclaw_api::channel::ChannelMessage>,
+            ) -> anyhow::Result<()> {
+                Ok(())
+            }
+        }
+
+        let seen = std::sync::Arc::new(parking_lot::Mutex::new(Vec::<String>::new()));
+        let mut hook_runner = zeroclaw_runtime::hooks::HookRunner::new();
+        hook_runner.register(Box::new(RecordingSendHook { seen: seen.clone() }));
+
+        let channel: Arc<dyn Channel> = Arc::new(NoopFlushChannel);
+        let leak = zeroclaw_config::schema::LeakDetectionConfig::default();
+        let mut last_flushed = String::new();
+        let mut owned_guarded = String::new();
+
+        // Turn 1 completes: the visible narration buffer is "AAA".
+        flush_completed_narration_turn(
+            &channel,
+            Some(&hook_runner),
+            &leak,
+            "telegram",
+            "123",
+            "draft-1",
+            "AAA",
+            &mut last_flushed,
+            &mut owned_guarded,
+        )
+        .await;
+        // Turn 2 completes: the append-only buffer is now the superset "AAABBB".
+        flush_completed_narration_turn(
+            &channel,
+            Some(&hook_runner),
+            &leak,
+            "telegram",
+            "123",
+            "draft-1",
+            "AAABBB",
+            &mut last_flushed,
+            &mut owned_guarded,
+        )
+        .await;
+
+        let seen = seen.lock();
+        let first_turn_crossings = seen.iter().filter(|c| c.contains("AAA")).count();
+        assert_eq!(
+            first_turn_crossings, 1,
+            "turn 1 must cross the outbound hook exactly once, not again when turn 2 \
+             expands the snapshot; crossings: {:?}",
+            *seen
+        );
+        assert!(
+            seen.iter().any(|c| c == "BBB"),
+            "turn 2 must cross as just its own delta 'BBB', not the whole 'AAABBB' \
+             snapshot; crossings: {:?}",
+            *seen
+        );
+    }
+
+    /// Regression: a stateful
     /// `on_message_sending` hook that cancels a narration flush must never let that
     /// same cancelled narration reach Telegram via a later flush of the same buffer.
     /// Cancellation is turn-scoped — the channel `discard_draft_turn`s the cancelled
