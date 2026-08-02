@@ -84,7 +84,9 @@ The optional **`cwd`** parameter (aliases: `workspaceDir`, `workspace_dir`) pins
   }}
 ```
 
-`cwd` is canonicalized on intake, `../` traversal cannot escape the intended root. If `cwd` is omitted, the server uses the daemon's launch directory.
+`cwd` is canonicalized on intake, `../` traversal cannot escape the intended root. An explicit `cwd` is honored exactly as the session boundary, including a narrower subdirectory under the agent's workspace.
+
+If `cwd` is **omitted**, the server uses the resolved agent's workspace directory (`[agents.<alias>]` workspace), not the daemon's launch directory. The one special case is a `cwd` that canonicalizes to the install root itself: clients such as Thunderbolt send `.` as a placeholder, which resolves to the daemon's working directory. That lone placeholder is treated as "no meaningful cwd" and also falls back to the per-agent workspace, so uploads and the tool sandbox stay out of the daemon root. Any other explicit path, including one below the install root, is pinned as given and never widened.
 
 ### `session/prompt`
 
