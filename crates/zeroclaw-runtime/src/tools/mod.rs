@@ -1444,13 +1444,42 @@ pub fn all_tools_with_runtime(
     if let Ok(backend) =
         zeroclaw_infra::make_session_backend(&config.data_dir, &config.channels.session_backend)
     {
+        // Ownership scope for this agent: its own `agent_alias` plus the
+        // channels it is configured to handle. Channel sessions are stamped
+        // with `channel_id` but not `agent_alias`, so the channel set is
+        // required for the agent to see its own channel sessions; without it
+        // list/history would fail-closed on everything.
+        let owned_channels: Vec<String> = root_config
+            .agents
+            .get(agent_alias)
+            .map(|agent| {
+                agent
+                    .channels
+                    .iter()
+                    .map(|channel| channel.as_str().to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let ownership_scope = zeroclaw_tools::sessions::SessionOwnershipScope::with_channels(
+            agent_alias,
+            owned_channels,
+        );
+
         tool_arcs.push(Arc::new(SessionsCurrentTool::new(backend.clone())));
-        tool_arcs.push(Arc::new(SessionsListTool::new(backend.clone())));
-        tool_arcs.push(Arc::new(SessionsHistoryTool::new(
+        tool_arcs.push(Arc::new(SessionsListTool::for_agent(
+            backend.clone(),
+            ownership_scope.clone(),
+        )));
+        tool_arcs.push(Arc::new(SessionsHistoryTool::for_agent(
             backend.clone(),
             security.clone(),
+            ownership_scope.clone(),
         )));
-        tool_arcs.push(Arc::new(SessionsSendTool::new(backend, security.clone())));
+        tool_arcs.push(Arc::new(SessionsSendTool::for_agent(
+            backend,
+            security.clone(),
+            ownership_scope,
+        )));
     }
 
     // LinkedIn integration (config-gated)
