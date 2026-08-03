@@ -1824,13 +1824,21 @@ async fn run_heartbeat_worker(config: Config) -> Result<()> {
             None
         };
 
-        let heartbeat_memory: Option<Box<dyn zeroclaw_memory::Memory>> =
-            zeroclaw_memory::create_memory_from_config(
+        // Consolidate heartbeat output to the heartbeat agent's OWN memory
+        // backend, so a per-agent `[agents.<alias>.memory]` store (e.g. a
+        // per-agent SQLite `brain.db`) is honored instead of the shared default.
+        // `create_memory_from_config` ignores the alias and always builds the
+        // shared store, which silently routed a named heartbeat agent's writes
+        // into `data/MEMORY.md`.
+        let heartbeat_memory: Option<std::sync::Arc<dyn zeroclaw_memory::Memory>> =
+            zeroclaw_memory::create_memory_for_agent(
                 &config,
+                &agent_alias,
                 config
                     .model_provider_for_agent(&agent_alias)
                     .and_then(|e| e.api_key.as_deref()),
             )
+            .await
             .ok();
 
         let mut tick_had_error = false;
