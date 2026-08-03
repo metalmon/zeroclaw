@@ -1395,7 +1395,26 @@ pub fn all_tools_with_runtime(
             root_config.knowledge.max_nodes,
         ) {
             Ok(graph) => {
-                tool_arcs.push(Arc::new(KnowledgeTool::new(Arc::new(graph))));
+                let graph = Arc::new(graph);
+                let tool = if root_config.knowledge.per_agent_scope {
+                    // Per-agent isolation: bind this agent's alias (stamped on
+                    // writes, required for mutations) and its operator-configured
+                    // `read_memory_from` shares as the read allowlist.
+                    let read_allowlist: Vec<String> = root_config
+                        .agent(agent_alias)
+                        .map(|a| {
+                            a.workspace
+                                .read_memory_from
+                                .iter()
+                                .map(|p| p.as_str().to_string())
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    KnowledgeTool::new_scoped(graph, agent_alias.to_string(), read_allowlist)
+                } else {
+                    KnowledgeTool::new(graph)
+                };
+                tool_arcs.push(Arc::new(tool));
             }
             Err(e) => {
                 ::zeroclaw_log::record!(

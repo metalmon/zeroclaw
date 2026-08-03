@@ -8291,6 +8291,13 @@ pub struct KnowledgeConfig {
     /// Proactively suggest relevant knowledge on queries. Default: true.
     #[serde(default = "default_true")]
     pub suggest_on_query: bool,
+    /// Isolate the knowledge graph per agent: stamp writes with the calling
+    /// agent's alias and scope reads/mutations to that agent (plus its
+    /// `read_memory_from` shares and unowned legacy nodes). Default: false —
+    /// the shared, unscoped legacy behavior. Opt in once existing nodes have
+    /// been migrated/re-attributed to their owning agents.
+    #[serde(default)]
+    pub per_agent_scope: bool,
 }
 
 fn default_knowledge_db_path() -> String {
@@ -8309,6 +8316,7 @@ impl Default for KnowledgeConfig {
             max_nodes: default_knowledge_max_nodes(),
             auto_capture: false,
             suggest_on_query: true,
+            per_agent_scope: false,
         }
     }
 }
