@@ -387,24 +387,29 @@ pub(crate) fn format_mcp_tool_result_for_model(
             .to_string();
         match typ.as_str() {
             "resource" => {
-                let Some(blob) = item
-                    .get("resource")
-                    .and_then(|r| r.get("blob"))
-                    .and_then(|b| b.as_str())
-                    .map(str::to_string)
-                else {
+                let Some(res) = item.get_mut("resource").and_then(|r| r.as_object_mut()) else {
                     continue;
                 };
-                let uri = item
-                    .get("resource")
-                    .and_then(|r| r.get("uri"))
+                // A `resource` without a string `blob` (e.g. resource_link) carries
+                // through untouched.
+                if res.get("blob").and_then(|b| b.as_str()).is_none() {
+                    continue;
+                }
+                // Small metadata; cloning these is not the base64 payload.
+                let uri = res.get("uri").and_then(|v| v.as_str()).map(str::to_string);
+                let mime = res
+                    .get("mimeType")
                     .and_then(|v| v.as_str())
                     .map(str::to_string);
-                let mime = item
-                    .get("resource")
-                    .and_then(|r| r.get("mimeType"))
-                    .and_then(|v| v.as_str())
-                    .map(str::to_string);
+                // Take OWNERSHIP of the base64 blob string instead of copying it:
+                // over-budget simply drops it (no decode/hash/write, no copy), and
+                // the accepted path materializes from the owned string.
+                let blob = match res.remove("blob") {
+                    Some(serde_json::Value::String(blob)) => blob,
+                    // Non-string blob can't happen after the check above; if it
+                    // somehow does, the field is already removed and we degrade.
+                    _ => String::new(),
+                };
                 // Over an exceeded per-call bound, degrade without touching disk.
                 // Otherwise degrade per-item: one malformed/oversized blob must
                 // not fail the whole result or leak base64.
@@ -421,13 +426,10 @@ pub(crate) fn format_mcp_tool_result_for_model(
                         Err(e) => format!("[attachment unavailable: {e}]"),
                     }
                 };
-                if let Some(res) = item.get_mut("resource").and_then(|r| r.as_object_mut()) {
-                    res.remove("blob");
-                    res.insert(
-                        "materialized".to_string(),
-                        serde_json::Value::String(marker),
-                    );
-                }
+                res.insert(
+                    "materialized".to_string(),
+                    serde_json::Value::String(marker),
+                );
             }
             "image" | "audio" => {
                 let mime = item
