@@ -2599,6 +2599,40 @@ fn resolve_gateway_chat_agent_alias(
         .or_else(|| config.resolved_runtime_agent_alias().map(str::to_owned))
 }
 
+/// Memory handle for webhook autosave: the per-agent backend of the agent the
+/// turn will actually run as, so a `[agents.<alias>.memory]` backend (e.g. a
+/// per-agent SQLite `brain.db`) is honored instead of the shared default store.
+/// Falls back to the shared handle only when no agent resolves, or (best effort)
+/// when per-agent construction fails — the inbound message is never dropped.
+async fn webhook_autosave_memory(
+    state: &AppState,
+    agent_override: Option<&str>,
+) -> std::sync::Arc<dyn zeroclaw_memory::Memory> {
+    let (config, alias) = {
+        let cfg = state.config.read();
+        match resolve_gateway_chat_agent_alias(&cfg, agent_override) {
+            Some(alias) => (cfg.clone(), alias),
+            None => return state.mem.clone(),
+        }
+    };
+    let api_key = config
+        .resolved_model_provider_for_agent(&alias)
+        .and_then(|(_, _, cfg)| cfg.api_key.clone());
+    match zeroclaw_memory::create_memory_for_agent(&config, &alias, api_key.as_deref()).await {
+        Ok(mem) => mem,
+        Err(e) => {
+            ::zeroclaw_log::record!(
+                WARN,
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                    .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                    .with_attrs(::serde_json::json!({"agent": alias, "error": format!("{e:#}")})),
+                "webhook autosave: per-agent memory build failed; using shared store"
+            );
+            state.mem.clone()
+        }
+    }
+}
+
 #[cfg(not(test))]
 fn require_gateway_chat_agent_alias(
     config: &Config,
@@ -3015,8 +3049,11 @@ async fn handle_webhook(
 
     if state.auto_save && !zeroclaw_memory::should_skip_autosave_content(message) {
         let key = webhook_memory_key();
-        let _ = state
-            .mem
+        // Store to the addressed agent's own backend, not the shared default,
+        // so a per-agent memory backend is honored (mirrors the per-agent turn
+        // dispatch below and the REST/WS memory paths).
+        let mem = webhook_autosave_memory(&state, agent_override).await;
+        let _ = mem
             .store(
                 &key,
                 message,
@@ -7192,6 +7229,112 @@ path = "{trigger_path}"
         assert!(keys[0].starts_with("webhook_msg_"));
         assert!(keys[1].starts_with("webhook_msg_"));
         assert_eq!(provider_impl.calls.load(Ordering::SeqCst), 2);
+    }
+
+    /// Regression: a webhook message addressed to a specific agent
+    /// (`?agent=<alias>`) autosaves to that agent's own memory backend, not the
+    /// shared default store. Before the fix the inbound message was stored
+    /// through the shared `state.mem`, so a per-agent `[agents.<alias>.memory]`
+    /// backend (e.g. a per-agent SQLite `brain.db`) was silently bypassed and
+    /// writes landed in the shared `data/MEMORY.md`. The companion
+    /// `webhook_autosave_stores_distinct_keys_per_request` covers the no-agent
+    /// path, where the shared store is still used.
+    #[tokio::test]
+    async fn webhook_autosave_routes_to_addressed_agent_not_shared() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut config = Config {
+            data_dir: tmp.path().to_path_buf(),
+            config_path: tmp.path().join("config.toml"),
+            ..Config::default()
+        };
+        // A configured agent resolves to its own per-agent memory backend.
+        config.agents.insert(
+            "roy".into(),
+            zeroclaw_config::schema::AliasedAgentConfig::default(),
+        );
+
+        let shared_impl = Arc::new(TrackingMemory::default());
+        let shared: Arc<dyn Memory> = shared_impl.clone();
+
+        let state = AppState {
+            config: Arc::new(RwLock::new(config)),
+            model_provider: Arc::new(MockModelProvider::default()),
+            model: "test-model".into(),
+            temperature: None,
+            mem: shared,
+            memory_strategy: Arc::new(DefaultMemoryStrategy::with_config(
+                Arc::new(MockMemory),
+                zeroclaw_config::schema::MemoryConfig::default(),
+                std::path::PathBuf::new(),
+            )),
+            auto_save: true,
+            pairing: Arc::new(PairingGuard::new(false, &[])),
+            trust_forwarded_headers: false,
+            rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
+            auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
+            idempotency_store: Arc::new(IdempotencyStore::new(Duration::from_secs(300), 1000)),
+            #[cfg(feature = "channel-whatsapp-cloud")]
+            whatsapp: HashMap::new(),
+            #[cfg(feature = "channel-whatsapp-cloud")]
+            whatsapp_app_secret: HashMap::new(),
+            #[cfg(feature = "channel-linq")]
+            linq: HashMap::new(),
+            #[cfg(feature = "channel-linq")]
+            linq_signing_secrets: HashMap::new(),
+            #[cfg(feature = "channel-nextcloud")]
+            nextcloud_talk: HashMap::new(),
+            #[cfg(feature = "channel-nextcloud")]
+            nextcloud_talk_webhook_secret: HashMap::new(),
+            #[cfg(feature = "channel-wati")]
+            wati: HashMap::new(),
+            #[cfg(feature = "channel-email")]
+            gmail_push: None,
+            observer: Arc::new(zeroclaw_runtime::observability::NoopObserver),
+            tools_registry: Arc::new(Vec::new()),
+            tools_registry_by_agent: Arc::new(std::collections::HashMap::new()),
+            cost_tracker: None,
+            event_tx: tokio::sync::broadcast::channel(16).0,
+            event_buffer: Arc::new(sse::EventBuffer::new(16)),
+            shutdown_tx: tokio::sync::watch::channel(false).0,
+            reload_tx: None,
+            node_registry: Arc::new(nodes::NodeRegistry::new(16)),
+            mdns_peer_registry: nodes::mdns::MdnsPeerRegistry::default(),
+            path_prefix: String::new(),
+            web_dist_dir: None,
+            session_backend: None,
+            session_queue: std::sync::Arc::new(crate::session_queue::SessionActorQueue::new(
+                8, 30, 600,
+            )),
+            device_registry: None,
+            pending_pairings: None,
+            canvas_store: CanvasStore::new(),
+            cancel_tokens: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            pending_reload: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            tui_registry: None,
+            sop_engine: None,
+            sop_audit: None,
+            #[cfg(feature = "webauthn")]
+            webauthn: None,
+        };
+
+        // Resolve the autosave handle the webhook uses for `?agent=roy` and store
+        // through it, exactly as the ingress autosave does.
+        let mem = webhook_autosave_memory(&state, Some("roy")).await;
+        mem.store(
+            "webhook_msg_1",
+            "roy-only note",
+            MemoryCategory::Conversation,
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            shared_impl.keys.lock().is_empty(),
+            "autosave for ?agent=roy must go to roy's per-agent backend, not the \
+             shared store; shared keys: {:?}",
+            shared_impl.keys.lock()
+        );
     }
 
     #[test]
