@@ -335,10 +335,6 @@ impl AcpServer {
             })?;
         zeroclaw_spawn::spawn!(writer_task(writer_rx));
 
-        let stdin = tokio::io::stdin();
-        let mut reader = BufReader::new(stdin);
-        let mut line = String::new();
-
         // Spawn session reaper
         let sessions = Arc::clone(&self.sessions);
         let timeout = Duration::from_secs(self.acp_config.session_timeout_secs);
@@ -391,27 +387,44 @@ impl AcpServer {
             }
         });
 
+        // Read newline-delimited JSON-RPC from the process's real stdin.
+        // Factored into `serve_reader` so tests can drive the exact same
+        // framing loop with an in-memory pipe instead of the stdin handle.
+        self.serve_reader(tokio::io::stdin()).await?;
+
+        ::zeroclaw_log::record!(
+            DEBUG,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_category(::zeroclaw_log::EventCategory::Channel),
+            "ACP server: stdin closed, shutting down"
+        );
+
+        Ok(())
+    }
+
+    /// Read newline-delimited JSON-RPC requests from `reader`, dispatching each
+    /// non-empty line through the shared `process_line` path. This is the exact
+    /// framing loop the stdio front door uses: `run()` calls it with the
+    /// process's real stdin, and tests drive it with an in-memory pipe to prove
+    /// `session/new` end-to-end through the stdio surface.
+    async fn serve_reader<R>(self: &Arc<Self>, reader: R) -> Result<()>
+    where
+        R: tokio::io::AsyncRead + Unpin,
+    {
+        let mut reader = BufReader::new(reader);
+        let mut line = String::new();
         loop {
             line.clear();
             let bytes_read = reader.read_line(&mut line).await?;
             if bytes_read == 0 {
-                ::zeroclaw_log::record!(
-                    DEBUG,
-                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
-                        .with_category(::zeroclaw_log::EventCategory::Channel),
-                    "ACP server: stdin closed, shutting down"
-                );
                 break;
             }
-
             let trimmed = line.trim();
             if trimmed.is_empty() {
                 continue;
             }
-
             self.process_line(trimmed).await;
         }
-
         Ok(())
     }
 
@@ -2871,6 +2884,84 @@ mod tests {
             expected.to_string_lossy(),
             "an explicit subdirectory under the install root must be honored \
              exactly, not widened to the per-agent workspace"
+        );
+    }
+
+    /// Front-door proof for the CLI stdio surface. The tests above call
+    /// `handle_session_new` directly; this one drives the real stdio serve loop
+    /// (`serve_reader`, the exact framing loop `run()` uses for `zeroclaw acp`)
+    /// through an in-memory pipe, feeding newline-delimited JSON-RPC just as an
+    /// editor/IDE ACP client would over the process's stdin. An omitted-`cwd`
+    /// `session/new` must return the per-agent workspace — the behavior this PR
+    /// introduces — not the daemon process CWD.
+    #[tokio::test]
+    async fn stdio_front_door_omitted_cwd_uses_agent_workspace() {
+        use tokio::io::AsyncWriteExt;
+
+        let cwd = tempfile::tempdir().unwrap();
+        let mut config = make_test_config(cwd.path());
+        // Pin config_path so `agent_workspace_dir` resolves under a real,
+        // canonicalizable install root.
+        config.config_path = cwd.path().join("config.toml");
+        let expected_ws = config
+            .agent_workspace_dir("test-agent")
+            .to_string_lossy()
+            .into_owned();
+
+        // The server writes response frames to `writer_rx`; no store, so
+        // `session/new` skips persistence.
+        let (writer_tx, mut writer_rx) = mpsc::channel::<String>(64);
+        let server = Arc::new(AcpServer::new_with_writer(
+            config,
+            AcpServerConfig::default(),
+            writer_tx,
+        ));
+
+        // In-memory stdin: the server reads `server_stdin`; the test writes
+        // framed JSON-RPC to `client`.
+        let (mut client, server_stdin) = tokio::io::duplex(4096);
+        let reader = Arc::clone(&server);
+        let reader_task = tokio::spawn(async move { reader.serve_reader(server_stdin).await });
+
+        client
+            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n")
+            .await
+            .unwrap();
+        client
+            .write_all(
+                b"{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"session/new\",\
+                  \"params\":{\"agentAlias\":\"test-agent\"}}\n",
+            )
+            .await
+            .unwrap();
+        client.flush().await.unwrap();
+
+        let workspace_dir = tokio::time::timeout(Duration::from_secs(10), async {
+            while let Some(frame) = writer_rx.recv().await {
+                let value: Value = match serde_json::from_str(&frame) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                if value.get("id").and_then(|i| i.as_i64()) == Some(2) {
+                    if let Some(err) = value.get("error") {
+                        panic!("session/new returned an error: {err}");
+                    }
+                    return value["result"]["workspaceDir"].as_str().map(String::from);
+                }
+            }
+            None
+        })
+        .await
+        .expect("session/new response should arrive before timeout");
+
+        drop(client); // EOF → serve_reader returns
+        let _ = reader_task.await;
+
+        assert_eq!(
+            workspace_dir.as_deref(),
+            Some(expected_ws.as_str()),
+            "omitted-cwd session/new over the real stdio serve loop must return \
+             the per-agent workspace, not the daemon CWD"
         );
     }
 
