@@ -3669,6 +3669,7 @@ async fn apply_multi_message_narration_policy(
     leak_detection: &zeroclaw_config::schema::LeakDetectionConfig,
     channel: &str,
     reply_target: &str,
+    prior_tail: &str,
     content: String,
 ) -> Option<String> {
     let mut outbound = content;
@@ -3708,7 +3709,8 @@ async fn apply_multi_message_narration_policy(
             }
         }
     }
-    Some(redact_channel_outbound_leaks(
+    Some(redact_channel_outbound_leaks_with_prior_context(
+        prior_tail,
         &outbound,
         leak_detection,
         outbound_content_format_for_channel(channel),
@@ -3756,15 +3758,23 @@ async fn flush_completed_narration_turn(
         *last_flushed = visible.to_string();
         return;
     }
-    // `None` => a hook cancelled this narration turn. NOTE: policy (hook +
-    // leak-redaction) now runs per turn, so the "narration before approval"
-    // guarantee holds per delivered turn; a secret split across two turn
-    // boundaries is only caught in the fully-redacted final reply, not mid-turn.
+    // Bounded raw context from already-delivered narration so a credential split
+    // across this turn boundary is still caught. `last_flushed` is the raw
+    // watermark of prior narration; its bounded suffix spans any structured
+    // secret without re-running policy over earlier turns. The per-turn scan
+    // alone is blind to a secret whose halves land in adjacent turns.
+    let prior_tail =
+        bounded_char_suffix(last_flushed.as_str(), NARRATION_LEAK_CONTEXT_CHARS).to_string();
+    // `None` => a hook cancelled this narration turn. Policy (hook +
+    // leak-redaction) runs per turn, so the "narration before approval"
+    // guarantee holds per delivered turn, and the prior-context scan closes the
+    // split-secret gap across turn boundaries.
     match apply_multi_message_narration_policy(
         hooks,
         leak_detection,
         outbound_channel,
         reply_target,
+        &prior_tail,
         new_turn.to_string(),
     )
     .await
@@ -3838,6 +3848,78 @@ fn redact_channel_outbound_leaks(
             redacted
         }
     }
+}
+
+/// Bounded raw narration context (chars) carried across completed turns so a
+/// credential split across a turn boundary is still detected. Large enough to
+/// span the structured secrets [`redact_channel_outbound_leaks`] recognizes.
+const NARRATION_LEAK_CONTEXT_CHARS: usize = 512;
+
+/// Redact outbound leaks in `content`, additionally catching a credential that
+/// only completes once the previously delivered narration (`prior_tail`, a
+/// bounded raw suffix) is prepended.
+///
+/// The per-turn narration boundary makes a plain per-turn scan blind to a secret
+/// split as e.g. `AKIA…` in one permanent send and `…MNOP` in the next: neither
+/// fragment matches alone, so both would reach the channel and reconstruct the
+/// full value. A secret fully inside this turn is redacted as usual; a secret
+/// that only appears with `prior_tail` prepended has this turn's participating
+/// fragment scrubbed, so the delivered messages cannot be concatenated back into
+/// the credential. `prior_tail` is detection context only and is never delivered.
+fn redact_channel_outbound_leaks_with_prior_context(
+    prior_tail: &str,
+    content: &str,
+    leak_detection: &zeroclaw_config::schema::LeakDetectionConfig,
+    content_format: OutboundContentFormat,
+) -> String {
+    // First redact secrets contained entirely within this turn.
+    let self_redacted = redact_channel_outbound_leaks(content, leak_detection, content_format);
+    if !leak_detection.enabled || prior_tail.is_empty() {
+        return self_redacted;
+    }
+    // Then look for a secret that only appears once the prior tail is prepended.
+    // `prior_tail` is already-delivered narration, so on its own it holds no
+    // complete secret; a change here means one spans the boundary.
+    let combined = format!("{prior_tail}{self_redacted}");
+    let combined_redacted =
+        redact_channel_outbound_leaks(&combined, leak_detection, content_format);
+    if combined_redacted == combined {
+        return self_redacted;
+    }
+    // A credential spans the boundary. The prior turn is already delivered and
+    // cannot be retracted; scrub this turn's participating fragment. The suffix
+    // the detector left intact is exactly the part of this turn NOT in the
+    // credential, so deliver only that behind a redaction marker.
+    let safe_suffix = longest_common_char_suffix(&combined_redacted, &self_redacted);
+    format!("[REDACTED_CREDENTIAL]{safe_suffix}")
+}
+
+/// Last `max_chars` characters of `s` as a char-boundary slice (all of `s` when
+/// shorter). Used to bound the cross-turn leak-detection context.
+fn bounded_char_suffix(s: &str, max_chars: usize) -> &str {
+    let total = s.chars().count();
+    if total <= max_chars {
+        return s;
+    }
+    let start = s
+        .char_indices()
+        .nth(total - max_chars)
+        .map_or(0, |(i, _)| i);
+    &s[start..]
+}
+
+/// Longest common suffix of `a` and `b`, returned as a char-boundary slice of `b`.
+fn longest_common_char_suffix<'b>(a: &str, b: &'b str) -> &'b str {
+    let mut split = b.len();
+    let mut a_chars = a.char_indices().rev();
+    let mut b_chars = b.char_indices().rev();
+    loop {
+        match (a_chars.next(), b_chars.next()) {
+            (Some((_, ca)), Some((pos, cb))) if ca == cb => split = pos,
+            _ => break,
+        }
+    }
+    &b[split..]
 }
 
 fn channel_outbound_protected_spans(
@@ -15920,7 +16002,7 @@ api_key = "anthropic-key"
     }
 
     /// Cancels the FIRST `on_message_sending` invocation and allows every later
-    /// one — the exact stateful-hook shape from the Blocker-A review. Once a
+    /// one — a stateful hook that permits one turn and cancels another. Once a
     /// narration flush is cancelled, a subsequent flush must never resurrect it.
     #[cfg(feature = "channel-telegram")]
     struct CancellingSendHook {
@@ -18241,14 +18323,102 @@ BTC is currently around $65,000 based on latest tool output."#
         );
     }
 
+    /// Regression: a credential split across two completed narration turns must
+    /// not be reconstructable from what the channel receives. The per-turn scan
+    /// is blind to a secret whose halves land in adjacent permanent sends; the
+    /// bounded prior-context scan must scrub this turn's fragment so the
+    /// delivered snapshot cannot be concatenated back into the full value.
+    #[cfg(feature = "channel-telegram")]
+    #[tokio::test]
+    async fn multi_message_split_credential_across_turns_is_not_reconstructable() {
+        struct NoopFlushChannel;
+        impl ::zeroclaw_api::attribution::Attributable for NoopFlushChannel {
+            fn role(&self) -> ::zeroclaw_api::attribution::Role {
+                ::zeroclaw_api::attribution::Role::Channel(
+                    ::zeroclaw_api::attribution::ChannelKind::Webhook,
+                )
+            }
+            fn alias(&self) -> &str {
+                "test"
+            }
+        }
+        #[async_trait::async_trait]
+        impl Channel for NoopFlushChannel {
+            fn name(&self) -> &str {
+                "telegram"
+            }
+            async fn send(&self, _message: &SendMessage) -> anyhow::Result<()> {
+                Ok(())
+            }
+            async fn listen(
+                &self,
+                _tx: tokio::sync::mpsc::Sender<zeroclaw_api::channel::ChannelMessage>,
+            ) -> anyhow::Result<()> {
+                Ok(())
+            }
+        }
+
+        let channel: Arc<dyn Channel> = Arc::new(NoopFlushChannel);
+        // Leak detection is on by default; the AWS deterministic pattern runs.
+        let leak = zeroclaw_config::schema::LeakDetectionConfig::default();
+        let mut last_flushed = String::new();
+        let mut owned_guarded = String::new();
+
+        // Turn 1: the first half of an AWS access key id (`AKIA` + 8 chars).
+        // Incomplete on its own — the detector does not match it in isolation.
+        flush_completed_narration_turn(
+            &channel,
+            None,
+            &leak,
+            "telegram",
+            "123",
+            "draft-1",
+            "AKIAABCDEFGH",
+            &mut last_flushed,
+            &mut owned_guarded,
+        )
+        .await;
+        // Turn 2 appends the remaining 8 chars, completing `AKIA` + 16 across the
+        // turn boundary.
+        flush_completed_narration_turn(
+            &channel,
+            None,
+            &leak,
+            "telegram",
+            "123",
+            "draft-1",
+            "AKIAABCDEFGHIJKLMNOP",
+            &mut last_flushed,
+            &mut owned_guarded,
+        )
+        .await;
+
+        // `owned_guarded` is exactly the guarded snapshot handed to the channel,
+        // i.e. the concatenation of what Telegram receives across the turns.
+        assert!(
+            !owned_guarded.contains("AKIAABCDEFGHIJKLMNOP"),
+            "the full split credential must not be reconstructable from the \
+             delivered snapshot; guarded: {owned_guarded:?}"
+        );
+        assert!(
+            !owned_guarded.contains("IJKLMNOP"),
+            "the second fragment must be scrubbed so concatenation cannot rebuild \
+             the credential; guarded: {owned_guarded:?}"
+        );
+        assert!(
+            owned_guarded.contains("[REDACTED"),
+            "a redaction marker must mark the scrubbed fragment; guarded: {owned_guarded:?}"
+        );
+    }
+
     /// Regression: a stateful
     /// `on_message_sending` hook that cancels a narration flush must never let that
     /// same cancelled narration reach Telegram via a later flush of the same buffer.
     /// Cancellation is turn-scoped — the channel `discard_draft_turn`s the cancelled
     /// text so a later flush of the unchanged buffer finds no unsent suffix — rather
-    /// than a stream-wide latch that would also gag a genuinely later turn (B1). The
+    /// than a stream-wide latch that would also gag a genuinely later turn. The
     /// later-turn liveness direction is covered at the channel layer by
-    /// `discard_draft_turn_consumes_cancelled_turn_but_later_turn_still_flushes`.
+    /// `discard_draft_turn_excludes_cancelled_turn_without_dropping_prior_delivery`.
     #[cfg(feature = "channel-telegram")]
     #[tokio::test]
     async fn multi_message_cancelled_narration_is_not_resurrected_by_a_later_flush() {

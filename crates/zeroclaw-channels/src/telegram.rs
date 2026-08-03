@@ -1139,9 +1139,13 @@ impl TelegramChannel {
 
         if !remainder.is_empty() {
             self.pace_multi_message_send(last_sent_at).await;
-            self.send_text_chunks(&remainder, &chat_id, thread_id.as_deref(), 0)
-                .await
-                .map_err(|e| e.source)?;
+            // Progress-preserving send: if Telegram accepts an earlier physical
+            // chunk of the final answer and a later one fails, this returns
+            // `FinalizePartialDelivery` (via `finalize_send_chunks`) instead of a
+            // bare error, so the orchestrator's finalize fallback does not resend
+            // the whole answer from chunk zero and duplicate the accepted prefix.
+            self.finalize_send_chunks(&remainder, &chat_id, thread_id.as_deref())
+                .await?;
         }
 
         for attachment in &attachments {
@@ -1152,7 +1156,7 @@ impl TelegramChannel {
         // Queue the voice reply only after the pending narration and the final
         // text have been delivered, so a resend failure or a failed final send is
         // never overtaken by an immediate TTS reply (send_via modality="text"
-        // still suppresses it entirely). (B3)
+        // still suppresses it entirely).
         if !suppress_voice {
             self.try_queue_voice_reply(recipient, &text, true, false);
         }
@@ -3951,19 +3955,25 @@ impl Channel for TelegramChannel {
         {
             return Ok(());
         }
-        // A hook cancelled this narration turn. Mark it consumed by advancing the
-        // delivered prefix to cover it (same sanitized string space as
-        // `flush_draft_turn`) without sending anything. A later turn appends more
-        // text; its flush then sends only the suffix after this point, so the
-        // cancelled narration is never resurrected while later turns still flow.
+        // A hook cancelled this narration turn. The orchestrator passes the
+        // *owned* (accepted-turns) snapshot here — the cancelled turn was never
+        // added to it — so resync the pending buffer to that snapshot and the
+        // cancelled turn's streamed narration is excluded from what a later
+        // flush sends. Its suffix accounting then stays aligned with what policy
+        // approved, and the cancelled narration is never resurrected.
+        //
+        // Deliberately do NOT touch the delivery bookkeeping
+        // (`sent_text` / `delivered_chunks` / `delivered_prefix`): every byte of
+        // the snapshot is *accepted* narration that must still be delivered, and
+        // an earlier accepted turn may have only partially delivered. Overwriting
+        // these with the full snapshot would mark that turn's unsent remainder as
+        // consumed and silently drop it at finalize. Cancelling a later turn must
+        // not mutate delivery ownership of an earlier one.
         let visible = sanitize_multi_message_visible_text(text);
         let key = Self::multi_draft_key(recipient, message_id);
         let mut drafts = self.multi_message_drafts.lock();
         if let Some(draft) = drafts.get_mut(&key) {
-            draft.latest_visible = visible.clone();
-            draft.sent_text = visible;
-            draft.delivered_chunks = 0;
-            draft.delivered_prefix = String::new();
+            draft.latest_visible = visible;
         }
         Ok(())
     }
@@ -5679,6 +5689,158 @@ mod tests {
         );
     }
 
+    /// Regression: the SAME partial-delivery contract must hold through the
+    /// production multi-message finalizer (`finalize_multi_message_draft`), not
+    /// only the non-multi `finalize_draft`. If the final-turn send accepts an
+    /// earlier chunk and a later one fails, the finalizer must surface
+    /// `FinalizePartialDelivery` (so the orchestrator does not resend the whole
+    /// answer from chunk zero) and the accepted chunk must be posted exactly once.
+    #[tokio::test]
+    async fn finalize_multi_message_partial_chunk_failure_signals_partial_delivery_not_a_resend() {
+        use wiremock::matchers::{method, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        // A final answer that spans more than one physical chunk.
+        let mut big = "A".repeat(3000);
+        big.push_str(&"B".repeat(6000));
+        let chunks = split_message_for_telegram(&big);
+        assert!(
+            chunks.len() >= 2,
+            "test fixture must span more than one chunk"
+        );
+        let first_chunk = chunks[0].clone();
+
+        let mock_server = MockServer::start().await;
+        // First physical chunk accepted once; every later send (chunk 1 and the
+        // internal resume) fails in both HTML and plain-text modes.
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 1 } }),
+                ),
+            )
+            .up_to_n_times(1)
+            .mount(&mock_server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .respond_with(
+                ResponseTemplate::new(500).set_body_json(
+                    serde_json::json!({ "ok": false, "description": "send failed" }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let ch =
+            multi_message_test_channel("telegram_test_alias", 0).with_api_base(mock_server.uri());
+        let recipient = "100:7";
+        let draft_id = TelegramChannel::new_multi_message_draft_id();
+        // A live multi-message draft with no pending intermediate narration, so
+        // the final-turn send is what chunks `big`.
+        {
+            let mut drafts = ch.multi_message_drafts.lock();
+            drafts.insert(
+                TelegramChannel::multi_draft_key(recipient, &draft_id),
+                MultiDraftState::new(Some("7".into())),
+            );
+        }
+
+        let err = ch
+            .finalize_multi_message_draft(recipient, &draft_id, &big, true)
+            .await
+            .expect_err("a partial chunk failure must not report success");
+        assert!(
+            err.downcast_ref::<zeroclaw_api::channel::FinalizePartialDelivery>()
+                .is_some(),
+            "the multi-message finalizer must surface FinalizePartialDelivery so the \
+             orchestrator does not resend the whole answer from chunk zero; got: {err:#}"
+        );
+
+        let first_chunk_posts = mock_server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .filter(|r| r.url.path().ends_with("/sendMessage"))
+            .filter(|r| String::from_utf8_lossy(&r.body).contains(&first_chunk))
+            .count();
+        assert_eq!(
+            first_chunk_posts, 1,
+            "the accepted chunk must be posted exactly once, not duplicated"
+        );
+    }
+
+    /// Regression: cancelling a later turn must not consume an earlier failed
+    /// one. Turn A is accepted but undelivered (its flush failed); a later turn B
+    /// is then cancelled, so the orchestrator `discard_draft_turn`s the owned
+    /// snapshot that still contains A. Discard must not mark A delivered — finalize
+    /// must still retry A's unsent narration, and B is never sent.
+    #[tokio::test]
+    async fn cancelling_a_later_turn_does_not_drop_an_earlier_failed_turn_at_finalize() {
+        use wiremock::matchers::{method, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/(sendMessage|deleteMessage)$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 1 } }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let ch =
+            multi_message_test_channel("telegram_test_alias", 0).with_api_base(mock_server.uri());
+        let recipient = "100:7";
+        let draft_id = TelegramChannel::new_multi_message_draft_id();
+        // Turn A was accepted but its flush failed entirely: its narration is
+        // pending (`latest_visible`) with nothing delivered (`sent_text` empty).
+        {
+            let mut drafts = ch.multi_message_drafts.lock();
+            let mut state = MultiDraftState::new(Some("7".into()));
+            state.latest_visible = "Turn A narration".to_string();
+            drafts.insert(
+                TelegramChannel::multi_draft_key(recipient, &draft_id),
+                state,
+            );
+        }
+        // Turn B is cancelled: the orchestrator passes the owned (accepted-turns)
+        // snapshot — just A, since B was never added to it.
+        ch.discard_draft_turn(recipient, &draft_id, "Turn A narration")
+            .await
+            .unwrap();
+        // Finalize with a distinct final answer.
+        ch.finalize_multi_message_draft(recipient, &draft_id, "Final answer", true)
+            .await
+            .unwrap();
+
+        let bodies: Vec<String> = mock_server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .filter(|r| r.url.path().ends_with("/sendMessage"))
+            .map(|r| String::from_utf8_lossy(&r.body).into_owned())
+            .collect();
+        assert!(
+            bodies.iter().any(|b| b.contains("Turn A narration")),
+            "the earlier failed turn's narration must still be delivered at \
+             finalize, not dropped by the later turn's cancellation; bodies: {bodies:?}"
+        );
+        assert!(
+            !bodies.iter().any(|b| b.contains("Turn B narration")),
+            "the cancelled later turn must never be sent; bodies: {bodies:?}"
+        );
+        assert!(
+            bodies.iter().any(|b| b.contains("Final answer")),
+            "the final answer must be delivered; bodies: {bodies:?}"
+        );
+    }
+
     /// Regression: the delivered-chunk skip count from a prior partial
     /// failure must not be trusted blindly. If the stored `delivered_prefix`
     /// no longer matches the first `delivered_chunks` partitions of the
@@ -6461,7 +6623,7 @@ mod tests {
     /// consumes exactly that turn (nothing is sent, and it is never resurrected),
     /// while a later turn's narration still flushes normally.
     #[tokio::test]
-    async fn discard_draft_turn_consumes_cancelled_turn_but_later_turn_still_flushes() {
+    async fn discard_draft_turn_excludes_cancelled_turn_without_dropping_prior_delivery() {
         use wiremock::matchers::{method, path_regex};
         use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -6485,12 +6647,19 @@ mod tests {
             .unwrap()
             .expect("draft id");
 
-        // Turn A is cancelled by the hook → consumed without sending.
+        // Turn A is accepted and delivered.
+        ch.flush_draft_turn(recipient, &draft_id, "Turn A narration")
+            .await
+            .unwrap();
+        // Turn B is cancelled by the hook. It is never added to the owned
+        // (accepted-turns) snapshot, so discard is called with that UNCHANGED
+        // snapshot — just A. B's narration is not in it and is never sent, and
+        // discard must not resend or clobber A's already-delivered state.
         ch.discard_draft_turn(recipient, &draft_id, "Turn A narration")
             .await
             .unwrap();
-        // Turn B appends more narration and flushes normally.
-        ch.flush_draft_turn(recipient, &draft_id, "Turn A narration\n\nTurn B narration")
+        // Turn C is accepted and appends; its flush sends only C's new suffix.
+        ch.flush_draft_turn(recipient, &draft_id, "Turn A narration\n\nTurn C narration")
             .await
             .unwrap();
 
@@ -6501,13 +6670,24 @@ mod tests {
             .iter()
             .map(|r| String::from_utf8_lossy(&r.body).into_owned())
             .collect();
+        // The cancelled turn's narration is never sent.
         assert!(
-            !bodies.iter().any(|b| b.contains("Turn A narration")),
-            "the cancelled turn must never be sent or resurrected; bodies: {bodies:?}"
+            !bodies.iter().any(|b| b.contains("Turn B narration")),
+            "the cancelled turn must never be sent; bodies: {bodies:?}"
+        );
+        // The prior accepted turn was delivered exactly once — discard neither
+        // resent it nor dropped it — and the later turn still flushed.
+        let turn_a_sends = bodies
+            .iter()
+            .filter(|b| b.contains("Turn A narration"))
+            .count();
+        assert_eq!(
+            turn_a_sends, 1,
+            "the accepted turn must be delivered exactly once; bodies: {bodies:?}"
         );
         assert!(
-            bodies.iter().any(|b| b.contains("Turn B narration")),
-            "a later turn's narration must still flush after an earlier one was cancelled"
+            bodies.iter().any(|b| b.contains("Turn C narration")),
+            "a later turn must still flush after an earlier one was cancelled; bodies: {bodies:?}"
         );
     }
 
