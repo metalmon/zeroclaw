@@ -2921,7 +2921,8 @@ mod tests {
         // framed JSON-RPC to `client`.
         let (mut client, server_stdin) = tokio::io::duplex(4096);
         let reader = Arc::clone(&server);
-        let reader_task = tokio::spawn(async move { reader.serve_reader(server_stdin).await });
+        let reader_task =
+            zeroclaw_spawn::spawn!(async move { reader.serve_reader(server_stdin).await });
 
         client
             .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n")
