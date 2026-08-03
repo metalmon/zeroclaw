@@ -42,6 +42,7 @@ $Branches = @(
     "fix/git-subcommand-classifier",          # #9627 - resolve git subcommand past global options (approval-gate fix)
     "fix/windows-nul-redirect",               # #9633 - accept Windows null device (nul/NUL) as safe redirect target
     "local/git-read-only",                     # local-only: git_read_only risk-profile flag (hard read-only git); stacked on fix/git-subcommand-classifier
+    "fix/per-agent-memory-autosave-clean",     # local-only (Bug 3, no PR yet): webhook + heartbeat autosave route to the addressed/heartbeat agent's own memory backend, not the shared default
     "local/dev-tooling"                       # local-only: fork CI (fork-build.yml) + this script; self-restoring, keep last
 )
 
