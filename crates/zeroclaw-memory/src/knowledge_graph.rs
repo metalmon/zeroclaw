@@ -3,7 +3,7 @@
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -152,7 +152,8 @@ impl KnowledgeGraph {
                 tags TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                source_project TEXT
+                source_project TEXT,
+                agent_alias TEXT
             );
 
             CREATE TABLE IF NOT EXISTS edges (
@@ -191,13 +192,24 @@ impl KnowledgeGraph {
             CREATE INDEX IF NOT EXISTS idx_edges_to ON edges(to_id);",
         )?;
 
+        // Migration for DBs created before per-agent attribution: add the
+        // `agent_alias` owner column if it is missing. Legacy rows keep a NULL
+        // owner, treated as shared read-only once per-agent scoping is enabled
+        // at the tool layer (writes/relations still require ownership).
+        let has_agent_alias = conn
+            .prepare("SELECT 1 FROM pragma_table_info('nodes') WHERE name = 'agent_alias'")?
+            .exists([])?;
+        if !has_agent_alias {
+            conn.execute("ALTER TABLE nodes ADD COLUMN agent_alias TEXT", [])?;
+        }
+
         Ok(Self {
             conn: Mutex::new(conn),
             max_nodes,
         })
     }
 
-    /// Add a node to the graph. Returns the generated node id.
+    /// Add a node to the graph with no owner attribution. Returns the node id.
     pub fn add_node(
         &self,
         node_type: NodeType,
@@ -205,6 +217,21 @@ impl KnowledgeGraph {
         content: &str,
         tags: &[String],
         source_project: Option<&str>,
+    ) -> anyhow::Result<String> {
+        self.add_node_owned(node_type, title, content, tags, source_project, None)
+    }
+
+    /// Add a node stamped with the owning agent's alias (`None` = unowned).
+    /// The tool layer passes the trusted, constructor-bound caller alias so
+    /// per-agent scoping can filter reads and gate mutations by ownership.
+    pub fn add_node_owned(
+        &self,
+        node_type: NodeType,
+        title: &str,
+        content: &str,
+        tags: &[String],
+        source_project: Option<&str>,
+        agent_alias: Option<&str>,
     ) -> anyhow::Result<String> {
         let conn = self.conn.lock();
 
@@ -233,8 +260,8 @@ impl KnowledgeGraph {
         let tags_str = tags.join(",");
 
         conn.execute(
-            "INSERT INTO nodes (id, node_type, title, content, tags, created_at, updated_at, source_project)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO nodes (id, node_type, title, content, tags, created_at, updated_at, source_project, agent_alias)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 id,
                 node_type.as_str(),
@@ -244,10 +271,56 @@ impl KnowledgeGraph {
                 now,
                 now,
                 source_project,
+                agent_alias,
             ],
         )?;
 
         Ok(id)
+    }
+
+    /// True if node `id` exists and is owned by `agent_alias`. Used to gate
+    /// mutations (capture targets, `relate` endpoints) to the caller's own
+    /// nodes when per-agent scoping is on. Unowned (legacy) nodes are NOT
+    /// owned by anyone, so writes against them are refused under scoping.
+    pub fn is_owned_by(&self, id: &str, agent_alias: &str) -> anyhow::Result<bool> {
+        let conn = self.conn.lock();
+        Ok(conn
+            .prepare("SELECT 1 FROM nodes WHERE id = ?1 AND agent_alias = ?2")?
+            .exists(params![id, agent_alias])?)
+    }
+
+    /// Of `ids`, the subset visible to a caller allowed to read `allowed_aliases`
+    /// (its own alias plus any operator-configured shares). When `allow_unowned`
+    /// is true, legacy nodes with a NULL owner are also visible (shared
+    /// read-only). Used by the tool to filter read results by ownership.
+    pub fn visible_node_ids(
+        &self,
+        ids: &[String],
+        allowed_aliases: &[String],
+        allow_unowned: bool,
+    ) -> anyhow::Result<std::collections::HashSet<String>> {
+        let mut visible = std::collections::HashSet::new();
+        if ids.is_empty() {
+            return Ok(visible);
+        }
+        let conn = self.conn.lock();
+        let allowed: std::collections::HashSet<&str> =
+            allowed_aliases.iter().map(String::as_str).collect();
+        let mut stmt = conn.prepare("SELECT agent_alias FROM nodes WHERE id = ?1")?;
+        for id in ids {
+            let owner: Option<Option<String>> = stmt
+                .query_row(params![id], |r| r.get::<_, Option<String>>(0))
+                .optional()?;
+            let show = match owner {
+                None => false,                                 // node not found
+                Some(None) => allow_unowned,                   // legacy/unowned
+                Some(Some(a)) => allowed.contains(a.as_str()), // owned
+            };
+            if show {
+                visible.insert(id.clone());
+            }
+        }
+        Ok(visible)
     }
 
     /// Add a directed edge between two nodes.
