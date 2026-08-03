@@ -388,6 +388,8 @@ ACP inherits the running config's autonomy level. When `[autonomy] level = "supe
 
 The `cwd` from `session/new` becomes the `SecurityPolicy` workspace boundary used by all file and shell tools for that session. Note: the agent's system prompt currently reflects the daemon's global `workspace_dir` rather than the session `cwd`, this does not affect enforcement, only the directory the model believes it is working in.
 
+**Two-root file authority.** Setting the session `cwd` scopes *file and shell tool* paths (read/write/list, shell launch CWD, and embedded-resource `uploads/`) to that directory. It does not make the session an exclusive jail: the resolved **agent workspace remains an allowed root**, so the agent's own resources (skills, identity, and per-agent state under `[agents.<alias>]`) stay reachable regardless of the session `cwd`. In other words, `workspaceDir` controls where *session file operations* are rooted, while the agent workspace continues to back the agent's own config-scoped resources. When `cwd` is omitted (or is the install-root placeholder), the two coincide because the session is rooted at the agent workspace itself.
+
 ## Memory
 
 ACP sessions do not interact with the agent's persistent memory system. This is a deliberate design choice: ACP is for IDE-driven coding tasks, not long-term relationship building.
