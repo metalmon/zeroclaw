@@ -217,7 +217,7 @@ mod tests {
     //! `handle_ws_acp`, the `on_upgrade` bridge, and `run_messages`), then
     //! connects a real WebSocket client and issues `session/new` with an
     //! omitted `cwd`. It asserts the returned `workspaceDir` is exactly the
-    //! per-agent workspace — the behavior PR #9536 introduces — rather than the
+    //! per-agent workspace — the behavior this PR introduces — rather than the
     //! daemon process CWD.
 
     use futures_util::{SinkExt, StreamExt};
