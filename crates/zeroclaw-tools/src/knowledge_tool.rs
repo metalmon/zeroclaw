@@ -581,7 +581,9 @@ impl KnowledgeTool {
             });
         }
 
-        let experts = self.scope_nodes(self.graph.find_experts(&tags)?);
+        // Per-agent scoping: only surface experts the caller may read.
+        // `find_experts` returns `SearchResult`s, so filter by their node id.
+        let experts = self.retain_visible(self.graph.find_experts(&tags)?, |r| r.node.id.as_str());
         let output: Vec<serde_json::Value> = experts
             .into_iter()
             .map(|r| {
