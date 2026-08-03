@@ -351,9 +351,7 @@ mod tests {
                     if let Some(err) = value.get("error") {
                         panic!("session/new returned an error: {err}");
                     }
-                    return value["result"]["workspaceDir"]
-                        .as_str()
-                        .map(String::from);
+                    return value["result"]["workspaceDir"].as_str().map(String::from);
                 }
             }
             None
