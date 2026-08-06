@@ -10230,7 +10230,9 @@ This is an example, not an invocation."#;
         let mut visible_deltas = String::new();
         while let Some(delta) = rx.recv().await {
             match delta {
-                StreamDelta::Status(_) | StreamDelta::Lifecycle(_) | StreamDelta::FlushBarrier(_) => {}
+                StreamDelta::Status(_)
+                | StreamDelta::Lifecycle(_)
+                | StreamDelta::FlushBarrier(_) => {}
                 StreamDelta::Text(text) => {
                     visible_deltas.push_str(&text);
                 }
@@ -10322,7 +10324,9 @@ This is an example, not an invocation."#;
         let mut visible_deltas = String::new();
         while let Some(delta) = rx.recv().await {
             match delta {
-                StreamDelta::Status(_) | StreamDelta::Lifecycle(_) | StreamDelta::FlushBarrier(_) => {}
+                StreamDelta::Status(_)
+                | StreamDelta::Lifecycle(_)
+                | StreamDelta::FlushBarrier(_) => {}
                 StreamDelta::Text(text) => {
                     visible_deltas.push_str(&text);
                 }
@@ -11308,7 +11312,9 @@ This is an example, not an invocation."#;
         let mut visible_deltas = String::new();
         while let Some(delta) = rx.recv().await {
             match delta {
-                StreamDelta::Status(_) | StreamDelta::Lifecycle(_) | StreamDelta::FlushBarrier(_) => {}
+                StreamDelta::Status(_)
+                | StreamDelta::Lifecycle(_)
+                | StreamDelta::FlushBarrier(_) => {}
                 StreamDelta::Text(text) => {
                     visible_deltas.push_str(&text);
                 }
@@ -11780,7 +11786,9 @@ This is an example, not an invocation."#;
         let mut visible_deltas = String::new();
         while let Some(delta) = rx.recv().await {
             match delta {
-                StreamDelta::Status(_) | StreamDelta::Lifecycle(_) | StreamDelta::FlushBarrier(_) => {}
+                StreamDelta::Status(_)
+                | StreamDelta::Lifecycle(_)
+                | StreamDelta::FlushBarrier(_) => {}
                 StreamDelta::Text(text) => {
                     visible_deltas.push_str(&text);
                 }
