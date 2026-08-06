@@ -30,9 +30,23 @@ const MAX_AGGREGATE_BLOB_ITEMS: usize = 64;
 /// blob whose real decoded size is exactly at the limit. A malformed length that
 /// is not a multiple of 4 undercounts the final partial group, which is safe:
 /// the per-file decode still enforces the hard cap on the real bytes.
+///
+/// Only the two canonical padding positions are subtracted. Valid standard
+/// base64 has at most two trailing `=`, so a server-controlled string made
+/// mostly or entirely of `=` must not estimate as near-zero: without this cap
+/// its full `=` run would be subtracted, the aggregate byte gate would be
+/// bypassed, and `Engine::decode()` would still allocate a buffer sized from the
+/// original encoded length (~3/4 of it) before rejecting the input. Counting at
+/// most two padding characters keeps such a blob's estimate proportional to its
+/// length so the aggregate gate degrades it before any decode allocation.
 fn estimated_decoded_blob_len(blob: &str) -> u64 {
     let len = blob.len() as u64;
-    let pad = blob.bytes().rev().take_while(|&b| b == b'=').count() as u64;
+    let pad = blob
+        .bytes()
+        .rev()
+        .take_while(|&b| b == b'=')
+        .take(2)
+        .count() as u64;
     ((len / 4) * 3).saturating_sub(pad)
 }
 
@@ -1106,5 +1120,34 @@ mod tests {
         );
         assert!(out.contains("[Document: big.bin]"));
         assert!(dir.path().join("uploads").exists());
+    }
+
+    #[test]
+    fn mcp_intake_rejects_malformed_all_padding_blob_without_decoding() {
+        // A server-controlled blob made entirely of `=` is non-canonical base64.
+        // If every trailing `=` were subtracted, its estimate would collapse to
+        // zero and bypass the aggregate byte gate, yet `Engine::decode()` would
+        // still allocate ~3/4 of the encoded length before rejecting the input.
+        // Capping the subtracted padding at two keeps the estimate proportional
+        // to the length, so the aggregate gate degrades it with a marker and no
+        // decode, hash, or filesystem write occurs.
+        let dir = tempdir().unwrap();
+        let blob = "=".repeat((MAX_AGGREGATE_BLOB_BYTES as usize) * 2);
+        let result = json!({
+            "content": [
+                {
+                    "type": "resource",
+                    "resource": { "uri": "file:///malformed.bin", "blob": blob }
+                }
+            ]
+        });
+
+        let out = format_mcp_tool_result_for_model(result, dir.path()).unwrap();
+        assert!(
+            !dir.path().join("uploads").exists(),
+            "a malformed all-padding blob must not be decoded or written"
+        );
+        assert!(out.contains("aggregate blob size exceeds limit"));
+        assert!(!out.contains("[Document:"));
     }
 }
