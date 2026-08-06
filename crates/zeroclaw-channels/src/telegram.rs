@@ -893,6 +893,25 @@ impl TelegramChannel {
             return Ok(());
         }
 
+        // A voice-configured peer (`output_modality = "voice"`) has opted out of
+        // text streaming: multi_message's permanent per-turn narration is a
+        // text-delivery affordance. Such a peer receives its reply as one unit at
+        // finalize — a voice note by default, or the complete text if the agent
+        // routes this reply to text — never mid-turn permanent narration. This is
+        // the same contract ordinary `send()`/`finalize_draft` enforce, which
+        // likewise withhold intermediate text from a voice peer.
+        //
+        // The gate is the stable per-peer config predicate, NOT the per-reply
+        // `suppress_voice` routing override: the override is chosen by the agent
+        // mid-turn and is not knowable when a narration turn flushes, so consulting
+        // it here would be a race. No content is dropped —
+        // `finalize_multi_message_draft` (which does see `suppress_voice`) delivers
+        // the complete text, the accumulated narration and the final answer, to a
+        // text-routed voice peer.
+        if self.is_voice_peer(recipient) {
+            return Ok(());
+        }
+
         let key = Self::multi_draft_key(recipient, message_id);
         let (chat_id, parsed_thread) = Self::parse_reply_target(recipient);
 
@@ -1017,6 +1036,14 @@ impl TelegramChannel {
         let text = strip_tool_call_tags(text);
         let (chat_id, parsed_thread) = Self::parse_reply_target(recipient);
 
+        // Voice-only contract: an unsuppressed voice peer receives the reply as
+        // a single voice note only — no permanent narration and no final-answer
+        // `sendMessage`. `suppress_voice = true` (explicit text-only routing
+        // override) opts back into text delivery. This mirrors the ordinary
+        // `send()`/`finalize_draft` behavior so multi_message mode does not
+        // bypass the modality contract.
+        let voice_only = !suppress_voice && self.is_voice_peer(recipient);
+
         let key = Self::multi_draft_key(recipient, message_id);
         let flush_lock = {
             let drafts = self.multi_message_drafts.lock();
@@ -1073,7 +1100,9 @@ impl TelegramChannel {
         // (in-order delivery preserved); a permanent failure drops the narration
         // with a WARN and still delivers the final answer below, rather than
         // re-inserting unreachable orphaned draft state.
-        if let Some((unsent, delivered_chunks, delivered_prefix)) = pending {
+        if let Some((unsent, delivered_chunks, delivered_prefix)) = pending
+            && !voice_only
+        {
             let cleaned = strip_tool_call_tags(unsent.trim());
             let cleaned = cleaned.trim();
             if !cleaned.is_empty() {
@@ -1137,7 +1166,7 @@ impl TelegramChannel {
         // are emitted via `flush_draft_turn`; send the final turn in full.
         let remainder = sanitize_multi_message_visible_text(&text_without_markers);
 
-        if !remainder.is_empty() {
+        if !remainder.is_empty() && !voice_only {
             self.pace_multi_message_send(last_sent_at).await;
             // Progress-preserving send: if Telegram accepts an earlier physical
             // chunk of the final answer and a later one fails, this returns
@@ -1148,9 +1177,15 @@ impl TelegramChannel {
                 .await?;
         }
 
-        for attachment in &attachments {
-            self.send_attachment(&chat_id, thread_id.as_deref(), attachment)
-                .await?;
+        // Attachments are permanent Bot API sends, so they fall under the same
+        // voice-only guard as narration and final text: an unsuppressed voice
+        // peer receives only the voice note. A `suppress_voice = true` (text
+        // routed) peer still gets its media, matching ordinary text delivery.
+        if !voice_only {
+            for attachment in &attachments {
+                self.send_attachment(&chat_id, thread_id.as_deref(), attachment)
+                    .await?;
+            }
         }
 
         // Queue the voice reply only after the pending narration and the final
@@ -6337,6 +6372,240 @@ mod tests {
         assert!(
             fired,
             "control: suppress_voice=false SHOULD trigger TTS synthesis — proves the setup fires voice"
+        );
+    }
+
+    /// Regression: an UNSUPPRESSED voice-only peer in MultiMessage mode must
+    /// receive the voice note as the sole reply — no permanent intermediate
+    /// narration (`flush_draft_turn`) and no final-answer `sendMessage`. Before
+    /// the fix, multi_message bypassed the voice-only contract and posted both as
+    /// text alongside the audio. Complements
+    /// `finalize_multi_message_suppress_voice_skips_tts_but_delivers_text`, which
+    /// proves the `suppress_voice = true` text-only override still delivers text.
+    #[tokio::test]
+    async fn multi_message_voice_only_peer_gets_voice_without_narration_or_final_text() {
+        use wiremock::matchers::method;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        use zeroclaw_config::schema::{
+            AliasedAgentConfig, Config, OpenAITtsProviderConfig, TtsProviderConfig,
+        };
+
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 1 } }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let mut config = Config::default();
+        config.tts.enabled = true;
+        config.agents.insert(
+            "abac".to_string(),
+            AliasedAgentConfig {
+                tts_provider: "openai.default".into(),
+                channels: vec!["telegram.telegram_test_alias".into()],
+                ..AliasedAgentConfig::default()
+            },
+        );
+        config.providers.tts.openai.insert(
+            "default".to_string(),
+            OpenAITtsProviderConfig {
+                base: TtsProviderConfig {
+                    api_key: Some("k".to_string()),
+                    uri: Some(format!("{}/v1/audio/speech", mock_server.uri())),
+                    voice: Some("alloy".to_string()),
+                    ..TtsProviderConfig::default()
+                },
+            },
+        );
+
+        // "123" is a voice-only peer.
+        let ch = multi_message_test_channel("telegram_test_alias", 0)
+            .with_api_base(mock_server.uri())
+            .with_voice_peer_resolver(Arc::new(|| vec!["123".to_string()]))
+            .with_tts(&config);
+
+        let draft_id = ch
+            .send_draft(&SendMessage::new("...", "123"))
+            .await
+            .unwrap()
+            .expect("draft id");
+        // Intermediate narration turn — must NOT be posted as permanent text.
+        ch.flush_draft_turn(
+            "123",
+            &draft_id,
+            "intermediate narration for the voice peer",
+        )
+        .await
+        .unwrap();
+        // Final answer carries an attachment marker, with suppress_voice = false
+        // (the default voice modality). The voice peer must receive neither the
+        // text nor the attachment — only the voice note.
+        let final_text = "Сбросьте питание контроллера и проверьте терминаторы шины Profibus DP на обоих концах. [IMAGE:http://example.com/pic.jpg]";
+        ch.finalize_draft("123", &draft_id, final_text, false)
+            .await
+            .unwrap();
+
+        // No permanent text OR attachment may reach Telegram. A `sendMessage` or
+        // attachment send would already be recorded synchronously by now.
+        let has_permanent_send = |reqs: &[wiremock::Request]| {
+            reqs.iter().any(|r| {
+                let p = r.url.path();
+                p.ends_with("/sendMessage")
+                    || p.ends_with("/sendPhoto")
+                    || p.ends_with("/sendDocument")
+                    || p.ends_with("/sendVideo")
+                    || p.ends_with("/sendAudio")
+            })
+        };
+        let reqs = mock_server.received_requests().await.unwrap();
+        assert!(
+            !has_permanent_send(&reqs),
+            "an unsuppressed voice-only peer must not receive any permanent text \
+             (narration or final answer) in multi_message mode; paths: {:?}",
+            reqs.iter()
+                .map(|r| r.url.path().to_string())
+                .collect::<Vec<_>>()
+        );
+
+        // TTS synthesis (voice) is the sole reply — poll, it runs in a task.
+        let mut fired = false;
+        for _ in 0..40 {
+            let reqs = mock_server.received_requests().await.unwrap();
+            if reqs
+                .iter()
+                .any(|r| r.url.path().ends_with("/v1/audio/speech"))
+            {
+                fired = true;
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        assert!(
+            fired,
+            "the voice-only peer must still receive the reply as a voice note (TTS synthesis)"
+        );
+
+        // Still no permanent text after the voice path completed.
+        let reqs = mock_server.received_requests().await.unwrap();
+        assert!(
+            !has_permanent_send(&reqs),
+            "voice delivery must not add any sendMessage; paths: {:?}",
+            reqs.iter()
+                .map(|r| r.url.path().to_string())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// Contract proof for the other direction: when the agent routes a reply to
+    /// a voice-configured peer as TEXT (`suppress_voice = true`), no content is
+    /// dropped. Intermediate narration is withheld during the turn (a voice peer
+    /// does not stream permanent narration — that is decided by stable config,
+    /// not the mid-turn override), but the COMPLETE text — the accumulated
+    /// narration AND the final answer — is delivered together at finalize, and
+    /// no voice note is synthesized. This is what makes the voice-only skip in
+    /// `flush_unsent` content-safe rather than lossy.
+    #[tokio::test]
+    async fn multi_message_text_routed_voice_peer_gets_full_text_at_finalize() {
+        use wiremock::matchers::method;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        use zeroclaw_config::schema::{
+            AliasedAgentConfig, Config, OpenAITtsProviderConfig, TtsProviderConfig,
+        };
+
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 1 } }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let mut config = Config::default();
+        config.tts.enabled = true;
+        config.agents.insert(
+            "abac".to_string(),
+            AliasedAgentConfig {
+                tts_provider: "openai.default".into(),
+                channels: vec!["telegram.telegram_test_alias".into()],
+                ..AliasedAgentConfig::default()
+            },
+        );
+        config.providers.tts.openai.insert(
+            "default".to_string(),
+            OpenAITtsProviderConfig {
+                base: TtsProviderConfig {
+                    api_key: Some("k".to_string()),
+                    uri: Some(format!("{}/v1/audio/speech", mock_server.uri())),
+                    voice: Some("alloy".to_string()),
+                    ..TtsProviderConfig::default()
+                },
+            },
+        );
+
+        let ch = multi_message_test_channel("telegram_test_alias", 0)
+            .with_api_base(mock_server.uri())
+            .with_voice_peer_resolver(Arc::new(|| vec!["123".to_string()]))
+            .with_tts(&config);
+
+        let draft_id = ch
+            .send_draft(&SendMessage::new("...", "123"))
+            .await
+            .unwrap()
+            .expect("draft id");
+        // Narration turn — withheld during the loop for the voice peer.
+        ch.flush_draft_turn(
+            "123",
+            &draft_id,
+            "intermediate narration NARR_TOKEN describing progress on the task",
+        )
+        .await
+        .unwrap();
+        // Agent routed this reply to text: suppress_voice = true.
+        ch.finalize_draft(
+            "123",
+            &draft_id,
+            "the complete final answer FINAL_TOKEN for the operator [IMAGE:http://example.com/pic.jpg]",
+            true,
+        )
+        .await
+        .unwrap();
+
+        let reqs = mock_server.received_requests().await.unwrap();
+        let sent_bodies: Vec<String> = reqs
+            .iter()
+            .filter(|r| r.url.path().ends_with("/sendMessage"))
+            .map(|r| String::from_utf8_lossy(&r.body).into_owned())
+            .collect();
+
+        // The accumulated narration AND the final answer are both delivered.
+        assert!(
+            sent_bodies.iter().any(|b| b.contains("NARR_TOKEN")),
+            "text-routed voice peer must still receive the accumulated narration; bodies: {sent_bodies:?}"
+        );
+        assert!(
+            sent_bodies.iter().any(|b| b.contains("FINAL_TOKEN")),
+            "text-routed voice peer must receive the final answer; bodies: {sent_bodies:?}"
+        );
+        // The attachment is delivered too — text-mode routing includes media.
+        assert!(
+            reqs.iter().any(|r| r.url.path().ends_with("/sendPhoto")),
+            "text-routed voice peer must receive the attachment; paths: {:?}",
+            reqs.iter()
+                .map(|r| r.url.path().to_string())
+                .collect::<Vec<_>>()
+        );
+        // No voice note: suppress_voice=true is text-only.
+        assert!(
+            !reqs
+                .iter()
+                .any(|r| r.url.path().ends_with("/v1/audio/speech")),
+            "suppress_voice=true must not synthesize a voice note"
         );
     }
 
