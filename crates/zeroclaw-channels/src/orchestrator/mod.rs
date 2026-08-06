@@ -3758,13 +3758,24 @@ async fn flush_completed_narration_turn(
         *last_flushed = visible.to_string();
         return;
     }
-    // Bounded raw context from already-delivered narration so a credential split
-    // across this turn boundary is still caught. `last_flushed` is the raw
-    // watermark of prior narration; its bounded suffix spans any structured
-    // secret without re-running policy over earlier turns. The per-turn scan
-    // alone is blind to a secret whose halves land in adjacent turns.
+    // Bounded context from already-delivered narration so a credential split
+    // across this turn boundary is still caught. This must be the GUARDED history
+    // the channel actually received (`owned_guarded`), NOT the raw watermark
+    // (`last_flushed`): the outbound hook and leak-redaction can rewrite a turn,
+    // so a credential fragment the hook CREATES lives only in `owned_guarded`
+    // (a raw scan would miss the split), while a credential the prior turn
+    // already had redacted is absent from `owned_guarded` (a raw scan would
+    // false-redact the clean turn that follows). At this point `owned_guarded`
+    // holds only prior delivered turns — this turn is appended after policy runs
+    // below — so its bounded suffix is the correct cross-turn context. (A turn
+    // whose channel flush failed is still present here; that only makes the
+    // context over-inclusive, which over-redacts rather than leaks, and the
+    // channel re-delivers the failed suffix via prefix reconciliation.)
+    // `last_flushed` stays raw purely for the exactly-once watermark above. The
+    // per-turn scan alone is blind to a secret whose halves land in adjacent
+    // turns.
     let prior_tail =
-        bounded_char_suffix(last_flushed.as_str(), NARRATION_LEAK_CONTEXT_CHARS).to_string();
+        bounded_char_suffix(owned_guarded.as_str(), NARRATION_LEAK_CONTEXT_CHARS).to_string();
     // `None` => a hook cancelled this narration turn. Policy (hook +
     // leak-redaction) runs per turn, so the "narration before approval"
     // guarantee holds per delivered turn, and the prior-context scan closes the
@@ -18408,6 +18419,209 @@ BTC is currently around $65,000 based on latest tool output."#
         assert!(
             owned_guarded.contains("[REDACTED"),
             "a redaction marker must mark the scrubbed fragment; guarded: {owned_guarded:?}"
+        );
+    }
+
+    /// Regression: cross-turn leak detection must use the GUARDED delivered
+    /// history (`owned_guarded`), not the raw watermark (`last_flushed`). When an
+    /// outbound hook CREATES a credential fragment that exists only in the
+    /// guarded output, a raw-history scan is blind to it and the fragment
+    /// completed by the next turn reconstructs the secret. Feeding the guarded
+    /// tail as prior context catches it. (This exact command fails if the
+    /// detector reads `last_flushed`.)
+    #[cfg(feature = "channel-telegram")]
+    #[tokio::test]
+    async fn cross_turn_leak_uses_hook_created_guarded_fragment() {
+        struct NoopFlushChannel;
+        impl ::zeroclaw_api::attribution::Attributable for NoopFlushChannel {
+            fn role(&self) -> ::zeroclaw_api::attribution::Role {
+                ::zeroclaw_api::attribution::Role::Channel(
+                    ::zeroclaw_api::attribution::ChannelKind::Webhook,
+                )
+            }
+            fn alias(&self) -> &str {
+                "test"
+            }
+        }
+        #[async_trait::async_trait]
+        impl Channel for NoopFlushChannel {
+            fn name(&self) -> &str {
+                "telegram"
+            }
+            async fn send(&self, _message: &SendMessage) -> anyhow::Result<()> {
+                Ok(())
+            }
+            async fn listen(
+                &self,
+                _tx: tokio::sync::mpsc::Sender<zeroclaw_api::channel::ChannelMessage>,
+            ) -> anyhow::Result<()> {
+                Ok(())
+            }
+        }
+
+        // A stateful hook that REWRITES the first narration turn into an AWS key
+        // ID prefix (`AKIA` + 8 chars — incomplete on its own) and passes the
+        // second turn through. The prefix therefore lives only in the guarded
+        // delivered output, never in the raw model narration.
+        struct HookCreatesCredentialPrefix {
+            calls: AtomicUsize,
+        }
+        #[async_trait::async_trait]
+        impl zeroclaw_runtime::hooks::HookHandler for HookCreatesCredentialPrefix {
+            fn name(&self) -> &str {
+                "hook-creates-credential-prefix"
+            }
+            async fn on_message_sending(
+                &self,
+                channel: String,
+                recipient: String,
+                content: String,
+            ) -> zeroclaw_runtime::hooks::HookResult<(String, String, String)> {
+                if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                    zeroclaw_runtime::hooks::HookResult::Continue((
+                        channel,
+                        recipient,
+                        "AKIAABCDEFGH".to_string(),
+                    ))
+                } else {
+                    zeroclaw_runtime::hooks::HookResult::Continue((channel, recipient, content))
+                }
+            }
+        }
+
+        let mut hook_runner = zeroclaw_runtime::hooks::HookRunner::new();
+        hook_runner.register(Box::new(HookCreatesCredentialPrefix {
+            calls: AtomicUsize::new(0),
+        }));
+
+        let channel: Arc<dyn Channel> = Arc::new(NoopFlushChannel);
+        let leak = zeroclaw_config::schema::LeakDetectionConfig::default();
+        let mut last_flushed = String::new();
+        let mut owned_guarded = String::new();
+
+        // Turn 1: raw narration the hook rewrites to the credential prefix.
+        flush_completed_narration_turn(
+            &channel,
+            Some(&hook_runner),
+            &leak,
+            "telegram",
+            "123",
+            "draft-1",
+            "narration one",
+            &mut last_flushed,
+            &mut owned_guarded,
+        )
+        .await;
+        // Turn 2 appends the 8 chars that complete the key across the boundary.
+        // The raw watermark for turn 2 is the append-only `"narration one" + suffix`.
+        flush_completed_narration_turn(
+            &channel,
+            Some(&hook_runner),
+            &leak,
+            "telegram",
+            "123",
+            "draft-1",
+            "narration oneIJKLMNOP",
+            &mut last_flushed,
+            &mut owned_guarded,
+        )
+        .await;
+
+        // `owned_guarded` is exactly what Telegram received across the turns.
+        assert!(
+            !owned_guarded.contains("AKIAABCDEFGHIJKLMNOP"),
+            "a hook-created credential prefix completed by the next turn must not \
+             be reconstructable from the delivered guarded snapshot; guarded: {owned_guarded:?}"
+        );
+        assert!(
+            !owned_guarded.contains("IJKLMNOP"),
+            "the completing fragment must be scrubbed; guarded: {owned_guarded:?}"
+        );
+    }
+
+    /// Regression: the opposite direction. A credential fully contained in turn 1
+    /// is redacted before delivery, so it is absent from the guarded history. A
+    /// clean turn 2 must therefore be delivered UNCHANGED. Reading the raw
+    /// watermark instead would re-find the credential in the raw prior tail and
+    /// falsely prepend a redaction marker to the clean turn.
+    #[cfg(feature = "channel-telegram")]
+    #[tokio::test]
+    async fn cross_turn_clean_turn_after_redacted_credential_is_unchanged() {
+        struct NoopFlushChannel;
+        impl ::zeroclaw_api::attribution::Attributable for NoopFlushChannel {
+            fn role(&self) -> ::zeroclaw_api::attribution::Role {
+                ::zeroclaw_api::attribution::Role::Channel(
+                    ::zeroclaw_api::attribution::ChannelKind::Webhook,
+                )
+            }
+            fn alias(&self) -> &str {
+                "test"
+            }
+        }
+        #[async_trait::async_trait]
+        impl Channel for NoopFlushChannel {
+            fn name(&self) -> &str {
+                "telegram"
+            }
+            async fn send(&self, _message: &SendMessage) -> anyhow::Result<()> {
+                Ok(())
+            }
+            async fn listen(
+                &self,
+                _tx: tokio::sync::mpsc::Sender<zeroclaw_api::channel::ChannelMessage>,
+            ) -> anyhow::Result<()> {
+                Ok(())
+            }
+        }
+
+        let channel: Arc<dyn Channel> = Arc::new(NoopFlushChannel);
+        let leak = zeroclaw_config::schema::LeakDetectionConfig::default();
+        let mut last_flushed = String::new();
+        let mut owned_guarded = String::new();
+
+        // Turn 1: a COMPLETE AWS key id, redacted before delivery.
+        flush_completed_narration_turn(
+            &channel,
+            None,
+            &leak,
+            "telegram",
+            "123",
+            "draft-1",
+            "AKIAABCDEFGHIJKLMNOP",
+            &mut last_flushed,
+            &mut owned_guarded,
+        )
+        .await;
+        let after_turn1 = owned_guarded.clone();
+
+        // Turn 2 appends clean narration (no secret).
+        flush_completed_narration_turn(
+            &channel,
+            None,
+            &leak,
+            "telegram",
+            "123",
+            "draft-1",
+            "AKIAABCDEFGHIJKLMNOP hello world",
+            &mut last_flushed,
+            &mut owned_guarded,
+        )
+        .await;
+
+        // Turn 1's guarded fragment must not leak the raw key.
+        assert!(
+            !after_turn1.contains("AKIAABCDEFGHIJKLMNOP"),
+            "turn 1 must redact the complete credential; guarded: {after_turn1:?}"
+        );
+        // Turn 2's delivered delta must be the clean text verbatim — no false
+        // redaction marker introduced by a stale raw prior tail.
+        let turn2_delivered = owned_guarded
+            .strip_prefix(after_turn1.as_str())
+            .unwrap_or(owned_guarded.as_str());
+        assert_eq!(
+            turn2_delivered, " hello world",
+            "a clean turn after an already-redacted credential must be delivered \
+             unchanged; delivered: {turn2_delivered:?}"
         );
     }
 
