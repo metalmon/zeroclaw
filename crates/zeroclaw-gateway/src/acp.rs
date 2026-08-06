@@ -298,6 +298,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         ));
 
         // Wait until the gateway is accepting TCP connections.
