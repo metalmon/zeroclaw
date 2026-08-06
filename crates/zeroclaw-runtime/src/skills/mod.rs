@@ -345,6 +345,8 @@ pub fn wire_skills_to_skills(wire: &[WireSkill]) -> Vec<Skill> {
             prompts: vec![ws.instruction.clone()],
             slash_options: Vec::new(),
             location: None,
+            // Wire skills follow normal progressive disclosure — never always-on.
+            always: false,
         })
         .collect()
 }
