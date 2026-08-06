@@ -745,6 +745,45 @@ mod tests {
         assert!(result.error.is_none());
     }
 
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn shell_executes_windows_nul_redirect_through_cmd_exe() {
+        // Native-Windows runtime boundary. `test_runtime()` is `NativeRuntime`,
+        // which reports `WindowsCmd`, so the ShellTool threads that dialect into
+        // the policy, the policy accepts a redirect to the `nul` null device, and
+        // cmd.exe then resolves `nul` to the discard-only device. This exercises
+        // the real ShellTool -> NativeRuntime -> cmd.exe composition (not just the
+        // policy unit), proving both the allow decision and that the redirected
+        // command actually runs on a Windows host.
+        let tool = ShellTool::new(test_security(AutonomyLevel::Supervised), test_runtime());
+
+        // Bare `2>nul`: stderr is discarded, stdout is preserved, command succeeds.
+        let result = tool
+            .execute(json!({"command": "echo zeroclaw_nul_stdout 2>nul"}))
+            .await
+            .expect("`2>nul` command should return a result");
+        assert!(
+            result.success,
+            "`2>nul` must be allowed and execute on Windows: {:?}",
+            result.error
+        );
+        assert!(result.output.trim().contains("zeroclaw_nul_stdout"));
+        assert!(result.error.is_none());
+
+        // Full `\\.\nul` device form redirecting stdout: nothing is written to a
+        // real workspace file, and the command still succeeds.
+        let result = tool
+            .execute(json!({"command": r"echo zeroclaw_dev >\\.\nul"}))
+            .await
+            .expect(r"`>\\.\nul` command should return a result");
+        assert!(
+            result.success,
+            r"`>\\.\nul` must be allowed and execute on Windows: {:?}",
+            result.error
+        );
+        assert!(result.error.is_none());
+    }
+
     #[tokio::test]
     async fn shell_reports_invalid_docker_workspace_root() {
         let workspace = tempfile::tempdir().expect("workspace tempdir should be created");
