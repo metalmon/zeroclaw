@@ -674,63 +674,12 @@ fn resolve_max_response_bytes(config: &McpServerConfig) -> u64 {
         .unwrap_or(DEFAULT_MAX_RESPONSE_BYTES)
 }
 
-fn oversized_body_io_error(limit: u64) -> std::io::Error {
-    std::io::Error::new(
-        std::io::ErrorKind::InvalidData,
-        format!("MCP response body exceeds the {limit}-byte limit"),
-    )
-}
-
-/// `AsyncRead` adapter that fails once more than `limit` bytes have been read
-/// from the inner reader, bounding an HTTP/SSE response body at read time —
-/// before any JSON parse or embedded-resource materialization. Because a
-/// `BufReader` over this adapter can never read past the cap, it bounds both the
-/// total body and any single unterminated line.
-struct LimitedReader<R> {
-    inner: R,
-    remaining: u64,
-    tripped: bool,
-}
-
-impl<R> LimitedReader<R> {
-    fn new(inner: R, limit: u64) -> Self {
-        Self {
-            inner,
-            remaining: limit,
-            tripped: false,
-        }
-    }
-}
-
-impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for LimitedReader<R> {
-    fn poll_read(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
-        let this = self.get_mut();
-        if this.tripped {
-            return std::task::Poll::Ready(Err(oversized_body_io_error(0)));
-        }
-        let before = buf.filled().len();
-        match std::pin::Pin::new(&mut this.inner).poll_read(cx, buf) {
-            std::task::Poll::Ready(Ok(())) => {
-                let read = (buf.filled().len() - before) as u64;
-                if read > this.remaining {
-                    this.tripped = true;
-                    return std::task::Poll::Ready(Err(oversized_body_io_error(this.remaining)));
-                }
-                this.remaining -= read;
-                std::task::Poll::Ready(Ok(()))
-            }
-            other => other,
-        }
-    }
-}
-
 /// Read `resp`'s body as a UTF-8 string, rejecting a body larger than `limit`
 /// bytes at read time — a `Content-Length` fast-reject plus a streaming cap —
-/// instead of buffering the whole body with `resp.text()`.
+/// instead of buffering the whole body with `resp.text()`. The streaming cap
+/// reads at most `limit + 1` bytes via tokio's own `Take` adapter, so a body
+/// over the cap is detected by length without ever buffering past it and without
+/// a hand-rolled `AsyncRead` that could violate the `read_to_end` contract.
 async fn read_body_bounded_to_string(resp: reqwest::Response, limit: u64) -> Result<String> {
     if let Some(len) = resp.content_length()
         && len > limit
@@ -740,13 +689,14 @@ async fn read_body_bounded_to_string(resp: reqwest::Response, limit: u64) -> Res
     let stream = resp
         .bytes_stream()
         .map(|item| item.map_err(std::io::Error::other));
-    let mut reader = LimitedReader::new(tokio_util::io::StreamReader::new(stream), limit);
+    let reader = tokio_util::io::StreamReader::new(stream);
+    let mut bounded = tokio::io::AsyncReadExt::take(reader, limit.saturating_add(1));
     let mut bytes = Vec::new();
-    if let Err(e) = tokio::io::AsyncReadExt::read_to_end(&mut reader, &mut bytes).await {
-        if reader.tripped {
-            anyhow::bail!("MCP response body exceeds the {limit}-byte limit");
-        }
-        return Err(e).context("failed to read HTTP response");
+    tokio::io::AsyncReadExt::read_to_end(&mut bounded, &mut bytes)
+        .await
+        .context("failed to read HTTP response")?;
+    if bytes.len() as u64 > limit {
+        anyhow::bail!("MCP response body exceeds the {limit}-byte limit");
     }
     String::from_utf8(bytes).context("MCP response body was not valid UTF-8")
 }
@@ -1648,24 +1598,27 @@ async fn read_first_jsonrpc_from_sse_response(
     let stream = resp
         .bytes_stream()
         .map(|item| item.map_err(std::io::Error::other));
-    // Bound the accumulated event bytes at read time: `LimitedReader` fails the
-    // underlying read once `limit` bytes are exceeded, so neither the whole
-    // stream nor a single unterminated line can grow unbounded before parse.
-    let reader = LimitedReader::new(tokio_util::io::StreamReader::new(stream), limit);
-    let mut lines = BufReader::new(reader).lines();
+    // Bound the accumulated event bytes at read time: read at most `limit + 1`
+    // bytes via tokio's `Take` adapter, then reject a body over the cap by length.
+    // This bounds the whole SSE reply (and any single unterminated line) before
+    // any JSON parse, without a hand-rolled `AsyncRead`.
+    let reader = tokio_util::io::StreamReader::new(stream);
+    let mut bounded = tokio::io::AsyncReadExt::take(reader, limit.saturating_add(1));
+    let mut raw = Vec::new();
+    tokio::io::AsyncReadExt::read_to_end(&mut bounded, &mut raw)
+        .await
+        .context("failed to read MCP SSE response")?;
+    if raw.len() as u64 > limit {
+        anyhow::bail!("MCP SSE response body exceeds the {limit}-byte limit");
+    }
+    let text = String::from_utf8_lossy(&raw);
 
     let mut cur_event: Option<String> = None;
     let mut cur_data: Vec<String> = Vec::new();
 
-    loop {
-        let line_opt = lines
-            .next_line()
-            .await
-            .context("failed to read MCP SSE response (body may exceed the size limit)")?;
-        let Some(mut line) = line_opt else { break };
-        if line.ends_with('\r') {
-            line.pop();
-        }
+    // `str::lines()` splits on `\n` and strips a trailing `\r`, matching the
+    // async `AsyncBufReadExt::lines()` this replaced.
+    for line in text.lines() {
         if line.is_empty() {
             if cur_event.is_none() && cur_data.is_empty() {
                 continue;
