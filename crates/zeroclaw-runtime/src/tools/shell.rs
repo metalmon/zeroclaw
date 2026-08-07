@@ -298,6 +298,22 @@ impl Tool for ShellTool {
             }
         }
 
+        // Own the forbidden-path scan here, dialect-aware, rather than relying on
+        // an outer generic path guard that defaults to POSIX. Under Windows
+        // `cmd.exe` the `\\.\nul` device is a safe redirect target, but a POSIX
+        // scan would treat it as a forbidden path. Matching `SkillShellTool`, the
+        // shell tool is the single source of truth for its own command safety.
+        if let Some(path) = self
+            .security
+            .forbidden_path_argument_for_shell(command, self.runtime.shell_dialect())
+        {
+            return Ok(ToolResult {
+                success: false,
+                output: ToolOutput::default(),
+                error: Some(format!("Path blocked by security policy: {path}")),
+            });
+        }
+
         // Execute with timeout to prevent hanging commands.
         // Clear the environment to prevent leaking API keys and other secrets
         // (CWE-200), then re-add only safe, functional variables.
@@ -588,7 +604,7 @@ mod tests {
     use crate::platform::{DockerRuntime, NativeRuntime, RuntimeAdapter};
     use crate::security::{AutonomyLevel, SecurityPolicy};
     use zeroclaw_config::schema::DockerRuntimeConfig;
-    use zeroclaw_tools::wrappers::{PathGuardedTool, RateLimitedTool};
+    use zeroclaw_tools::wrappers::RateLimitedTool;
 
     #[tokio::test]
     async fn get_session_id_returns_scoped_session_key() {
@@ -675,14 +691,12 @@ mod tests {
     /// Returns the fully-wrapped shell tool as it is composed in production:
     /// RateLimited(PathGuarded(ShellTool)).  Tests that verify path-blocking or
     /// rate-limiting behaviour must use this helper so they exercise the wrappers.
-    fn wrapped_shell(security: Arc<SecurityPolicy>) -> RateLimitedTool<PathGuardedTool<ShellTool>> {
-        RateLimitedTool::new(
-            PathGuardedTool::new(
-                ShellTool::new(security.clone(), test_runtime()),
-                security.clone(),
-            ),
-            security,
-        )
+    /// The shell tool as assembled in production: `RateLimitedTool<ShellTool>`.
+    /// ShellTool owns its own dialect-aware command + forbidden-path validation,
+    /// so (like `SkillShellTool`) it is not wrapped in the generic POSIX
+    /// `PathGuardedTool`. Tests exercise this exact shape.
+    fn wrapped_shell(security: Arc<SecurityPolicy>) -> RateLimitedTool<ShellTool> {
+        RateLimitedTool::new(ShellTool::new(security.clone(), test_runtime()), security)
     }
 
     #[test]
@@ -748,14 +762,15 @@ mod tests {
     #[cfg(windows)]
     #[tokio::test]
     async fn shell_executes_windows_nul_redirect_through_cmd_exe() {
-        // Native-Windows runtime boundary. `test_runtime()` is `NativeRuntime`,
-        // which reports `WindowsCmd`, so the ShellTool threads that dialect into
-        // the policy, the policy accepts a redirect to the `nul` null device, and
-        // cmd.exe then resolves `nul` to the discard-only device. This exercises
-        // the real ShellTool -> NativeRuntime -> cmd.exe composition (not just the
-        // policy unit), proving both the allow decision and that the redirected
-        // command actually runs on a Windows host.
-        let tool = ShellTool::new(test_security(AutonomyLevel::Supervised), test_runtime());
+        // Native-Windows runtime boundary through the FULLY WRAPPED production
+        // shape (`RateLimitedTool<ShellTool>`). `test_runtime()` is
+        // `NativeRuntime`, which reports `WindowsCmd`, so ShellTool's own
+        // dialect-aware validation accepts a redirect to the `nul` null device
+        // and cmd.exe then resolves `nul` to the discard-only device. Because the
+        // shell tool now owns its forbidden-path scan (no outer POSIX
+        // `PathGuardedTool`), the `\\.\nul` device form is no longer rejected
+        // ahead of the tool. Proves the allow decision AND real execution.
+        let tool = wrapped_shell(test_security(AutonomyLevel::Supervised));
 
         // Bare `2>nul`: stderr is discarded, stdout is preserved, command succeeds.
         let result = tool
@@ -782,6 +797,28 @@ mod tests {
             result.error
         );
         assert!(result.error.is_none());
+    }
+
+    #[cfg(not(windows))]
+    #[tokio::test]
+    async fn shell_rejects_nul_redirect_through_posix_production_shape() {
+        // The POSIX counterpart, through the same production shape. On a POSIX
+        // sink (Unix native, Docker `sh -c`, cron `sh -c`) `nul` is an ordinary
+        // relative filename, so a redirect to it — bare `nul` or the `\\.\nul`
+        // device form — must stay blocked as an unsafe file redirect. This is the
+        // boundary the fix protects: dropping the outer `PathGuardedTool` must not
+        // weaken POSIX rejection, because ShellTool's own dialect-aware scan runs.
+        let tool = wrapped_shell(test_security(AutonomyLevel::Supervised));
+        for cmd in ["echo zeroclaw x >nul", r"echo zeroclaw x >\\.\nul"] {
+            let result = tool
+                .execute(json!({ "command": cmd }))
+                .await
+                .expect("command should return a result");
+            assert!(
+                !result.success,
+                "POSIX must reject a redirect to `nul` as an unsafe file target: {cmd}"
+            );
+        }
     }
 
     #[tokio::test]
