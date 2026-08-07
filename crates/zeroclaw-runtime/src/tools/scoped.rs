@@ -548,16 +548,24 @@ impl ScopedToolRegistry {
         // one that carries the merged skills (config + wire). Wire-delivered skills
         // have no file backing, so `read_skill` must search the merged list to find
         // them and return their inline instruction text.
+        //
+        // This runs AFTER `apply_policy_tool_filter` above, so only swap the
+        // instance when `read_skill` actually survived the built-in filter — never
+        // re-admit a tool the policy already dropped (that would diverge from the
+        // hand-rolled filter path the parity guard checks).
         if matches!(
             config.effective_skills_prompt_mode(agent_alias),
             zeroclaw_config::schema::SkillsPromptInjectionMode::Compact
         ) {
+            let had_read_skill = tools_registry.iter().any(|t| t.name() == "read_skill");
             tools_registry.retain(|t| t.name() != "read_skill");
-            tools_registry.push(Box::new(crate::tools::ReadSkillTool::with_merged_skills(
-                Arc::new(config.clone()),
-                agent_alias.to_string(),
-                skills.to_vec(),
-            )));
+            if had_read_skill {
+                tools_registry.push(Box::new(crate::tools::ReadSkillTool::with_merged_skills(
+                    Arc::new(config.clone()),
+                    agent_alias.to_string(),
+                    skills.to_vec(),
+                )));
+            }
         }
 
         // Skills and deferred MCP helpers are registered after the built-in filter,
