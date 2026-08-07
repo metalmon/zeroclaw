@@ -661,6 +661,96 @@ async fn read_bounded_line(
     }
 }
 
+/// Default maximum bytes for a single HTTP/SSE JSON-RPC response body when a
+/// server config does not override `max_response_bytes`. Aligned with the
+/// aggregate embedded-blob cap so the transport never buffers more than the
+/// materialization stage would accept.
+const DEFAULT_MAX_RESPONSE_BYTES: u64 = 10 * 1024 * 1024; // 10 MiB
+
+fn resolve_max_response_bytes(config: &McpServerConfig) -> u64 {
+    config
+        .max_response_bytes
+        .filter(|limit| *limit > 0)
+        .unwrap_or(DEFAULT_MAX_RESPONSE_BYTES)
+}
+
+fn oversized_body_io_error(limit: u64) -> std::io::Error {
+    std::io::Error::new(
+        std::io::ErrorKind::InvalidData,
+        format!("MCP response body exceeds the {limit}-byte limit"),
+    )
+}
+
+/// `AsyncRead` adapter that fails once more than `limit` bytes have been read
+/// from the inner reader, bounding an HTTP/SSE response body at read time —
+/// before any JSON parse or embedded-resource materialization. Because a
+/// `BufReader` over this adapter can never read past the cap, it bounds both the
+/// total body and any single unterminated line.
+struct LimitedReader<R> {
+    inner: R,
+    remaining: u64,
+    tripped: bool,
+}
+
+impl<R> LimitedReader<R> {
+    fn new(inner: R, limit: u64) -> Self {
+        Self {
+            inner,
+            remaining: limit,
+            tripped: false,
+        }
+    }
+}
+
+impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for LimitedReader<R> {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        let this = self.get_mut();
+        if this.tripped {
+            return std::task::Poll::Ready(Err(oversized_body_io_error(0)));
+        }
+        let before = buf.filled().len();
+        match std::pin::Pin::new(&mut this.inner).poll_read(cx, buf) {
+            std::task::Poll::Ready(Ok(())) => {
+                let read = (buf.filled().len() - before) as u64;
+                if read > this.remaining {
+                    this.tripped = true;
+                    return std::task::Poll::Ready(Err(oversized_body_io_error(this.remaining)));
+                }
+                this.remaining -= read;
+                std::task::Poll::Ready(Ok(()))
+            }
+            other => other,
+        }
+    }
+}
+
+/// Read `resp`'s body as a UTF-8 string, rejecting a body larger than `limit`
+/// bytes at read time — a `Content-Length` fast-reject plus a streaming cap —
+/// instead of buffering the whole body with `resp.text()`.
+async fn read_body_bounded_to_string(resp: reqwest::Response, limit: u64) -> Result<String> {
+    if let Some(len) = resp.content_length()
+        && len > limit
+    {
+        anyhow::bail!("MCP response body Content-Length {len} exceeds the {limit}-byte limit");
+    }
+    let stream = resp
+        .bytes_stream()
+        .map(|item| item.map_err(std::io::Error::other));
+    let mut reader = LimitedReader::new(tokio_util::io::StreamReader::new(stream), limit);
+    let mut bytes = Vec::new();
+    if let Err(e) = tokio::io::AsyncReadExt::read_to_end(&mut reader, &mut bytes).await {
+        if reader.tripped {
+            anyhow::bail!("MCP response body exceeds the {limit}-byte limit");
+        }
+        return Err(e).context("failed to read HTTP response");
+    }
+    String::from_utf8(bytes).context("MCP response body was not valid UTF-8")
+}
+
 fn drain_pending_generation(pending: &PendingMap, generation: u64) {
     let senders = {
         let mut guard = pending.lock();
@@ -900,6 +990,9 @@ pub struct HttpTransport {
     /// read timeout. Tool calls use the configured budget when present; when
     /// absent, the client layer's outer tool-call timeout owns the budget.
     tool_timeout_secs: Option<u64>,
+    /// Per-server response-body byte cap, from `McpServerConfig.max_response_bytes`
+    /// (or the built-in default). Enforced at read time before parsing.
+    max_response_bytes: u64,
     client: reqwest::Client,
     headers: std::collections::HashMap<String, String>,
     session_id: ParkingMutex<Option<String>>,
@@ -932,6 +1025,7 @@ impl HttpTransport {
         Ok(Self {
             url,
             tool_timeout_secs: config.tool_timeout_secs,
+            max_response_bytes: resolve_max_response_bytes(config),
             client,
             headers: config.headers.clone(),
             session_id: ParkingMutex::new(None),
@@ -1050,7 +1144,7 @@ impl SharedMcpTransportConn for HttpTransport {
             .and_then(|v| v.to_str().ok())
             .is_some_and(|v| v.to_ascii_lowercase().contains("text/event-stream"));
         if is_sse {
-            let read_response = read_first_jsonrpc_from_sse_response(resp);
+            let read_response = read_first_jsonrpc_from_sse_response(resp, self.max_response_bytes);
             let maybe_resp = if let Some(sse_timeout) =
                 http_sse_read_timeout_secs(request, self.tool_timeout_secs)
             {
@@ -1072,7 +1166,7 @@ impl SharedMcpTransportConn for HttpTransport {
             return finish_response(request, lifecycle, response);
         }
 
-        let resp_text = resp.text().await.context("failed to read HTTP response")?;
+        let resp_text = read_body_bounded_to_string(resp, self.max_response_bytes).await?;
         let response = parse_jsonrpc_response_text(&resp_text)?;
         finish_response(request, lifecycle, response)
     }
@@ -1103,6 +1197,8 @@ pub struct SseTransport {
     sse_url: String,
     server_name: String,
     tool_timeout_secs: Option<u64>,
+    /// Per-server response-body byte cap, enforced at read time before parsing.
+    max_response_bytes: u64,
     client: reqwest::Client,
     headers: std::collections::HashMap<String, String>,
     conn: Mutex<SseConnState>,
@@ -1145,6 +1241,7 @@ impl SseTransport {
             sse_url,
             server_name: config.name.clone(),
             tool_timeout_secs: config.tool_timeout_secs,
+            max_response_bytes: resolve_max_response_bytes(config),
             client,
             headers: config.headers.clone(),
             conn: Mutex::new(SseConnState {
@@ -1225,6 +1322,7 @@ impl SseTransport {
         let notify = self.notify.clone();
         let sse_url = self.sse_url.clone();
         let server_name = self.server_name.clone();
+        let max_response_bytes = self.max_response_bytes;
 
         conn.reader_task = Some(zeroclaw_spawn::spawn!(async move {
             let stream = resp
@@ -1236,6 +1334,10 @@ impl SseTransport {
             let mut cur_event: Option<String> = None;
             let mut cur_id: Option<String> = None;
             let mut cur_data: Vec<String> = Vec::new();
+            // Bytes accumulated for the current event's `data:` lines. Reset at
+            // each event boundary. Bounds a single event so a persistent stream
+            // cannot accumulate unbounded event data before dispatch.
+            let mut cur_bytes: u64 = 0;
 
             loop {
                 tokio::select! {
@@ -1255,6 +1357,7 @@ impl SseTransport {
                             let event = cur_event.take();
                             let data = cur_data.join("\n");
                             cur_data.clear();
+                            cur_bytes = 0;
                             let id = cur_id.take();
                             handle_sse_event(&server_name, &sse_url, &shared, &pending, &notify, event.as_deref(), id.as_deref(), data).await;
                             continue;
@@ -1269,6 +1372,24 @@ impl SseTransport {
                         }
                         if let Some(rest) = line.strip_prefix("data:") {
                             let rest = rest.strip_prefix(' ').unwrap_or(rest);
+                            cur_bytes = cur_bytes.saturating_add(rest.len() as u64 + 1);
+                            if cur_bytes > max_response_bytes {
+                                ::zeroclaw_log::record!(
+                                    WARN,
+                                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Reject)
+                                        .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                                        .with_attrs(::serde_json::json!({
+                                            "mcp_server": &server_name,
+                                            "limit": max_response_bytes,
+                                        })),
+                                    "mcp_transport: dropping oversized SSE event data before dispatch"
+                                );
+                                cur_data.clear();
+                                cur_event = None;
+                                cur_id = None;
+                                cur_bytes = 0;
+                                continue;
+                            }
                             cur_data.push(rest.to_string());
                         }
                         if let Some(rest) = line.strip_prefix("id:") {
@@ -1517,17 +1638,30 @@ fn looks_like_sse_text(text: &str) -> bool {
 
 async fn read_first_jsonrpc_from_sse_response(
     resp: reqwest::Response,
+    limit: u64,
 ) -> Result<Option<JsonRpcResponse>> {
+    if let Some(len) = resp.content_length()
+        && len > limit
+    {
+        anyhow::bail!("MCP SSE response Content-Length {len} exceeds the {limit}-byte limit");
+    }
     let stream = resp
         .bytes_stream()
         .map(|item| item.map_err(std::io::Error::other));
-    let reader = tokio_util::io::StreamReader::new(stream);
+    // Bound the accumulated event bytes at read time: `LimitedReader` fails the
+    // underlying read once `limit` bytes are exceeded, so neither the whole
+    // stream nor a single unterminated line can grow unbounded before parse.
+    let reader = LimitedReader::new(tokio_util::io::StreamReader::new(stream), limit);
     let mut lines = BufReader::new(reader).lines();
 
     let mut cur_event: Option<String> = None;
     let mut cur_data: Vec<String> = Vec::new();
 
-    while let Ok(line_opt) = lines.next_line().await {
+    loop {
+        let line_opt = lines
+            .next_line()
+            .await
+            .context("failed to read MCP SSE response (body may exceed the size limit)")?;
         let Some(mut line) = line_opt else { break };
         if line.ends_with('\r') {
             line.pop();
@@ -1681,9 +1815,12 @@ impl SharedMcpTransportConn for SseTransport {
                     .is_some_and(|v| v.to_ascii_lowercase().contains("text/event-stream"));
 
                 if is_sse {
-                    got_direct = read_first_jsonrpc_from_sse_response(resp).await?;
+                    got_direct =
+                        read_first_jsonrpc_from_sse_response(resp, self.max_response_bytes).await?;
                 } else {
-                    let text = resp.text().await.unwrap_or_default();
+                    let text = read_body_bounded_to_string(resp, self.max_response_bytes)
+                        .await
+                        .unwrap_or_default();
                     let trimmed = text.trim();
                     if !trimmed.is_empty() {
                         let json_str =
@@ -2543,6 +2680,114 @@ mod tests {
             Some(McpTransportError::StaleSession { status }) => assert_eq!(*status, 404),
             other => panic!("expected StaleSession, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn http_transport_rejects_oversized_body_via_content_length() {
+        use wiremock::matchers::method;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("x".repeat(8192)))
+            .mount(&server)
+            .await;
+
+        let config = McpServerConfig {
+            name: "test-http".into(),
+            transport: McpTransport::Http,
+            url: Some(server.uri()),
+            max_response_bytes: Some(1024),
+            ..Default::default()
+        };
+        let transport = HttpTransport::new(&config).expect("build transport");
+        let req = JsonRpcRequest::new(1, "tools/call", serde_json::json!({}));
+        let lifecycle = McpRequestLifecycle::uncoordinated(0);
+        let err = transport
+            .send_and_recv(&req, &lifecycle)
+            .await
+            .expect_err("oversized body must be rejected before parse");
+        assert!(
+            err.to_string().to_lowercase().contains("limit"),
+            "expected a size-limit rejection, got: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn http_transport_rejects_oversized_body_while_streaming_without_content_length() {
+        use wiremock::matchers::method;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        // `Transfer-Encoding: chunked` omits Content-Length, so only the
+        // streaming cap can enforce the ceiling — the fast Content-Length reject
+        // cannot fire.
+        Mock::given(method("POST"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("Transfer-Encoding", "chunked")
+                    .set_body_string("y".repeat(8192)),
+            )
+            .mount(&server)
+            .await;
+
+        let config = McpServerConfig {
+            name: "test-http".into(),
+            transport: McpTransport::Http,
+            url: Some(server.uri()),
+            max_response_bytes: Some(1024),
+            ..Default::default()
+        };
+        let transport = HttpTransport::new(&config).expect("build transport");
+        let req = JsonRpcRequest::new(1, "tools/call", serde_json::json!({}));
+        let lifecycle = McpRequestLifecycle::uncoordinated(0);
+        let err = transport
+            .send_and_recv(&req, &lifecycle)
+            .await
+            .expect_err("oversized streamed body must be rejected before parse");
+        assert!(
+            err.to_string().to_lowercase().contains("limit"),
+            "expected a streaming size-limit rejection, got: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn http_transport_rejects_oversized_sse_body() {
+        use wiremock::matchers::method;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        // A `text/event-stream` response whose accumulated event data exceeds the
+        // limit must be rejected by the SSE read path before any JSON parse.
+        let body = format!("event: message\ndata: {}\n\n", "z".repeat(8192));
+        Mock::given(method("POST"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("Content-Type", "text/event-stream")
+                    .insert_header("Transfer-Encoding", "chunked")
+                    .set_body_string(body),
+            )
+            .mount(&server)
+            .await;
+
+        let config = McpServerConfig {
+            name: "test-http".into(),
+            transport: McpTransport::Http,
+            url: Some(server.uri()),
+            max_response_bytes: Some(1024),
+            ..Default::default()
+        };
+        let transport = HttpTransport::new(&config).expect("build transport");
+        let req = JsonRpcRequest::new(1, "tools/call", serde_json::json!({}));
+        let lifecycle = McpRequestLifecycle::uncoordinated(0);
+        let err = transport
+            .send_and_recv(&req, &lifecycle)
+            .await
+            .expect_err("oversized SSE body must be rejected before parse");
+        assert!(
+            err.to_string().to_lowercase().contains("limit"),
+            "expected an SSE size-limit rejection, got: {err}"
+        );
     }
 
     #[tokio::test]
