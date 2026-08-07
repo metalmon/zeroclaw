@@ -7003,9 +7003,13 @@ mod tests {
             },
         );
 
+        // "123" must be a plain text peer, not a voice peer: this test targets the
+        // text-delivery contract (a failed final `sendMessage` propagates and
+        // suppresses the trailing voice reply). A voice-only peer deliberately
+        // skips the final text send altogether, so there would be no failing send
+        // to observe — that path is covered separately.
         let ch = multi_message_test_channel("telegram_test_alias", 0)
             .with_api_base(mock_server.uri())
-            .with_voice_peer_resolver(Arc::new(|| vec!["123".to_string()]))
             .with_tts(&config);
 
         let draft_id = ch
