@@ -35,7 +35,10 @@ $Branches = @(
     # closed #7947 (execute_pipeline confused-deputy) with its own per-agent
     # ToolAccessPolicy gating, now in master. The local branch is redundant and
     # conflicts with master's implementation.
-    "fix/openrouter-stream-provider-extra",   # fix: merge provider_extra in OpenRouter stream_chat (ACP/Thunderbolt)
+    # Dropped: fix/openrouter-stream-provider-extra — superseded upstream. Master
+    # now has OpenRouterModelProvider::merge_extra_body + a builder .extra_body()
+    # setter applied across chat/stream_chat, so the local branch is redundant and
+    # its tests use the removed ::new constructor (builder pattern now).
     "pr2/mcp-embedded-resource-blob-intake",  # PR #9196 - MCP resource.blob materialization + per-call item/byte caps (supersedes fix/mcp-resource-blob-intake #9195, now merged)
     "feat/mcp-image-multimodal",              # stacked on pr2 - materialize MCP type:image/audio into [IMAGE:]/[AUDIO:] markers for the multimodal pipeline
     "fix/mcp-image-role-user",                # relocate MCP tool-result images to a user message (role:tool 400 fix); no upstream PR yet
