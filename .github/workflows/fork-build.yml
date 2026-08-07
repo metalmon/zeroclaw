@@ -63,7 +63,7 @@ jobs:
     name: Test (linux)
     needs: web
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -76,11 +76,20 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Format
         run: cargo fmt --all -- --check
-      # --lib only: the fork build runs a reduced feature set, so workspace
-      # integration tests that need features we don't enable (e.g. mail_parser)
-      # won't compile. Our changes live in library unit tests anyway.
-      - name: Tests
+      # Deploy-feature signal: exercises the exact reduced feature set the fork
+      # ships, so a break under `$ZC_FEATURES` is caught even if the wider
+      # default-feature build hides it.
+      - name: Tests (deploy feature set, --lib)
         run: cargo test --no-default-features --features "$ZC_FEATURES" --lib
+      # Full workspace under DEFAULT features — mirrors upstream's Quality Gate so
+      # fork validation catches integration/component tests that `--lib` and the
+      # reduced feature set skip (e.g. the `channel-acp-server`-gated ACP stdio
+      # component test). Default features pull in mail_parser et al., so the whole
+      # workspace compiles here where `--no-default-features` cannot. This is the
+      # authoritative red/green: validate a change here BEFORE it reaches an
+      # upstream PR.
+      - name: Tests (full workspace, default features)
+        run: cargo test --workspace --exclude zeroclaw-desktop
 
   # Clippy is a separate, independent signal: a lint nit anywhere in the merged
   # patch stack must not skip the test run or block the deployable binary.
