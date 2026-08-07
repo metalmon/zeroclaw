@@ -31,7 +31,10 @@ $ErrorActionPreference = "Stop"
 # to current branch) to avoid re-applying already-cherry-picked commits.
 $Branches = @(
     "feat/telegram-multi-message",            # PR #8561 - Telegram multi_message streaming mode
-    "fix/pipeline-tool-gating",               # PR pending (#9062) - execute_pipeline per-agent tool gating
+    # fix/pipeline-tool-gating DROPPED: #9062/#7960 closed as duplicate; upstream
+    # closed #7947 (execute_pipeline confused-deputy) with its own per-agent
+    # ToolAccessPolicy gating, now in master. The local branch is redundant and
+    # conflicts with master's implementation.
     "fix/openrouter-stream-provider-extra",   # fix: merge provider_extra in OpenRouter stream_chat (ACP/Thunderbolt)
     "pr2/mcp-embedded-resource-blob-intake",  # PR #9196 - MCP resource.blob materialization + per-call item/byte caps (supersedes fix/mcp-resource-blob-intake #9195, now merged)
     "feat/mcp-image-multimodal",              # stacked on pr2 - materialize MCP type:image/audio into [IMAGE:]/[AUDIO:] markers for the multimodal pipeline
