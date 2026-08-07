@@ -936,8 +936,13 @@ mod tests {
     async fn shell_warns_on_ephemeral_workspace_failure_path() {
         let tool = ShellTool::new(test_security(AutonomyLevel::Supervised), test_runtime())
             .with_persistent_writes(false);
+        // Use a bare (non-path-looking) name so the command fails on a missing
+        // directory rather than being stopped by the shell tool's own forbidden-
+        // path guard. An absolute `/nonexistent...` would be rejected before it
+        // ever runs, and this test is about the ephemeral banner on a *runtime*
+        // failure, not about path gating.
         let result = tool
-            .execute(json!({"command": "ls /nonexistent_dir_xyz_4627"}))
+            .execute(json!({"command": "ls nonexistent_dir_xyz_4627"}))
             .await
             .expect("command should return a result");
         assert!(!result.success);
