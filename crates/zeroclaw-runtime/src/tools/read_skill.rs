@@ -403,6 +403,7 @@ description = "Ship safely"
             prompts: vec![instruction.to_string()],
             slash_options: vec![],
             location: None,
+            always: false,
         }
     }
 
@@ -418,6 +419,7 @@ description = "Ship safely"
             prompts: vec![],
             slash_options: vec![],
             location: None,
+            always: false,
         }
     }
 
@@ -538,6 +540,7 @@ description = "Ship safely"
             prompts: vec![],
             slash_options: vec![],
             location: None,
+            always: false,
         }]);
 
         let result = tool.execute(json!({ "name": "empty" })).await.unwrap();
