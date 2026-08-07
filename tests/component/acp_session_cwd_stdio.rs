@@ -1,4 +1,4 @@
-//! CLI front-door proof for the ACP stdio surface (issue #9534).
+//! CLI front-door proof for the ACP stdio surface.
 //!
 //! The unit tests in `crates/zeroclaw-channels/.../acp_server.rs` drive
 //! `handle_session_new` / `serve_reader` directly; this test crosses the real
