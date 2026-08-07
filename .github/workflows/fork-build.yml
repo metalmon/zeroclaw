@@ -85,11 +85,21 @@ jobs:
       # fork validation catches integration/component tests that `--lib` and the
       # reduced feature set skip (e.g. the `channel-acp-server`-gated ACP stdio
       # component test). Default features pull in mail_parser et al., so the whole
-      # workspace compiles here where `--no-default-features` cannot. This is the
-      # authoritative red/green: validate a change here BEFORE it reaches an
-      # upstream PR.
+      # workspace compiles here where `--no-default-features` cannot. Run under
+      # nextest with the same flags/deps as upstream's Test job:
+      #   - `expect` is required by process-boundary tests (job-control PTY);
+      #   - nextest isolates each test in its own process, so job-control /
+      #     signal tests do not interfere the way they do under `cargo test`;
+      #   - `zeroclaw-desktop` is excluded because it needs system GUI libs
+      #     (glib-2.0 etc.) the runner does not ship.
+      # This is the authoritative red/green: validate a change here BEFORE it
+      # reaches an upstream PR.
+      - name: Install test system dependencies
+        run: bash scripts/ci/apt_install.sh expect
+      - name: Install cargo-nextest
+        run: curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C ~/.cargo/bin
       - name: Tests (full workspace, default features)
-        run: cargo test --workspace --exclude zeroclaw-desktop
+        run: cargo nextest run --locked --workspace --exclude zeroclaw-desktop
 
   # Clippy is a separate, independent signal: a lint nit anywhere in the merged
   # patch stack must not skip the test run or block the deployable binary.
