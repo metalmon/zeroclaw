@@ -99,7 +99,10 @@ jobs:
       - name: Install cargo-nextest
         run: curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C ~/.cargo/bin
       - name: Tests (full workspace, default features)
-        run: cargo nextest run --locked --workspace --exclude zeroclaw-desktop
+        # --no-fail-fast: run the whole suite even after a failure so the log shows
+        # EVERY failing test in one pass (invaluable when reconciling the assembled
+        # main across many branches), instead of stopping at the first.
+        run: cargo nextest run --locked --workspace --exclude zeroclaw-desktop --no-fail-fast
 
   # Clippy is a separate, independent signal: a lint nit anywhere in the merged
   # patch stack must not skip the test run or block the deployable binary.
