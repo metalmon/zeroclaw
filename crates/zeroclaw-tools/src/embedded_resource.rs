@@ -12,7 +12,11 @@ pub const MAX_EMBEDDED_FILE_BYTES: u64 = 10 * 1024 * 1024;
 /// Estimated aggregate decoded size limit for all embedded blobs in a single
 /// `tools/call` result. Beyond this, every resource blob is replaced with an
 /// aggregate-limit marker and no file is written.
-const MAX_AGGREGATE_BLOB_BYTES: u64 = 10 * 1024 * 1024;
+///
+/// `pub(crate)` so the MCP transport can size its encoded response ceiling to
+/// this decoded budget plus base64 and JSON overhead, keeping the two layers in
+/// lockstep instead of duplicating the literal.
+pub(crate) const MAX_AGGREGATE_BLOB_BYTES: u64 = 10 * 1024 * 1024;
 
 /// Maximum number of embedded resource blobs materialized from a single
 /// `tools/call` result. A byte budget alone does not bound the per-item work: an
