@@ -3847,7 +3847,11 @@ async fn run_draft_updater(
                 // before the progress edit, so the permanent send crosses the same
                 // hook + leak-detection boundary as the final reply.
                 if turn_flush_narration {
-                    let visible = strip_think_tags_inline(&accumulated);
+                    // Permanent narration crosses an external channel boundary,
+                    // so it must get the same registered-tool-protocol
+                    // suppression as the draft display and the final reply, not
+                    // just think-tag stripping.
+                    let visible = sanitize_streaming_draft_text(&accumulated, &known_tool_names);
                     flush_completed_narration_turn(
                         &channel,
                         outbound_hooks.as_deref(),
@@ -3894,7 +3898,11 @@ async fn run_draft_updater(
                 // flush the turn narration, then release the agent loop (approval
                 // gate) waiting on the ack.
                 if turn_flush_narration {
-                    let visible = strip_think_tags_inline(&accumulated);
+                    // Permanent narration crosses an external channel boundary,
+                    // so it must get the same registered-tool-protocol
+                    // suppression as the draft display and the final reply, not
+                    // just think-tag stripping.
+                    let visible = sanitize_streaming_draft_text(&accumulated, &known_tool_names);
                     flush_completed_narration_turn(
                         &channel,
                         outbound_hooks.as_deref(),
@@ -14955,6 +14963,10 @@ api_key = "anthropic-key"
         /// what the transport actually received rather than on a sanitizer it
         /// called itself. Progress text lands in `progress_messages`.
         draft_updates: tokio::sync::Mutex<Vec<String>>,
+        /// Text handed to `flush_draft_turn`, i.e. every permanent multi-message
+        /// narration turn the channel was asked to publish. A test can assert on
+        /// what actually crossed the permanent send boundary.
+        flushed_turns: tokio::sync::Mutex<Vec<String>>,
     }
 
     impl DraftRecordingChannel {
@@ -14969,6 +14981,7 @@ api_key = "anthropic-key"
                 finalized_messages: tokio::sync::Mutex::new(Vec::new()),
                 cancelled_drafts: tokio::sync::Mutex::new(Vec::new()),
                 draft_updates: tokio::sync::Mutex::new(Vec::new()),
+                flushed_turns: tokio::sync::Mutex::new(Vec::new()),
             }
         }
     }
@@ -15302,6 +15315,16 @@ api_key = "anthropic-key"
                 .lock()
                 .await
                 .push(format!("{recipient}:{message_id}"));
+            Ok(())
+        }
+
+        async fn flush_draft_turn(
+            &self,
+            _recipient: &str,
+            _message_id: &str,
+            text: &str,
+        ) -> anyhow::Result<()> {
+            self.flushed_turns.lock().await.push(text.to_string());
             Ok(())
         }
     }
@@ -31916,6 +31939,68 @@ Done."#;
                 assert!(
                     !text.contains("s3cret") && !text.contains("tool_call_id"),
                     "{label}: draft update {i} carried protocol JSON: {text:?}"
+                );
+            }
+        }
+    }
+
+    /// #8561 boundary regression: the PERMANENT multi-message narration flush
+    /// must apply the same registered-tool-protocol suppression as the draft
+    /// display and the final reply, not just think-tag stripping. A completed
+    /// narration turn that is bare or fenced registered-tool JSON must never be
+    /// published to the channel via `flush_draft_turn`.
+    #[tokio::test]
+    async fn multi_message_narration_flush_suppresses_registered_tool_protocol() {
+        use zeroclaw_runtime::agent::loop_::StreamDelta;
+        let known: HashSet<String> = ["mock_price".to_string()].into_iter().collect();
+
+        for (label, payload) in [
+            (
+                "bare",
+                "{\"tool_calls\":[{\"call_id\":\"c1\",\"name\":\"mock_price\",\"arguments\":{\"symbol\":\"BTC\"}}]}",
+            ),
+            (
+                "fenced",
+                "```json\n{\"tool_calls\":[{\"call_id\":\"c1\",\"name\":\"mock_price\",\"arguments\":{\"symbol\":\"BTC\"}}]}\n```",
+            ),
+        ] {
+            let channel_impl = Arc::new(DraftRecordingChannel::new(false, false));
+            let channel: Arc<dyn Channel> = channel_impl.clone();
+            let (tx, rx) =
+                tokio::sync::mpsc::channel::<zeroclaw_runtime::agent::loop_::DraftEvent>(32);
+
+            // The protocol JSON is a completed narration turn; the following
+            // `Status` event is what drives the permanent turn flush.
+            tx.send(StreamDelta::Text(payload.to_string()))
+                .await
+                .unwrap();
+            tx.send(StreamDelta::Status("Working.".to_string()))
+                .await
+                .unwrap();
+            drop(tx);
+
+            run_draft_updater(
+                channel,
+                "chat-1".to_string(),
+                "draft-1".to_string(),
+                known.clone(),
+                true,
+                None,
+                zeroclaw_config::schema::LeakDetectionConfig::default(),
+                "telegram.test".to_string(),
+                rx,
+            )
+            .await;
+
+            // With the fix the turn sanitizes to empty and is never flushed; the
+            // pre-fix `strip_think_tags_inline` path published the raw envelope.
+            let flushed = channel_impl.flushed_turns.lock().await;
+            for (i, text) in flushed.iter().enumerate() {
+                assert!(
+                    !text.contains("tool_calls")
+                        && !text.contains("mock_price")
+                        && !text.contains("arguments"),
+                    "{label}: permanent narration flush {i} leaked registered-tool protocol: {text:?}"
                 );
             }
         }
