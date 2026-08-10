@@ -177,6 +177,15 @@ resource blob degraded to an `[attachment unavailable: …]` marker and writes
 nothing to disk, so an array of many empty or tiny blobs cannot force per-item
 work. Each individual blob is still bounded by the same 10 MB per-file limit.
 
+Separate from these *decoded* budgets, each HTTP/SSE MCP server also has a
+transport-level response-body cap, `max_response_bytes`, enforced on the raw
+*encoded* wire bytes before the body is parsed so a server cannot force an
+unbounded read. It is not the 10 MiB decoded limit above: it defaults to
+**16,078,168 bytes**, the base64 expansion of the 10 MiB decoded aggregate plus
+JSON-RPC envelope headroom, so a valid near-limit blob still reaches
+materialization. Set `max_response_bytes` on a server to override it; `0` or
+leaving it unset uses that default.
+
 ### Security
 
 Resource and prompt content originates from the configured MCP server and is

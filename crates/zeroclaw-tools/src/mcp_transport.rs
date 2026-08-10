@@ -1660,27 +1660,41 @@ async fn read_first_jsonrpc_from_sse_response(
     let stream = resp
         .bytes_stream()
         .map(|item| item.map_err(std::io::Error::other));
-    // Bound the accumulated event bytes at read time: read at most `limit + 1`
-    // bytes via tokio's `Take` adapter, then reject a body over the cap by length.
-    // This bounds the whole SSE reply (and any single unterminated line) before
-    // any JSON parse, without a hand-rolled `AsyncRead`.
+    // Read the SSE reply incrementally and return as soon as the first complete
+    // `message` event parses, rather than buffering to EOF. A compliant server
+    // may hold the SSE connection open for subsequent traffic after the response
+    // event, so waiting for EOF would stall a successful `tools/call` until the
+    // request/idle timeout. The byte total is still bounded at read time (each
+    // line via `read_bounded_line`, and the running total below) so an over-cap
+    // reply is rejected before any JSON parse.
     let reader = tokio_util::io::StreamReader::new(stream);
-    let mut bounded = tokio::io::AsyncReadExt::take(reader, limit.saturating_add(1));
-    let mut raw = Vec::new();
-    tokio::io::AsyncReadExt::read_to_end(&mut bounded, &mut raw)
-        .await
-        .context("failed to read MCP SSE response")?;
-    if raw.len() as u64 > limit {
-        anyhow::bail!("MCP SSE response body exceeds the {limit}-byte limit");
-    }
-    let text = String::from_utf8_lossy(&raw);
+    let mut reader = BufReader::new(reader);
+    let line_limit = usize::try_from(limit).unwrap_or(usize::MAX);
 
     let mut cur_event: Option<String> = None;
     let mut cur_data: Vec<String> = Vec::new();
+    let mut total_bytes: u64 = 0;
 
-    // `str::lines()` splits on `\n` and strips a trailing `\r`, matching the
-    // async `AsyncBufReadExt::lines()` this replaced.
-    for line in text.lines() {
+    loop {
+        let raw = match read_bounded_line(&mut reader, line_limit).await {
+            Ok(BoundedLine::Line(bytes)) => bytes,
+            Ok(BoundedLine::Oversized) => {
+                anyhow::bail!("MCP SSE response body exceeds the {limit}-byte limit");
+            }
+            Ok(BoundedLine::Eof) => break,
+            Err(e) => return Err(anyhow::Error::new(e).context("failed to read MCP SSE response")),
+        };
+        total_bytes = total_bytes.saturating_add(raw.len() as u64 + 1);
+        if total_bytes > limit {
+            anyhow::bail!("MCP SSE response body exceeds the {limit}-byte limit");
+        }
+        // `read_bounded_line` already strips a trailing `\r` for newline-delimited
+        // lines; the guard covers the final unterminated line at EOF.
+        let mut line = String::from_utf8_lossy(&raw).into_owned();
+        if line.ends_with('\r') {
+            line.pop();
+        }
+
         if line.is_empty() {
             if cur_event.is_none() && cur_data.is_empty() {
                 continue;
@@ -2806,6 +2820,53 @@ mod tests {
             err.to_string().to_lowercase().contains("limit"),
             "expected an SSE size-limit rejection, got: {err}"
         );
+    }
+
+    #[tokio::test]
+    async fn http_transport_sse_returns_first_event_without_waiting_for_eof() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+
+        // Serve one request: a valid SSE `message` event, then hold the socket
+        // open. A reader that buffers to EOF would block here until the timeout;
+        // an incremental reader returns as soon as the event completes.
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = zeroclaw_spawn::spawn!(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 2048];
+            // Drain the request head so the client's write side does not block.
+            let _ = sock.read(&mut buf).await;
+            let response = "HTTP/1.1 200 OK\r\n\
+Content-Type: text/event-stream\r\n\
+Connection: keep-alive\r\n\
+\r\n\
+event: message\n\
+data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n";
+            sock.write_all(response.as_bytes()).await.unwrap();
+            sock.flush().await.unwrap();
+            // Hold the connection open well past the assertion timeout.
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        });
+
+        let config = McpServerConfig {
+            name: "sse-eof".into(),
+            transport: McpTransport::Http,
+            url: Some(format!("http://{addr}")),
+            ..Default::default()
+        };
+        let transport = HttpTransport::new(&config).expect("build transport");
+        let req = JsonRpcRequest::new(1, "tools/call", serde_json::json!({}));
+        let lifecycle = McpRequestLifecycle::uncoordinated(0);
+        let resp = timeout(
+            Duration::from_secs(5),
+            transport.send_and_recv(&req, &lifecycle),
+        )
+        .await
+        .expect("must return on the first complete SSE event, not wait for EOF")
+        .expect("valid SSE event must parse");
+        assert_eq!(resp.id, Some(serde_json::json!(1)));
+        server.abort();
     }
 
     #[tokio::test]

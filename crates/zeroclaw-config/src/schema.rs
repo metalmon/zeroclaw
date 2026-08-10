@@ -4981,8 +4981,12 @@ pub struct McpServerConfig {
     /// Maximum bytes accepted for a single HTTP/SSE JSON-RPC response body,
     /// enforced at read time before the body is parsed or any embedded resource
     /// is materialized. A compromised or misbehaving server cannot force an
-    /// unbounded response-body allocation. `None` uses the built-in default
-    /// (10 MiB).
+    /// unbounded response-body allocation. This is the *encoded wire* cap, not
+    /// the decoded materialization budget: `None`/`0` uses the built-in default
+    /// of 16,078,168 bytes, sized so a full 10 MiB decoded embedded-resource blob
+    /// (its base64 expansion plus JSON-RPC envelope headroom) still fits. The
+    /// separate 10 MiB figure is the decoded aggregate blob budget applied after
+    /// parsing, not this wire cap.
     #[serde(default)]
     pub max_response_bytes: Option<u64>,
     /// Resource URIs to read once at agent startup and inject into the system
