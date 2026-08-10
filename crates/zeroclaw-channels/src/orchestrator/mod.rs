@@ -31944,8 +31944,8 @@ Done."#;
         }
     }
 
-    /// #8561 boundary regression: the PERMANENT multi-message narration flush
-    /// must apply the same registered-tool-protocol suppression as the draft
+    /// Boundary regression: the PERMANENT multi-message narration flush must
+    /// apply the same registered-tool-protocol suppression as the draft
     /// display and the final reply, not just think-tag stripping. A completed
     /// narration turn that is bare or fenced registered-tool JSON must never be
     /// published to the channel via `flush_draft_turn`.
