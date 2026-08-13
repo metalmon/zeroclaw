@@ -1318,6 +1318,53 @@ impl SecurityPolicy {
         None
     }
 
+    /// Rebuild a git segment's real argument vector from `shlex` tokens, dropping
+    /// the shell redirections `shlex` mis-tokenizes as ordinary words.
+    ///
+    /// `shlex` models quoting but not redirections, so `git -C /repo 2>/dev/null
+    /// commit` tokenizes to `[git, -C, /repo, 2>/dev/null, commit]`. The shell
+    /// removes `2>/dev/null` from the argv before exec, but leaving it in place
+    /// makes `git_subcommand` skip `-C` and its value and then read the
+    /// redirection token — the first thing that does not start with `-` — as the
+    /// subcommand, missing the real `commit` and misclassifying the write as Low.
+    /// Removing redirections (a leading fd-number prefix with its target, the
+    /// `> file` two-token form, and fd merges like `2>&1`) makes the classifier's
+    /// argv match the shell's, so a redirection can never be read as the verb.
+    ///
+    /// A real word glued ahead of a redirect (`commit>log`) keeps its prefix so
+    /// the verb still resolves; a bare fd number (`2` in `2>&1`) does not. Tokens
+    /// are lower-cased to match `git_subcommand`.
+    fn git_effective_args(tokens: Vec<String>) -> Vec<String> {
+        fn prefix_arg(prefix: &str) -> Option<String> {
+            let prefix = prefix.trim();
+            (!prefix.is_empty() && !prefix.bytes().all(|b| b.is_ascii_digit()))
+                .then(|| prefix.to_string())
+        }
+
+        let mut args = Vec::new();
+        let mut drop_next_target = false;
+        for token in tokens.into_iter().skip(1) {
+            if drop_next_target {
+                drop_next_target = false; // this token is a redirect target, not argv
+                continue;
+            }
+            let token = token.to_ascii_lowercase();
+            let (keep, prefix, drop_next) = match parse_redirection_argument(&token) {
+                RedirectionArgument::None => (true, None, false),
+                RedirectionArgument::Target { prefix, .. }
+                | RedirectionArgument::FdOnly { prefix } => (false, prefix_arg(prefix), false),
+                RedirectionArgument::NeedsNextToken { prefix } => (false, prefix_arg(prefix), true),
+            };
+            if keep {
+                args.push(token);
+            } else if let Some(prefix) = prefix {
+                args.push(prefix);
+            }
+            drop_next_target = drop_next;
+        }
+        args
+    }
+
     /// Shell-aware Medium-risk classification of a single `git` command segment.
     ///
     /// `command_risk_level` word-splits each segment on whitespace, which
@@ -1337,6 +1384,11 @@ impl SecurityPolicy {
     /// show. When the segment carries any unquoted expansion metacharacter we
     /// cannot certify the resolved subcommand, so we fail closed to a write
     /// (Medium). Quoted/escaped metacharacters are not expanded and stay Low.
+    ///
+    /// `shlex` also does not model redirections, so a redirect placed before the
+    /// verb (`git -C /repo 2>/dev/null commit`) would otherwise be read as the
+    /// subcommand and let the write classify Low; [`Self::git_effective_args`]
+    /// strips redirections first so the classifier's argv matches the shell's.
     fn git_segment_is_write(segment: &str) -> bool {
         if contains_unquoted_expansion_metachar(segment) {
             return true; // unmodeled shell expansion → effective verb unknown → Medium
@@ -1345,12 +1397,8 @@ impl SecurityPolicy {
             return true; // ambiguous parse → conservative Medium
         };
         // tokens[0] is the `git` executable; classify the verb the shell would
-        // run, past any leading global options.
-        let args: Vec<String> = tokens
-            .into_iter()
-            .skip(1)
-            .map(|t| t.to_ascii_lowercase())
-            .collect();
+        // run, past any leading global options and shell redirections.
+        let args = Self::git_effective_args(tokens);
         Self::git_subcommand(&args).is_some_and(|verb| {
             matches!(
                 verb,
@@ -3271,6 +3319,53 @@ mod tests {
             Ok(CommandRiskLevel::Low),
             "quoted read-git pathspec glob must remain Low"
         );
+    }
+
+    #[test]
+    fn redirection_write_git_is_gated_at_the_enforcement_boundary() {
+        // `shlex` tokenizes shell redirections as ordinary words, so a redirect
+        // placed BEFORE the verb (`git -C /repo 2>/dev/null commit`) would be read
+        // as the subcommand and let the write skip the medium-risk gate. The
+        // classifier must strip redirections so its argv matches the shell's:
+        // pre-verb and post-verb writes both classify Medium, while a read that
+        // merely redirects its output stays Low. Drive the real approval decision
+        // through `validate_command_execution`.
+        let p = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+
+        for write in [
+            "git -C /repo 2>/dev/null commit", // pre-verb redirect glued to its target
+            "git -C /repo 2>&1 commit",        // pre-verb fd merge
+            "git 2> /dev/null push",           // pre-verb redirect, space-split target
+            "git -C /repo commit 2>&1",        // post-verb redirect is still a write
+        ] {
+            assert!(
+                p.validate_command_execution(write, false).is_err(),
+                "unapproved write-git with a redirect must be rejected: {write}"
+            );
+            assert_eq!(
+                p.validate_command_execution(write, true),
+                Ok(CommandRiskLevel::Medium),
+                "approved write-git with a redirect must classify Medium: {write}"
+            );
+        }
+
+        // A read that only redirects its output is not a write and stays Low.
+        for read in [
+            "git -C /repo status 2>/dev/null",
+            "git log 2>&1",
+            "git status 2> /dev/null",
+        ] {
+            assert_eq!(
+                p.validate_command_execution(read, false),
+                Ok(CommandRiskLevel::Low),
+                "read-git with a redirect must remain Low: {read}"
+            );
+        }
     }
 
     #[test]
