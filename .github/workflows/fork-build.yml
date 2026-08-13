@@ -30,7 +30,9 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
   # Keep in sync with dev-local/rebuild-main.ps1 build footer.
-  ZC_FEATURES: agent-runtime,gateway,embedded-web,acp-bridge,channel-telegram,plugins-wasm
+  # plugins-wasm is intentionally dropped: the deploy binary ships without the
+  # office_read WASM plugin, so test/lint/build all exercise that exact set.
+  ZC_FEATURES: agent-runtime,gateway,embedded-web,acp-bridge,channel-telegram
 
 jobs:
   web:
