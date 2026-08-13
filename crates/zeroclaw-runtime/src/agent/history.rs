@@ -236,8 +236,34 @@ pub fn truncate_tool_message(msg_content: &str, max_chars: usize) -> String {
 /// Estimate the token cost of a single message using the ~4 chars/token
 /// heuristic plus ~4 framing tokens (role, delimiters). Single-sourced so the
 /// history and system-floor estimates stay in lock-step.
+///
+/// `[IMAGE:...]` markers are excluded from the text-character count and
+/// priced at 4000 tokens each (A4 300dpi matching Qwen tile pricing). This
+/// prevents base64-encoded images from being counted as text and avoids both
+/// severe overcounts (base64 inline) and undercounts (short path references).
+/// The provider response always reports the real count; this heuristic only
+/// drives local trimming decisions.
 fn estimate_message_tokens(message: &ChatMessage) -> usize {
-    message.content.len().div_ceil(4) + 4
+    let content = &message.content;
+    let image_count = content.matches("[IMAGE:").count();
+    if image_count == 0 {
+        return content.len().div_ceil(4) + 4;
+    }
+
+    let mut text_len = content.len();
+    let mut pos = 0;
+    while let Some(start) = content[pos..].find("[IMAGE:") {
+        let abs_start = pos + start;
+        if let Some(end) = content[abs_start..].find(']') {
+            let abs_end = abs_start + end + 1;
+            text_len -= abs_end - abs_start;
+            pos = abs_end;
+        } else {
+            pos = abs_start + "[IMAGE:".len();
+        }
+    }
+
+    text_len.div_ceil(4) + 4 + image_count * 4000
 }
 
 /// Estimate token count for a message history using ~4 chars/token heuristic.
@@ -453,6 +479,40 @@ mod tests {
         assert_eq!(estimate_system_floor_tokens(&[]), 0);
         let history = vec![ChatMessage::user("hi"), ChatMessage::assistant("yo")];
         assert_eq!(estimate_system_floor_tokens(&history), 0);
+    }
+
+    #[test]
+    fn estimate_message_tokens_without_images_unchanged() {
+        let msg = ChatMessage::user("hello world");
+        assert_eq!(
+            estimate_message_tokens(&msg),
+            "hello world".len().div_ceil(4) + 4
+        );
+    }
+
+    #[test]
+    fn estimate_message_tokens_counts_one_image_at_4000() {
+        let msg = ChatMessage::user("[IMAGE:data:image/png;base64,abc123]");
+        assert_eq!(estimate_message_tokens(&msg), 4 + 4000);
+    }
+
+    #[test]
+    fn estimate_message_tokens_counts_multiple_images() {
+        let msg =
+            ChatMessage::user("[IMAGE:data:image/png;base64,a] look at this [IMAGE:/tmp/b.png]");
+        // text " look at this " = 14 chars → ceil(14/4) + 4 = 8, plus 2 × 4000
+        assert_eq!(estimate_message_tokens(&msg), 8 + 8000);
+    }
+
+    #[test]
+    fn estimate_history_tokens_includes_image_cost() {
+        let history = vec![
+            ChatMessage::user("text only"),
+            ChatMessage::user("[IMAGE:data:image/png;base64,xyz]"),
+        ];
+        let text_tokens = estimate_message_tokens(&ChatMessage::user("text only"));
+        let img_tokens = 4 + 4000;
+        assert_eq!(estimate_history_tokens(&history), text_tokens + img_tokens);
     }
 
     #[test]
