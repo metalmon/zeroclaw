@@ -108,4 +108,4 @@ if ($Push) {
 
 Write-Host ""
 Write-Host "Done. Build with:" -ForegroundColor Green
-Write-Host "  cargo build --release --no-default-features --features agent-runtime,gateway,embedded-web,acp-bridge,channel-telegram,plugins-wasm"
+Write-Host "  cargo build --release --no-default-features --features agent-runtime,gateway,embedded-web,acp-bridge,channel-telegram"
