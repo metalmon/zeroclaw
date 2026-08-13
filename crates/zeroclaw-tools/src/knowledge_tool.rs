@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use zeroclaw_api::tool::{Tool, ToolOutput, ToolResult};
-use zeroclaw_memory::knowledge_graph::{KnowledgeGraph, NodeType, Relation};
+use zeroclaw_memory::knowledge_graph::{KnowledgeGraph, KnowledgeNode, NodeType, Relation};
 
 const CLIENT_NETWORK_INTERACTION_LIMIT: usize = 20;
 const CLIENT_NETWORK_ENTITY_LIMIT: usize = 100;
@@ -29,11 +29,91 @@ const KNOWLEDGE_ACTIONS: &[&str] = &[
 /// Tool for managing a knowledge graph of patterns, decisions, lessons, and experts.
 pub struct KnowledgeTool {
     graph: Arc<KnowledgeGraph>,
+    /// When `Some`, per-agent scoping is on: this trusted, constructor-bound
+    /// caller alias is stamped on writes and required to mutate a node. `None`
+    /// is the legacy shared mode with no attribution enforcement.
+    agent_alias: Option<String>,
+    /// Aliases whose nodes this tool may READ — the caller's own alias plus any
+    /// operator-configured `read_memory_from` shares. Consulted only when
+    /// scoped; unowned (legacy) nodes are additionally readable.
+    read_allowlist: Vec<String>,
 }
 
 impl KnowledgeTool {
+    /// Legacy shared constructor: no per-agent attribution or scoping.
     pub fn new(graph: Arc<KnowledgeGraph>) -> Self {
-        Self { graph }
+        Self {
+            graph,
+            agent_alias: None,
+            read_allowlist: Vec::new(),
+        }
+    }
+
+    /// Per-agent-scoped constructor. Writes are stamped with `agent_alias` and
+    /// mutations are gated to the caller's own nodes; reads are restricted to
+    /// `read_allowlist` (self is always included) plus unowned legacy nodes.
+    pub fn new_scoped(
+        graph: Arc<KnowledgeGraph>,
+        agent_alias: String,
+        mut read_allowlist: Vec<String>,
+    ) -> Self {
+        if !read_allowlist.contains(&agent_alias) {
+            read_allowlist.push(agent_alias.clone());
+        }
+        Self {
+            graph,
+            agent_alias: Some(agent_alias),
+            read_allowlist,
+        }
+    }
+
+    /// Restrict read results to nodes visible to the caller (own + configured
+    /// shares + unowned legacy). No-op in the legacy shared mode.
+    fn scope_nodes(&self, nodes: Vec<KnowledgeNode>) -> Vec<KnowledgeNode> {
+        if self.agent_alias.is_none() {
+            return nodes;
+        }
+        let ids: Vec<String> = nodes.iter().map(|n| n.id.clone()).collect();
+        let visible = self
+            .graph
+            .visible_node_ids(&ids, &self.read_allowlist, true)
+            .unwrap_or_default();
+        nodes
+            .into_iter()
+            .filter(|n| visible.contains(&n.id))
+            .collect()
+    }
+
+    /// Visibility filter for a single optional node.
+    fn scope_node(&self, node: Option<KnowledgeNode>) -> Option<KnowledgeNode> {
+        match node {
+            Some(n) if self.agent_alias.is_some() => {
+                let visible = self
+                    .graph
+                    .visible_node_ids(std::slice::from_ref(&n.id), &self.read_allowlist, true)
+                    .unwrap_or_default();
+                visible.contains(&n.id).then_some(n)
+            }
+            other => other,
+        }
+    }
+
+    /// Restrict an arbitrary list to items whose knowledge node id is visible to
+    /// the caller. Used for edge/neighbor lists that pair a node with a relation.
+    /// No-op in the legacy shared mode.
+    fn retain_visible<T>(&self, items: Vec<T>, id_of: impl Fn(&T) -> &str) -> Vec<T> {
+        if self.agent_alias.is_none() {
+            return items;
+        }
+        let ids: Vec<String> = items.iter().map(|i| id_of(i).to_string()).collect();
+        let visible = self
+            .graph
+            .visible_node_ids(&ids, &self.read_allowlist, true)
+            .unwrap_or_default();
+        items
+            .into_iter()
+            .filter(|i| visible.contains(id_of(i)))
+            .collect()
     }
 }
 
@@ -229,10 +309,14 @@ impl KnowledgeTool {
 
         let source_project = args.get("source_project").and_then(|v| v.as_str());
 
-        match self
-            .graph
-            .add_node(node_type, title, content, &tags, source_project)
-        {
+        match self.graph.add_node_owned(
+            node_type,
+            title,
+            content,
+            &tags,
+            source_project,
+            self.agent_alias.as_deref(),
+        ) {
             Ok(id) => Ok(ToolResult {
                 success: true,
                 output: json!({ "node_id": id }).to_string().into(),
@@ -283,6 +367,7 @@ impl KnowledgeTool {
             if let Some(proj) = filter_project {
                 nodes.retain(|n| n.source_project.as_deref() == Some(proj));
             }
+            let nodes = self.scope_nodes(nodes);
             nodes
                 .into_iter()
                 .map(|node| json!({ "id": node.id, "type": node.node_type, "title": node.title, "score": 1.0 }))
@@ -301,6 +386,15 @@ impl KnowledgeTool {
             // Post-filter by tags if specified.
             if !filter_tags.is_empty() {
                 search_results.retain(|r| filter_tags.iter().all(|t| r.node.tags.contains(t)));
+            }
+            // Per-agent scoping: drop results the caller may not read.
+            if self.agent_alias.is_some() {
+                let ids: Vec<String> = search_results.iter().map(|r| r.node.id.clone()).collect();
+                let visible = self
+                    .graph
+                    .visible_node_ids(&ids, &self.read_allowlist, true)
+                    .unwrap_or_default();
+                search_results.retain(|r| visible.contains(&r.node.id));
             }
 
             search_results
@@ -388,6 +482,20 @@ impl KnowledgeTool {
             anyhow::Error::msg(format!("{e}"))
         })?;
 
+        // Per-agent scoping: a relation may only be created between nodes the
+        // calling agent owns, so one agent cannot wire edges into (or out of)
+        // another agent's knowledge.
+        if let Some(alias) = self.agent_alias.as_deref()
+            && (!self.graph.is_owned_by(from_id, alias).unwrap_or(false)
+                || !self.graph.is_owned_by(to_id, alias).unwrap_or(false))
+        {
+            return Ok(ToolResult {
+                success: false,
+                output: ToolOutput::default(),
+                error: Some("relate refused: both nodes must be owned by the calling agent".into()),
+            });
+        }
+
         match self.graph.add_edge(from_id, to_id, relation) {
             Ok(()) => Ok(ToolResult {
                 success: true,
@@ -421,7 +529,16 @@ impl KnowledgeTool {
                 anyhow::Error::msg("missing 'query' or 'content' for suggest")
             })?;
 
-        let results = self.graph.query_by_similarity(query, 10)?;
+        let mut results = self.graph.query_by_similarity(query, 10)?;
+        // Per-agent scoping: suggest only over nodes the caller may read.
+        if self.agent_alias.is_some() {
+            let ids: Vec<String> = results.iter().map(|r| r.node.id.clone()).collect();
+            let visible = self
+                .graph
+                .visible_node_ids(&ids, &self.read_allowlist, true)
+                .unwrap_or_default();
+            results.retain(|r| visible.contains(&r.node.id));
+        }
         let suggestions: Vec<serde_json::Value> = results
             .into_iter()
             .map(|r| {
@@ -464,7 +581,9 @@ impl KnowledgeTool {
             });
         }
 
-        let experts = self.graph.find_experts(&tags)?;
+        // Per-agent scoping: only surface experts the caller may read.
+        // `find_experts` returns `SearchResult`s, so filter by their node id.
+        let experts = self.retain_visible(self.graph.find_experts(&tags)?, |r| r.node.id.as_str());
         let output: Vec<serde_json::Value> = experts
             .into_iter()
             .map(|r| {
@@ -586,7 +705,7 @@ impl KnowledgeTool {
         };
         let limit = bounded_limit(args, DEFAULT_GRAPH_NEIGHBOR_LIMIT);
 
-        let root = match self.graph.get_node(node_id)? {
+        let root = match self.scope_node(self.graph.get_node(node_id)?) {
             Some(root) => root,
             None => {
                 return Ok(ToolResult {
@@ -599,6 +718,9 @@ impl KnowledgeTool {
 
         let outbound = self.graph.find_outbound(node_id, limit)?;
         let inbound = self.graph.find_inbound(node_id, limit)?;
+        // Per-agent scoping: hide neighbor nodes the caller may not read.
+        let outbound = self.retain_visible(outbound, |(n, _)| n.id.as_str());
+        let inbound = self.retain_visible(inbound, |(n, _)| n.id.as_str());
 
         let outbound: Vec<_> = outbound
             .iter()
@@ -654,6 +776,9 @@ impl KnowledgeTool {
             NodeType::Expert,
             CLIENT_NETWORK_ENTITY_LIMIT,
         )?;
+        // Per-agent scoping: hide network entities the caller may not read.
+        let contacts = self.scope_nodes(contacts);
+        let managers = self.scope_nodes(managers);
 
         let contacts: Vec<_> = contacts
             .iter()
@@ -764,7 +889,7 @@ impl KnowledgeTool {
                 anyhow::Error::msg(format!("missing 'client_id' for {action}"))
             })?;
 
-        let Some(client) = self.graph.get_node(client_id)? else {
+        let Some(client) = self.scope_node(self.graph.get_node(client_id)?) else {
             anyhow::bail!("client node not found: {client_id}");
         };
         if client.node_type != NodeType::Client {
@@ -782,12 +907,14 @@ impl KnowledgeTool {
         client_id: &str,
         limit: usize,
     ) -> anyhow::Result<Vec<zeroclaw_memory::knowledge_graph::KnowledgeNode>> {
-        self.graph.find_outbound_by_relation_and_type(
+        let interactions = self.graph.find_outbound_by_relation_and_type(
             client_id,
             Relation::InteractedWith,
             NodeType::Interaction,
             limit,
-        )
+        )?;
+        // Per-agent scoping: hide interaction nodes the caller may not read.
+        Ok(self.scope_nodes(interactions))
     }
 }
 
@@ -856,6 +983,106 @@ mod tests {
         assert!(result.success);
         let output: serde_json::Value = serde_json::from_str(&result.output).unwrap();
         assert!(output["node_id"].is_string());
+    }
+
+    fn captured_id(result: &ToolResult) -> String {
+        serde_json::from_str::<serde_json::Value>(&result.output).unwrap()["node_id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[tokio::test]
+    async fn scoped_tool_isolates_knowledge_across_agents() {
+        // Two scoped tools over ONE shared graph: an agent must not read,
+        // address, or relate into another agent's captured knowledge.
+        let tmp = TempDir::new().unwrap();
+        let graph = Arc::new(KnowledgeGraph::new(&tmp.path().join("knowledge.db"), 10000).unwrap());
+        let rowan = KnowledgeTool::new_scoped(graph.clone(), "rowan".into(), Vec::new());
+        let sable = KnowledgeTool::new_scoped(graph.clone(), "sable".into(), Vec::new());
+
+        let cap = rowan
+            .execute(json!({
+                "action": "capture", "node_type": "pattern",
+                "title": "Rowan secret", "content": "rowan private knowledge",
+                "tags": ["private"]
+            }))
+            .await
+            .unwrap();
+        assert!(cap.success);
+        let node_id = captured_id(&cap);
+
+        // The owner sees its own node.
+        let mine = rowan
+            .execute(json!({"action": "search", "query": "private knowledge"}))
+            .await
+            .unwrap();
+        let mine_out: &str = &mine.output;
+        assert!(mine_out.contains(&node_id), "owner must see its own node");
+
+        // Another agent cannot see it via search...
+        let theirs = sable
+            .execute(json!({"action": "search", "query": "private knowledge"}))
+            .await
+            .unwrap();
+        let theirs_out: &str = &theirs.output;
+        assert!(
+            !theirs_out.contains(&node_id),
+            "another agent must not see the node via search: {theirs_out}"
+        );
+        // ...nor by addressing its id directly.
+        let neigh = sable
+            .execute(json!({"action": "graph_neighbors", "node_id": node_id}))
+            .await
+            .unwrap();
+        assert!(!neigh.success, "another agent must not read the node by id");
+
+        // ...nor relate one of its own nodes into it.
+        let scap = sable
+            .execute(json!({
+                "action": "capture", "node_type": "pattern",
+                "title": "Sable node", "content": "sable owned", "tags": []
+            }))
+            .await
+            .unwrap();
+        let sable_id = captured_id(&scap);
+        let rel = sable
+            .execute(json!({
+                "action": "relate", "from_id": sable_id, "to_id": node_id, "relation": "uses"
+            }))
+            .await
+            .unwrap();
+        assert!(
+            !rel.success,
+            "relate into another agent's node must be refused"
+        );
+    }
+
+    #[tokio::test]
+    async fn unscoped_tool_preserves_shared_behavior() {
+        // Default (unscoped) construction keeps the legacy shared graph: a node
+        // captured through one tool is visible through another over the same DB.
+        let tmp = TempDir::new().unwrap();
+        let graph = Arc::new(KnowledgeGraph::new(&tmp.path().join("knowledge.db"), 10000).unwrap());
+        let a = KnowledgeTool::new(graph.clone());
+        let b = KnowledgeTool::new(graph.clone());
+        let cap = a
+            .execute(json!({
+                "action": "capture", "node_type": "pattern",
+                "title": "Shared", "content": "shared knowledge", "tags": []
+            }))
+            .await
+            .unwrap();
+        let node_id = captured_id(&cap);
+        let seen = b
+            .execute(json!({"action": "search", "query": "shared knowledge"}))
+            .await
+            .unwrap();
+        let seen_out: &str = &seen.output;
+        assert!(
+            seen_out.contains(&node_id),
+            "unscoped mode must stay shared: {seen_out}"
+        );
     }
 
     #[tokio::test]
