@@ -626,7 +626,16 @@ async fn stdio_child_exit_watcher(
 
 #[derive(Debug)]
 enum BoundedLine {
-    Line(Vec<u8>),
+    /// A single line with its trailing `\r` stripped, plus the exact number of
+    /// raw bytes consumed from the wire to produce it (content, any `\r`, and the
+    /// terminating `\n`). Callers enforcing a raw-byte response cap must count
+    /// `consumed`, not `bytes.len()`: for CRLF framing the stripped line is one
+    /// byte shorter than what the server actually sent, so rebuilding the count
+    /// as `bytes.len() + 1` undercounts every line by the dropped `\r`.
+    Line {
+        bytes: Vec<u8>,
+        consumed: u64,
+    },
     Oversized,
     Eof,
 }
@@ -645,6 +654,7 @@ where
 {
     let mut line = Vec::new();
     let mut oversized = false;
+    let mut consumed_total: u64 = 0;
     loop {
         let buf = reader.fill_buf().await?;
         if buf.is_empty() {
@@ -653,7 +663,10 @@ where
             } else if oversized {
                 Ok(BoundedLine::Oversized)
             } else {
-                Ok(BoundedLine::Line(line))
+                Ok(BoundedLine::Line {
+                    bytes: line,
+                    consumed: consumed_total,
+                })
             };
         }
 
@@ -669,6 +682,7 @@ where
             }
         }
         reader.consume(consumed);
+        consumed_total = consumed_total.saturating_add(consumed as u64);
         if newline.is_some() {
             if oversized {
                 return Ok(BoundedLine::Oversized);
@@ -676,7 +690,10 @@ where
             if line.last() == Some(&b'\r') {
                 line.pop();
             }
-            return Ok(BoundedLine::Line(line));
+            return Ok(BoundedLine::Line {
+                bytes: line,
+                consumed: consumed_total,
+            });
         }
     }
 }
@@ -808,7 +825,7 @@ async fn stdio_read_loop(
     let mut reader = BufReader::new(stdout);
     loop {
         match read_bounded_line(&mut reader, MAX_LINE_BYTES).await {
-            Ok(BoundedLine::Line(line)) => {
+            Ok(BoundedLine::Line { bytes: line, .. }) => {
                 let Ok(response) = serde_json::from_slice::<JsonRpcResponse>(&line) else {
                     continue;
                 };
@@ -1341,8 +1358,8 @@ impl SseTransport {
                         break;
                     }
                     read = read_bounded_line(&mut reader, line_limit) => {
-                        let raw = match read {
-                            Ok(BoundedLine::Line(bytes)) => bytes,
+                        let (raw, consumed) = match read {
+                            Ok(BoundedLine::Line { bytes, consumed }) => (bytes, consumed),
                             Ok(BoundedLine::Oversized) => {
                                 // A single line already exceeded the response cap.
                                 // Drop the in-flight event and resync at the next
@@ -1394,7 +1411,11 @@ impl SseTransport {
                         }
                         if let Some(rest) = line.strip_prefix("data:") {
                             let rest = rest.strip_prefix(' ').unwrap_or(rest);
-                            cur_bytes = cur_bytes.saturating_add(rest.len() as u64 + 1);
+                            // Count the raw bytes consumed from the wire for this
+                            // line (prefix, any CR, and the newline), not the
+                            // CR-stripped payload, so a CRLF-framed event cannot
+                            // exceed the cap while the stripped lengths stay under.
+                            cur_bytes = cur_bytes.saturating_add(consumed);
                             if cur_bytes > max_response_bytes {
                                 ::zeroclaw_log::record!(
                                     WARN,
@@ -1686,15 +1707,18 @@ async fn read_first_jsonrpc_from_sse_response(
     let mut total_bytes: u64 = 0;
 
     loop {
-        let raw = match read_bounded_line(&mut reader, line_limit).await {
-            Ok(BoundedLine::Line(bytes)) => bytes,
+        let (raw, consumed) = match read_bounded_line(&mut reader, line_limit).await {
+            Ok(BoundedLine::Line { bytes, consumed }) => (bytes, consumed),
             Ok(BoundedLine::Oversized) => {
                 anyhow::bail!("MCP SSE response body exceeds the {limit}-byte limit");
             }
             Ok(BoundedLine::Eof) => break,
             Err(e) => return Err(anyhow::Error::new(e).context("failed to read MCP SSE response")),
         };
-        total_bytes = total_bytes.saturating_add(raw.len() as u64 + 1);
+        // Count the raw consumed wire bytes (including any stripped `\r` and the
+        // `\n`), not the CR-stripped line, so a CRLF-delimited body cannot exceed
+        // the cap while every stripped line length stays under it.
+        total_bytes = total_bytes.saturating_add(consumed);
         if total_bytes > limit {
             anyhow::bail!("MCP SSE response body exceeds the {limit}-byte limit");
         }
@@ -3164,13 +3188,116 @@ data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n";
             BoundedLine::Oversized
         ));
         match read_bounded_line(&mut reader, limit).await.unwrap() {
-            BoundedLine::Line(bytes) => assert_eq!(bytes, b"short"),
+            BoundedLine::Line { bytes, .. } => assert_eq!(bytes, b"short"),
             other => panic!("expected the next line to parse, got {other:?}"),
         }
         assert!(matches!(
             read_bounded_line(&mut reader, limit).await.unwrap(),
             BoundedLine::Eof
         ));
+    }
+
+    #[tokio::test]
+    async fn read_bounded_line_reports_consumed_wire_bytes_including_crlf() {
+        // The returned line has its trailing `\r` stripped, but `consumed` must
+        // report every raw byte taken off the wire: content, the `\r`, and the
+        // `\n`. The response-cap readers count `consumed`, so a CRLF line that is
+        // undercounted here would let an over-cap body through.
+        let input = b"ab\r\ncd\ne";
+        let mut reader = BufReader::new(&input[..]);
+
+        match read_bounded_line(&mut reader, 64).await.unwrap() {
+            BoundedLine::Line { bytes, consumed } => {
+                assert_eq!(bytes, b"ab", "CR must be stripped from the returned line");
+                assert_eq!(consumed, 4, "CRLF line consumes content + \\r + \\n");
+            }
+            other => panic!("expected a line, got {other:?}"),
+        }
+        match read_bounded_line(&mut reader, 64).await.unwrap() {
+            BoundedLine::Line { bytes, consumed } => {
+                assert_eq!(bytes, b"cd");
+                assert_eq!(consumed, 3, "LF-only line consumes content + \\n");
+            }
+            other => panic!("expected a line, got {other:?}"),
+        }
+        match read_bounded_line(&mut reader, 64).await.unwrap() {
+            BoundedLine::Line { bytes, consumed } => {
+                assert_eq!(bytes, b"e");
+                assert_eq!(
+                    consumed, 1,
+                    "unterminated final line consumes only its content"
+                );
+            }
+            other => panic!("expected a line, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn http_transport_sse_counts_crlf_response_by_wire_bytes() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+
+        // A CRLF-delimited SSE response whose CR-stripped line lengths stay within
+        // the cap, but whose real wire bytes (each line's `\r` included) exceed it.
+        // The transport must reject it before parse. Regression: `read_bounded_line`
+        // drops the trailing `\r`, so a reader rebuilding the count as
+        // `line.len() + 1` undercounted every CRLF line by the dropped byte and
+        // admitted a body larger than the documented raw-wire ceiling.
+        let sse_lines = [
+            "data: {\"jsonrpc\":\"2.0\",",
+            "data: \"id\":1,",
+            "data: \"result\":{}}",
+            "", // blank line dispatches the event
+        ];
+        // The buggy accounting counted each line as its stripped length + 1 (the
+        // `\n` only). Size the cap to exactly that total: the CR-stripped body just
+        // fits, while the real CRLF wire body is one byte per line over.
+        let stripped_budget: u64 = sse_lines.iter().map(|line| line.len() as u64 + 1).sum();
+        let body_tail: String = sse_lines.iter().map(|line| format!("{line}\r\n")).collect();
+        // No Content-Length header: the length preflight is skipped, so the
+        // per-line running total is the only thing enforcing the cap.
+        let response = format!(
+            "HTTP/1.1 200 OK\r\n\
+Content-Type: text/event-stream\r\n\
+Connection: keep-alive\r\n\
+\r\n{body_tail}"
+        );
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = zeroclaw_spawn::spawn!(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 2048];
+            let _ = sock.read(&mut buf).await;
+            sock.write_all(response.as_bytes()).await.unwrap();
+            sock.flush().await.unwrap();
+            // Hold the socket open past the assertion timeout so the read decision
+            // is driven by the byte cap, not by EOF.
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        });
+
+        let config = McpServerConfig {
+            name: "sse-crlf".into(),
+            transport: McpTransport::Http,
+            url: Some(format!("http://{addr}")),
+            max_response_bytes: Some(stripped_budget),
+            ..Default::default()
+        };
+        let transport = HttpTransport::new(&config).expect("build transport");
+        let req = JsonRpcRequest::new(1, "tools/call", serde_json::json!({}));
+        let lifecycle = McpRequestLifecycle::uncoordinated(0);
+        let err = timeout(
+            Duration::from_secs(5),
+            transport.send_and_recv(&req, &lifecycle),
+        )
+        .await
+        .expect("must decide on the byte cap, not wait for EOF")
+        .expect_err("a response whose raw wire bytes exceed the cap must be rejected");
+        assert!(
+            err.to_string().to_lowercase().contains("limit"),
+            "expected a wire-byte size-limit rejection, got: {err}"
+        );
+        server.abort();
     }
 
     #[test]
