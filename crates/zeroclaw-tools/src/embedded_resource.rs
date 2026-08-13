@@ -146,7 +146,16 @@ pub fn materialize_resource_blob(
         .map(str::to_string)
         .unwrap_or_else(|| mime_from_filename(&filename));
 
-    materialize_bytes(workspace_dir, &bytes, &filename, &mime)
+    // When no URI is provided (e.g. MCP image/audio), derive the extension
+    // from the MIME type instead of using the generic "bin" from filename_from_uri.
+    let effective_filename = if uri.is_none() {
+        let ext = ext_from_mime(&mime);
+        format!("upload.{ext}")
+    } else {
+        filename
+    };
+
+    materialize_bytes(workspace_dir, &bytes, &effective_filename, &mime)
 }
 
 /// Persist already-read `bytes` as a content-addressed file under
@@ -173,6 +182,8 @@ pub fn materialize_bytes(
     let abs_display = strip_windows_verbatim_prefix(&abs_path.to_string_lossy()).into_owned();
     let marker = if mime.starts_with("image/") {
         format!("[IMAGE:{abs_display}]")
+    } else if mime.starts_with("audio/") {
+        format!("[AUDIO:{abs_display}]")
     } else {
         format!("[Document: {filename}] {abs_display}")
     };
@@ -333,6 +344,26 @@ pub(crate) fn content_item_has_resource_blob(item: &serde_json::Value) -> bool {
             .is_some()
 }
 
+/// Whether an MCP tools/call content item is `type: "image"` with a base64
+/// `data` field — a separate MCP content shape from `resource`+`blob`.
+pub(crate) fn content_item_has_mcp_image(item: &serde_json::Value) -> bool {
+    item.get("type").and_then(|t| t.as_str()) == Some("image")
+        && item
+            .get("data")
+            .and_then(|d| d.as_str())
+            .is_some_and(|s| !s.is_empty())
+}
+
+/// Whether an MCP tools/call content item is `type: "audio"` with a base64
+/// `data` field.
+pub(crate) fn content_item_has_mcp_audio(item: &serde_json::Value) -> bool {
+    item.get("type").and_then(|t| t.as_str()) == Some("audio")
+        && item
+            .get("data")
+            .and_then(|d| d.as_str())
+            .is_some_and(|s| !s.is_empty())
+}
+
 /// Format an MCP `tools/call` result for the model.
 ///
 /// When `content` contains any `type: "resource"` item with `blob`, materialize
@@ -376,7 +407,20 @@ pub(crate) fn format_mcp_tool_result_for_model(
             None => (0, 0),
         };
 
-    if blob_count == 0 {
+    // Process the result if it carries any binary media: a `resource` blob, or a
+    // `type: "image"` / `type: "audio"` item with base64 `data`. The aggregate
+    // item/byte bounds above govern resource blobs; image/audio items each go
+    // through the same per-file cap in `materialize_resource_blob`.
+    let has_media = blob_count > 0
+        || result
+            .get("content")
+            .and_then(|c| c.as_array())
+            .is_some_and(|content| {
+                content
+                    .iter()
+                    .any(|c| content_item_has_mcp_image(c) || content_item_has_mcp_audio(c))
+            });
+    if !has_media {
         return Ok(serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()));
     }
 
@@ -450,19 +494,37 @@ pub(crate) fn format_mcp_tool_result_for_model(
                 );
             }
             "image" | "audio" => {
+                let Some(data) = item
+                    .get("data")
+                    .and_then(|d| d.as_str())
+                    .map(str::to_string)
+                else {
+                    continue;
+                };
                 let mime = item
                     .get("mimeType")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("application/octet-stream")
+                    .unwrap_or(if typ == "image" {
+                        "image/png"
+                    } else {
+                        "audio/wav"
+                    })
                     .to_string();
-                if let Some(obj) = item.as_object_mut()
-                    && obj.remove("data").is_some()
-                {
-                    obj.insert(
-                        "materialized".to_string(),
-                        serde_json::Value::String(format!("[{typ} attachment: {mime}]")),
-                    );
-                }
+                let marker =
+                    match materialize_resource_blob(workspace_dir, None, Some(&mime), &data) {
+                        Ok(materialized) => materialized.marker,
+                        Err(e) => format!("[attachment unavailable: {e}]"),
+                    };
+                // Replace the entire content item with a text item containing the marker.
+                // The multimodal pipeline (parse_image_markers) will extract the
+                // [IMAGE:<path>] / [AUDIO:<path>] from the text and convert it to
+                // a native provider image/audio part. Leaving mimeType or other MCP
+                // fields on the item would confuse the model (meaningless JSON in
+                // context) and risk breaking the provider's message structure.
+                *item = serde_json::json!({
+                    "type": "text",
+                    "text": marker,
+                });
             }
             _ => {
                 // text, resource_link and unknown content types carry through verbatim.
@@ -507,6 +569,23 @@ fn sanitize_filename(name: &str) -> String {
         "upload.bin".to_string()
     } else {
         sanitized
+    }
+}
+
+fn ext_from_mime(mime: &str) -> &'static str {
+    match mime {
+        "image/png" => "png",
+        "image/jpeg" => "jpg",
+        "image/gif" => "gif",
+        "image/webp" => "webp",
+        "application/pdf" => "pdf",
+        "text/plain" => "txt",
+        "text/markdown" => "md",
+        "application/json" => "json",
+        "audio/wav" => "wav",
+        "audio/mpeg" => "mp3",
+        "audio/ogg" => "ogg",
+        _ => "bin",
     }
 }
 
@@ -880,7 +959,9 @@ mod tests {
 
     #[test]
     fn mcp_intake_image_item_yields_marker_not_base64() {
-        // A non-resource `image` block emits a marker, never its base64 data.
+        // A non-resource `image` block materializes and emits `[IMAGE:...]` as
+        // a text item, never its base64 data. The old MCP fields (mimeType,
+        // materialized) must NOT leak into the model-facing JSON.
         let dir = tempdir().unwrap();
         let doc_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"doc");
         let img_b64 = base64::Engine::encode(
@@ -905,11 +986,18 @@ mod tests {
             ]
         });
         let out = format_mcp_tool_result_for_model(result, dir.path()).unwrap();
-        assert!(out.contains("[image attachment: image/png]"));
+        assert!(out.contains("[IMAGE:"), "missing IMAGE marker: {out}");
         assert!(
             !out.contains(&img_b64),
             "raw image base64 must not reach the model: {out}"
         );
+        // Image item must be replaced with a clean text marker, not leftover MCP fields.
+        assert!(
+            out.contains(r#""type": "text""#),
+            "image item should become text item: {out}"
+        );
+        assert!(!out.contains("image/png"), "mimeType must not leak: {out}");
+        assert!(dir.path().join("uploads").exists());
     }
 
     #[test]
@@ -1010,6 +1098,28 @@ mod tests {
         assert!(!content_item_has_resource_blob(&json!({
             "type": "text",
             "text": "hi"
+        })));
+
+        // Shape gate for MCP `type: "image"` items.
+        assert!(content_item_has_mcp_image(&json!({
+            "type": "image", "data": "YQ==", "mimeType": "image/png"
+        })));
+        assert!(!content_item_has_mcp_image(&json!({
+            "type": "image", "data": "", "mimeType": "image/png"
+        })));
+        assert!(!content_item_has_mcp_image(&json!({
+            "type": "text", "data": "YQ=="
+        })));
+
+        // Shape gate for MCP `type: "audio"` items.
+        assert!(content_item_has_mcp_audio(&json!({
+            "type": "audio", "data": "YQ==", "mimeType": "audio/wav"
+        })));
+        assert!(!content_item_has_mcp_audio(&json!({
+            "type": "audio", "data": "", "mimeType": "audio/wav"
+        })));
+        assert!(!content_item_has_mcp_audio(&json!({
+            "type": "text", "data": "YQ=="
         })));
     }
 
@@ -1153,5 +1263,66 @@ mod tests {
         );
         assert!(out.contains("aggregate blob size exceeds limit"));
         assert!(!out.contains("[Document:"));
+    }
+
+    #[test]
+    fn mcp_intake_image_only_without_resource_blobs() {
+        // Result with only `type: "image"` items (no resource blobs) still
+        // materializes and emits IMAGE markers.
+        let dir = tempdir().unwrap();
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"img-data");
+        let result = json!({
+            "content": [
+                { "type": "image", "data": b64, "mimeType": "image/jpeg" }
+            ]
+        });
+        let out = format_mcp_tool_result_for_model(result, dir.path()).unwrap();
+        assert!(out.contains("[IMAGE:"), "missing IMAGE marker: {out}");
+        assert!(dir.path().join("uploads").exists());
+    }
+
+    #[test]
+    fn mcp_intake_audio_materializes() {
+        // Audio items materialize to [AUDIO:<path>] markers.
+        let dir = tempdir().unwrap();
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"audio-data");
+        let result = json!({
+            "content": [
+                { "type": "audio", "data": b64, "mimeType": "audio/wav" }
+            ]
+        });
+        let out = format_mcp_tool_result_for_model(result, dir.path()).unwrap();
+        assert!(out.contains("[AUDIO:"), "missing AUDIO marker: {out}");
+        assert!(dir.path().join("uploads").exists());
+    }
+
+    #[test]
+    fn mcp_intake_image_bad_base64_degrades() {
+        // Invalid base64 in an `image` item must degrade per-item, not fail.
+        let dir = tempdir().unwrap();
+        let result = json!({
+            "content": [
+                { "type": "image", "data": "%%%", "mimeType": "image/png" },
+                { "type": "text", "text": "survivor" }
+            ]
+        });
+        let out = format_mcp_tool_result_for_model(result, dir.path()).unwrap();
+        assert!(out.contains("[attachment unavailable:"));
+        assert!(out.contains("survivor"));
+    }
+
+    #[test]
+    fn mcp_intake_image_oversized_degrades() {
+        // Oversized image data must degrade per-item.
+        let dir = tempdir().unwrap();
+        let big = vec![0u8; (MAX_EMBEDDED_FILE_BYTES as usize) + 1];
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &big);
+        let result = json!({
+            "content": [
+                { "type": "image", "data": b64, "mimeType": "image/png" }
+            ]
+        });
+        let out = format_mcp_tool_result_for_model(result, dir.path()).unwrap();
+        assert!(out.contains("[attachment unavailable:"));
     }
 }
