@@ -1312,6 +1312,7 @@ impl Agent {
             None,
             None,
             None,
+            &[],
         )
         .await
     }
@@ -1326,6 +1327,7 @@ impl Agent {
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
             config,
@@ -1340,6 +1342,7 @@ impl Agent {
             sop_audit,
             canvas_store,
             None,
+            wire_skills,
         )
         .await
     }
@@ -1356,6 +1359,7 @@ impl Agent {
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         let config = live_config.read().clone();
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
@@ -1371,6 +1375,7 @@ impl Agent {
             sop_audit,
             canvas_store,
             Some(live_config),
+            wire_skills,
         )
         .await
     }
@@ -1403,6 +1408,7 @@ impl Agent {
             sop_audit,
             None,
             None,
+            &[],
         )
         .await
     }
@@ -1434,6 +1440,7 @@ impl Agent {
             sop_audit,
             None,
             Some(live_config),
+            &[],
         )
         .await
     }
@@ -1452,6 +1459,7 @@ impl Agent {
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
         live_config: Option<Arc<parking_lot::RwLock<Config>>>,
+        wire_skills: &[crate::skills::WireSkill],
     ) -> Result<Self> {
         let agent_cfg = config
             .agent(agent_alias)
@@ -1589,7 +1597,11 @@ impl Agent {
         // Skills are loaded here and handed to `assemble`, which owns skill
         // registration and resolves builtin/MCP elevation against the pre-filter
         // arcs internally. Bundle-aware via `[agents.<alias>].skill_bundles`.
-        let skills = crate::skills::load_skills_for_agent_from_config(config, agent_alias);
+        let mut skills = crate::skills::load_skills_for_agent_from_config(config, agent_alias);
+        let wire = crate::skills::wire_skills_to_skills(wire_skills);
+        let wire_names: Vec<&str> = wire.iter().map(|s| s.name.as_str()).collect();
+        skills.retain(|s| !wire_names.contains(&s.name.as_str()));
+        skills.extend(wire);
         let assembled = crate::tools::scoped::ScopedToolRegistry::assemble(
             crate::tools::scoped::ScopedAssembly {
                 config,

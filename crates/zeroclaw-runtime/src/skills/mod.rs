@@ -310,6 +310,47 @@ pub struct SkillTool {
     pub timeout_secs: Option<u64>,
 }
 
+/// A skill delivered from an ACP client via the `_meta` extension.
+///
+/// Matches Thunderbolt's `SkillDefinition` (`shared/agent-core/skills.ts`): an
+/// instruction-only bundle. Client capabilities (`ask`, `map`, `say`, …) are NOT
+/// carried here as executable tool specs — they are widgets the model emits as
+/// inline `<widget:...>` markup that the client parses and executes. The agent only
+/// relays that markup and never runs client tools. Unknown wire fields (e.g. a
+/// legacy `tools` array) are tolerantly ignored by serde.
+///
+/// See `docs/acp-widget-skill-contract.md`.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct WireSkill {
+    pub name: String,
+    pub description: String,
+    pub instruction: String,
+}
+
+/// Convert wire-delivered skills to ZeroClaw Skill structs.
+/// Wire skills get `location: None` (not disk-backed) and `version: "wire"`.
+pub fn wire_skills_to_skills(wire: &[WireSkill]) -> Vec<Skill> {
+    wire.iter()
+        .map(|ws| Skill {
+            name: ws.name.clone(),
+            description: ws.description.clone(),
+            description_localizations: BTreeMap::new(),
+            version: "wire".to_string(),
+            author: None,
+            tags: vec!["wire".to_string()],
+            // Wire skills are instruction-only (Thunderbolt `SkillDefinition`). No
+            // client tools are carried or executed agent-side; the instruction is
+            // the sole progressive-disclosure payload.
+            tools: Vec::new(),
+            prompts: vec![ws.instruction.clone()],
+            slash_options: Vec::new(),
+            location: None,
+            // Wire skills follow normal progressive disclosure — never always-on.
+            always: false,
+        })
+        .collect()
+}
+
 /// Skill manifest parsed from SKILL.toml
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SkillManifest {
@@ -4481,5 +4522,47 @@ version = "0.1.0"
             names.contains(&skill_name),
             "with empty skill_bundles, workspace skills must still load; got: {names:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod wire_skill_tests {
+    use super::*;
+
+    #[test]
+    fn wire_skill_minimal() {
+        let json = r#"{"name":"test","description":"desc","instruction":"do stuff"}"#;
+        let skill: WireSkill = serde_json::from_str(json).unwrap();
+        assert_eq!(skill.name, "test");
+        assert_eq!(skill.description, "desc");
+        assert_eq!(skill.instruction, "do stuff");
+    }
+
+    #[test]
+    fn wire_skill_ignores_legacy_tools_field() {
+        // A wire skill is instruction-only (Thunderbolt `SkillDefinition`). A client
+        // that still sends a legacy `tools`/`prompts` array must not break parsing —
+        // serde tolerantly ignores the unknown fields; nothing is executed from them.
+        let json = r#"{"name":"test","description":"desc","instruction":"do stuff","tools":[{"name":"run","kind":"shell","command":"echo hi"}],"prompts":["x"]}"#;
+        let skill: WireSkill = serde_json::from_str(json).unwrap();
+        assert_eq!(skill.name, "test");
+        assert_eq!(skill.instruction, "do stuff");
+    }
+
+    #[test]
+    fn wire_skills_to_skills_conversion() {
+        let wire = vec![WireSkill {
+            name: "deploy".to_string(),
+            description: "Deploy safely".to_string(),
+            instruction: "Run tests first".to_string(),
+        }];
+        let skills = wire_skills_to_skills(&wire);
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].name, "deploy");
+        assert_eq!(skills[0].version, "wire");
+        assert!(skills[0].location.is_none());
+        // Instruction-only: no client tools, and the instruction is the sole prompt.
+        assert!(skills[0].tools.is_empty());
+        assert_eq!(skills[0].prompts, vec!["Run tests first".to_string()]);
     }
 }

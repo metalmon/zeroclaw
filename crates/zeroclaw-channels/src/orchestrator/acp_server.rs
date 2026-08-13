@@ -26,6 +26,7 @@ use zeroclaw_runtime::tools::CanvasStore;
 
 use super::acp_embedded;
 use crate::acp_channel::AcpChannel;
+use zeroclaw_runtime::skills::WireSkill;
 
 // ── Configuration ────────────────────────────────────────────────
 
@@ -237,6 +238,7 @@ impl AcpServer {
         agent_alias: &str,
         workspace_dir: &std::path::Path,
         enable_mcp: bool,
+        wire_skills: &[WireSkill],
     ) -> Result<Agent> {
         if let ConfigSource::Live(live_config) = &self.config_source {
             Agent::from_live_config_with_session_cwd_and_mcp_backchannel(
@@ -250,6 +252,7 @@ impl AcpServer {
                 self.sop_engine.clone(),
                 self.sop_audit.clone(),
                 self.canvas_store.clone(),
+                wire_skills,
             )
             .await
         } else {
@@ -264,6 +267,7 @@ impl AcpServer {
                 self.sop_engine.clone(),
                 self.sop_audit.clone(),
                 self.canvas_store.clone(),
+                wire_skills,
             )
             .await
         }
@@ -594,6 +598,11 @@ impl AcpServer {
                     "sse": false,
                 },
                 "sessionCapabilities": session_capabilities,
+                "_meta": {
+                    "thunderbird.net/thunderbolt": {
+                        "skills": true,
+                    },
+                },
             },
             "agentInfo": {
                 "name": "zeroclaw-acp",
@@ -791,12 +800,14 @@ impl AcpServer {
         // by default to keep `session/new` prompt; on to load this agent's
         // `mcp_bundles` tools. Runs without the sessions lock held (see above).
         let enable_mcp = config.agent(&agent_alias).is_some_and(|a| a.acp_enable_mcp);
+        let wire_skills = extract_wire_skills_from_meta(params.get("_meta"));
         let mut agent = match self
             .build_agent(
                 &config,
                 &agent_alias,
                 std::path::Path::new(&workspace_dir),
                 enable_mcp,
+                &wire_skills,
             )
             .await
         {
@@ -1047,8 +1058,15 @@ impl AcpServer {
         let enable_mcp = config
             .agent(&restore_alias)
             .is_some_and(|a| a.acp_enable_mcp);
+        let wire_skills = extract_wire_skills_from_meta(params.get("_meta"));
         let agent_result = self
-            .build_agent(&config, &restore_alias, &workspace_dir, enable_mcp)
+            .build_agent(
+                &config,
+                &restore_alias,
+                &workspace_dir,
+                enable_mcp,
+                &wire_skills,
+            )
             .await
             .map_err(|e| RpcError {
                 code: INTERNAL_ERROR,
@@ -1262,8 +1280,15 @@ impl AcpServer {
         let enable_mcp = config
             .agent(&restore_alias)
             .is_some_and(|a| a.acp_enable_mcp);
+        let wire_skills = extract_wire_skills_from_meta(params.get("_meta"));
         let agent_result = self
-            .build_agent(&config, &restore_alias, &workspace_dir, enable_mcp)
+            .build_agent(
+                &config,
+                &restore_alias,
+                &workspace_dir,
+                enable_mcp,
+                &wire_skills,
+            )
             .await
             .map_err(|e| RpcError {
                 code: INTERNAL_ERROR,
@@ -2592,6 +2617,21 @@ fn history_notifications_for_message(
     }
 }
 
+/// Extract wire skills from ACP `_meta` extension.
+fn extract_wire_skills_from_meta(meta: Option<&serde_json::Value>) -> Vec<WireSkill> {
+    let Some(meta) = meta else { return Vec::new() };
+    let thunderbolt = meta.get("thunderbird.net/thunderbolt");
+    let Some(skills) = thunderbolt.and_then(|t| t.get("skills")) else {
+        return Vec::new();
+    };
+    let Some(arr) = skills.as_array() else {
+        return Vec::new();
+    };
+    arr.iter()
+        .filter_map(|v| serde_json::from_value(v.clone()).ok())
+        .collect()
+}
+
 // ── Error helper ─────────────────────────────────────────────────
 
 #[derive(Debug)]
@@ -3864,6 +3904,27 @@ mod tests {
         assert!(json.contains(r#""method":"session/update""#));
         assert!(json.contains(r#""sessionUpdate":"agent_message_chunk""#));
         assert!(json.contains(r#""text":"hello""#));
+    }
+
+    /// Regression (ACP widget-skill contract): inline `<widget:...>` markup the model
+    /// emits (e.g. `<widget:say>`) must reach the ACP client byte-for-byte. The
+    /// client parses widgets out of the raw assistant text, so the streamed-chunk
+    /// path must never strip, HTML-escape, or reflow the tag. See
+    /// `docs/acp-widget-skill-contract.md`.
+    #[test]
+    fn agent_message_chunk_preserves_widget_markup_verbatim() {
+        // Ampersand + nested angle brackets stress the "no HTML-escaping" guarantee.
+        let markup = r#"<widget:say text="hello & <world>" />"#;
+        let event = TurnEvent::Chunk {
+            delta: markup.to_string(),
+        };
+        let n = notification_for_turn_event("wsession", &event).unwrap();
+        assert_eq!(n.method, "session/update");
+        assert_eq!(n.params["update"]["sessionUpdate"], "agent_message_chunk");
+        assert_eq!(
+            n.params["update"]["content"]["text"], markup,
+            "widget markup must stream to the ACP client unchanged"
+        );
     }
 
     #[test]
@@ -5744,5 +5805,36 @@ mod tests {
             "second resume must fail with INTERNAL_ERROR, not INVALID_PARAMS (leaked slot); got: {:?}",
             second_err
         );
+    }
+
+    #[test]
+    fn extract_wire_skills_from_meta_valid() {
+        let meta = serde_json::json!({
+            "thunderbird.net/thunderbolt": {
+                "skills": [
+                    {"name": "test", "description": "desc", "instruction": "do it"}
+                ]
+            }
+        });
+        let skills = extract_wire_skills_from_meta(Some(&meta));
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].name, "test");
+    }
+
+    #[test]
+    fn extract_wire_skills_from_meta_empty() {
+        let skills = extract_wire_skills_from_meta(None);
+        assert!(skills.is_empty());
+    }
+
+    #[test]
+    fn extract_wire_skills_from_meta_malformed() {
+        let meta = serde_json::json!({
+            "thunderbird.net/thunderbolt": {
+                "skills": [{"name": 123}]
+            }
+        });
+        let skills = extract_wire_skills_from_meta(Some(&meta));
+        assert!(skills.is_empty());
     }
 }
