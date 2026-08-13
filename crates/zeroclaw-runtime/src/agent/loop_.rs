@@ -13898,7 +13898,11 @@ Let me check the result."#;
                 )
             })
             .collect();
-        crate::tools::DeferredMcpToolSet { stubs, registry }
+        crate::tools::DeferredMcpToolSet {
+            stubs,
+            registry,
+            security: Arc::new(zeroclaw_config::policy::SecurityPolicy::default()),
+        }
     }
 
     fn always_group(patterns: &[&str]) -> Vec<zeroclaw_config::schema::ToolFilterGroup> {
