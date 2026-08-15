@@ -281,45 +281,11 @@ impl Memory for AgentScopedMemory {
     }
 
     async fn forget(&self, key: &str) -> Result<bool> {
-        if self.inner.forget_for_agent(key, &self.agent_id).await? {
-            return Ok(true);
-        }
-        match self.inner.get(key).await? {
-            None => Ok(false),
-            Some(entry) => match entry.agent_id.as_deref() {
-                Some(other) => {
-                    ::zeroclaw_log::record!(
-                        WARN,
-                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Reject)
-                            .with_outcome(::zeroclaw_log::EventOutcome::Failure)
-                            .with_attrs(::serde_json::json!({
-                                "key": key,
-                                "row_agent": other,
-                                "bound_agent": self.agent_id,
-                            })),
-                        "forget refused: row attributed to a different agent"
-                    );
-                    anyhow::bail!(
-                        "AgentScopedMemory refuses to forget cross-agent row: key attributed to agent other than the bound agent"
-                    );
-                }
-                None => {
-                    ::zeroclaw_log::record!(
-                        WARN,
-                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Reject)
-                            .with_outcome(::zeroclaw_log::EventOutcome::Failure)
-                            .with_attrs(::serde_json::json!({
-                                "key": key,
-                                "bound_agent": self.agent_id,
-                            })),
-                        "forget refused: row has no agent attribution"
-                    );
-                    anyhow::bail!(
-                        "AgentScopedMemory refuses to forget unattributed row: legacy or backend without per-agent tracking; resolve via an admin Memory handle"
-                    );
-                }
-            },
-        }
+        // Delete only the bound agent's own row. A key the agent does not own —
+        // another agent's row, or a legacy unattributed one — is reported as
+        // not-found (`Ok(false)`); the wrapper never deletes rows it does not
+        // own, and a plain forget miss is not an error.
+        self.inner.forget_for_agent(key, &self.agent_id).await
     }
 
     async fn forget_for_agent(&self, key: &str, agent_id: &str) -> Result<bool> {
@@ -870,14 +836,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn forget_refuses_to_delete_sibling_rows() {
+    async fn forget_noops_on_sibling_rows_without_error() {
         let (_tmp, inner) = fresh_sqlite();
         let uuids = provision_agents(&inner, &["alpha", "beta"]).await;
         let alpha_uuid = &uuids[0];
         let beta_uuid = &uuids[1];
 
-        // beta writes a row; alpha's wrapper has read access to beta
-        // (via the allowlist) but must still refuse to forget the row.
+        // beta writes a row; alpha's wrapper has read access to beta (via the
+        // allowlist) but must not delete it — and must report "not found"
+        // (`Ok(false)`) rather than erroring, so a stray cross-agent key never
+        // wedges the bound agent's own `memory_forget`.
         inner
             .store_with_agent(
                 "beta-row",
@@ -891,15 +859,48 @@ mod tests {
             .await
             .unwrap();
 
-        let wrapper = AgentScopedMemory::new(as_dyn(inner), alpha_uuid, vec![beta_uuid.clone()]);
+        let wrapper =
+            AgentScopedMemory::new(as_dyn(inner.clone()), alpha_uuid, vec![beta_uuid.clone()]);
 
-        let err = wrapper
+        let removed = wrapper
             .forget("beta-row")
             .await
-            .expect_err("forget must refuse cross-agent delete even with read allowlist");
+            .expect("cross-agent forget must be a no-op, not an error");
+        assert!(!removed, "cross-agent forget must not report a deletion");
         assert!(
-            err.to_string().contains("attributed to agent"),
-            "expected sibling-attribution refusal, got: {err}"
+            inner
+                .get_for_agent("beta-row", beta_uuid)
+                .await
+                .unwrap()
+                .is_some(),
+            "the sibling's row must survive a cross-agent forget attempt"
+        );
+    }
+
+    #[tokio::test]
+    async fn forget_noops_on_unowned_row_without_error() {
+        let (_tmp, inner) = fresh_sqlite();
+        let alpha_uuid = inner.ensure_agent_uuid("alpha").await.unwrap();
+
+        // A row the bound agent does not own: stored with agent_id = None
+        // (the legacy / non-wrapper store path). The bound agent's forget must
+        // no-op rather than error, and must not delete the row.
+        inner
+            .store_with_agent("legacy", "v", MemoryCategory::Core, None, None, None, None)
+            .await
+            .unwrap();
+
+        let wrapper =
+            AgentScopedMemory::new(as_dyn(inner.clone()), &alpha_uuid, Vec::<String>::new());
+
+        let removed = wrapper
+            .forget("legacy")
+            .await
+            .expect("forget on an unowned legacy row must be a no-op, not an error");
+        assert!(!removed, "unowned forget must not report a deletion");
+        assert!(
+            inner.get("legacy").await.unwrap().is_some(),
+            "the legacy row must survive an agent forget attempt"
         );
     }
 
