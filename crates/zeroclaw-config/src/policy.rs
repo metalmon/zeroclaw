@@ -1983,6 +1983,65 @@ fn contains_unquoted_expansion_metachar(command: &str) -> bool {
     false
 }
 
+/// True if the segment contains a `<` or `>` that is quoted or escaped — a literal
+/// path character rather than a shell redirect. `shlex::split` strips the quotes, so
+/// `git_effective_args` would misread the resulting token (`repo>` from `-C "repo>"`)
+/// as a redirect and drop the following token, losing the real verb and classifying a
+/// write as Low. When this is present the caller fails closed, because a trustworthy
+/// argv cannot be rebuilt from quote-stripped tokens. An unquoted `<` / `>` is a genuine
+/// redirect and is left to `git_effective_args`.
+fn contains_quoted_redirect_char(command: &str) -> bool {
+    let mut quote = QuoteState::None;
+    let mut escaped = false;
+
+    for ch in command.chars() {
+        match quote {
+            QuoteState::Single => {
+                if ch == '<' || ch == '>' {
+                    return true; // literal inside single quotes
+                }
+                if ch == '\'' {
+                    quote = QuoteState::None;
+                }
+            }
+            QuoteState::Double => {
+                if ch == '<' || ch == '>' {
+                    return true; // literal inside double quotes, regardless of escaping
+                }
+                if escaped {
+                    escaped = false;
+                    continue;
+                }
+                if ch == '\\' {
+                    escaped = true;
+                    continue;
+                }
+                if ch == '"' {
+                    quote = QuoteState::None;
+                }
+            }
+            QuoteState::None => {
+                if escaped {
+                    escaped = false;
+                    if ch == '<' || ch == '>' {
+                        return true; // backslash-escaped redirect char is a literal
+                    }
+                    continue;
+                }
+                match ch {
+                    '\\' => escaped = true,
+                    '\'' => quote = QuoteState::Single,
+                    '"' => quote = QuoteState::Double,
+                    // Unquoted `<` / `>` is a real redirect; handled by git_effective_args.
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    false
+}
+
 /// Resolve the real `git` subcommand, skipping leading global options:
 /// `-C <path>`, `-c <cfg>`, `--git-dir[=]<p>`, `--work-tree[=]<p>`,
 /// `--namespace <n>`, `--super-prefix <p>`, `--config-env <n>`,
@@ -2091,6 +2150,15 @@ fn git_effective_args(tokens: Vec<String>) -> Vec<String> {
 fn git_segment_is_write(segment: &str) -> bool {
     if contains_unquoted_expansion_metachar(segment) {
         return true; // unmodeled shell expansion → effective verb unknown → Medium
+    }
+    if contains_quoted_redirect_char(segment) {
+        // A quoted or escaped `<` / `>` is a literal path character, but `shlex` strips
+        // the quotes, so the resulting token (e.g. `repo>` from `-C "repo>"`) is
+        // indistinguishable from a real redirect. `git_effective_args` would then drop
+        // the following token as a redirect target and lose the real verb, classifying a
+        // write as Low. We cannot rebuild a trustworthy argv from quote-stripped tokens
+        // here, so fail closed to a write (Medium).
+        return true;
     }
     let Some(tokens) = shlex::split(segment) else {
         return true; // ambiguous parse → conservative Medium
@@ -4579,6 +4647,49 @@ mod tests {
                 "read-git with a redirect must remain Low: {read}"
             );
         }
+    }
+
+    #[test]
+    fn quoted_redirect_char_write_git_is_gated_at_the_enforcement_boundary() {
+        // `shlex` strips quotes, so a quoted `<` / `>` in a global-option value
+        // (`git -C "repo>" commit`) becomes a bare `repo>` token that the redirect
+        // rebuild misreads as a redirect — dropping the real `commit` and classifying
+        // the write Low, while the shell treats `repo>` as a literal directory and runs
+        // the write. The classifier must fail closed on a quoted or escaped redirect
+        // character. Drive the real approval decision through `validate_command_execution`.
+        let p = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+
+        for write in [
+            r#"git -C "repo>" commit"#,   // quoted `>` in -C value (double quotes)
+            r#"git -C 'repo>' commit"#,   // quoted `>` in -C value (single quotes)
+            r#"git --git-dir "d>" push"#, // quoted `>` in --git-dir value
+            r#"git -C "repo<" commit"#,   // quoted `<` in -C value
+            r"git -C repo\> commit",      // backslash-escaped `>` (literal)
+        ] {
+            assert!(
+                p.validate_command_execution(write, false).is_err(),
+                "unapproved write-git behind a quoted redirect char must be rejected: {write}"
+            );
+            assert_eq!(
+                p.validate_command_execution(write, true),
+                Ok(CommandRiskLevel::Medium),
+                "approved write-git behind a quoted redirect char must classify Medium: {write}"
+            );
+        }
+
+        // A read whose global-option value merely contains a quoted redirect char is
+        // classified Medium too — the deliberate fail-closed direction, since the
+        // quote-stripped token cannot be proven a literal rather than a redirect.
+        assert_eq!(
+            p.validate_command_execution(r#"git -C "repo>" status"#, true),
+            Ok(CommandRiskLevel::Medium),
+            "read-git behind a quoted redirect char fails closed to Medium"
+        );
     }
 
     #[test]

@@ -37,7 +37,8 @@ sha2 = "0.10"
 shellexpand = "3.1"
 # Shell-aware tokenizer for the command-risk classifier: resolves the real git
 # subcommand past quoted/escaped global-option values so a write can't hide
-# behind them and skip the approval gate. Already in the lock (via clap).
+# behind them and skip the approval gate. New direct runtime dependency; the
+# lockfile version was already present transitively as a build dep (via cc).
 shlex = "1.3"
 thiserror = "2.0"
 tokio = { version = "1.50", default-features = false, features = ["fs", "io-util", "sync"] }
