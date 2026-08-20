@@ -199,6 +199,11 @@ impl ScopedToolRegistry {
             escalate_handle,
             channel_room_handle,
             unfiltered_tool_arcs,
+            // Test-only capture of the concrete delegate instance; `assemble`
+            // has no use for it and must keep destructuring exhaustively so a
+            // new field cannot be silently dropped here.
+            #[cfg(test)]
+                delegate_tool: _,
         } = built;
 
         // 1. Peripherals. Loading CONNECTS hardware (serial opens are exclusive for
@@ -668,6 +673,7 @@ mod tests {
             escalate_handle: None,
             channel_room_handle: None,
             unfiltered_tool_arcs: Vec::new(),
+            delegate_tool: None,
         }
     }
 
@@ -698,6 +704,7 @@ mod tests {
             escalate_handle: None,
             channel_room_handle: None,
             unfiltered_tool_arcs,
+            delegate_tool: None,
         }
     }
 
