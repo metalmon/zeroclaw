@@ -20392,9 +20392,13 @@ BTC is currently around $65,000 based on latest tool output."#
             .unwrap_or_else(|| {
                 panic!("narration sendMessage missing; bodies: {send_message_bodies:?}")
             });
+        // Locate the approval prompt by its locale-independent transport
+        // contract — the inline-keyboard `approval:<id>:<action>` callback
+        // payload — not the localized heading, whose Fluent rendering varies
+        // with the host locale. Narration sends carry no inline keyboard.
         let approval_idx = send_message_bodies
             .iter()
-            .position(|body| body.contains("Tool approval required"))
+            .position(|body| body.contains("approval:"))
             .unwrap_or_else(|| {
                 panic!("approval sendMessage missing; bodies: {send_message_bodies:?}")
             });

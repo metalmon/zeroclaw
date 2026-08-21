@@ -815,7 +815,7 @@ pub trait Channel: Send + Sync + crate::attribution::Attributable {
     /// through the outbound hook + leak-detection boundary and orders it ahead of
     /// the approval prompt via a flush barrier.
     ///
-    /// Distinct from [`supports_multi_message_streaming`]: a channel can stream
+    /// Distinct from [`Self::supports_multi_message_streaming`]: a channel can stream
     /// multiple messages another way (e.g. paragraph edits via `update_draft`)
     /// without implementing `flush_draft_turn`. Only channels that override
     /// `flush_draft_turn` may return `true` here, otherwise the orchestrator runs

@@ -4476,18 +4476,11 @@ impl Channel for TelegramChannel {
         Ok(())
     }
 
-    async fn update_draft_progress(
-        &self,
-        recipient: &str,
-        message_id: &str,
-        text: &str,
-    ) -> anyhow::Result<()> {
-        if self.stream_mode == StreamMode::Partial {
-            return self.update_draft(recipient, message_id, text).await;
-        }
-        Ok(())
-    }
-
+    // No `update_draft_progress` override: raw legacy tool-status text (tool
+    // name, arguments, paths, credential-shaped values) must never reach the Bot
+    // API, which cannot retract a sent message. The trait default no-op drops it;
+    // typed, policy-checked progress renders through `update_draft_lifecycle`
+    // below. Enforced by `raw_tool_status_never_reaches_telegram`.
     async fn update_draft_lifecycle(
         &self,
         recipient: &str,
@@ -6640,9 +6633,13 @@ mod tests {
             .mount(&mock_server)
             .await;
 
+        // Match the approval prompt by its locale-independent transport
+        // contract — the inline-keyboard `approval:<id>:<action>` callback
+        // payload — rather than the localized heading, whose Fluent rendering
+        // varies with the host locale. The narration send carries no keyboard.
         Mock::given(method("POST"))
             .and(path_regex(r"/bot[^/]+/sendMessage$"))
-            .and(body_string_contains("Tool approval required"))
+            .and(body_string_contains("approval:"))
             .respond_with(
                 ResponseTemplate::new(200).set_body_json(
                     serde_json::json!({ "ok": true, "result": { "message_id": 2 } }),
