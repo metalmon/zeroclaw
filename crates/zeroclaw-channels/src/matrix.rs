@@ -4939,12 +4939,12 @@ mod tests {
         use super::MatrixChannel;
         use std::sync::Arc;
         use zeroclaw_api::channel::Channel;
-        use zeroclaw_config::schema::{MatrixConfig, StreamMode};
+        use zeroclaw_config::schema::{MatrixConfig, MatrixStreamMode};
 
         let config = MatrixConfig {
             homeserver: "https://matrix.example".to_string(),
             access_token: Some("token".to_string()),
-            stream_mode: StreamMode::MultiMessage,
+            stream_mode: MatrixStreamMode::MultiMessage,
             ..MatrixConfig::default()
         };
         let ch = MatrixChannel::new(
