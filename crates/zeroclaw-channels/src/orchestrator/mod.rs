@@ -6072,7 +6072,7 @@ fn matrix_progress_text(
         StreamDelta::Reasoning(text) => Some(matrix_scrub_progress_text(&format!(
             "{REASONING_FULL_PREFIX}{text}"
         ))),
-        StreamDelta::Text(_) | StreamDelta::Lifecycle(_) => None,
+        StreamDelta::Text(_) | StreamDelta::Lifecycle(_) | StreamDelta::FlushBarrier(_) => None,
     }?;
 
     // Every dynamic component has its own presentation/structured redaction,
@@ -34392,6 +34392,10 @@ Done."#;
             "chat-1".to_string(),
             "draft-1".to_string(),
             no_tools(),
+            false,
+            None,
+            zeroclaw_config::schema::LeakDetectionConfig::default(),
+            String::new(),
             rx,
         )
         .await;
