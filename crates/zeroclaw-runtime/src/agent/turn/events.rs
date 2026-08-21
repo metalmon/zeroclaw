@@ -136,7 +136,11 @@ impl StreamDelta {
                 *success,
                 error.as_deref(),
             )),
-            Self::Text(_) | Self::Status(_) | Self::Reasoning(_) | Self::Lifecycle(_) => None,
+            Self::Text(_)
+            | Self::Status(_)
+            | Self::Reasoning(_)
+            | Self::Lifecycle(_)
+            | Self::FlushBarrier(_) => None,
         }
     }
 }
