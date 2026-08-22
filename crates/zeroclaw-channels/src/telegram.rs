@@ -2202,10 +2202,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
             .and_then(serde_json::Value::as_i64)
             .unwrap_or(0);
 
-        let thread_id = message
-            .get("message_thread_id")
-            .and_then(serde_json::Value::as_i64)
-            .map(|id| id.to_string());
+        let thread_id = Self::topic_thread_id(message);
 
         let reply_target = if let Some(ref tid) = thread_id {
             format!("{}:{}", chat_id, tid)
@@ -2435,10 +2432,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
             .and_then(serde_json::Value::as_i64)
             .unwrap_or(0);
 
-        let thread_id = message
-            .get("message_thread_id")
-            .and_then(serde_json::Value::as_i64)
-            .map(|id| id.to_string());
+        let thread_id = Self::topic_thread_id(message);
 
         let reply_target = if let Some(ref tid) = thread_id {
             format!("{}:{}", chat_id, tid)
@@ -2726,6 +2720,26 @@ Allowlist Telegram username (without '@') or numeric user ID.",
         Some(format!("> @{reply_sender}:\n{quoted_lines}"))
     }
 
+    /// Forum-topic thread id for history keying and reply routing, if this
+    /// message belongs to a genuine forum topic. Telegram also sets
+    /// `message_thread_id` for ordinary reply-threads in supergroups, which are
+    /// NOT topic boundaries and must continue the main chat's conversation
+    /// history — so gate on `is_topic_message` and treat a non-topic thread as
+    /// the main chat (no `thread_ts`, no `:tid` on `reply_target`).
+    fn topic_thread_id(message: &serde_json::Value) -> Option<String> {
+        if message
+            .get("is_topic_message")
+            .and_then(serde_json::Value::as_bool)
+            != Some(true)
+        {
+            return None;
+        }
+        message
+            .get("message_thread_id")
+            .and_then(serde_json::Value::as_i64)
+            .map(|id| id.to_string())
+    }
+
     fn parse_update_message(&self, update: &serde_json::Value) -> Option<ChannelMessage> {
         let message = update.get("message")?;
 
@@ -2768,10 +2782,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
             .unwrap_or(0);
 
         // Extract thread/topic ID for forum support
-        let thread_id = message
-            .get("message_thread_id")
-            .and_then(serde_json::Value::as_i64)
-            .map(|id| id.to_string());
+        let thread_id = Self::topic_thread_id(message);
 
         // reply_target: chat_id or chat_id:thread_id format
         let reply_target = if let Some(ref tid) = thread_id {
@@ -5804,7 +5815,8 @@ mod tests {
                 "chat": {
                     "id": -100_200_300
                 },
-                "message_thread_id": 789
+                "message_thread_id": 789,
+                "is_topic_message": true
             }
         });
 
@@ -5814,8 +5826,63 @@ mod tests {
 
         assert_eq!(msg.sender, "alice");
         assert_eq!(msg.reply_target, "-100200300:789");
+        assert_eq!(msg.thread_ts.as_deref(), Some("789"));
         assert_eq!(msg.content, "hello from topic");
         assert_eq!(msg.id, "telegram_-100200300_42");
+    }
+
+    #[test]
+    fn parse_update_reply_thread_shares_main_chat_history_key() {
+        // Telegram sets `message_thread_id` for ordinary reply-threads in
+        // supergroups too, but WITHOUT `is_topic_message`. Those are not topic
+        // boundaries: they must continue the main chat conversation, so
+        // `thread_ts` stays None and `reply_target` carries no `:tid` suffix —
+        // giving the same conversation-history key as a plain message in the chat.
+        let ch = TelegramChannel::new(
+            "token".into(),
+            "telegram_test_alias",
+            Arc::new(|| vec!["*".into()]),
+            false,
+        );
+        let reply_thread = serde_json::json!({
+            "update_id": 4,
+            "message": {
+                "message_id": 43,
+                "text": "and another thing",
+                "from": { "id": 555, "username": "alice" },
+                "chat": { "id": -100_200_300 },
+                "message_thread_id": 789,
+                "reply_to_message": { "message_id": 40, "from": { "username": "bot" }, "text": "earlier" }
+            }
+        });
+        let msg = ch
+            .parse_update_message(&reply_thread)
+            .expect("reply-thread message should parse");
+        assert_eq!(
+            msg.reply_target, "-100200300",
+            "a reply-thread (no is_topic_message) must resolve to the main chat, not a :tid topic"
+        );
+        assert_eq!(
+            msg.thread_ts, None,
+            "a reply-thread must not set thread_ts, or it forks the conversation history key"
+        );
+
+        // Same chat + same sender, plain message: identical reply_target/thread_ts,
+        // so both land in one history bucket.
+        let plain = serde_json::json!({
+            "update_id": 5,
+            "message": {
+                "message_id": 44,
+                "text": "plain message",
+                "from": { "id": 555, "username": "alice" },
+                "chat": { "id": -100_200_300 }
+            }
+        });
+        let plain_msg = ch
+            .parse_update_message(&plain)
+            .expect("plain message should parse");
+        assert_eq!(plain_msg.reply_target, msg.reply_target);
+        assert_eq!(plain_msg.thread_ts, msg.thread_ts);
     }
 
     // ── File sending API URL tests ──────────────────────────────────
