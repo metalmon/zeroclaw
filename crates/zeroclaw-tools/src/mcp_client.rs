@@ -44,13 +44,20 @@ async fn handshake(
     transport: &dyn SharedMcpTransportConn,
     server_name: &str,
     epoch: u64,
+    advertise_tasks: bool,
 ) -> Result<McpServerCapabilities> {
+    let mut capabilities = json!({ "resources": {}, "prompts": {} });
+    if advertise_tasks {
+        capabilities["extensions"] = json!({
+            crate::mcp_protocol::TASKS_EXTENSION_KEY: {}
+        });
+    }
     let init_req = JsonRpcRequest::new(
         1,
         "initialize",
         json!({
             "protocolVersion": MCP_PROTOCOL_VERSION,
-            "capabilities": { "resources": {}, "prompts": {} },
+            "capabilities": capabilities,
             "clientInfo": {
                 "name": "zeroclaw",
                 "version": env!("CARGO_PKG_VERSION")
@@ -173,6 +180,10 @@ struct McpServerInner {
     next_id: AtomicU32,
     tools: Vec<McpToolDef>,
     capabilities: McpServerCapabilities,
+    /// Whether this connection advertised the `tasks` extension during the
+    /// `initialize` handshake. Threaded into re-handshakes after recovery so
+    /// the advertised capability set stays consistent across reconnects.
+    advertise_tasks: bool,
 }
 
 // ── Recovery barrier ────────────────────────────────────────────────────────
@@ -331,9 +342,30 @@ impl Drop for OutcomeUnknownGuard {
     }
 }
 
+/// Outcome of [`McpServer::create_task`]: either the server ran the tool call
+/// to completion inline, or it returned a task envelope for polling via
+/// [`McpServer::get_task`] / [`McpServer::cancel_task`].
+#[derive(Debug, Clone)]
+pub enum TaskCall {
+    Task(crate::mcp_protocol::CreateTaskResult),
+    Inline(serde_json::Value),
+}
+
 impl McpServer {
     /// Connect to the server, perform the initialize handshake, and fetch the tool list.
     pub async fn connect(config: McpServerConfig) -> Result<Self> {
+        Self::connect_advertising(config, false).await
+    }
+
+    /// Connect to the server, optionally advertising the `tasks` extension
+    /// capability during the `initialize` handshake. When `advertise_tasks`
+    /// is `true`, servers that support long-running tool calls may return a
+    /// task envelope from `tools/call` instead of an inline result; see
+    /// [`McpServer::create_task`].
+    pub async fn connect_advertising(
+        config: McpServerConfig,
+        advertise_tasks: bool,
+    ) -> Result<Self> {
         // Create transport based on config
         let transport: Arc<dyn SharedMcpTransportConn> =
             Arc::from(create_shared_transport(&config).with_context(|| {
@@ -347,7 +379,7 @@ impl McpServer {
             (config.transport != McpTransport::Stdio).then(|| Arc::new(Mutex::new(())));
 
         // Initialize handshake (initialize + initialized notification)
-        let capabilities = handshake(transport.as_ref(), &config.name, 0).await?;
+        let capabilities = handshake(transport.as_ref(), &config.name, 0, advertise_tasks).await?;
 
         // Fetch available tools
         let id = 2u64;
@@ -392,6 +424,7 @@ impl McpServer {
             next_id: AtomicU32::new(3), // Start at 3 since we used 1 and 2
             tools: tool_list.tools,
             capabilities,
+            advertise_tasks,
         };
 
         ::zeroclaw_log::record!(
@@ -579,7 +612,10 @@ impl McpServer {
             self.recovery.finish(observed_epoch);
             return Ok(());
         }
-        let server_name = self.inner.lock().await.config.name.clone();
+        let (server_name, advertise_tasks) = {
+            let inner = self.inner.lock().await;
+            (inner.config.name.clone(), inner.advertise_tasks)
+        };
 
         if let Err(reset_error) = self.transport.reset().await {
             // A failed reset leaves the session unrecoverable: fail closed so
@@ -597,7 +633,14 @@ impl McpServer {
             };
         }
 
-        let refreshed = match handshake(self.transport.as_ref(), &server_name, *epoch).await {
+        let refreshed = match handshake(
+            self.transport.as_ref(),
+            &server_name,
+            *epoch,
+            advertise_tasks,
+        )
+        .await
+        {
             Ok(capabilities) => capabilities,
             Err(handshake_error) => {
                 // A failed re-handshake leaves the connection without a live
@@ -734,20 +777,26 @@ impl McpServer {
         }
     }
 
+    /// Effective tool-call timeout for this server: the configured
+    /// `tool_timeout_secs` (falling back to [`DEFAULT_TOOL_TIMEOUT_SECS`]),
+    /// clamped to [`MAX_TOOL_TIMEOUT_SECS`]. Shared by `call_tool`,
+    /// `dispatch_method`, and the `tasks/*` methods.
+    async fn tool_timeout(&self) -> u64 {
+        let inner = self.inner.lock().await;
+        inner
+            .config
+            .tool_timeout_secs
+            .unwrap_or(DEFAULT_TOOL_TIMEOUT_SECS)
+            .min(MAX_TOOL_TIMEOUT_SECS)
+    }
+
     /// Call a tool on this server. Returns the raw JSON result.
     pub async fn call_tool(
         &self,
         tool_name: &str,
         arguments: serde_json::Value,
     ) -> Result<serde_json::Value> {
-        let tool_timeout = {
-            let inner = self.inner.lock().await;
-            inner
-                .config
-                .tool_timeout_secs
-                .unwrap_or(DEFAULT_TOOL_TIMEOUT_SECS)
-                .min(MAX_TOOL_TIMEOUT_SECS)
-        };
+        let tool_timeout = self.tool_timeout().await;
         let operation = format!("tool call `{tool_name}`");
         let resp = self
             .dispatch_rpc(
@@ -774,6 +823,75 @@ impl McpServer {
         Ok(result)
     }
 
+    /// Issue a `tools/call` on a task-advertising connection. If the server returns a
+    /// task envelope (`resultType == "task"`) it is parsed as a task; otherwise the raw
+    /// inline result is returned unchanged.
+    pub async fn create_task(
+        &self,
+        tool_name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<TaskCall> {
+        let tool_timeout = self.tool_timeout().await;
+        let op = format!("tool call `{tool_name}`");
+        let resp = self
+            .dispatch_rpc(
+                "tools/call",
+                json!({ "name": tool_name, "arguments": arguments }),
+                tool_timeout,
+                &op,
+            )
+            .await?;
+        if let Some(err) = resp.error {
+            bail!("MCP tool `{tool_name}` error {}: {}", err.code, err.message);
+        }
+        let result = resp.result.unwrap_or(serde_json::Value::Null);
+        if result.get("resultType").and_then(|v| v.as_str()) == Some("task") {
+            let ct = serde_json::from_value(result).context("parse CreateTaskResult")?;
+            Ok(TaskCall::Task(ct))
+        } else {
+            Ok(TaskCall::Inline(result))
+        }
+    }
+
+    /// `tasks/get` — fetch the current status/result of a previously created task.
+    pub async fn get_task(&self, task_id: &str) -> Result<crate::mcp_protocol::GetTaskResult> {
+        let op = format!("tasks/get `{task_id}`");
+        let resp = self
+            .dispatch_rpc(
+                crate::mcp_protocol::TASKS_GET,
+                json!({ "taskId": task_id }),
+                self.tool_timeout().await,
+                &op,
+            )
+            .await?;
+        if let Some(err) = resp.error {
+            bail!("tasks/get `{task_id}` error {}: {}", err.code, err.message);
+        }
+        serde_json::from_value(resp.result.unwrap_or(serde_json::Value::Null))
+            .context("parse GetTaskResult")
+    }
+
+    /// `tasks/cancel` — request cancellation of a previously created task.
+    pub async fn cancel_task(&self, task_id: &str) -> Result<()> {
+        let op = format!("tasks/cancel `{task_id}`");
+        let resp = self
+            .dispatch_rpc(
+                crate::mcp_protocol::TASKS_CANCEL,
+                json!({ "taskId": task_id }),
+                self.tool_timeout().await,
+                &op,
+            )
+            .await?;
+        if let Some(err) = resp.error {
+            bail!(
+                "tasks/cancel `{task_id}` error {}: {}",
+                err.code,
+                err.message
+            );
+        }
+        Ok(())
+    }
+
     /// Generic JSON-RPC method dispatch with the same timeout, bounded
     /// reconnect, and error surfacing as `call_tool`. Returns the raw
     /// `result` value; callers apply any method-specific envelope handling.
@@ -782,14 +900,7 @@ impl McpServer {
         rpc_method: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value> {
-        let tool_timeout = {
-            let inner = self.inner.lock().await;
-            inner
-                .config
-                .tool_timeout_secs
-                .unwrap_or(DEFAULT_TOOL_TIMEOUT_SECS)
-                .min(MAX_TOOL_TIMEOUT_SECS)
-        };
+        let tool_timeout = self.tool_timeout().await;
         let operation = format!("`{rpc_method}`");
         let resp = self
             .dispatch_rpc(rpc_method, params, tool_timeout, &operation)
@@ -991,6 +1102,7 @@ impl McpRegistry {
                 next_id: AtomicU32::new(0),
                 tools: Vec::new(),
                 capabilities: McpServerCapabilities::default(),
+                advertise_tasks: false,
             };
             McpServer {
                 inner: Arc::new(Mutex::new(inner)),
@@ -1143,6 +1255,7 @@ impl McpRegistry {
             next_id: AtomicU32::new(0),
             tools: Vec::new(),
             capabilities: McpServerCapabilities::default(),
+            advertise_tasks: false,
         };
         McpServer {
             inner: std::sync::Arc::new(Mutex::new(inner)),
@@ -1760,6 +1873,7 @@ mod tests {
             next_id: AtomicU32::new(3),
             tools: vec![],
             capabilities: McpServerCapabilities::default(),
+            advertise_tasks: false,
         };
         McpServer {
             inner: Arc::new(Mutex::new(inner)),
@@ -1768,6 +1882,81 @@ mod tests {
             serial_gate: None,
             recovery: Arc::new(RecoveryBarrier::new()),
         }
+    }
+
+    /// Transport that dispatches by RPC method: a `tools/call` returns a
+    /// task-envelope result, and a `tasks/get` returns a completed-task
+    /// result. Used to exercise `create_task` / `get_task` without a real
+    /// task-capable MCP server.
+    struct TaskEnvelopeTransport {
+        create_result: serde_json::Value,
+        get_result: serde_json::Value,
+    }
+
+    #[async_trait::async_trait]
+    impl SharedMcpTransportConn for TaskEnvelopeTransport {
+        async fn send_and_recv(
+            &self,
+            request: &JsonRpcRequest,
+            _lifecycle: &McpRequestLifecycle,
+        ) -> Result<crate::mcp_protocol::JsonRpcResponse> {
+            let result = match request.method.as_str() {
+                "tools/call" => self.create_result.clone(),
+                crate::mcp_protocol::TASKS_GET => self.get_result.clone(),
+                other => panic!("unexpected method {other}"),
+            };
+            Ok(crate::mcp_protocol::JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                id: request.id.clone(),
+                result: Some(result),
+                error: None,
+            })
+        }
+
+        async fn close(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    /// Build an `McpServer` whose transport returns a task envelope for
+    /// `tools/call` and a completed-task result for `tasks/get`, in that
+    /// order. Adapts the file's `server_with_transport` harness (used by
+    /// `dropping_stdio_registry_reaps_child_process` and friends) for the
+    /// task-RPC methods added in this file.
+    async fn fake_server_with_responses(responses: Vec<serde_json::Value>) -> McpServer {
+        let [create_result, get_result]: [serde_json::Value; 2] = responses
+            .try_into()
+            .expect("fake_server_with_responses expects exactly two queued responses");
+        let transport: Arc<dyn SharedMcpTransportConn> = Arc::new(TaskEnvelopeTransport {
+            create_result,
+            get_result,
+        });
+        server_with_transport("task-server", transport, 5)
+    }
+
+    #[tokio::test]
+    async fn create_task_then_get_completed() {
+        let server = fake_server_with_responses(vec![
+            serde_json::json!({ "resultType":"task","taskId":"t1","status":"working",
+                "createdAt":"t","lastUpdatedAt":"t","pollIntervalMs":10 }),
+            serde_json::json!({ "resultType":"complete","taskId":"t1","status":"completed",
+                "createdAt":"t","lastUpdatedAt":"t","result":{"content":[{"type":"text","text":"ok"}],"isError":false} }),
+        ])
+        .await;
+
+        let call = server
+            .create_task("place_call", serde_json::json!({}))
+            .await
+            .unwrap();
+        let task = match call {
+            TaskCall::Task(t) => t,
+            TaskCall::Inline(_) => panic!("expected task"),
+        };
+        assert_eq!(task.task.task_id, "t1");
+
+        let got = server.get_task("t1").await.unwrap();
+        assert_eq!(got.task.status, crate::mcp_protocol::TaskStatus::Completed);
+        assert!(got.result.is_some());
     }
 
     struct PreWriteBlockingTransport {
@@ -2246,6 +2435,7 @@ mod tests {
             next_id: AtomicU32::new(3),
             tools: vec![],
             capabilities: McpServerCapabilities::default(),
+            advertise_tasks: false,
         };
         McpServer {
             inner: Arc::new(Mutex::new(inner)),
@@ -2382,6 +2572,7 @@ mod tests {
             next_id: AtomicU32::new(3),
             tools: vec![],
             capabilities,
+            advertise_tasks: false,
         };
         McpServer {
             inner: Arc::new(Mutex::new(inner)),
