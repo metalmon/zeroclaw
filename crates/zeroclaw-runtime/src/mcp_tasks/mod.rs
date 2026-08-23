@@ -14,6 +14,8 @@
 //! [`TaskInjector`] trait; `inject` provides the production implementation,
 //! and tests provide a fake.
 
+pub mod inject;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
