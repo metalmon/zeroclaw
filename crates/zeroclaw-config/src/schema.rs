@@ -5186,6 +5186,17 @@ pub struct McpServerConfig {
     /// parsing, not this wire cap.
     #[serde(default)]
     pub max_response_bytes: Option<u64>,
+    /// Whether this server should advertise the tasks extension. Default on
+    /// when unset; see `tasks_enabled_effective`.
+    #[serde(default)]
+    pub tasks_enabled: Option<bool>,
+    /// Default TTL, in seconds, requested for tasks created on this server.
+    /// The server may override the requested value.
+    #[serde(default)]
+    pub default_task_ttl_secs: Option<u64>,
+    /// Per-scope concurrent task admission limit; internally hard capped.
+    #[serde(default)]
+    pub max_concurrent_tasks_per_scope: Option<u32>,
     /// Resource URIs to read once at agent startup and inject into the system
     /// prompt as untrusted, server-origin context. Each is read via
     /// `resources/read` on this server; pins on a server that does not advertise
@@ -5204,6 +5215,24 @@ pub struct McpServerConfig {
     /// plaintext URLs and downgrade redirects are rejected. Ignored by stdio.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tls_ca_cert_path: Option<String>,
+}
+
+impl McpServerConfig {
+    /// Whether this server should advertise the tasks extension. Default on.
+    pub fn tasks_enabled_effective(&self) -> bool {
+        self.tasks_enabled.unwrap_or(true)
+    }
+    /// Per-scope concurrent task admission limit; internal hard cap of 32.
+    pub fn max_concurrent_tasks(&self) -> u32 {
+        const HARD_CAP: u32 = 32;
+        self.max_concurrent_tasks_per_scope
+            .unwrap_or(HARD_CAP)
+            .min(HARD_CAP)
+    }
+    /// Requested TTL to send with a task, in milliseconds (server may override).
+    pub fn requested_task_ttl_ms(&self) -> Option<u64> {
+        self.default_task_ttl_secs.map(|s| s.saturating_mul(1000))
+    }
 }
 
 /// External MCP client configuration (`[mcp]` section).
@@ -35605,6 +35634,27 @@ high_entropy_tokens = false
             ..Default::default()
         };
         assert!(validate_mcp_config(&cfg).is_ok());
+    }
+
+    #[test]
+    async fn task_field_defaults() {
+        let cfg: McpServerConfig = toml::from_str(r#"name = "kutsu""#).unwrap();
+        assert!(cfg.tasks_enabled_effective()); // default on
+        assert_eq!(cfg.max_concurrent_tasks(), 32); // default cap
+        assert_eq!(cfg.requested_task_ttl_ms(), None);
+
+        let off: McpServerConfig = toml::from_str(
+            r#"
+            name = "kutsu"
+            tasks_enabled = false
+            default_task_ttl_secs = 120
+            max_concurrent_tasks_per_scope = 4
+        "#,
+        )
+        .unwrap();
+        assert!(!off.tasks_enabled_effective());
+        assert_eq!(off.requested_task_ttl_ms(), Some(120_000));
+        assert_eq!(off.max_concurrent_tasks(), 4);
     }
 
     #[test]
