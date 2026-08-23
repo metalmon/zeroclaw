@@ -86,6 +86,76 @@ pub struct McpToolsListResult {
     pub tools: Vec<McpToolDef>,
 }
 
+/// Capability key advertised in `initialize` to enable the tasks extension.
+pub const TASKS_EXTENSION_KEY: &str = "io.modelcontextprotocol/tasks";
+/// Meta key carrying a server-provided immediate model response.
+pub const MODEL_IMMEDIATE_RESPONSE_KEY: &str = "io.modelcontextprotocol/model-immediate-response";
+pub const TASKS_GET: &str = "tasks/get";
+pub const TASKS_CANCEL: &str = "tasks/cancel";
+pub const TASKS_UPDATE: &str = "tasks/update";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskStatus {
+    Working,
+    InputRequired,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+impl TaskStatus {
+    pub fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Cancelled
+        )
+    }
+}
+
+/// The flattened task state carried on every task response (rmcp shape).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskSnapshot {
+    #[serde(rename = "taskId")]
+    pub task_id: String,
+    pub status: TaskStatus,
+    #[serde(rename = "statusMessage", skip_serializing_if = "Option::is_none")]
+    pub status_message: Option<String>,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+    #[serde(rename = "lastUpdatedAt")]
+    pub last_updated_at: String,
+    #[serde(rename = "ttlMs", skip_serializing_if = "Option::is_none")]
+    pub ttl_ms: Option<u64>,
+    #[serde(rename = "pollIntervalMs", skip_serializing_if = "Option::is_none")]
+    pub poll_interval_ms: Option<u64>,
+}
+
+/// `result` object of a task-augmented `tools/call` (`resultType: "task"`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateTaskResult {
+    #[serde(flatten)]
+    pub task: TaskSnapshot,
+    #[serde(rename = "_meta", default)]
+    pub meta: Option<serde_json::Map<String, serde_json::Value>>,
+}
+
+/// `result` object of `tasks/get` (`resultType: "complete"`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct GetTaskResult {
+    #[serde(flatten)]
+    pub task: TaskSnapshot,
+    /// Inline underlying tool result, present when `status == completed`.
+    #[serde(default)]
+    pub result: Option<serde_json::Value>,
+    /// Present when `status == failed`.
+    #[serde(default)]
+    pub error: Option<serde_json::Value>,
+    /// Present when `status == input_required`.
+    #[serde(rename = "inputRequests", default)]
+    pub input_requests: Option<serde_json::Value>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,5 +296,62 @@ mod tests {
         let json = r#"{"tools":[]}"#;
         let result: McpToolsListResult = serde_json::from_str(json).unwrap();
         assert_eq!(result.tools.len(), 0);
+    }
+}
+
+#[cfg(test)]
+mod task_tests {
+    use super::*;
+
+    #[test]
+    fn parses_create_task_result_rmcp_shape() {
+        let v = serde_json::json!({
+            "resultType": "task",
+            "taskId": "abc",
+            "status": "working",
+            "createdAt": "2026-08-23T10:00:00Z",
+            "lastUpdatedAt": "2026-08-23T10:00:00Z",
+            "ttlMs": 630000,
+            "pollIntervalMs": 1000
+        });
+        let ct: CreateTaskResult = serde_json::from_value(v).unwrap();
+        assert_eq!(ct.task.task_id, "abc");
+        assert_eq!(ct.task.status, TaskStatus::Working);
+        assert_eq!(ct.task.poll_interval_ms, Some(1000));
+        assert!(ct.meta.is_none());
+    }
+
+    #[test]
+    fn parses_get_task_completed_with_inline_result() {
+        let v = serde_json::json!({
+            "resultType": "complete",
+            "taskId": "abc",
+            "status": "completed",
+            "createdAt": "2026-08-23T10:00:00Z",
+            "lastUpdatedAt": "2026-08-23T10:05:00Z",
+            "ttlMs": 600000,
+            "pollIntervalMs": 1000,
+            "result": { "content": [{ "type": "text", "text": "done" }], "isError": false }
+        });
+        let gt: GetTaskResult = serde_json::from_value(v).unwrap();
+        assert_eq!(gt.task.status, TaskStatus::Completed);
+        assert!(gt.result.is_some());
+        assert!(gt.error.is_none());
+    }
+
+    #[test]
+    fn create_task_meta_reads_immediate_response() {
+        let v = serde_json::json!({
+            "resultType": "task", "taskId": "x", "status": "working",
+            "createdAt": "t", "lastUpdatedAt": "t", "pollIntervalMs": 500,
+            "_meta": { "io.modelcontextprotocol/model-immediate-response": "queued" }
+        });
+        let ct: CreateTaskResult = serde_json::from_value(v).unwrap();
+        let msg = ct
+            .meta
+            .as_ref()
+            .and_then(|m| m.get("io.modelcontextprotocol/model-immediate-response"))
+            .and_then(|s| s.as_str());
+        assert_eq!(msg, Some("queued"));
     }
 }
