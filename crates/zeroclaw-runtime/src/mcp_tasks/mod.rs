@@ -14,7 +14,7 @@
 //! [`TaskInjector`] trait; `inject` provides the production implementation,
 //! and tests provide a fake.
 
-pub mod inject;
+pub(crate) mod inject;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -28,7 +28,7 @@ use zeroclaw_tools::mcp_protocol::{GetTaskResult, MODEL_IMMEDIATE_RESPONSE_KEY};
 use crate::tools::McpRegistry;
 
 /// Outcome of [`McpTaskSupervisor::create_task`].
-pub enum TaskDispatch {
+pub(crate) enum TaskDispatch {
     /// A task was created and is now being polled in the background.
     /// `immediate` is the text to surface to the model right now — either a
     /// server-provided immediate response (the
@@ -67,13 +67,13 @@ pub(crate) struct TaskBinding {
 /// halves of the feature can be built independently without a circular
 /// module dependency.
 #[async_trait::async_trait]
-pub trait TaskInjector: Send + Sync {
+pub(crate) trait TaskInjector: Send + Sync {
     async fn inject(&self, binding: TaskBinding, got: GetTaskResult);
 }
 
 /// Owns per-agent-scope task-advertising MCP connections, admission control,
 /// and the background pollers for every in-flight task.
-pub struct McpTaskSupervisor {
+pub(crate) struct McpTaskSupervisor {
     config: Config,
     /// One task-advertising registry per agent scope, built lazily.
     scopes: Mutex<HashMap<String, Arc<McpRegistry>>>,
@@ -82,7 +82,7 @@ pub struct McpTaskSupervisor {
 }
 
 impl McpTaskSupervisor {
-    pub fn new(config: Config, injector: Arc<dyn TaskInjector>) -> Arc<Self> {
+    pub(crate) fn new(config: Config, injector: Arc<dyn TaskInjector>) -> Arc<Self> {
         Arc::new(Self {
             config,
             scopes: Mutex::new(HashMap::new()),
@@ -136,7 +136,7 @@ impl McpTaskSupervisor {
     /// per-scope, per-server admission cap
     /// (`McpServerConfig::max_concurrent_tasks`); a call over the cap is
     /// rejected inline rather than queued.
-    pub async fn create_task(
+    pub(crate) async fn create_task(
         self: &Arc<Self>,
         alias: &str,
         server: &str,
@@ -276,7 +276,7 @@ impl McpTaskSupervisor {
     /// discarded here — the binding is dropped either way) rather than
     /// propagated, since the caller (session teardown) has no useful
     /// recovery action.
-    pub async fn cancel_tasks_for_session(self: &Arc<Self>, session_key: &str) {
+    pub(crate) async fn cancel_tasks_for_session(self: &Arc<Self>, session_key: &str) {
         let victims: Vec<(String, String, String)> = self
             .tasks
             .lock()
