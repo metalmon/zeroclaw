@@ -3000,6 +3000,7 @@ done
             headers: std::collections::HashMap::default(),
             tls_ca_cert_path: None,
             max_response_bytes: None,
+            ..Default::default()
         };
 
         let registry = McpRegistry::connect_all(&[config])
