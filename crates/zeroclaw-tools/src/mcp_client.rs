@@ -1046,6 +1046,52 @@ impl McpRegistry {
         })
     }
 
+    /// Connect to all configured servers, advertising the `tasks` extension
+    /// capability during each `initialize` handshake (see
+    /// [`McpServer::connect_advertising`]). Otherwise identical to
+    /// [`Self::connect_all`], including its non-fatal-per-server failure
+    /// handling: a server that fails to connect is logged and skipped
+    /// rather than failing the whole registry build.
+    ///
+    /// Used by the MCP task supervisor to build a per-scope registry whose
+    /// connections may return task envelopes from `tools/call` instead of
+    /// inline results.
+    pub async fn connect_all_advertising_tasks(configs: &[McpServerConfig]) -> Result<Self> {
+        let mut servers = Vec::new();
+        let mut tool_index = HashMap::new();
+        let mut server_index = HashMap::new();
+
+        for config in configs {
+            match McpServer::connect_advertising(config.clone(), true).await {
+                Ok(server) => {
+                    let server_idx = servers.len();
+                    server_index.insert(config.name.clone(), server_idx);
+                    let tools = server.tools().await;
+                    for tool in &tools {
+                        let prefixed = format!("{}__{}", config.name, tool.name);
+                        tool_index.insert(prefixed, (server_idx, tool.name.clone()));
+                    }
+                    servers.push(server);
+                }
+                // Non-fatal — log and continue with remaining servers
+                Err(e) => {
+                    ::zeroclaw_log::record!(
+                        ERROR,
+                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
+                            .with_outcome(::zeroclaw_log::EventOutcome::Failure),
+                        &format!("Failed to connect to MCP server `{}`: {:#}", config.name, e)
+                    );
+                }
+            }
+        }
+
+        Ok(Self {
+            servers,
+            tool_index,
+            server_index,
+        })
+    }
+
     /// Build a registry with `n` placeholder servers, each backed by a no-op
     /// transport. The server names are `stub_0`, `stub_1`, ..., `stub_{n-1}`.
     ///
@@ -1266,6 +1312,126 @@ impl McpRegistry {
         }
     }
 
+    /// Test-only: build a registry with a single task-capable server
+    /// advertising one tool (`server_name__tool_name`), whose `tools/call`
+    /// returns a `working` task envelope and whose `tasks/get` returns
+    /// `working` on the first poll and `completed` (carrying `result_text`)
+    /// on every poll thereafter. Used by `zeroclaw-runtime`'s `mcp_tasks`
+    /// supervisor/poller tests to drive a full create → poll → poll →
+    /// complete cycle without a real MCP server.
+    ///
+    /// Gated behind the `test-helpers` feature — unreachable in production
+    /// builds, same as the other `for_test_*` constructors on this type.
+    #[cfg(feature = "test-helpers")]
+    pub async fn for_test_task_two_step(
+        server_name: &str,
+        tool_name: &str,
+        poll_interval_ms: u64,
+        result_text: &str,
+    ) -> Self {
+        use crate::mcp_protocol::JsonRpcResponse;
+        use async_trait::async_trait;
+        use std::sync::atomic::AtomicUsize;
+
+        struct TwoStepTaskTransport {
+            poll_interval_ms: u64,
+            result_text: String,
+            get_calls: AtomicUsize,
+        }
+
+        #[async_trait]
+        impl SharedMcpTransportConn for TwoStepTaskTransport {
+            async fn send_and_recv(
+                &self,
+                request: &JsonRpcRequest,
+                _lifecycle: &McpRequestLifecycle,
+            ) -> Result<JsonRpcResponse> {
+                let working = || {
+                    json!({
+                        "resultType": "task", "taskId": "t1", "status": "working",
+                        "createdAt": "t", "lastUpdatedAt": "t",
+                        "pollIntervalMs": self.poll_interval_ms
+                    })
+                };
+                let result = match request.method.as_str() {
+                    "tools/call" => working(),
+                    crate::mcp_protocol::TASKS_GET => {
+                        let n = self.get_calls.fetch_add(1, Ordering::SeqCst);
+                        if n == 0 {
+                            working()
+                        } else {
+                            json!({
+                                "resultType": "complete", "taskId": "t1", "status": "completed",
+                                "createdAt": "t", "lastUpdatedAt": "t",
+                                "result": {
+                                    "content": [{"type": "text", "text": self.result_text}],
+                                    "isError": false
+                                }
+                            })
+                        }
+                    }
+                    other => {
+                        panic!("unexpected method {other} on for_test_task_two_step transport")
+                    }
+                };
+                Ok(JsonRpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    id: request.id.clone(),
+                    result: Some(result),
+                    error: None,
+                })
+            }
+
+            async fn close(&self) -> Result<()> {
+                Ok(())
+            }
+        }
+
+        let transport: Arc<dyn SharedMcpTransportConn> = Arc::new(TwoStepTaskTransport {
+            poll_interval_ms,
+            result_text: result_text.to_string(),
+            get_calls: AtomicUsize::new(0),
+        });
+        let inner = McpServerInner {
+            config: McpServerConfig {
+                name: server_name.to_string(),
+                ..McpServerConfig::default()
+            },
+            #[cfg(target_has_atomic = "64")]
+            next_id: AtomicU64::new(3),
+            #[cfg(not(target_has_atomic = "64"))]
+            next_id: AtomicU32::new(3),
+            tools: vec![McpToolDef {
+                name: tool_name.to_string(),
+                description: None,
+                input_schema: json!({}),
+            }],
+            capabilities: McpServerCapabilities::default(),
+            advertise_tasks: true,
+        };
+        let server = McpServer {
+            inner: Arc::new(Mutex::new(inner)),
+            transport,
+            epoch_gate: Arc::new(RwLock::new(0)),
+            serial_gate: None,
+            recovery: Arc::new(RecoveryBarrier::new()),
+        };
+
+        let mut server_index = HashMap::new();
+        server_index.insert(server_name.to_string(), 0usize);
+        let mut tool_index = HashMap::new();
+        tool_index.insert(
+            format!("{server_name}__{tool_name}"),
+            (0usize, tool_name.to_string()),
+        );
+
+        Self {
+            servers: vec![server],
+            tool_index,
+            server_index,
+        }
+    }
+
     /// All prefixed tool names across all connected servers.
     pub fn tool_names(&self) -> Vec<String> {
         self.tool_index.keys().cloned().collect()
@@ -1306,6 +1472,54 @@ impl McpRegistry {
         self.servers[*server_idx]
             .call_tool(original_name, arguments)
             .await
+    }
+
+    /// Create a task by prefixed name, resolved via the tool index exactly
+    /// like [`Self::call_tool`]. The owning server must have been connected
+    /// via [`Self::connect_all_advertising_tasks`] for this to return
+    /// anything other than [`TaskCall::Inline`].
+    pub async fn create_task(
+        &self,
+        prefixed_name: &str,
+        args: serde_json::Value,
+    ) -> Result<TaskCall> {
+        let (server_idx, original_name) = self.tool_index.get(prefixed_name).ok_or_else(|| {
+            ::zeroclaw_log::record!(
+                WARN,
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Reject)
+                    .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                    .with_attrs(::serde_json::json!({"tool": prefixed_name})),
+                "mcp_client: unknown MCP tool"
+            );
+            anyhow::Error::msg(format!("unknown MCP tool `{prefixed_name}`"))
+        })?;
+        self.servers[*server_idx]
+            .create_task(original_name, args)
+            .await
+    }
+
+    /// Fetch task status/result from a specific server, resolved by name via
+    /// the server index.
+    pub async fn get_task_on_server(
+        &self,
+        server: &str,
+        task_id: &str,
+    ) -> Result<crate::mcp_protocol::GetTaskResult> {
+        let &idx = self
+            .server_index
+            .get(server)
+            .ok_or_else(|| anyhow::Error::msg(format!("unknown MCP server `{server}`")))?;
+        self.servers[idx].get_task(task_id).await
+    }
+
+    /// Request cancellation of a task on a specific server, resolved by name
+    /// via the server index.
+    pub async fn cancel_task_on_server(&self, server: &str, task_id: &str) -> Result<()> {
+        let &idx = self
+            .server_index
+            .get(server)
+            .ok_or_else(|| anyhow::Error::msg(format!("unknown MCP server `{server}`")))?;
+        self.servers[idx].cancel_task(task_id).await
     }
 
     pub fn is_empty(&self) -> bool {
@@ -1726,6 +1940,9 @@ mod tests {
             headers: std::collections::HashMap::default(),
             tls_ca_cert_path: None,
             max_response_bytes: None,
+            tasks_enabled: None,
+            default_task_ttl_secs: None,
+            max_concurrent_tasks_per_scope: None,
         };
         let result = McpServer::connect(config).await;
         assert!(result.is_err());
@@ -1748,6 +1965,9 @@ mod tests {
             headers: std::collections::HashMap::default(),
             tls_ca_cert_path: None,
             max_response_bytes: None,
+            tasks_enabled: None,
+            default_task_ttl_secs: None,
+            max_concurrent_tasks_per_scope: None,
         }];
         let registry = McpRegistry::connect_all(&configs)
             .await
