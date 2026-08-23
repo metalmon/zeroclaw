@@ -250,7 +250,7 @@ pub fn should_autosave_origin(origin: zeroclaw_api::ingress::TurnOrigin) -> bool
     use zeroclaw_api::ingress::TurnOrigin;
     match origin {
         TurnOrigin::Interactive | TurnOrigin::Channel | TurnOrigin::AgentDirect => true,
-        TurnOrigin::Cron | TurnOrigin::Daemon | TurnOrigin::SubTurn => false,
+        TurnOrigin::Cron | TurnOrigin::Daemon | TurnOrigin::McpTask | TurnOrigin::SubTurn => false,
     }
 }
 
