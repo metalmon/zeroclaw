@@ -207,7 +207,7 @@ pub fn resolve_inject_policy(
     }
     match origin {
         TurnOrigin::SubTurn => InjectPolicy::Skip,
-        TurnOrigin::Cron | TurnOrigin::Daemon => InjectPolicy::Inject {
+        TurnOrigin::Cron | TurnOrigin::Daemon | TurnOrigin::McpTask => InjectPolicy::Inject {
             exclude_conversation: true,
         },
         TurnOrigin::Interactive | TurnOrigin::Channel | TurnOrigin::AgentDirect => {
