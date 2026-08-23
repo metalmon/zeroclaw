@@ -44,6 +44,9 @@ pub enum TurnOrigin {
     Daemon,
     /// A direct embedded `Agent::turn` call (library/API consumer).
     AgentDirect,
+    /// A turn injected by the MCP task host to deliver a completed task
+    /// result.
+    McpTask,
     /// A nested sub-turn inside a parent turn (delegate subagent, safety
     /// net, skills review). Fail-closed default: sub-turns never receive
     /// origin-gated behavior such as context injection, so an unstamped
@@ -235,5 +238,13 @@ mod tests {
         assert_eq!(v["origin"], "agent_direct");
         let back: IngressContext = serde_json::from_value(v).unwrap();
         assert_eq!(back, ctx);
+    }
+
+    #[test]
+    fn mcp_task_origin_serializes_snake_case() {
+        assert_eq!(
+            serde_json::to_string(&TurnOrigin::McpTask).unwrap(),
+            "\"mcp_task\""
+        );
     }
 }
