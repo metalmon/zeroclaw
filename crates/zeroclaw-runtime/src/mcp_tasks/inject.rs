@@ -20,7 +20,7 @@ use super::{TaskBinding, TaskInjector};
 /// trusted as instructions, so it is scrubbed with the same
 /// `sanitize_api_error` used for tool-result text and wrapped in a
 /// `trust="untrusted-external"` provenance tag.
-pub fn render_task_result(server: &str, task_id: &str, got: &GetTaskResult) -> String {
+pub(crate) fn render_task_result(server: &str, task_id: &str, got: &GetTaskResult) -> String {
     let body = match got.task.status {
         TaskStatus::Completed => got
             .result
@@ -60,8 +60,8 @@ pub fn render_task_result(server: &str, task_id: &str, got: &GetTaskResult) -> S
 /// deferred to Task 8, which is expected to extend `TaskBinding` (or thread
 /// a channel adapter through `McpTaskSupervisor`) once the shape of that
 /// delivery is decided.
-pub struct RuntimeInjector {
-    pub config: Config,
+pub(crate) struct RuntimeInjector {
+    pub(crate) config: Config,
 }
 
 #[async_trait::async_trait]
