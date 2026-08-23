@@ -100,6 +100,7 @@ async fn handshake(
 pub struct McpServerCapabilities {
     pub(crate) resources: bool,
     pub(crate) prompts: bool,
+    pub(crate) tasks: bool,
 }
 
 impl McpServerCapabilities {
@@ -108,9 +109,14 @@ impl McpServerCapabilities {
     pub fn from_init_result(result: &serde_json::Value) -> Self {
         let caps = result.get("capabilities");
         let has = |key: &str| caps.and_then(|c| c.get(key)).is_some();
+        let tasks = caps
+            .and_then(|c| c.get("extensions"))
+            .and_then(|e| e.get(crate::mcp_protocol::TASKS_EXTENSION_KEY))
+            .is_some();
         Self {
             resources: has("resources"),
             prompts: has("prompts"),
+            tasks,
         }
     }
 
@@ -120,6 +126,10 @@ impl McpServerCapabilities {
 
     pub fn supports_prompts(&self) -> bool {
         self.prompts
+    }
+
+    pub fn supports_tasks(&self) -> bool {
+        self.tasks
     }
 }
 
@@ -2401,6 +2411,7 @@ mod tests {
             McpServerCapabilities {
                 resources: true,
                 prompts: false,
+                tasks: false,
             },
             serde_json::json!({"resources":[{"uri":"u","name":"n"}],"nextCursor":"c"}),
         );
@@ -2428,6 +2439,7 @@ mod tests {
             McpServerCapabilities {
                 resources: false,
                 prompts: true,
+                tasks: false,
             },
             serde_json::json!({"messages":[{"role":"user","content":{"type":"text","text":"hi"}}]}),
         );
@@ -2944,6 +2956,15 @@ done
         let caps = McpServerCapabilities::from_init_result(&init);
         assert!(!caps.supports_resources());
         assert!(!caps.supports_prompts());
+    }
+
+    #[test]
+    fn detects_tasks_extension() {
+        let v = serde_json::json!({ "capabilities": {
+            "tools": {}, "extensions": { "io.modelcontextprotocol/tasks": {} } } });
+        assert!(McpServerCapabilities::from_init_result(&v).supports_tasks());
+        let none = serde_json::json!({ "capabilities": { "tools": {} } });
+        assert!(!McpServerCapabilities::from_init_result(&none).supports_tasks());
     }
 
     // ── Reconnect on stale session (streamable HTTP) ───────────────────────
