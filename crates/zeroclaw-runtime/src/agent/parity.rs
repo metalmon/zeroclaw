@@ -275,6 +275,7 @@ async fn parity_l2_builtin_filter_semantic_parity() {
         list_deferred_mcp_specs: false,
         emit_assembly_logs: false,
         mcp_registry: None,
+        task_supervisor: None,
     })
     .await;
     let seam_names = retained_names(&assembled.registry.into_inner());
@@ -424,6 +425,7 @@ async fn parity_l2_sop_live_step_agent_isolation() {
         list_deferred_mcp_specs: false,
         emit_assembly_logs: false,
         mcp_registry: None,
+        task_supervisor: None,
     })
     .await;
     let mut seam_names = retained_names(&assembled.registry.into_inner());
