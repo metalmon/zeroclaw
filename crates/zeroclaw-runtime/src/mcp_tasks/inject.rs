@@ -6,8 +6,6 @@
 //! `mcp_tasks::mod` depends on (see that module's doc comment for why the
 //! dependency runs poller -> trait -> this module, and never the reverse).
 
-use std::path::PathBuf;
-
 use zeroclaw_api::ingress::TurnOrigin;
 use zeroclaw_config::schema::Config;
 use zeroclaw_tools::mcp_protocol::{GetTaskResult, TaskStatus};
@@ -66,21 +64,21 @@ pub(crate) fn render_task_result(server: &str, task_id: &str, got: &GetTaskResul
     )
 }
 
-/// Production [`TaskInjector`]: renders the task result and runs a reactive
-/// turn against the session that created it.
+/// Production [`TaskInjector`]: renders the task result, runs a reactive
+/// turn against the session that created it, and — when the originating
+/// tool call ran under a channel turn — delivers the reply back out to that
+/// channel.
 ///
-/// **Delivery scope (v1 / Ruling R8):** `TaskBinding` carries a
-/// `session_key` but no channel/reply-target — the poller only ever saw the
-/// tool call, not which channel (Telegram, CLI, ACP, ...) originated it. So
-/// this injector does the part it can do soundly: append the rendered
-/// result as the user turn of a reactive `agent::run` call, so the model
-/// reacts to it and the exchange lands in that session's memory/log via the
-/// normal `agent::run` machinery. Pushing the reactive reply out to the
-/// origin channel's transport (e.g. sending a new Telegram message) needs a
-/// reply-target that does not exist on `TaskBinding` yet; wiring that is
-/// deferred to Task 8, which is expected to extend `TaskBinding` (or thread
-/// a channel adapter through `McpTaskSupervisor`) once the shape of that
-/// delivery is decided.
+/// **Delivery scope (Task 8b):** `TaskBinding` now carries `channel` /
+/// `reply_target` (captured from `TOOL_LOOP_ORIGIN_ROUTE` at task-creation
+/// time), in addition to `session_key`. The reactive `agent::run` call below
+/// is scoped to memory via `AgentRunOverrides::memory_session_override` so
+/// it lands in the RAW origin `history_key`'s memory scope rather than a
+/// synthetic `cli:{session_key}` one, and its reply is pushed out via
+/// `deliver_announcement` when `channel`/`reply_target` are both present.
+/// When they're absent (the call did not originate from a channel turn —
+/// CLI/cron/gateway/subagent), the result stays memory-visible only, exactly
+/// as before this change.
 pub(crate) struct RuntimeInjector {
     pub(crate) config: Config,
 }
@@ -102,20 +100,15 @@ impl TaskInjector for RuntimeInjector {
         };
         let rendered = render_task_result(&binding.server, &got.task.task_id, &got);
 
-        // `session_state_file` is a literal caller-chosen label, not a
-        // resolved absolute path — mirrors `sop::executor::drive_headless_run`
-        // (`PathBuf::from(format!("sop-{run_id}-step-{}", step.number))`),
-        // the only existing precedent for turning an arbitrary string key
-        // into `agent::run`'s `session_state_file` for a single-shot
-        // (`Some(message)`) call. In that call shape the value is never read
-        // back as a JSONL transcript (that only happens in the interactive
-        // CLI REPL branch) — it is sanitized into `memory_session_id`
-        // (`agent::loop_::run`, `sanitize_session_key(&format!("cli:{raw}"))`)
-        // and used to scope this turn's memory auto-save/recall. That keeps
-        // the exchange associated with `session_key` in memory even though
-        // it does not (yet) resolve to the same session-id scheme
-        // `agent::loop_::process_message` uses for live channel turns.
-        let session_state_file = Some(PathBuf::from(&session_key));
+        // Scope this reactive turn's memory to the RAW origin `session_key`
+        // (the channel's `history_key`, when this task was created from a
+        // channel turn) rather than the synthetic `cli:{session_key}` scope
+        // `session_state_file` would otherwise derive — see
+        // `AgentRunOverrides::memory_session_override`'s doc comment.
+        let overrides = crate::agent::loop_::AgentRunOverrides {
+            memory_session_override: Some(session_key.clone()),
+            ..crate::agent::loop_::AgentRunOverrides::default()
+        };
 
         let result = crate::agent::run(
             self.config.clone(),
@@ -126,25 +119,58 @@ impl TaskInjector for RuntimeInjector {
             None,
             Vec::new(),
             /* interactive */ false,
-            session_state_file,
+            /* session_state_file */ None,
             None,
             TurnOrigin::McpTask,
-            crate::agent::loop_::AgentRunOverrides::default(),
+            overrides,
         )
         .await;
 
-        if let Err(e) = result {
-            ::zeroclaw_log::record!(
-                WARN,
-                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
-                    .with_outcome(::zeroclaw_log::EventOutcome::Failure)
-                    .with_attrs(::serde_json::json!({
-                        "task_id": &got.task.task_id,
-                        "server": &binding.server,
-                        "session_key": &session_key,
-                    })),
-                &format!("mcp-task: reactive injection turn failed: {e:#}")
-            );
+        match result {
+            Ok(reply_text) => {
+                let Some(channel) = binding.channel.clone() else {
+                    return;
+                };
+                let Some(reply_target) = binding.reply_target.clone() else {
+                    return;
+                };
+                if let Err(e) = crate::cron::scheduler::deliver_announcement(
+                    &self.config,
+                    &channel,
+                    &reply_target,
+                    None,
+                    &reply_text,
+                )
+                .await
+                {
+                    ::zeroclaw_log::record!(
+                        WARN,
+                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
+                            .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                            .with_attrs(::serde_json::json!({
+                                "task_id": &got.task.task_id,
+                                "server": &binding.server,
+                                "session_key": &session_key,
+                                "channel": &channel,
+                                "reply_target": &reply_target,
+                            })),
+                        &format!("mcp-task: delivery to origin channel failed: {e:#}")
+                    );
+                }
+            }
+            Err(e) => {
+                ::zeroclaw_log::record!(
+                    WARN,
+                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
+                        .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                        .with_attrs(::serde_json::json!({
+                            "task_id": &got.task.task_id,
+                            "server": &binding.server,
+                            "session_key": &session_key,
+                        })),
+                    &format!("mcp-task: reactive injection turn failed: {e:#}")
+                );
+            }
         }
     }
 }

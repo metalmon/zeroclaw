@@ -102,6 +102,9 @@ fn child_run_overrides(policy: Arc<SecurityPolicy>) -> AgentRunOverrides {
         // nested dispatch belong to the reply-provenance slice of the
         // internal-turn contract; until then absence is explicit.
         internal_principal: None,
+        // Subagent runs derive their memory scope from `session_state_file`
+        // as usual; only the MCP-task reactive injector sets this override.
+        memory_session_override: None,
     }
 }
 

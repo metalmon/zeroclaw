@@ -60,6 +60,15 @@ pub(crate) struct TaskBinding {
     /// Task 6 / future bookkeeping.
     #[allow(dead_code)]
     pub(crate) poll_interval_ms: u64,
+    /// Origin channel name (e.g. `"telegram"`) the tool call that created
+    /// this task ran under, captured from `TOOL_LOOP_ORIGIN_ROUTE` at
+    /// creation time. `None` when the call did not originate from a channel
+    /// turn (CLI/cron/gateway/subagent) — there is then nowhere to deliver
+    /// the completion back to besides memory.
+    pub(crate) channel: Option<String>,
+    /// Origin reply target (channel-specific recipient/thread id) paired
+    /// with `channel` above.
+    pub(crate) reply_target: Option<String>,
 }
 
 /// Delivers a completed (or failed/cancelled) task's result back into its
@@ -99,6 +108,13 @@ pub struct McpTaskSupervisor {
     test_pending: Option<String>,
     #[cfg(test)]
     last_session_key: std::sync::Mutex<Option<String>>,
+    /// Test seam for `mcp_tasks::wrapper`'s unit test: the
+    /// `(channel, reply_target)` most recently passed to `create_task`,
+    /// paired with [`Self::last_session_key`]. Confirms
+    /// `McpTaskToolWrapper::execute` correctly threads
+    /// `TOOL_LOOP_ORIGIN_ROUTE` through to `create_task` (Task 8b).
+    #[cfg(test)]
+    last_origin_route: std::sync::Mutex<Option<(Option<String>, Option<String>)>>,
     /// Test seam for [`Self::cancel_tasks_for_session`]'s unit test: every
     /// task id it attempts to cancel (i.e. every victim it iterates, whether
     /// or not the best-effort registry `tasks/cancel` call itself succeeds)
@@ -137,6 +153,8 @@ impl McpTaskSupervisor {
             #[cfg(test)]
             last_session_key: std::sync::Mutex::new(None),
             #[cfg(test)]
+            last_origin_route: std::sync::Mutex::new(None),
+            #[cfg(test)]
             cancel_calls: std::sync::Mutex::new(Vec::new()),
         })
     }
@@ -160,6 +178,7 @@ impl McpTaskSupervisor {
             injector,
             test_pending: None,
             last_session_key: std::sync::Mutex::new(None),
+            last_origin_route: std::sync::Mutex::new(None),
             cancel_calls: std::sync::Mutex::new(Vec::new()),
         })
     }
@@ -184,6 +203,7 @@ impl McpTaskSupervisor {
             injector: Arc::new(NoopInjector),
             test_pending: Some(immediate.to_string()),
             last_session_key: std::sync::Mutex::new(None),
+            last_origin_route: std::sync::Mutex::new(None),
             cancel_calls: std::sync::Mutex::new(Vec::new()),
         })
     }
@@ -218,6 +238,8 @@ impl McpTaskSupervisor {
                 agent_alias: alias.to_string(),
                 server: alias.to_string(),
                 poll_interval_ms: 1000,
+                channel: None,
+                reply_target: None,
             },
         );
         Arc::new(Self {
@@ -227,6 +249,7 @@ impl McpTaskSupervisor {
             injector: Arc::new(NoopInjector),
             test_pending: None,
             last_session_key: std::sync::Mutex::new(None),
+            last_origin_route: std::sync::Mutex::new(None),
             cancel_calls: std::sync::Mutex::new(Vec::new()),
         })
     }
@@ -236,6 +259,13 @@ impl McpTaskSupervisor {
     #[cfg(test)]
     pub(crate) fn last_session_key(&self) -> Option<String> {
         self.last_session_key.lock().unwrap().clone()
+    }
+
+    /// The `(channel, reply_target)` most recently passed to `create_task`.
+    /// Test seam, paired with [`Self::new_for_test_pending`].
+    #[cfg(test)]
+    pub(crate) fn last_origin_route(&self) -> Option<(Option<String>, Option<String>)> {
+        self.last_origin_route.lock().unwrap().clone()
     }
 
     /// Every task id [`Self::cancel_tasks_for_session`] has attempted to
@@ -285,10 +315,13 @@ impl McpTaskSupervisor {
         tool: &str,
         args: serde_json::Value,
         session_key: Option<String>,
+        channel: Option<String>,
+        reply_target: Option<String>,
     ) -> anyhow::Result<TaskDispatch> {
         #[cfg(test)]
         if let Some(immediate) = self.test_pending.clone() {
             *self.last_session_key.lock().unwrap() = session_key;
+            *self.last_origin_route.lock().unwrap() = Some((channel, reply_target));
             return Ok(TaskDispatch::Pending { immediate });
         }
 
@@ -335,6 +368,8 @@ impl McpTaskSupervisor {
                         agent_alias: alias.to_string(),
                         server: server.to_string(),
                         poll_interval_ms: poll,
+                        channel,
+                        reply_target,
                     },
                 );
                 self.clone()
@@ -455,6 +490,8 @@ mod tests {
     /// test drains.
     struct InjectRequest {
         session_key: Option<String>,
+        channel: Option<String>,
+        reply_target: Option<String>,
         sanitized_text: String,
     }
 
@@ -477,6 +514,8 @@ mod tests {
                 .to_string();
             let _ = self.tx.send(InjectRequest {
                 session_key: binding.session_key,
+                channel: binding.channel,
+                reply_target: binding.reply_target,
                 sanitized_text,
             });
         }
@@ -504,6 +543,8 @@ mod tests {
                 "place_call",
                 serde_json::json!({}),
                 Some("sess-1".into()),
+                Some("telegram".into()),
+                Some("chat-1".into()),
             )
             .await
             .unwrap();
@@ -514,6 +555,11 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(injected.session_key.as_deref(), Some("sess-1"));
+        // The origin channel/reply-target captured at `create_task` time
+        // (Task 8b) must survive through to the binding the poller hands
+        // the injector once the task completes.
+        assert_eq!(injected.channel.as_deref(), Some("telegram"));
+        assert_eq!(injected.reply_target.as_deref(), Some("chat-1"));
         assert!(injected.sanitized_text.contains("done"));
 
         // The completed task's binding is removed once injected: cancelling
@@ -543,13 +589,23 @@ mod tests {
                         agent_alias: "main".to_string(),
                         server: "kutsu".to_string(),
                         poll_interval_ms: 1000,
+                        channel: None,
+                        reply_target: None,
                     },
                 );
             }
         }
 
         let disp = sup
-            .create_task("main", "kutsu", "place_call", serde_json::json!({}), None)
+            .create_task(
+                "main",
+                "kutsu",
+                "place_call",
+                serde_json::json!({}),
+                None,
+                None,
+                None,
+            )
             .await
             .unwrap();
         match disp {
