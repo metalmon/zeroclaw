@@ -268,6 +268,7 @@ impl AcpServer {
                 self.sop_audit.clone(),
                 self.canvas_store.clone(),
                 self.task_supervisor.clone(),
+                None,
             )
             .await
         } else {
