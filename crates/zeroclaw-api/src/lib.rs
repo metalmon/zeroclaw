@@ -36,6 +36,14 @@ tokio::task_local! {
     /// Scoped by gateway and channel turns, read by SessionsCurrentTool.
     pub static TOOL_LOOP_SESSION_KEY: Option<String>;
 
+    /// Origin `(channel, reply_target)` for the currently active channel
+    /// turn's tool loop. Scoped only by the channel orchestrator (`None`
+    /// for CLI/cron/gateway/subagent turns, which have no channel origin
+    /// to deliver back to); read by `mcp_tasks::wrapper::McpTaskToolWrapper`
+    /// so a background MCP task can later route its completion back to the
+    /// channel that started it.
+    pub static TOOL_LOOP_ORIGIN_ROUTE: Option<(String, String)>;
+
     /// Native extended thinking parameters, set by the outer orchestration
     /// functions and read by `run_tool_call_loop` when building `ChatRequest`.
     pub static NATIVE_THINKING_OVERRIDE: Option<crate::model_provider::NativeThinkingParams>;
