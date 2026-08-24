@@ -2683,6 +2683,7 @@ mod tests {
                 input_schema: serde_json::json!({}),
             }],
             capabilities: McpServerCapabilities::default(),
+            advertise_tasks: false,
         };
         McpServer {
             inner: Arc::new(Mutex::new(inner)),
