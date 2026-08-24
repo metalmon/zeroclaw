@@ -3,9 +3,11 @@
 //! poller, and hands a completed task's result off for delivery into the
 //! owning conversation once the task reaches a terminal state.
 //!
-//! This module owns admission control (a per-scope concurrent-task cap),
-//! lazily-built per-agent-scope [`McpRegistry`] connections that advertise
-//! the tasks extension, and the poll loop itself. Actually injecting a
+//! This module owns admission control (a per-scope concurrent-task cap)
+//! and the poll loop itself. It no longer opens its own MCP connections:
+//! it borrows the shared per-scope [`McpRegistry`] from the daemon-owned
+//! [`crate::mcp_pool::McpConnectionPool`], so a task is created and polled
+//! on the very same connection the session uses. Actually injecting a
 //! completed task's result back into the agent loop is a separate concern
 //! (Task 6's `mcp_tasks::inject` submodule) — this module never calls into
 //! it directly. Doing so would create a compile-time dependency cycle
