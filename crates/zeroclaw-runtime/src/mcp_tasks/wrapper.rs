@@ -77,6 +77,15 @@ impl Tool for McpTaskToolWrapper {
             .ok()
             .flatten()
             .filter(|key| !key.is_empty());
+        // Same idiom, capturing the origin channel/reply-target (if this
+        // tool call ran under a channel turn) so a completed task can be
+        // delivered back to the channel it started from.
+        let (channel, reply_target) = zeroclaw_api::TOOL_LOOP_ORIGIN_ROUTE
+            .try_with(Clone::clone)
+            .ok()
+            .flatten()
+            .map(|(c, r)| (Some(c), Some(r)))
+            .unwrap_or((None, None));
         match self
             .supervisor
             .create_task(
@@ -85,6 +94,8 @@ impl Tool for McpTaskToolWrapper {
                 &self.tool,
                 args,
                 session_key,
+                channel,
+                reply_target,
             )
             .await
         {
@@ -134,5 +145,42 @@ mod tests {
         // `ToolOutput: Deref<Target = str>`, so `contains` is available directly.
         assert!(out.output.contains("queued-msg"));
         assert_eq!(sup.last_session_key(), Some("sess-7".into()));
+        // No channel origin was scoped (e.g. a CLI/cron/subagent turn):
+        // `create_task` must see `(None, None)`, not stale/default data.
+        assert_eq!(sup.last_origin_route(), Some((None, None)));
+    }
+
+    /// When `TOOL_LOOP_ORIGIN_ROUTE` is scoped by the channel orchestrator
+    /// (a channel turn), the wrapper must thread it through to
+    /// `create_task` unchanged — this is how a completed background MCP
+    /// task later finds its way back to the originating channel (Task 8b).
+    #[tokio::test]
+    async fn wrapper_threads_origin_route_through_to_create_task() {
+        let sup = McpTaskSupervisor::new_for_test_pending("queued-msg");
+        let w = McpTaskToolWrapper {
+            prefixed_name: "kutsu__place_call".into(),
+            description: "place a call".into(),
+            input_schema: std::sync::Arc::new(serde_json::json!({})),
+            server: "kutsu".into(),
+            tool: "place_call".into(),
+            agent_alias: "main".into(),
+            supervisor: sup.clone(),
+        };
+        let out = zeroclaw_api::TOOL_LOOP_SESSION_KEY
+            .scope(Some("sess-8".into()), async {
+                zeroclaw_api::TOOL_LOOP_ORIGIN_ROUTE
+                    .scope(
+                        Some(("telegram".into(), "chat-42".into())),
+                        w.execute(serde_json::json!({})),
+                    )
+                    .await
+            })
+            .await
+            .unwrap();
+        assert!(out.success);
+        assert_eq!(
+            sup.last_origin_route(),
+            Some((Some("telegram".into()), Some("chat-42".into())))
+        );
     }
 }

@@ -1094,6 +1094,88 @@ pub struct AgentRunOverrides {
     /// (CLI / one-shot), which is correct for callers that have no
     /// cross-turn reuse contract.
     pub mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
+    /// Override for this turn's memory scope (`memory_session_id`), used
+    /// as-is (after sanitization) instead of the default
+    /// `cli:{session_state_file}` derivation below. `None` preserves
+    /// today's behavior exactly — set only by the MCP-task reactive
+    /// injector (`mcp_tasks::inject::RuntimeInjector`) so a completed
+    /// background task's reply lands in the RAW origin channel's memory
+    /// scope (its `history_key`) rather than a synthetic `cli:` one.
+    pub memory_session_override: Option<String>,
+}
+
+/// Resolve this turn's memory scope (`memory_session_id`), applying
+/// `memory_session_override`'s precedence over the default
+/// `cli:{session_state_file}` derivation.
+///
+/// `memory_session_override_key` is `overrides.memory_session_override`
+/// (Some only for the MCP-task reactive injector's turns); when it is
+/// `None`, this returns exactly what the pre-override inline expression in
+/// `run` computed, so every other caller (CLI/cron/sop/channel via
+/// `session_state_file`) is unaffected by this override's existence.
+fn resolve_memory_session_id(
+    memory_session_override_key: Option<&str>,
+    session_state_file: Option<&std::path::Path>,
+) -> Option<String> {
+    memory_session_override_key
+        .map(zeroclaw_api::session_keys::sanitize_session_key)
+        .or_else(|| {
+            session_state_file.and_then(|path| {
+                let raw = path.to_string_lossy().trim().to_string();
+                if raw.is_empty() {
+                    None
+                } else {
+                    // Match the sanitized form persisted by memory backend migrations.
+                    Some(zeroclaw_api::session_keys::sanitize_session_key(&format!(
+                        "cli:{raw}"
+                    )))
+                }
+            })
+        })
+}
+
+#[cfg(test)]
+mod resolve_memory_session_id_tests {
+    use super::resolve_memory_session_id;
+    use std::path::Path;
+
+    /// The override, when present, wins outright and is sanitized as-is —
+    /// no `cli:` prefix is added, and `session_state_file` is ignored even
+    /// when also present.
+    #[test]
+    fn override_present_wins_and_is_sanitized_without_cli_prefix() {
+        let got = resolve_memory_session_id(
+            Some("telegram_chat 123"),
+            Some(Path::new("some-other-session-state-file")),
+        );
+        assert_eq!(got.as_deref(), Some("telegram_chat_123"));
+    }
+
+    /// With no override, behavior is byte-for-byte the pre-override
+    /// derivation: a non-empty `session_state_file` becomes
+    /// `sanitize_session_key("cli:{raw}")`.
+    #[test]
+    fn override_absent_falls_back_to_cli_prefixed_session_state_file() {
+        let got = resolve_memory_session_id(None, Some(Path::new("my session 1")));
+        assert_eq!(got.as_deref(), Some("cli_my_session_1"));
+    }
+
+    /// With no override and no `session_state_file`, the result is `None`
+    /// — same as today.
+    #[test]
+    fn override_and_session_state_file_both_absent_is_none() {
+        assert_eq!(resolve_memory_session_id(None, None), None);
+    }
+
+    /// An empty/whitespace-only `session_state_file` (no override) also
+    /// resolves to `None` — same as today's empty-string short-circuit.
+    #[test]
+    fn override_absent_empty_session_state_file_is_none() {
+        assert_eq!(
+            resolve_memory_session_id(None, Some(Path::new("   "))),
+            None
+        );
+    }
 }
 
 fn agent_provider_composite(
@@ -1720,17 +1802,16 @@ pub async fn run(
         } else {
             None
         };
-        let memory_session_id = session_state_file.as_deref().and_then(|path| {
-            let raw = path.to_string_lossy().trim().to_string();
-            if raw.is_empty() {
-                None
-            } else {
-                // Match the sanitized form persisted by memory backend migrations.
-                Some(zeroclaw_api::session_keys::sanitize_session_key(&format!(
-                    "cli:{raw}"
-                )))
-            }
-        });
+        // `memory_session_override` (set only by the MCP-task reactive
+        // injector) takes precedence, scoping this turn's memory to the raw
+        // key as-is rather than deriving a synthetic `cli:{...}` one below.
+        // When it's `None` — every other caller (CLI/cron/sop/channel via
+        // `session_state_file`) — behavior is unchanged from before this
+        // override existed. See `resolve_memory_session_id`'s unit tests.
+        let memory_session_id = resolve_memory_session_id(
+            overrides.memory_session_override.as_deref(),
+            session_state_file.as_deref(),
+        );
 
         // ── Cost tracking context (scoped for CLI / cron / web agents) ──
         let cost_tracking_context =
