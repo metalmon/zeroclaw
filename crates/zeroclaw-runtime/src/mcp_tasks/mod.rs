@@ -77,10 +77,13 @@ pub(crate) trait TaskInjector: Send + Sync {
 ///
 /// The struct is `pub` (Ruling R10) because [`crate::tools::scoped::ScopedAssembly`]
 /// carries `Option<Arc<McpTaskSupervisor>>` as a `pub` field and that struct
-/// is constructed across crate boundaries (`zeroclaw-channels`). Everything
-/// else here - the methods and the [`TaskDispatch`]/[`TaskInjector`]/[`TaskBinding`]
+/// is constructed across crate boundaries (`zeroclaw-channels`). Most of what's
+/// here - the methods and the [`TaskDispatch`]/[`TaskInjector`]/[`TaskBinding`]
 /// types - stays `pub(crate)`: only `assemble` needs to hold and clone the
 /// `Arc`, never to call into it directly from outside this crate.
+/// [`Self::cancel_tasks_for_session`] is the one exception, `pub` since Task 9's
+/// session-interruption handler (`zeroclaw-channels::orchestrator`) calls it
+/// directly on the shared `Arc` it already holds.
 pub struct McpTaskSupervisor {
     config: Config,
     /// One task-advertising registry per agent scope, built lazily.
@@ -96,6 +99,13 @@ pub struct McpTaskSupervisor {
     test_pending: Option<String>,
     #[cfg(test)]
     last_session_key: std::sync::Mutex<Option<String>>,
+    /// Test seam for [`Self::cancel_tasks_for_session`]'s unit test: every
+    /// task id it attempts to cancel (i.e. every victim it iterates, whether
+    /// or not the best-effort registry `tasks/cancel` call itself succeeds)
+    /// is recorded here. Read via [`Self::cancel_calls`]. Never populated
+    /// outside tests.
+    #[cfg(test)]
+    cancel_calls: std::sync::Mutex<Vec<String>>,
 }
 
 impl McpTaskSupervisor {
@@ -126,6 +136,8 @@ impl McpTaskSupervisor {
             test_pending: None,
             #[cfg(test)]
             last_session_key: std::sync::Mutex::new(None),
+            #[cfg(test)]
+            cancel_calls: std::sync::Mutex::new(Vec::new()),
         })
     }
 
@@ -148,6 +160,7 @@ impl McpTaskSupervisor {
             injector,
             test_pending: None,
             last_session_key: std::sync::Mutex::new(None),
+            cancel_calls: std::sync::Mutex::new(Vec::new()),
         })
     }
 
@@ -171,6 +184,50 @@ impl McpTaskSupervisor {
             injector: Arc::new(NoopInjector),
             test_pending: Some(immediate.to_string()),
             last_session_key: std::sync::Mutex::new(None),
+            cancel_calls: std::sync::Mutex::new(Vec::new()),
+        })
+    }
+
+    /// Test-only seam for [`Self::cancel_tasks_for_session`]'s unit test: a
+    /// supervisor pre-populated with one live task (`task_id`, on `server`,
+    /// scoped to `alias`) bound to `session_key`, with no MCP servers
+    /// configured for `alias` — so the best-effort registry cancel inside
+    /// `cancel_tasks_for_session` resolves an empty (real,
+    /// `connect_all_advertising_tasks(&[])`) registry, finds no matching
+    /// server, and is silently discarded exactly as it is in production
+    /// against a server that has since disconnected. What the unit test
+    /// actually asserts is [`Self::cancel_calls`] (recorded unconditionally,
+    /// before the registry round trip) and [`Self::is_empty`] (the binding
+    /// is dropped either way).
+    #[cfg(test)]
+    pub(crate) fn new_for_test_with_live_task(
+        session_key: &str,
+        alias: &str,
+        task_id: &str,
+    ) -> Arc<Self> {
+        struct NoopInjector;
+        #[async_trait::async_trait]
+        impl TaskInjector for NoopInjector {
+            async fn inject(&self, _binding: TaskBinding, _got: GetTaskResult) {}
+        }
+        let mut tasks = HashMap::new();
+        tasks.insert(
+            task_id.to_string(),
+            TaskBinding {
+                session_key: Some(session_key.to_string()),
+                agent_alias: alias.to_string(),
+                server: alias.to_string(),
+                poll_interval_ms: 1000,
+            },
+        );
+        Arc::new(Self {
+            config: Config::default(),
+            scopes: Mutex::new(HashMap::new()),
+            tasks: Mutex::new(tasks),
+            injector: Arc::new(NoopInjector),
+            test_pending: None,
+            last_session_key: std::sync::Mutex::new(None),
+            cancel_calls: std::sync::Mutex::new(Vec::new()),
         })
     }
 
@@ -179,6 +236,21 @@ impl McpTaskSupervisor {
     #[cfg(test)]
     pub(crate) fn last_session_key(&self) -> Option<String> {
         self.last_session_key.lock().unwrap().clone()
+    }
+
+    /// Every task id [`Self::cancel_tasks_for_session`] has attempted to
+    /// cancel so far. Test seam, paired with
+    /// [`Self::new_for_test_with_live_task`].
+    #[cfg(test)]
+    pub(crate) fn cancel_calls(&self) -> Vec<String> {
+        self.cancel_calls.lock().unwrap().clone()
+    }
+
+    /// Whether the live-task table is empty. Test seam, paired with
+    /// [`Self::new_for_test_with_live_task`].
+    #[cfg(test)]
+    pub(crate) async fn is_empty(&self) -> bool {
+        self.tasks.lock().await.is_empty()
     }
 
     /// Build (or reuse) this scope's task-advertising registry. Only
@@ -352,7 +424,7 @@ impl McpTaskSupervisor {
     /// discarded here — the binding is dropped either way) rather than
     /// propagated, since the caller (session teardown) has no useful
     /// recovery action.
-    pub(crate) async fn cancel_tasks_for_session(self: &Arc<Self>, session_key: &str) {
+    pub async fn cancel_tasks_for_session(self: &Arc<Self>, session_key: &str) {
         let victims: Vec<(String, String, String)> = self
             .tasks
             .lock()
@@ -362,6 +434,8 @@ impl McpTaskSupervisor {
             .map(|(id, b)| (id.clone(), b.agent_alias.clone(), b.server.clone()))
             .collect();
         for (id, alias, server) in victims {
+            #[cfg(test)]
+            self.cancel_calls.lock().unwrap().push(id.clone());
             if let Ok(reg) = self.scope_registry(&alias).await {
                 let _ = reg.cancel_task_on_server(&server, &id).await;
             }
@@ -482,5 +556,17 @@ mod tests {
             TaskDispatch::Inline(msg) => assert!(msg.contains("Task rejected")),
             TaskDispatch::Pending { .. } => panic!("expected admission cap to reject"),
         }
+    }
+
+    /// Task 9: a session interruption (`/stop` or interrupt-on-new-message)
+    /// must reach any MCP task still bound to that session — cancelling it
+    /// server-side (best-effort) and dropping it from the live-task table so
+    /// a later injection attempt has nothing to deliver into.
+    #[tokio::test]
+    async fn cancel_removes_session_tasks() {
+        let sup = McpTaskSupervisor::new_for_test_with_live_task("sess-9", "kutsu", "t9");
+        sup.cancel_tasks_for_session("sess-9").await;
+        assert!(sup.is_empty().await);
+        assert!(sup.cancel_calls().contains(&"t9".to_string()));
     }
 }
