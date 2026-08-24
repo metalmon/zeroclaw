@@ -365,6 +365,7 @@ impl AcpServer {
                         self.agent_lifecycle.clone(),
                     )),
                     self.task_supervisor.clone(),
+                    None,
                 )
                 .await
             } else {
@@ -402,6 +403,7 @@ impl AcpServer {
                 Arc::clone(store),
                 Some(execution_capability),
                 self.task_supervisor.clone(),
+                None,
             )
             .await
         } else {
