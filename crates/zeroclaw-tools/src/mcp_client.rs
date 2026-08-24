@@ -460,6 +460,17 @@ impl McpServer {
         self.inner.lock().await.capabilities.clone()
     }
 
+    /// Whether this connection advertised the `tasks` extension during its
+    /// `initialize` handshake (`inner.advertise_tasks`, set at
+    /// [`Self::connect_advertising`] time). Test-only: production code that
+    /// needs this decision should read it from the config
+    /// (`McpServerConfig::tasks_enabled_effective`) rather than the live
+    /// connection.
+    #[cfg(test)]
+    pub(crate) async fn advertised_tasks(&self) -> bool {
+        self.inner.lock().await.advertise_tasks
+    }
+
     /// Health-check the underlying transport without sending a real request.
     /// Returns `true` when the transport is alive, `false` otherwise.
     ///
@@ -1090,6 +1101,39 @@ impl McpRegistry {
             tool_index,
             server_index,
         })
+    }
+
+    /// Connect to all configured servers, advertising the `tasks` extension
+    /// capability per server iff that server's own config enables it (see
+    /// [`McpServerConfig::tasks_enabled_effective`]), rather than uniformly
+    /// for every server ([`Self::connect_all_advertising_tasks`]) or for
+    /// none ([`Self::connect_all`]). One connection per server then serves
+    /// both normal calls and, for the servers that opted in, tasks. Same
+    /// non-fatal-per-server failure handling as `connect_all`: a server that
+    /// fails to connect is logged and skipped rather than failing the whole
+    /// registry build.
+    ///
+    /// Used by the shared per-scope MCP connection pool, which needs a
+    /// single registry mixing task-advertising and non-task-advertising
+    /// servers according to each server's own configuration.
+    pub async fn connect_all_mixed(configs: &[McpServerConfig]) -> Result<Self> {
+        let mut servers = Vec::with_capacity(configs.len());
+        for config in configs {
+            let advertise = config.tasks_enabled_effective();
+            match McpServer::connect_advertising(config.clone(), advertise).await {
+                Ok(server) => servers.push(server),
+                // Non-fatal — log and continue with remaining servers
+                Err(e) => {
+                    ::zeroclaw_log::record!(
+                        ERROR,
+                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
+                            .with_outcome(::zeroclaw_log::EventOutcome::Failure),
+                        &format!("Failed to connect to MCP server `{}`: {:#}", config.name, e)
+                    );
+                }
+            }
+        }
+        Ok(Self::from_servers(servers).await)
     }
 
     /// Build a registry with `n` placeholder servers, each backed by a no-op
@@ -3789,5 +3833,51 @@ done
             .await
             .expect_err("jsonrpc error should surface");
         assert!(err.to_string().contains("nope"), "got: {err}");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn connect_all_mixed_advertises_per_server_tasks_flag() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let script_path = temp.path().join("mixed-echo-mcp.sh");
+        write_executable_script(
+            &script_path,
+            br#"#!/bin/sh
+while IFS= read -r line; do
+  case "$line" in
+    *'"method":"initialize"'*)
+      printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"mixed-echo","version":"0.1.0"}}}'
+      ;;
+    *'"method":"tools/list"'*)
+      printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"tools":[]}}'
+      ;;
+  esac
+done
+"#,
+        );
+
+        let mut task_cfg = stdio_test_config("task-srv", &script_path, vec![], 5);
+        task_cfg.tasks_enabled = Some(true);
+        let mut plain_cfg = stdio_test_config("plain-srv", &script_path, vec![], 5);
+        plain_cfg.tasks_enabled = Some(false);
+
+        let reg = McpRegistry::connect_all_mixed(&[task_cfg, plain_cfg])
+            .await
+            .expect("mixed connect");
+        // both servers present
+        assert_eq!(reg.server_count(), 2);
+        // the task server advertised tasks; the plain one did not
+        let (_, task_srv) = reg
+            .server_handles()
+            .into_iter()
+            .find(|(n, _)| n == "task-srv")
+            .unwrap();
+        let (_, plain_srv) = reg
+            .server_handles()
+            .into_iter()
+            .find(|(n, _)| n == "plain-srv")
+            .unwrap();
+        assert!(task_srv.advertised_tasks().await);
+        assert!(!plain_srv.advertised_tasks().await);
     }
 }
