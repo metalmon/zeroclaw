@@ -1414,6 +1414,7 @@ impl Agent {
             // exists here, matching the `mcp_registry: None` precedent for
             // this same call shape.
             None,
+            None,
         )
         .await
     }
@@ -1452,6 +1453,7 @@ impl Agent {
             None,
             wire_skills,
             task_supervisor,
+            None,
         )
         .await
     }
@@ -1473,6 +1475,7 @@ impl Agent {
         canvas_store: Option<tools::CanvasStore>,
         wire_skills: &[crate::skills::WireSkill],
         task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+        mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
     ) -> Result<Self> {
         let config = live_config.read().clone();
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
@@ -1490,6 +1493,7 @@ impl Agent {
             Some(live_config),
             wire_skills,
             task_supervisor,
+            mcp_registry,
         )
         .await
     }
@@ -1526,6 +1530,7 @@ impl Agent {
             None,
             &[],
             task_supervisor,
+            None,
         )
         .await
     }
@@ -1545,6 +1550,7 @@ impl Agent {
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
         task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+        mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
     ) -> Result<Self> {
         let config = live_config.read().clone();
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
@@ -1563,6 +1569,7 @@ impl Agent {
             Some(live_config),
             &[],
             task_supervisor,
+            mcp_registry,
         )
         .await
     }
@@ -1583,6 +1590,7 @@ impl Agent {
         live_config: Option<Arc<parking_lot::RwLock<Config>>>,
         wire_skills: &[crate::skills::WireSkill],
         task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+        mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
     ) -> Result<Self> {
         let agent_cfg = config
             .agent(agent_alias)
@@ -1758,8 +1766,11 @@ impl Agent {
                 // `from_config` is the Agent (gateway / library) construction
                 // path: no cross-turn reuse contract, so the per-call
                 // `connect_all` is the correct choice. The daemon heartbeat
-                // worker is the only `mcp_registry` supplier.
-                mcp_registry: None,
+                // worker is the primary `mcp_registry` supplier; the ACP/WS
+                // and TUI session constructors (`from_live_config_with_*`)
+                // may also thread a caller-supplied pooled registry through
+                // here once their callers are wired to hand one in.
+                mcp_registry,
                 // `Some` only when this Agent was constructed via the ACP
                 // (`from_config_with_session_cwd_and_mcp_backchannel` family)
                 // or TUI (`from_config_with_tui_env` family) path AND the

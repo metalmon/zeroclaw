@@ -509,6 +509,7 @@ async fn handle_socket(
             Some(state.canvas_store.clone()),
             &[],
             state.task_supervisor.clone(),
+            None,
         )
         .await
         {

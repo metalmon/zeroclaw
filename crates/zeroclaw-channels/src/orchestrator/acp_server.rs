@@ -271,6 +271,7 @@ impl AcpServer {
                 self.canvas_store.clone(),
                 wire_skills,
                 self.task_supervisor.clone(),
+                None,
             )
             .await
         } else {
