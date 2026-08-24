@@ -100,6 +100,11 @@ pub struct AcpServer {
     /// Shared MCP task supervisor from the daemon. `None` in standalone mode
     /// — agents created by this server get no task-enabled MCP routing.
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    /// Shared MCP connection pool from the daemon. `None` in standalone mode
+    /// — agents created by this server connect their own per-turn MCP
+    /// registries instead of drawing from the pool, mirroring
+    /// `task_supervisor` above.
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
     /// Connection-scoped default agent alias (`?agent=` on the gateway ACP
     /// endpoint). Slots into the `session/new` alias precedence chain between
     /// an explicit `agentAlias` and `[acp].default_agent`. Not a config
@@ -222,6 +227,7 @@ impl AcpServer {
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             connection_default_agent: None,
             client_elicitation_caps: std::sync::RwLock::new(ElicitationCapabilities::default()),
         }
@@ -258,6 +264,10 @@ impl AcpServer {
         wire_skills: &[WireSkill],
     ) -> Result<Agent> {
         if let ConfigSource::Live(live_config) = &self.config_source {
+            let mcp_reg = match &self.mcp_pool {
+                Some(p) => p.registry_for(agent_alias).await,
+                None => None,
+            };
             Agent::from_live_config_with_session_cwd_and_mcp_backchannel(
                 Arc::clone(live_config),
                 agent_alias,
@@ -271,7 +281,7 @@ impl AcpServer {
                 self.canvas_store.clone(),
                 wire_skills,
                 self.task_supervisor.clone(),
-                None,
+                mcp_reg,
             )
             .await
         } else {
@@ -335,6 +345,18 @@ impl AcpServer {
         task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
     ) -> Self {
         self.task_supervisor = task_supervisor;
+        self
+    }
+
+    /// Attach the shared MCP connection pool from the daemon so that agents
+    /// created by this server draw their scope's MCP registry from the same
+    /// pool as the rest of the daemon. `None` (the default) is a no-op —
+    /// standalone `zeroclaw acp` builds no pool.
+    pub fn with_mcp_pool(
+        mut self,
+        mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
+    ) -> Self {
+        self.mcp_pool = mcp_pool;
         self
     }
 
