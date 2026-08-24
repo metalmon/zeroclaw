@@ -1436,6 +1436,10 @@ impl RpcDispatcher {
         // gateway exposes for this agent; ACP (Code) sessions skip it to keep
         // `session/new` prompt
         let initialize_mcp = session_should_initialize_mcp(&chat_mode);
+        let mcp_reg = match &self.ctx.mcp_pool {
+            Some(p) => p.registry_for(&req.agent_alias).await,
+            None => None,
+        };
         let mut agent = crate::agent::agent::Agent::from_live_config_with_tui_env(
             Arc::clone(&self.ctx.config),
             &req.agent_alias,
@@ -1446,7 +1450,7 @@ impl RpcDispatcher {
             self.ctx.sop_engine.clone(),
             self.ctx.sop_audit.clone(),
             self.ctx.task_supervisor.clone(),
-            None,
+            mcp_reg,
         )
         .await
         .map_err(|e| rpc_err(INTERNAL_ERROR, format!("Failed to create agent: {e}")))?;
@@ -1904,6 +1908,10 @@ impl RpcDispatcher {
         let exclude_memory = true;
         // Reaped sessions always rehydrate as ACP, which skips eager MCP init to
         // stay prompt — matching `session_should_initialize_mcp(ChatMode::Acp)`.
+        let mcp_reg = match &self.ctx.mcp_pool {
+            Some(p) => p.registry_for(&data.agent_alias).await,
+            None => None,
+        };
         let mut agent = crate::agent::agent::Agent::from_live_config_with_tui_env(
             Arc::clone(&self.ctx.config),
             &data.agent_alias,
@@ -1914,7 +1922,7 @@ impl RpcDispatcher {
             self.ctx.sop_engine.clone(),
             self.ctx.sop_audit.clone(),
             self.ctx.task_supervisor.clone(),
-            None,
+            mcp_reg,
         )
         .await
         .ok()?;

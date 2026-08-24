@@ -5426,11 +5426,13 @@ async fn async_main(command: clap::Command) -> Result<()> {
                     let sop_e = sop_engine.clone();
                     let sop_a = sop_audit.clone();
                     let task_supervisor = task_supervisor.clone();
+                    let mcp_pool = mcp_pool.clone();
                     move |host, port, config, tx, reload_controls, tui_registry, ready_tx| {
                         let canvas_store = canvas_store_for_gateway.clone();
                         let sop_engine = sop_e.clone();
                         let sop_audit = sop_a.clone();
                         let task_supervisor = task_supervisor.clone();
+                        let mcp_pool = mcp_pool.clone();
                         Box::pin(async move {
                             Box::pin(zeroclaw_gateway::run_gateway(
                                 &host,
@@ -5444,6 +5446,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                                 sop_audit,
                                 ready_tx,
                                 Some(task_supervisor),
+                                Some(mcp_pool),
                             ))
                             .await
                         })
@@ -5454,11 +5457,13 @@ async fn async_main(command: clap::Command) -> Result<()> {
                     let sop_e = sop_engine.clone();
                     let sop_a = sop_audit.clone();
                     let task_supervisor = task_supervisor.clone();
+                    let mcp_pool = mcp_pool.clone();
                     move |config, cancel| {
                         let canvas_store = canvas_store_for_channels.clone();
                         let sop_engine = sop_e.clone();
                         let sop_audit = sop_a.clone();
                         let task_supervisor = task_supervisor.clone();
+                        let mcp_pool = mcp_pool.clone();
                         Box::pin(async move {
                             Box::pin(zeroclaw_channels::orchestrator::start_channels(
                                 config,
@@ -5467,6 +5472,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                                 sop_engine,
                                 sop_audit,
                                 Some(task_supervisor),
+                                Some(mcp_pool),
                             ))
                             .await
                         })
@@ -6689,8 +6695,10 @@ async fn async_main(command: clap::Command) -> Result<()> {
                 let mcp_pool = zeroclaw_runtime::mcp_pool::McpConnectionPool::from_owned_config(
                     config.clone(),
                 );
-                let task_supervisor =
-                    zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone(), mcp_pool);
+                let task_supervisor = zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(
+                    config.clone(),
+                    Arc::clone(&mcp_pool),
+                );
                 let result = Box::pin(channels::start_channels(
                     config,
                     None,
@@ -6698,6 +6706,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                     sop_engine,
                     sop_audit,
                     Some(task_supervisor),
+                    Some(mcp_pool),
                 ))
                 .await;
                 if let Some(handle) = sop_maintenance {
@@ -9799,8 +9808,10 @@ async fn run_gateway_if_enabled(
     // (also built just for this process) rather than owning its own
     // per-scope registries.
     let mcp_pool = zeroclaw_runtime::mcp_pool::McpConnectionPool::from_owned_config(config.clone());
-    let task_supervisor =
-        zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone(), mcp_pool);
+    let task_supervisor = zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(
+        config.clone(),
+        Arc::clone(&mcp_pool),
+    );
     let result = Box::pin(gateway::run_gateway(
         host,
         port,
@@ -9813,6 +9824,7 @@ async fn run_gateway_if_enabled(
         None,
         None,
         Some(task_supervisor),
+        Some(mcp_pool),
     ))
     .await;
     // Self-respawn after the listener is released, if an in-app upgrade

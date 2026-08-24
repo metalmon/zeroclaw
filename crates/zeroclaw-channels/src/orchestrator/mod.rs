@@ -12102,8 +12102,17 @@ async fn assemble_channel_agent_tools(
     skills: &[zeroclaw_runtime::skills::Skill],
     runtime: Arc<dyn platform::RuntimeAdapter>,
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
 ) -> ChannelAssembledTools {
     use zeroclaw_log::Instrument as _;
+
+    // Fetch this scope's pooled MCP registry (if a pool was threaded in)
+    // before building the assembly below — mirrors `task_supervisor`
+    // being threaded straight through with no per-call fetch needed.
+    let mcp_reg = match &mcp_pool {
+        Some(p) => p.registry_for(agent_alias).await,
+        None => None,
+    };
 
     let agent_attribution = zeroclaw_runtime::agent::AgentAttribution(agent_alias);
     let assembled = async {
@@ -12135,9 +12144,10 @@ async fn assemble_channel_agent_tools(
                         // Channel tools are assembled once at daemon startup and
                         // retain their registry-backed wrappers for the listener
                         // lifetime, so there is no per-turn reconnect to avoid here.
-                        // The heartbeat worker remains the only caller that supplies
-                        // a pre-built registry for reuse across repeated assemblies.
-                        mcp_registry: None,
+                        // Drawn from the shared pool (if any) so this scope reuses
+                        // the same pooled connection an agent turn in that scope
+                        // uses, instead of connecting a duplicate MCP registry.
+                        mcp_registry: mcp_reg,
                         // Threaded from the daemon's one shared supervisor
                         // (see `start_channels`'s doc comment); `None` for
                         // standalone/test callers that build no supervisor.
@@ -12228,6 +12238,7 @@ pub async fn start_channels(
     sop_engine: Option<Arc<std::sync::Mutex<zeroclaw_runtime::sop::SopEngine>>>,
     sop_audit: Option<Arc<zeroclaw_runtime::sop::SopAuditLogger>>,
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
 ) -> Result<()> {
     let config_arc = Arc::new(RwLock::new(config));
     let config: Config = config_arc.read().clone();
@@ -12436,6 +12447,7 @@ pub async fn start_channels(
             &skills,
             Arc::clone(&runtime),
             task_supervisor.clone(),
+            mcp_pool.clone(),
         )
         .await;
 
@@ -19735,6 +19747,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 &[],
                 Arc::new(platform::NativeRuntime::new()),
                 None,
+                None,
             ),
         )
         .await
@@ -19848,6 +19861,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 &[],
                 Arc::new(platform::NativeRuntime::new()),
                 None,
+                None,
             ),
         )
         .await
@@ -19931,6 +19945,7 @@ BTC is currently around $65,000 based on latest tool output."#
             &[],
             Arc::new(platform::NativeRuntime::new()),
             None,
+            None,
         )
         .await;
         let names: Vec<&str> = assembled.tools.iter().map(|t| t.name()).collect();
@@ -19966,6 +19981,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &[],
             Arc::new(platform::NativeRuntime::new()),
+            None,
             None,
         )
         .await;
@@ -20005,6 +20021,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &[],
             Arc::new(platform::NativeRuntime::new()),
+            None,
             None,
         )
         .await;
@@ -20093,6 +20110,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &skills,
             Arc::new(FingerprintRuntime),
+            None,
             None,
         )
         .await;
