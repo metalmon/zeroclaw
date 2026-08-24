@@ -1,6 +1,7 @@
 use zeroclaw_api::attribution::{Attributable, Role, ToolKind, ToolProvenance};
 use zeroclaw_api::tool_attribution;
 
+use crate::mcp_tasks::wrapper::McpTaskToolWrapper;
 use crate::tools::ArcToolRef;
 use crate::tools::cron_add::CronAddTool;
 use crate::tools::cron_list::CronListTool;
@@ -37,6 +38,11 @@ tool_attribution!(CronUpdateTool, ToolKind::Plugin);
 tool_attribution!(DelegateTool, ToolKind::Plugin);
 tool_attribution!(DeliverFileTool, ToolKind::Plugin);
 tool_attribution!(FileReadTool, ToolKind::Plugin);
+tool_attribution!(
+    McpTaskToolWrapper,
+    ToolKind::Plugin,
+    ToolProvenance::Extension
+);
 tool_attribution!(ModelSwitchTool, ToolKind::Plugin);
 tool_attribution!(ReadSkillTool, ToolKind::Plugin);
 tool_attribution!(ScheduleTool, ToolKind::Plugin);
