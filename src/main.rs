@@ -7982,6 +7982,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                         .map(|supervisor| supervisor.drivers.clone());
                     let plugin_webhooks = Arc::clone(&plugin_webhooks);
                     let task_supervisor = task_supervisor.clone();
+                    let mcp_pool = mcp_pool.clone();
                     move |host,
                           port,
                           config,
@@ -7997,6 +7998,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                         let sop_driver_handles = sop_dh.clone();
                         let plugin_webhooks = Arc::clone(&plugin_webhooks);
                         let task_supervisor = task_supervisor.clone();
+                        let mcp_pool = mcp_pool.clone();
                         Box::pin(async move {
                             Box::pin(zeroclaw_gateway::run_gateway_with_plugin_webhooks(
                                 &host,
@@ -8010,6 +8012,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                                 sop_audit,
                                 daemon_authority,
                                 Some(task_supervisor),
+                                Some(mcp_pool),
                                 zeroclaw_gateway::GatewaySupervision::new(
                                     ready_tx,
                                     plugin_webhooks,
@@ -8028,6 +8031,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                     let sop_ds = sop_driver_sink.clone();
                     let plugin_webhooks = channel_plugin_webhooks.clone();
                     let task_supervisor = task_supervisor.clone();
+                    let mcp_pool = mcp_pool.clone();
                     move |authority, cancel| {
                         let canvas_store = canvas_store_for_channels.clone();
                         let sop_engine = sop_e.clone();
@@ -8035,6 +8039,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                         let sop_driver_sink = sop_ds.clone();
                         let plugin_webhooks = plugin_webhooks.clone();
                         let task_supervisor = task_supervisor.clone();
+                        let mcp_pool = mcp_pool.clone();
                         Box::pin(async move {
                             Box::pin(
                                 zeroclaw_channels::orchestrator::start_channels_with_authority_and_plugin_webhooks(
@@ -8046,6 +8051,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                                     plugin_webhooks,
                                     sop_driver_sink,
                                     Some(task_supervisor),
+                                    Some(mcp_pool),
                                 ),
                             )
                             .await
@@ -9496,8 +9502,10 @@ Add pricing to the active provider profile or supply a catalog entry."
                 let mcp_pool = zeroclaw_runtime::mcp_pool::McpConnectionPool::from_owned_config(
                     config.clone(),
                 );
-                let task_supervisor =
-                    zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone(), mcp_pool);
+                let task_supervisor = zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(
+                    config.clone(),
+                    Arc::clone(&mcp_pool),
+                );
                 let result = Box::pin(channels::start_channels_with_authority(
                     authority,
                     None,
@@ -9506,6 +9514,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                     sop_audit,
                     sop_driver_sink,
                     Some(task_supervisor),
+                    Some(mcp_pool),
                 ))
                 .await;
 
@@ -13582,8 +13591,10 @@ async fn run_gateway_if_enabled(
     // (also built just for this process) rather than owning its own
     // per-scope registries.
     let mcp_pool = zeroclaw_runtime::mcp_pool::McpConnectionPool::from_owned_config(config.clone());
-    let task_supervisor =
-        zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone(), mcp_pool);
+    let task_supervisor = zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(
+        config.clone(),
+        Arc::clone(&mcp_pool),
+    );
     let result = Box::pin(gateway::run_gateway(
         host,
         port,
@@ -13598,6 +13609,7 @@ async fn run_gateway_if_enabled(
         None,
         readiness,
         Some(task_supervisor),
+        Some(mcp_pool),
     ))
     .await;
     // Self-respawn after the listener is released, if an in-app upgrade

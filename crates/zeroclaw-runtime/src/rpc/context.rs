@@ -386,6 +386,7 @@ impl RpcContext {
             cert_audit: None,
             auth,
             task_supervisor: None,
+            mcp_pool: None,
         })
     }
 
@@ -550,6 +551,7 @@ impl RpcContext {
             cert_audit: None,
             auth,
             task_supervisor: None,
+            mcp_pool: None,
         })
     }
 

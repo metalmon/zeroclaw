@@ -1632,6 +1632,7 @@ mod tests {
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
         }
     }
 

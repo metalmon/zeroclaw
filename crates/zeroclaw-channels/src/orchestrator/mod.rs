@@ -10102,10 +10102,8 @@ async fn process_channel_message_body(
                 Some(alias) => format!("{}.{}", msg.channel, alias),
                 None => msg.channel.clone(),
             };
-            let tool_loop = zeroclaw_api::TOOL_LOOP_ORIGIN_ROUTE.scope(
-                Some((origin_channel, msg.reply_target.clone())),
-                tool_loop,
-            );
+            let tool_loop = zeroclaw_api::TOOL_LOOP_ORIGIN_ROUTE
+                .scope(Some((origin_channel, msg.reply_target.clone())), tool_loop);
             let tool_loop = scope_thread_id(thread_scope_id, tool_loop);
             let timed_tool_loop =
                 tokio::time::timeout(Duration::from_secs(timeout_budget_secs), tool_loop);
@@ -16144,8 +16142,17 @@ async fn assemble_channel_agent_tools(
     skills: &[zeroclaw_runtime::skills::Skill],
     runtime: Arc<dyn platform::RuntimeAdapter>,
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
 ) -> ChannelAssembledTools {
     use zeroclaw_log::Instrument as _;
+
+    // Fetch this scope's pooled MCP registry (if a pool was threaded in)
+    // before building the assembly below — mirrors `task_supervisor`
+    // being threaded straight through with no per-call fetch needed.
+    let mcp_reg = match &mcp_pool {
+        Some(p) => p.registry_for(agent_alias).await,
+        None => None,
+    };
 
     let agent_attribution = zeroclaw_runtime::agent::AgentAttribution(agent_alias);
     let assembled = async {
@@ -16177,9 +16184,10 @@ async fn assemble_channel_agent_tools(
                         // Channel tools are assembled once at daemon startup and
                         // retain their registry-backed wrappers for the listener
                         // lifetime, so there is no per-turn reconnect to avoid here.
-                        // The heartbeat worker remains the only caller that supplies
-                        // a pre-built registry for reuse across repeated assemblies.
-                        mcp_registry: None,
+                        // Drawn from the shared pool (if any) so this scope reuses
+                        // the same pooled connection an agent turn in that scope
+                        // uses, instead of connecting a duplicate MCP registry.
+                        mcp_registry: mcp_reg,
                         // Threaded from the daemon's one shared supervisor
                         // (see `start_channels`'s doc comment); `None` for
                         // standalone/test callers that build no supervisor.
@@ -16450,6 +16458,7 @@ pub async fn start_channels(
     sop_audit: Option<Arc<zeroclaw_runtime::sop::SopAuditLogger>>,
     sop_driver_sink: Option<zeroclaw_runtime::sop::SopDriverSink>,
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
 ) -> Result<()> {
     let authority = zeroclaw_runtime::LiveConfigAuthority::new_owned(config)?;
     start_channels_with_authority(
@@ -16460,6 +16469,7 @@ pub async fn start_channels(
         sop_audit,
         sop_driver_sink,
         task_supervisor,
+        mcp_pool,
     )
     .await
 }
@@ -16475,6 +16485,7 @@ pub async fn start_channels_with_authority(
     sop_audit: Option<Arc<zeroclaw_runtime::sop::SopAuditLogger>>,
     sop_driver_sink: Option<zeroclaw_runtime::sop::SopDriverSink>,
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
 ) -> Result<()> {
     Box::pin(start_channels_with_authority_and_plugin_webhooks(
         authority,
@@ -16485,6 +16496,7 @@ pub async fn start_channels_with_authority(
         None,
         sop_driver_sink,
         task_supervisor,
+        mcp_pool,
     ))
     .await
 }
@@ -16504,6 +16516,7 @@ pub async fn start_channels_with_plugin_webhooks(
     // `None` standalone, where the process bounds the run instead.
     sop_driver_sink: Option<zeroclaw_runtime::sop::SopDriverSink>,
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
 ) -> Result<()> {
     let authority = zeroclaw_runtime::LiveConfigAuthority::new_owned(config)?;
     start_channels_with_authority_and_plugin_webhooks(
@@ -16515,6 +16528,7 @@ pub async fn start_channels_with_plugin_webhooks(
         plugin_webhooks,
         sop_driver_sink,
         task_supervisor,
+        mcp_pool,
     )
     .await
 }
@@ -16544,6 +16558,7 @@ pub async fn start_channels_with_authority_and_plugin_webhooks(
     plugin_webhooks: Option<Arc<zeroclaw_api::webhook::PluginWebhookRegistry>>,
     sop_driver_sink: Option<zeroclaw_runtime::sop::SopDriverSink>,
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
 ) -> Result<()> {
     let plugin_webhook_registry_lease = plugin_webhooks
         .as_ref()
@@ -16754,6 +16769,7 @@ pub async fn start_channels_with_authority_and_plugin_webhooks(
             &skills,
             Arc::clone(&runtime),
             task_supervisor.clone(),
+            mcp_pool.clone(),
         )
         .await;
 
@@ -21313,6 +21329,7 @@ temperature = 0.3
                             startup_authority,
                             None,
                             startup_cancel,
+                            None,
                             None,
                             None,
                             None,
@@ -27991,6 +28008,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 &[],
                 Arc::new(platform::NativeRuntime::new()),
                 None,
+                None,
             ),
         )
         .await
@@ -28104,6 +28122,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 &[],
                 Arc::new(platform::NativeRuntime::new()),
                 None,
+                None,
             ),
         )
         .await
@@ -28187,6 +28206,7 @@ BTC is currently around $65,000 based on latest tool output."#
             &[],
             Arc::new(platform::NativeRuntime::new()),
             None,
+            None,
         )
         .await;
         let names: Vec<&str> = assembled.tools.iter().map(|t| t.name()).collect();
@@ -28222,6 +28242,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &[],
             Arc::new(platform::NativeRuntime::new()),
+            None,
             None,
         )
         .await;
@@ -28261,6 +28282,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &[],
             Arc::new(platform::NativeRuntime::new()),
+            None,
             None,
         )
         .await;
@@ -28350,6 +28372,7 @@ BTC is currently around $65,000 based on latest tool output."#
             &skills,
             Arc::new(FingerprintRuntime),
             None,
+            None,
         )
         .await;
         let tool = assembled
@@ -28425,6 +28448,7 @@ BTC is currently around $65,000 based on latest tool output."#
             channel_all_tools_result(vec![Box::new(NamedMockTool("shell"))]),
             &skills,
             Arc::new(platform::NativeRuntime::new()),
+            None,
             None,
         )
         .await;
@@ -48472,6 +48496,7 @@ This is an example JSON object for profile settings."#;
             AgentRouter::single(ctx),
             1,
             dispatch_cancel,
+            None,
         ));
 
         // Keep the sender alive exactly as a listener/router does. Generation
