@@ -963,6 +963,10 @@ pub async fn run_with_authority(
     // calls through the same supervisor instance as the gateway and channel
     // listeners.
     let task_supervisor = registry.take_task_supervisor();
+    // Extract the shared MCP connection pool (mirrors task_supervisor
+    // above) for RpcContext, so RPC/TUI agent sessions share the daemon's
+    // per-scope MCP connections instead of opening their own.
+    let mcp_pool = registry.take_mcp_pool();
 
     let rpc_ctx = if need_rpc_ctx {
         use crate::rpc::context::RpcContext;
@@ -1134,6 +1138,7 @@ pub async fn run_with_authority(
             cert_audit,
             auth: rpc_auth,
             task_supervisor,
+            mcp_pool,
         }))
     } else {
         None

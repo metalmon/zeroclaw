@@ -38354,6 +38354,7 @@ mod tests {
                 &zeroclaw_config::schema::Config::default(),
             ),
             task_supervisor: None,
+            mcp_pool: None,
         });
         let (tx, _rx) = tokio::sync::mpsc::channel(64);
         let dispatcher = RpcDispatcher::new(ctx, tx, "test-peer-close:pid=1".into());
@@ -38408,6 +38409,7 @@ mod tests {
                 &zeroclaw_config::schema::Config::default(),
             ),
             task_supervisor: None,
+            mcp_pool: None,
         });
         let (tx, _rx) = tokio::sync::mpsc::channel(64);
         let dispatcher = RpcDispatcher::new(ctx, tx, "test-peer-delete:pid=1".into());
@@ -38598,6 +38600,7 @@ mod tests {
                 &zeroclaw_config::schema::Config::default(),
             ),
             task_supervisor: None,
+            mcp_pool: None,
         });
         let (tx, _rx) = tokio::sync::mpsc::channel(64);
         let dispatcher = RpcDispatcher::new(ctx, tx, "test-peer-real-close:pid=1".into());
