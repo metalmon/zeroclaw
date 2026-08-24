@@ -1668,6 +1668,7 @@ pub async fn run(
             // `mcp_registry` at its default (`None`) and the seam
             // falls back to the per-call `connect_all`.
             mcp_registry: overrides.mcp_registry.as_ref().map(Arc::clone),
+            task_supervisor: None,
         })
         .await;
         // run injects one combined MCP prompt block: deferred tool-search listing +
@@ -3606,6 +3607,7 @@ async fn process_message_inner(
             // reuse contract — passes its own `mcp_registry` through
             // `agent::run` (`AgentRunOverrides::mcp_registry`).
             mcp_registry: None,
+            task_supervisor: None,
         })
         .await;
         // process_message injects one combined MCP prompt block: deferred tool-search
@@ -19423,6 +19425,7 @@ Let me check the result."#;
                 list_deferred_mcp_specs: false,
                 emit_assembly_logs: false,
                 mcp_registry: None,
+                task_supervisor: None,
             },
         )
         .await;

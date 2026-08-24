@@ -1347,6 +1347,7 @@ impl DelegateTool {
                 // daemon heartbeat worker is the only `mcp_registry`
                 // supplier.
                 mcp_registry: None,
+                task_supervisor: None,
             },
         )
         .await;
