@@ -7653,6 +7653,124 @@ mod tests {
             .expect("finalize sends unsent remainder");
     }
 
+    /// Regression: `finalize_multi_message_retries_remainder_after_failed_flush`
+    /// (above) never performs a failed flush, so it does not exercise partial
+    /// success → failure → direct finalization. This test does: an intermediate
+    /// narration flush accepts chunk 0 then fails, leaving the rest of the
+    /// narration pending in the draft. Calling `finalize_multi_message_draft`
+    /// directly must still deliver that pending narration — resuming past the
+    /// already-accepted chunk (each physical chunk exactly once, never
+    /// re-sending the accepted prefix) — before the final answer.
+    #[tokio::test]
+    async fn finalize_multi_message_delivers_pending_intermediate_narration_resuming_past_accepted_chunks()
+     {
+        use wiremock::matchers::{method, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        // Pending intermediate narration spanning more than one physical chunk.
+        // Built from strictly increasing unique tokens (not a repeated filler
+        // char): a repeated-char fixture makes a shorter chunk's body a
+        // substring of a longer chunk's body (e.g. an all-'Y' run), so
+        // `contains`-based per-chunk assertions below would double-count.
+        // Unique tokens guarantee no chunk's content can appear inside another.
+        let mut narration = String::new();
+        let mut token = 0usize;
+        while narration.chars().count() < 9000 {
+            narration.push_str(&format!("tok{token:06} "));
+            token += 1;
+        }
+        // `finalize_multi_message_draft` trims the pending suffix
+        // (`unsent.trim()`) before splitting it; trim here too so this
+        // precomputed `chunks` split matches production's exactly, otherwise
+        // the last chunk's trailing space makes it mismatch the sent body.
+        let narration = narration.trim().to_string();
+        let chunks = split_message_for_telegram(&narration);
+        assert!(
+            chunks.len() >= 2,
+            "narration fixture must span more than one chunk"
+        );
+        let accepted_chunk = chunks[0].clone();
+
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 1 } }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let ch =
+            multi_message_test_channel("telegram_test_alias", 0).with_api_base(mock_server.uri());
+        let recipient = "100:7";
+        let draft_id = TelegramChannel::new_multi_message_draft_id();
+        // Simulate a prior intermediate flush that physically delivered chunk 0
+        // (`delivered_chunks = 1`, `delivered_prefix` = chunk 0) and then failed,
+        // so the whole narration is still the unsent suffix (`sent_text` empty).
+        {
+            let mut drafts = ch.multi_message_drafts.lock();
+            let mut state = MultiDraftState::new(Some("7".into()));
+            state.latest_visible = narration.clone();
+            state.sent_text = String::new();
+            state.delivered_chunks = 1;
+            state.delivered_prefix = accepted_chunk.clone();
+            drafts.insert(
+                TelegramChannel::multi_draft_key(recipient, &draft_id),
+                state,
+            );
+        }
+
+        let final_answer = "Distinct final answer text, unrelated to the narration.";
+        ch.finalize_multi_message_draft(recipient, &draft_id, final_answer, true)
+            .await
+            .expect("finalize delivers the pending suffix then the final answer");
+
+        let reqs = mock_server.received_requests().await.unwrap();
+        let bodies: Vec<String> = reqs
+            .iter()
+            .filter(|r| r.url.path().ends_with("/sendMessage"))
+            .map(|r| String::from_utf8_lossy(&r.body).into_owned())
+            .collect();
+
+        // The already-accepted chunk 0 must not be re-posted during finalize.
+        let accepted_chunk_posts = bodies
+            .iter()
+            .filter(|b| b.contains(&accepted_chunk))
+            .count();
+        assert_eq!(
+            accepted_chunk_posts, 0,
+            "the already-accepted chunk 0 must not be re-sent during finalize; posts: {bodies:?}"
+        );
+
+        // Every remaining narration chunk (the pending suffix) must be delivered
+        // exactly once, resuming past the accepted prefix.
+        for (i, chunk) in chunks.iter().enumerate().skip(1) {
+            let posts = bodies.iter().filter(|b| b.contains(chunk.as_str())).count();
+            assert_eq!(
+                posts, 1,
+                "narration chunk {i} must be delivered exactly once during finalize; posts: {bodies:?}"
+            );
+        }
+
+        // The final answer must be delivered exactly once, after the narration.
+        let final_answer_posts = bodies.iter().filter(|b| b.contains(final_answer)).count();
+        assert_eq!(
+            final_answer_posts, 1,
+            "the final answer must be delivered exactly once after the pending narration"
+        );
+
+        // Total sendMessage posts = pending narration chunks (excluding the
+        // already-accepted one) + 1 for the final answer: nothing duplicated or
+        // dropped.
+        assert_eq!(
+            bodies.len(),
+            (chunks.len() - 1) + 1,
+            "no physical chunk may be duplicated or dropped; posts: {bodies:?}"
+        );
+    }
+
     /// Regression: a partial physical failure on an intermediate turn leaves an
     /// undelivered narration suffix in the draft state. If the next lifecycle
     /// event is finalization, that suffix must still be delivered (resuming past
