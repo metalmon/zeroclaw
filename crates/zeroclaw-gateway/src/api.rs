@@ -2382,6 +2382,7 @@ pub(crate) mod tests {
             reload_tx: None,
             sop_engine: None,
             sop_audit: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
