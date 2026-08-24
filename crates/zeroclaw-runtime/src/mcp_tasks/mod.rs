@@ -99,6 +99,23 @@ pub struct McpTaskSupervisor {
 }
 
 impl McpTaskSupervisor {
+    /// Production constructor: builds a supervisor wired to the real
+    /// [`inject::RuntimeInjector`] (reactive `agent::run` delivery). This is
+    /// the one `pub` entry point — every cross-crate wiring site (the
+    /// daemon's `DaemonRegistry`, `zeroclaw-channels::start_channels`,
+    /// `zeroclaw-gateway`'s `AppState`) constructs its shared supervisor
+    /// through this, since [`Self::new`] takes an arbitrary injector (a test
+    /// seam) and `RuntimeInjector` itself is `pub(crate)`. Call once per
+    /// daemon run/reload iteration and share the returned `Arc`; a fresh
+    /// call per surface would connect duplicate MCP task-advertising
+    /// registries for the same agent scope.
+    pub fn start(config: Config) -> Arc<Self> {
+        let injector: Arc<dyn TaskInjector> = Arc::new(inject::RuntimeInjector {
+            config: config.clone(),
+        });
+        Self::new(config, injector)
+    }
+
     pub(crate) fn new(config: Config, injector: Arc<dyn TaskInjector>) -> Arc<Self> {
         Arc::new(Self {
             config,

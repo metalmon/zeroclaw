@@ -5397,14 +5397,26 @@ async fn async_main(command: clap::Command) -> Result<()> {
                     current_config.sop.maintenance_interval_secs,
                 );
 
+                // One MCP task supervisor per daemon run/reload iteration,
+                // shared across the gateway, channel listeners, and
+                // RpcContext (RPC/TUI sessions) below — mirrors sop_engine's
+                // per-iteration construction so every surface routes
+                // task-enabled MCP tool calls through the same admission
+                // control and poll loops instead of connecting duplicate
+                // task-advertising MCP registries per surface.
+                let task_supervisor =
+                    zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(current_config.clone());
+
                 #[cfg(feature = "gateway")]
                 registry.register_gateway(Box::new({
                     let sop_e = sop_engine.clone();
                     let sop_a = sop_audit.clone();
+                    let task_supervisor = task_supervisor.clone();
                     move |host, port, config, tx, reload_controls, tui_registry, ready_tx| {
                         let canvas_store = canvas_store_for_gateway.clone();
                         let sop_engine = sop_e.clone();
                         let sop_audit = sop_a.clone();
+                        let task_supervisor = task_supervisor.clone();
                         Box::pin(async move {
                             Box::pin(zeroclaw_gateway::run_gateway(
                                 &host,
@@ -5417,6 +5429,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                                 sop_engine,
                                 sop_audit,
                                 ready_tx,
+                                Some(task_supervisor),
                             ))
                             .await
                         })
@@ -5426,10 +5439,12 @@ async fn async_main(command: clap::Command) -> Result<()> {
                 registry.register_channels(Box::new({
                     let sop_e = sop_engine.clone();
                     let sop_a = sop_audit.clone();
+                    let task_supervisor = task_supervisor.clone();
                     move |config, cancel| {
                         let canvas_store = canvas_store_for_channels.clone();
                         let sop_engine = sop_e.clone();
                         let sop_audit = sop_a.clone();
+                        let task_supervisor = task_supervisor.clone();
                         Box::pin(async move {
                             Box::pin(zeroclaw_channels::orchestrator::start_channels(
                                 config,
@@ -5437,6 +5452,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                                 cancel,
                                 sop_engine,
                                 sop_audit,
+                                Some(task_supervisor),
                             ))
                             .await
                         })
@@ -5940,6 +5956,9 @@ async fn async_main(command: clap::Command) -> Result<()> {
                 // Pass the shared SOP engine through the registry so
                 // RpcContext (RPC/TUI agent sessions) can share it.
                 registry.set_sop_engine(sop_engine, sop_audit);
+                // Same for the MCP task supervisor (see its construction
+                // above for why one shared instance is threaded everywhere).
+                registry.set_task_supervisor(Some(task_supervisor));
 
                 let exit = Box::pin(daemon::run(
                     current_config.clone(),
@@ -6645,8 +6664,18 @@ async fn async_main(command: clap::Command) -> Result<()> {
                     sop_audit.as_ref(),
                     config.sop.maintenance_interval_secs,
                 );
+                // Standalone `zeroclaw channel start`: no daemon registry to
+                // share a supervisor through, so build one just for this
+                // process (mirrors the standalone `sop_engine` above).
+                let task_supervisor =
+                    zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone());
                 let result = Box::pin(channels::start_channels(
-                    config, None, cancel, sop_engine, sop_audit,
+                    config,
+                    None,
+                    cancel,
+                    sop_engine,
+                    sop_audit,
+                    Some(task_supervisor),
                 ))
                 .await;
                 if let Some(handle) = sop_maintenance {
@@ -9761,9 +9790,23 @@ async fn run_gateway_if_enabled(
     // Standalone gateway (no daemon supervisor): pass None for reload_tx so
     // /admin/reload returns 503 with a clear "no supervisor; restart
     // manually" message, None for tui_registry (no TUI socket), and None
-    // for canvas_store so the gateway falls back to its own default.
+    // for canvas_store so the gateway falls back to its own default. A
+    // standalone task supervisor is still built (mirrors standalone
+    // `zeroclaw channel start`) so ACP/WS sessions on this gateway get
+    // task-enabled MCP routing.
+    let task_supervisor = zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone());
     let result = Box::pin(gateway::run_gateway(
-        host, port, config, tx, None, None, None, None, None, None,
+        host,
+        port,
+        config,
+        tx,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(task_supervisor),
     ))
     .await;
     // Self-respawn after the listener is released, if an in-app upgrade
