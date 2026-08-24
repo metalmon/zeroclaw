@@ -102,6 +102,12 @@ pub(crate) fn render_task_result(
 /// as before this change.
 pub(crate) struct RuntimeInjector {
     pub(crate) config: Config,
+    /// The same daemon-owned MCP connection pool the poller (`mcp_tasks::mod`)
+    /// borrows scope registries from, so the reactive injected turn below
+    /// reuses the exact pooled connection the poller used to observe this
+    /// task's completion — `pool.registry_for` returns the identical cached
+    /// `Arc` per scope — rather than spawning a second, duplicate one.
+    pub(crate) pool: std::sync::Arc<crate::mcp_pool::McpConnectionPool>,
 }
 
 #[async_trait::async_trait]
@@ -131,6 +137,7 @@ impl TaskInjector for RuntimeInjector {
         // `AgentRunOverrides::memory_session_override`'s doc comment.
         let overrides = crate::agent::loop_::AgentRunOverrides {
             memory_session_override: Some(session_key.clone()),
+            mcp_registry: self.pool.registry_for(&binding.agent_alias).await,
             ..crate::agent::loop_::AgentRunOverrides::default()
         };
 

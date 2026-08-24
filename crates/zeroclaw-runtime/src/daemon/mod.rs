@@ -657,6 +657,12 @@ pub async fn run(
     // above) for RpcContext, so RPC/TUI agent sessions share the daemon's
     // per-scope MCP connections instead of opening their own.
     let mcp_pool = registry.take_mcp_pool();
+    // Cloned before `rpc_ctx`'s construction below (conditionally) moves
+    // `mcp_pool` into `RpcContext` — the heartbeat worker, spawned later in
+    // this function, needs its own handle to the same pool so its
+    // `agent::run` ticks borrow the exact pooled connection every other
+    // scoped caller uses instead of opening a duplicate one.
+    let mcp_pool_for_heartbeat = mcp_pool.clone();
 
     let rpc_ctx = if need_rpc_ctx {
         use crate::rpc::context::RpcContext;
@@ -963,6 +969,7 @@ pub async fn run(
 
     if config.heartbeat.enabled {
         let heartbeat_cfg = config.clone();
+        let heartbeat_mcp_pool = mcp_pool_for_heartbeat.clone();
         handles.push(spawn_component_supervisor(
             "heartbeat",
             initial_backoff,
@@ -970,7 +977,8 @@ pub async fn run(
             channels_cancel.clone(),
             move || {
                 let cfg = heartbeat_cfg.clone();
-                async move { Box::pin(run_heartbeat_worker(cfg)).await }
+                let pool = heartbeat_mcp_pool.clone();
+                async move { Box::pin(run_heartbeat_worker(cfg, pool)).await }
             },
         ));
     }
@@ -1508,6 +1516,7 @@ fn current_heartbeat_mcp_registry_test_hook() -> Option<HeartbeatMcpRegistryTest
 /// the retry path still had: a granted list of {A, B} with A healthy
 /// and B down previously caused every tick to reconnect BOTH A and B via
 /// `McpRegistry::connect_all`, even though A never needed it).
+#[cfg(test)]
 fn missing_or_dead_servers(
     granted: Vec<zeroclaw_config::schema::McpServerConfig>,
     current: Option<&std::sync::Arc<crate::tools::McpRegistry>>,
@@ -1528,6 +1537,7 @@ fn missing_or_dead_servers(
         .collect()
 }
 
+#[cfg(test)]
 async fn connect_heartbeat_mcp_registry(
     config: &Config,
     agent_alias: &str,
@@ -1609,6 +1619,7 @@ async fn connect_heartbeat_mcp_registry(
 /// Returns `Some(merged_registry)` when the caller should replace
 /// `current` with a new Arc, `None` when `current` should stay
 /// unchanged.
+#[cfg(test)]
 async fn reconcile_heartbeat_mcp_registry(
     current: Option<&std::sync::Arc<crate::tools::McpRegistry>>,
     fresh: Option<&std::sync::Arc<crate::tools::McpRegistry>>,
@@ -1739,6 +1750,7 @@ async fn reconcile_heartbeat_mcp_registry(
 /// to decide whether to replace the current registry.
 ///
 /// Returns immediately (Ok(())) when no reconnection is needed.
+#[cfg(test)]
 async fn retry_heartbeat_mcp_registry(
     shared: &mut Option<std::sync::Arc<crate::tools::McpRegistry>>,
     config: &Config,
@@ -1798,27 +1810,16 @@ async fn retry_heartbeat_mcp_registry(
     Ok(())
 }
 
-async fn run_heartbeat_worker(config: Config) -> Result<()> {
+async fn run_heartbeat_worker(
+    config: Config,
+    mcp_pool: Option<std::sync::Arc<crate::mcp_pool::McpConnectionPool>>,
+) -> Result<()> {
     use crate::heartbeat::engine::{
         HeartbeatEngine, HeartbeatTask, TaskPriority, TaskStatus, compute_adaptive_interval,
     };
     use std::sync::Arc;
 
     let (agent_alias, heartbeat_workspace_dir) = resolve_heartbeat_workspace_dir(&config)?;
-
-    // Build the daemon-level MCP registry ONCE per worker. With this
-    // owner in place, every `agent::run` tick below reuses the same
-    // `Arc<McpRegistry>` and the stdio MCP children live for the
-    // worker's whole lifetime.
-    //
-    // The variable is `mut` so `retry_heartbeat_mcp_registry` below
-    // can replace the stored registry with a fresh one when a granted
-    // MCP server is missing from the registry (e.g. it was down at
-    // worker boot and comes up later). Once `server_count ==
-    // granted.len()` the call is a no-op and the Arc pointer survives
-    // across ticks — the no-churn steady state is preserved.
-    let mut shared_mcp_registry: Option<Arc<crate::tools::McpRegistry>> =
-        connect_heartbeat_mcp_registry(&config, &agent_alias, None).await?;
 
     let observer: std::sync::Arc<dyn crate::observability::Observer> =
         std::sync::Arc::from(crate::observability::create_observer(&config.observability));
@@ -1908,12 +1909,20 @@ async fn run_heartbeat_worker(config: Config) -> Result<()> {
 
         let tick_start = std::time::Instant::now();
 
-        // ── retry-while-incomplete ───────────────────────────
-        // When the registry is incomplete (fewer connected servers than
-        // granted) or health checks detect dead connections, this call
-        // rebuilds the registry and uses `reconcile_heartbeat_mcp_registry`
-        // to decide whether to replace the current registry.
-        retry_heartbeat_mcp_registry(&mut shared_mcp_registry, &config, &agent_alias).await?;
+        // ── shared connection pool ───────────────────────────
+        // Borrow this tick's MCP registry from the daemon-wide
+        // `McpConnectionPool` rather than maintaining a bespoke
+        // reconnect/reconcile loop here: `registry_for` already performs
+        // the lazy, per-server, config-aware reconcile-and-cache that this
+        // worker used to do locally (see the now test-only
+        // `retry_heartbeat_mcp_registry` below), and — because it is the
+        // SAME pool every other scoped `agent::run` call borrows from —
+        // this also means the heartbeat reuses the exact pooled
+        // connection instead of spawning/maintaining a second one.
+        let tick_mcp_registry: Option<Arc<crate::tools::McpRegistry>> = match &mcp_pool {
+            Some(pool) => pool.registry_for(&agent_alias).await,
+            None => None,
+        };
 
         // Collect runnable tasks (active only, sorted by priority)
         let mut tasks = engine.collect_runnable_tasks().await?;
@@ -1959,7 +1968,7 @@ async fn run_heartbeat_worker(config: Config) -> Result<()> {
                 None,
                 zeroclaw_api::ingress::TurnOrigin::Daemon,
                 crate::agent::loop_::AgentRunOverrides {
-                    mcp_registry: shared_mcp_registry.as_ref().map(Arc::clone),
+                    mcp_registry: tick_mcp_registry.as_ref().map(Arc::clone),
                     ..crate::agent::loop_::AgentRunOverrides::default()
                 },
             ));
@@ -2088,7 +2097,7 @@ async fn run_heartbeat_worker(config: Config) -> Result<()> {
                 None,
                 zeroclaw_api::ingress::TurnOrigin::Daemon,
                 crate::agent::loop_::AgentRunOverrides {
-                    mcp_registry: shared_mcp_registry.as_ref().map(Arc::clone),
+                    mcp_registry: tick_mcp_registry.as_ref().map(Arc::clone),
                     ..crate::agent::loop_::AgentRunOverrides::default()
                 },
             ));
