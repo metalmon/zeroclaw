@@ -958,6 +958,11 @@ pub async fn run_with_authority(
 
     // Extract shared SOP engine from registry for RpcContext.
     let (sop_engine, sop_audit, sop_driver_handles) = registry.take_sop_engine();
+    // Extract the shared MCP task supervisor (mirrors sop_engine above) for
+    // RpcContext, so RPC/TUI agent sessions route task-enabled MCP tool
+    // calls through the same supervisor instance as the gateway and channel
+    // listeners.
+    let task_supervisor = registry.take_task_supervisor();
 
     let rpc_ctx = if need_rpc_ctx {
         use crate::rpc::context::RpcContext;
@@ -1128,6 +1133,7 @@ pub async fn run_with_authority(
             hooks,
             cert_audit,
             auth: rpc_auth,
+            task_supervisor,
         }))
     } else {
         None

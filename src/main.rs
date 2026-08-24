@@ -7439,6 +7439,16 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                     _ => None,
                 };
 
+                // One MCP task supervisor per daemon run/reload iteration,
+                // shared across the gateway, channel listeners, and
+                // RpcContext (RPC/TUI sessions) below — mirrors sop_engine's
+                // per-iteration construction so every surface routes
+                // task-enabled MCP tool calls through the same admission
+                // control and poll loops instead of connecting duplicate
+                // task-advertising MCP registries per surface.
+                let task_supervisor =
+                    zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(current_config.clone());
+
                 #[cfg(feature = "gateway")]
                 registry.register_gateway(Box::new({
                     let sop_e = sop_engine.clone();
@@ -7447,6 +7457,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                         .as_ref()
                         .map(|supervisor| supervisor.drivers.clone());
                     let plugin_webhooks = Arc::clone(&plugin_webhooks);
+                    let task_supervisor = task_supervisor.clone();
                     move |host,
                           port,
                           config,
@@ -7461,6 +7472,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                         let sop_audit = sop_a.clone();
                         let sop_driver_handles = sop_dh.clone();
                         let plugin_webhooks = Arc::clone(&plugin_webhooks);
+                        let task_supervisor = task_supervisor.clone();
                         Box::pin(async move {
                             Box::pin(zeroclaw_gateway::run_gateway_with_plugin_webhooks(
                                 &host,
@@ -7473,6 +7485,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                                 sop_engine,
                                 sop_audit,
                                 daemon_authority,
+                                Some(task_supervisor),
                                 zeroclaw_gateway::GatewaySupervision::new(
                                     ready_tx,
                                     plugin_webhooks,
@@ -7490,12 +7503,14 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                     let sop_a = sop_audit.clone();
                     let sop_ds = sop_driver_sink.clone();
                     let plugin_webhooks = channel_plugin_webhooks.clone();
+                    let task_supervisor = task_supervisor.clone();
                     move |authority, cancel| {
                         let canvas_store = canvas_store_for_channels.clone();
                         let sop_engine = sop_e.clone();
                         let sop_audit = sop_a.clone();
                         let sop_driver_sink = sop_ds.clone();
                         let plugin_webhooks = plugin_webhooks.clone();
+                        let task_supervisor = task_supervisor.clone();
                         Box::pin(async move {
                             Box::pin(
                                 zeroclaw_channels::orchestrator::start_channels_with_authority_and_plugin_webhooks(
@@ -7506,6 +7521,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                                     sop_audit,
                                     plugin_webhooks,
                                     sop_driver_sink,
+                                    Some(task_supervisor),
                                 ),
                             )
                             .await
@@ -8041,6 +8057,9 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                         .as_ref()
                         .map(|supervisor| supervisor.drivers.clone()),
                 );
+                // Same for the MCP task supervisor (see its construction
+                // above for why one shared instance is threaded everywhere).
+                registry.set_task_supervisor(Some(task_supervisor));
 
                 let exit = Box::pin(daemon::run_with_authority(
                     authority,
@@ -8918,6 +8937,11 @@ Add pricing to the active provider profile or supply a catalog entry."
                 // Standalone channel mode owns the live-pricing refresher.
                 zeroclaw_runtime::daemon::spawn_pricing_refresher(&config);
 
+                // Standalone `zeroclaw channel start`: no daemon registry to
+                // share a supervisor through, so build one just for this
+                // process (mirrors the standalone `sop_engine` above).
+                let task_supervisor =
+                    zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone());
                 let result = Box::pin(channels::start_channels_with_authority(
                     authority,
                     None,
@@ -8925,6 +8949,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                     sop_engine,
                     sop_audit,
                     sop_driver_sink,
+                    Some(task_supervisor),
                 ))
                 .await;
 
@@ -12994,9 +13019,25 @@ async fn run_gateway_if_enabled(
     // Standalone gateway (no daemon supervisor): pass None for reload_tx so
     // /admin/reload returns 503 with a clear "no supervisor; restart
     // manually" message, None for tui_registry (no TUI socket), and None
-    // for canvas_store so the gateway falls back to its own default.
+    // for canvas_store so the gateway falls back to its own default. A
+    // standalone task supervisor is still built (mirrors standalone
+    // `zeroclaw channel start`) so ACP/WS sessions on this gateway get
+    // task-enabled MCP routing.
+    let task_supervisor = zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone());
     let result = Box::pin(gateway::run_gateway(
-        host, port, config, event_bus, None, None, None, None, None, None, None, readiness,
+        host,
+        port,
+        config,
+        event_bus,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        readiness,
+        Some(task_supervisor),
     ))
     .await;
     // Self-respawn after the listener is released, if an in-app upgrade

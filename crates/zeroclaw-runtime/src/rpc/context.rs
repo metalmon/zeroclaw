@@ -249,6 +249,12 @@ pub struct RpcContext {
     /// `commit_config_with_live_session_refresh`. See `ConfigCommitPause`.
     #[cfg(test)]
     pub config_commit_pause: Option<Arc<ConfigCommitPause>>,
+
+    /// Shared MCP task supervisor from the daemon (for RPC/TUI agent
+    /// sessions constructed via `Agent::from_live_config_with_tui_env`).
+    /// `None` when standalone/tests — those sessions get no task-enabled
+    /// MCP routing, mirroring `sop_engine`'s `None` fallback above.
+    pub task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
 }
 
 /// Test-only pause point inside `commit_config_with_live_session_refresh`:
@@ -316,6 +322,7 @@ impl RpcContext {
             config_commit_pause: None,
             cert_audit,
             auth,
+            task_supervisor: None,
         })
     }
 
@@ -348,6 +355,7 @@ impl RpcContext {
             config_commit_pause: None,
             cert_audit: None,
             auth,
+            task_supervisor: None,
         })
     }
 
@@ -388,6 +396,7 @@ impl RpcContext {
             config_commit_pause: None,
             cert_audit,
             auth,
+            task_supervisor: None,
         })
     }
 
@@ -470,6 +479,7 @@ impl RpcContext {
             config_commit_pause: None,
             cert_audit: None,
             auth,
+            task_supervisor: None,
         })
     }
 
@@ -506,6 +516,7 @@ impl RpcContext {
             config_commit_pause: None,
             cert_audit: None,
             auth,
+            task_supervisor: None,
         })
     }
 
@@ -547,6 +558,7 @@ impl RpcContext {
             config_commit_pause: None,
             cert_audit: None,
             auth,
+            task_supervisor: None,
         })
     }
 
@@ -583,6 +595,7 @@ impl RpcContext {
             config_commit_pause: None,
             cert_audit: None,
             auth,
+            task_supervisor: None,
         })
     }
 
@@ -619,6 +632,7 @@ impl RpcContext {
             config_commit_pause: None,
             cert_audit: None,
             auth,
+            task_supervisor: None,
         })
     }
 
@@ -656,6 +670,7 @@ impl RpcContext {
             config_commit_pause: None,
             cert_audit: None,
             auth,
+            task_supervisor: None,
         })
     }
 
@@ -693,6 +708,7 @@ impl RpcContext {
             config_commit_pause: None,
             cert_audit: None,
             auth,
+            task_supervisor: None,
         })
     }
 }
