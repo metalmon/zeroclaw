@@ -5135,7 +5135,7 @@ fn mcp_required_by_transport() -> serde_json::Value {
 }
 
 /// Configuration for a single external MCP server.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, Configurable)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, Configurable)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 #[cfg_attr(
     feature = "schema-export",
@@ -25396,6 +25396,21 @@ mod tests {
             serde_json::to_value(&cfg).unwrap()["tls_ca_cert_path"],
             "/etc/zeroclaw/internal-ca.pem"
         );
+    }
+
+    #[test]
+    fn mcp_server_config_eq_detects_arg_change() {
+        let a = McpServerConfig {
+            name: "kb".into(),
+            command: "kb".into(),
+            args: vec!["--corpus".into(), "legal".into()],
+            ..Default::default()
+        };
+        let b = a.clone();
+        assert_eq!(a, b);
+        let mut b = b;
+        b.args = vec!["--corpus".into(), "hr".into()];
+        assert_ne!(a, b);
     }
 
     #[::core::prelude::v1::test]
