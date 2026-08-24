@@ -4680,6 +4680,10 @@ impl RpcDispatcher {
                 Arc::clone(&self.ctx.config),
                 self.ctx.agent_lifecycle.clone(),
             );
+        let mcp_reg = match &self.ctx.mcp_pool {
+            Some(p) => p.registry_for(&req.agent_alias).await,
+            None => None,
+        };
         let mut agent = Box::pin(
             crate::agent::agent::Agent::from_snapshot_with_tui_env_with_capability(
                 &config,
@@ -4695,7 +4699,7 @@ impl RpcDispatcher {
                 Some(execution_capability),
                 acp_session_store,
                 self.ctx.task_supervisor.clone(),
-                None,
+                mcp_reg,
             ),
         )
         .await
@@ -5752,6 +5756,10 @@ impl RpcDispatcher {
                 Arc::clone(&self.ctx.config),
                 self.ctx.agent_lifecycle.clone(),
             );
+        let mcp_reg = match &self.ctx.mcp_pool {
+            Some(p) => p.registry_for(&data.agent_alias).await,
+            None => None,
+        };
         let Ok(mut agent) = Box::pin(
             crate::agent::agent::Agent::from_snapshot_with_tui_env_with_capability(
                 &config,
@@ -5767,7 +5775,7 @@ impl RpcDispatcher {
                 Some(execution_capability),
                 Some(Arc::clone(&store)),
                 self.ctx.task_supervisor.clone(),
-                None,
+                mcp_reg,
             ),
         )
         .await
