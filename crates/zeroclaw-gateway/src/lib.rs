@@ -837,6 +837,10 @@ pub async fn run_gateway(
                 sop_audit.clone(),
                 None,
             );
+            let listing_mcp_registry = match mcp_pool.as_ref() {
+                Some(pool) => pool.registry_for(agent_alias).await,
+                None => None,
+            };
             let assembled = scoped::ScopedToolRegistry::assemble(scoped::ScopedAssembly {
                 config: &config,
                 agent_alias,
@@ -848,9 +852,11 @@ pub async fn run_gateway(
                 runtime: Arc::clone(&runtime),
                 caller_allowed: None,
                 connect_mcp: true,
-                // Gateway tool-listing path: short-lived, no cross-turn reuse
-                // contract, so the per-call connect is correct.
-                mcp_registry: None,
+                // Gateway tool-listing path: reuses the shared per-scope MCP
+                // connection from the daemon's connection pool, so a listing
+                // no longer spawns a second server process alongside the
+                // session/task-poller connection for this alias.
+                mcp_registry: listing_mcp_registry,
                 task_supervisor: None,
                 // Listing-only registry: loading peripherals physically opens
                 // hardware (exclusive serial holds) that the live turn paths
@@ -976,6 +982,10 @@ pub async fn run_gateway(
         // the agent's policy-filtered set (filter + MCP). The tools are only
         // enumerated for their specs, never invoked, so the returned channel
         // handles, deferred section, and activation handle are unused.
+        let listing_mcp_registry = match mcp_pool.as_ref() {
+            Some(pool) => pool.registry_for(&alias).await,
+            None => None,
+        };
         let assembled = scoped::ScopedToolRegistry::assemble(scoped::ScopedAssembly {
             config: &config,
             agent_alias: &alias,
@@ -987,9 +997,11 @@ pub async fn run_gateway(
             runtime: Arc::clone(&runtime),
             caller_allowed: None,
             connect_mcp: true,
-            // Gateway tool-listing path: short-lived, no cross-turn reuse
-            // contract, so the per-call connect is correct.
-            mcp_registry: None,
+            // Gateway tool-listing path: reuses the shared per-scope MCP
+            // connection from the daemon's connection pool, so a listing
+            // no longer spawns a second server process alongside the
+            // session/task-poller connection for this alias.
+            mcp_registry: listing_mcp_registry,
             task_supervisor: None,
             // Same as the seed: never open hardware for a listing (and
             // `config.peripherals` is global - N per-agent opens of the same
