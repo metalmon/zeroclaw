@@ -373,36 +373,30 @@ impl McpTaskSupervisor {
                     },
                 );
                 self.clone()
-                    .spawn_poller(alias.to_string(), ct.task.task_id.clone(), poll);
+                    .spawn_poller(ct.task.task_id.clone(), poll, Arc::clone(&reg));
                 Ok(TaskDispatch::Pending { immediate })
             }
         }
     }
 
-    /// Background poll loop for one task. Runs until the task reaches a
-    /// terminal status (successfully handed off to the injector), the
-    /// binding is removed out from under it (e.g. cancelled), or a poll
-    /// fails (logged and abandoned — the binding is dropped so a later
-    /// `cancel_tasks_for_session` does not try to cancel an already-dead
-    /// task).
-    fn spawn_poller(self: Arc<Self>, alias: String, task_id: String, mut poll_ms: u64) {
+    /// Background poll loop for one task. Polls on the exact registry
+    /// (`reg`) the task was created on — NOT a freshly re-fetched
+    /// `scope_registry(alias)` — because rmcp task ids are scoped to the
+    /// MCP connection that created them. Re-fetching here would race a
+    /// concurrent first-ever `create_task` for the same `alias`: two
+    /// concurrent calls can each lazily build a distinct per-scope registry,
+    /// and whichever `insert` into `self.scopes` loses would leave this
+    /// poller polling a different connection than the task lives on,
+    /// making `tasks/get` fail with `-32602` and silently losing the
+    /// result.
+    ///
+    /// Runs until the task reaches a terminal status (successfully handed
+    /// off to the injector), the binding is removed out from under it (e.g.
+    /// cancelled), or a poll fails (logged and abandoned — the binding is
+    /// dropped so a later `cancel_tasks_for_session` does not try to cancel
+    /// an already-dead task).
+    fn spawn_poller(self: Arc<Self>, task_id: String, mut poll_ms: u64, reg: Arc<McpRegistry>) {
         zeroclaw_spawn::spawn!(async move {
-            let reg = match self.scope_registry(&alias).await {
-                Ok(r) => r,
-                Err(e) => {
-                    ::zeroclaw_log::record!(
-                        WARN,
-                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
-                            .with_outcome(::zeroclaw_log::EventOutcome::Failure)
-                            .with_attrs(
-                                ::serde_json::json!({"agent_alias": &alias, "task_id": &task_id})
-                            ),
-                        &format!("mcp-task: scope registry for `{alias}` unavailable: {e:#}")
-                    );
-                    self.drop_task(&task_id).await;
-                    return;
-                }
-            };
             loop {
                 tokio::time::sleep(std::time::Duration::from_millis(poll_ms.max(100))).await;
 
