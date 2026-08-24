@@ -10683,6 +10683,7 @@ data: [DONE]\n\n";
                 std::path::PathBuf::new(),
             )),
             auto_save: true,
+            task_supervisor: None,
             pairing: Arc::new(PairingGuard::new(false, &[])),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
