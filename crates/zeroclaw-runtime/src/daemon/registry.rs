@@ -75,6 +75,12 @@ pub struct DaemonRegistry {
     /// above) so RPC/TUI agent sessions route task-enabled MCP tool calls
     /// through the same supervisor the gateway and channel listeners use.
     task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+    /// Shared MCP connection pool built once per daemon run/reload
+    /// iteration. Passed through to `RpcContext` (mirroring `task_supervisor`
+    /// above) so RPC/TUI agent sessions and, in later tasks, the tasks
+    /// supervisor share the same per-scope connection registries instead of
+    /// each opening duplicate MCP server connections.
+    mcp_pool: Option<Arc<crate::mcp_pool::McpConnectionPool>>,
 }
 
 impl DaemonRegistry {
@@ -215,6 +221,19 @@ impl DaemonRegistry {
     ) -> Option<Arc<crate::mcp_tasks::McpTaskSupervisor>> {
         self.task_supervisor.take()
     }
+
+    /// Set the shared MCP connection pool for this daemon iteration.
+    pub fn set_mcp_pool(
+        &mut self,
+        mcp_pool: Option<Arc<crate::mcp_pool::McpConnectionPool>>,
+    ) -> &mut Self {
+        self.mcp_pool = mcp_pool;
+        self
+    }
+
+    pub(crate) fn take_mcp_pool(&mut self) -> Option<Arc<crate::mcp_pool::McpConnectionPool>> {
+        self.mcp_pool.take()
+    }
 }
 
 #[cfg(test)]
@@ -267,6 +286,21 @@ mod tests {
         assert!(registry.has_socket_start());
         assert!(registry.has_wss_start());
         assert!(registry.has_mqtt_start());
+    }
+
+    #[test]
+    fn mcp_pool_setter_round_trips_through_take() {
+        let mut registry = DaemonRegistry::new();
+        let pool = crate::mcp_pool::McpConnectionPool::from_owned_config(Config::default());
+
+        registry.set_mcp_pool(Some(Arc::clone(&pool)));
+
+        let taken = registry.take_mcp_pool().expect("mcp_pool was set");
+        assert!(Arc::ptr_eq(&taken, &pool));
+        assert!(
+            registry.take_mcp_pool().is_none(),
+            "take_mcp_pool must consume the slot"
+        );
     }
 
     #[test]
