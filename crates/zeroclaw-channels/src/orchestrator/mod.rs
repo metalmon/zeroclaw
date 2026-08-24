@@ -7144,9 +7144,17 @@ async fn process_channel_message_body(
             let tool_loop = scope_session_key(Some(history_key.clone()), tool_loop);
             // Scope the origin channel/reply-target so a background MCP task
             // spawned from this turn (McpTaskToolWrapper) can route its
-            // eventual completion back to the channel that started it.
+            // eventual completion back to the channel that started it. The
+            // completion delivery resolves a dotted `<type>.<alias>` channel
+            // ref, so build it from the message's channel type + alias (e.g.
+            // `telegram.roy`); aliasless channels (webhook, cli) keep the bare
+            // type since they are not dotted-registry deliverable anyway.
+            let origin_channel = match msg.channel_alias.as_deref() {
+                Some(alias) => format!("{}.{}", msg.channel, alias),
+                None => msg.channel.clone(),
+            };
             let tool_loop = zeroclaw_api::TOOL_LOOP_ORIGIN_ROUTE.scope(
-                Some((msg.channel.clone(), msg.reply_target.clone())),
+                Some((origin_channel, msg.reply_target.clone())),
                 tool_loop,
             );
             let tool_loop = scope_thread_id(thread_scope_id, tool_loop);
