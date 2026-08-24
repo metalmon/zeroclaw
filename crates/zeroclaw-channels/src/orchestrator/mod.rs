@@ -12665,6 +12665,7 @@ async fn assemble_channel_agent_tools(
                         // The heartbeat worker remains the only caller that supplies
                         // a pre-built registry for reuse across repeated assemblies.
                         mcp_registry: None,
+                        task_supervisor: None,
                     },
                 )
                 .await
