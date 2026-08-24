@@ -804,6 +804,11 @@ pub struct AppState {
     /// sessions). `None` when standalone/tests — those sessions get no
     /// task-enabled MCP routing, mirroring `sop_engine` above.
     pub task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    /// Shared MCP connection pool from the daemon (for ACP/WS agent
+    /// sessions). `None` when standalone/tests — those sessions connect
+    /// their own per-turn MCP registries instead of drawing from the pool,
+    /// mirroring `task_supervisor` above.
+    pub mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
 }
 
 impl AppState {
@@ -978,6 +983,8 @@ pub async fn run_gateway(
     readiness: Option<zeroclaw_runtime::daemon::GatewayReadinessReporter>,
     // Shared MCP task supervisor from the daemon. `None` when standalone.
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    // Shared MCP connection pool from the daemon. `None` when standalone.
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
 ) -> Result<()> {
     let authority = zeroclaw_runtime::LiveConfigAuthority::new_owned(config.clone())?;
     run_gateway_with_authority(
@@ -994,6 +1001,7 @@ pub async fn run_gateway(
         sop_driver_handles,
         readiness,
         task_supervisor,
+        mcp_pool,
         authority,
     )
     .await
@@ -1017,6 +1025,8 @@ pub async fn run_gateway_with_authority(
     readiness: Option<zeroclaw_runtime::daemon::GatewayReadinessReporter>,
     // Shared MCP task supervisor from the daemon. `None` when standalone.
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    // Shared MCP connection pool from the daemon. `None` when standalone.
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
     authority: zeroclaw_runtime::LiveConfigAuthority,
 ) -> Result<()> {
     Box::pin(run_gateway_with_plugin_webhooks(
@@ -1031,6 +1041,7 @@ pub async fn run_gateway_with_authority(
         sop_audit,
         daemon_authority,
         task_supervisor,
+        mcp_pool,
         GatewaySupervision::new(
             readiness,
             Arc::new(zeroclaw_api::webhook::PluginWebhookRegistry::new()),
@@ -1062,6 +1073,8 @@ pub async fn run_gateway_with_plugin_webhooks(
     daemon_authority: Option<zeroclaw_runtime::daemon::DaemonInboundAuthority>,
     // Shared MCP task supervisor from the daemon. `None` when standalone.
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    // Shared MCP connection pool from the daemon. `None` when standalone.
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
     supervision: GatewaySupervision,
 ) -> Result<()> {
     let GatewaySupervision {
@@ -2097,6 +2110,7 @@ pub async fn run_gateway_with_plugin_webhooks(
         sop_audit,
         sop_driver_handles,
         task_supervisor,
+        mcp_pool,
         #[cfg(feature = "webauthn")]
         webauthn: if config.security.webauthn.enabled {
             let secret_store = Arc::new(zeroclaw_runtime::security::SecretStore::new(
@@ -5758,6 +5772,7 @@ mod tests {
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -6754,6 +6769,7 @@ path = "{trigger_path}"
                 None,
                 None,
                 None,
+                None,
             )
             .await
         });
@@ -6827,6 +6843,7 @@ path = "{trigger_path}"
                 None,
                 None,
                 None,
+                None,
             )
             .await
         });
@@ -6876,6 +6893,7 @@ path = "{trigger_path}"
                 "127.0.0.1",
                 0,
                 config,
+                None,
                 None,
                 None,
                 None,
@@ -6956,6 +6974,7 @@ path = "{trigger_path}"
                 None,
                 Some(readiness),
                 None,
+                None,
             )
             .await
         });
@@ -7029,6 +7048,7 @@ path = "{trigger_path}"
             None,
             None,
             Some(readiness),
+            None,
             None,
         )
         .await;
@@ -7104,6 +7124,7 @@ path = "{trigger_path}"
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7193,6 +7214,7 @@ path = "{trigger_path}"
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7865,6 +7887,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
             sop_driver_handles: None,
@@ -10374,6 +10397,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -10498,6 +10522,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -10601,6 +10626,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -10684,6 +10710,7 @@ data: [DONE]\n\n";
             )),
             auto_save: true,
             task_supervisor: None,
+            mcp_pool: None,
             pairing: Arc::new(PairingGuard::new(false, &[])),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
@@ -10919,6 +10946,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -11009,6 +11037,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -11104,6 +11133,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -11204,6 +11234,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -11299,6 +11330,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -11553,6 +11585,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -12443,6 +12476,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -12531,6 +12565,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -13146,6 +13181,7 @@ data: [DONE]\n\n";
             sop_audit: None,
             sop_driver_handles: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -13663,6 +13699,7 @@ mod accept_error_tests {
                 None,
                 None,
                 Some(readiness),
+                None,
                 None,
             )
             .await
