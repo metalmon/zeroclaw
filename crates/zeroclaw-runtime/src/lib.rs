@@ -28,6 +28,7 @@ pub mod heartbeat;
 pub mod hooks;
 pub mod i18n;
 pub mod integrations;
+pub mod mcp_pool;
 pub mod mcp_tasks;
 pub mod observability;
 pub mod peers;
