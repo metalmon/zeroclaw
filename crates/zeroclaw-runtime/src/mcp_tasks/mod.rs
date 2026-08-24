@@ -15,6 +15,7 @@
 //! and tests provide a fake.
 
 pub(crate) mod inject;
+pub(crate) mod wrapper;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -73,12 +74,28 @@ pub(crate) trait TaskInjector: Send + Sync {
 
 /// Owns per-agent-scope task-advertising MCP connections, admission control,
 /// and the background pollers for every in-flight task.
-pub(crate) struct McpTaskSupervisor {
+///
+/// The struct is `pub` (Ruling R10) because [`crate::tools::scoped::ScopedAssembly`]
+/// carries `Option<Arc<McpTaskSupervisor>>` as a `pub` field and that struct
+/// is constructed across crate boundaries (`zeroclaw-channels`). Everything
+/// else here - the methods and the [`TaskDispatch`]/[`TaskInjector`]/[`TaskBinding`]
+/// types - stays `pub(crate)`: only `assemble` needs to hold and clone the
+/// `Arc`, never to call into it directly from outside this crate.
+pub struct McpTaskSupervisor {
     config: Config,
     /// One task-advertising registry per agent scope, built lazily.
     scopes: Mutex<HashMap<String, Arc<McpRegistry>>>,
     tasks: Mutex<HashMap<String, TaskBinding>>,
     injector: Arc<dyn TaskInjector>,
+    /// Test seam for [`McpTaskToolWrapper`](wrapper::McpTaskToolWrapper)'s unit
+    /// test: when set, `create_task` short-circuits admission/registry/poll
+    /// entirely and returns `TaskDispatch::Pending { immediate }` verbatim,
+    /// recording the `session_key` it was called with into
+    /// [`Self::last_session_key`]. Never set outside tests.
+    #[cfg(test)]
+    test_pending: Option<String>,
+    #[cfg(test)]
+    last_session_key: std::sync::Mutex<Option<String>>,
 }
 
 impl McpTaskSupervisor {
@@ -88,6 +105,10 @@ impl McpTaskSupervisor {
             scopes: Mutex::new(HashMap::new()),
             tasks: Mutex::new(HashMap::new()),
             injector,
+            #[cfg(test)]
+            test_pending: None,
+            #[cfg(test)]
+            last_session_key: std::sync::Mutex::new(None),
         })
     }
 
@@ -108,7 +129,39 @@ impl McpTaskSupervisor {
             scopes: Mutex::new(scopes),
             tasks: Mutex::new(HashMap::new()),
             injector,
+            test_pending: None,
+            last_session_key: std::sync::Mutex::new(None),
         })
+    }
+
+    /// Test-only seam for `mcp_tasks::wrapper`'s unit test: a supervisor
+    /// that never connects a real MCP registry and always answers
+    /// `create_task` with `TaskDispatch::Pending { immediate }`, recording
+    /// the `session_key` it was called with so the test can assert the
+    /// wrapper correctly threaded the `TOOL_LOOP_SESSION_KEY` task-local
+    /// through to `create_task`.
+    #[cfg(test)]
+    pub(crate) fn new_for_test_pending(immediate: &str) -> Arc<Self> {
+        struct NoopInjector;
+        #[async_trait::async_trait]
+        impl TaskInjector for NoopInjector {
+            async fn inject(&self, _binding: TaskBinding, _got: GetTaskResult) {}
+        }
+        Arc::new(Self {
+            config: Config::default(),
+            scopes: Mutex::new(HashMap::new()),
+            tasks: Mutex::new(HashMap::new()),
+            injector: Arc::new(NoopInjector),
+            test_pending: Some(immediate.to_string()),
+            last_session_key: std::sync::Mutex::new(None),
+        })
+    }
+
+    /// The `session_key` most recently passed to `create_task`. Test seam,
+    /// paired with [`Self::new_for_test_pending`].
+    #[cfg(test)]
+    pub(crate) fn last_session_key(&self) -> Option<String> {
+        self.last_session_key.lock().unwrap().clone()
     }
 
     /// Build (or reuse) this scope's task-advertising registry. Only
@@ -144,6 +197,12 @@ impl McpTaskSupervisor {
         args: serde_json::Value,
         session_key: Option<String>,
     ) -> anyhow::Result<TaskDispatch> {
+        #[cfg(test)]
+        if let Some(immediate) = self.test_pending.clone() {
+            *self.last_session_key.lock().unwrap() = session_key;
+            return Ok(TaskDispatch::Pending { immediate });
+        }
+
         // Admission cap per scope.
         let cap = self
             .config
