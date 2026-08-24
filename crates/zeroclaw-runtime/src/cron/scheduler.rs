@@ -1160,6 +1160,9 @@ async fn run_agent_job(
         // A `[[cron]]` job runs a prompt, not a SOP step. SOP cron triggers
         // are a separate surface driven by the SOP maintenance tick.
         sop_step_scope: None,
+        // Cron runs derive their memory scope from `session_state_file` as
+        // usual; only the MCP-task reactive injector sets this override.
+        memory_session_override: None,
         ..crate::agent::loop_::AgentRunOverrides::default()
     };
     let run_result = match job.session_target {
