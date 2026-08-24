@@ -306,7 +306,7 @@ impl McpTaskSupervisor {
 
     /// Create a task for `alias` on `server`/`tool`. Subject to a
     /// per-scope, per-server admission cap
-    /// (`McpServerConfig::max_concurrent_tasks`); a call over the cap is
+    /// (`McpServerConfig::task_concurrency_cap`); a call over the cap is
     /// rejected inline rather than queued.
     pub(crate) async fn create_task(
         self: &Arc<Self>,
@@ -331,7 +331,7 @@ impl McpTaskSupervisor {
             .mcp_servers_for_agent(alias)
             .iter()
             .find(|s| s.name == server)
-            .map(|s| s.max_concurrent_tasks())
+            .map(|s| s.task_concurrency_cap())
             .unwrap_or(32);
         {
             let tasks = self.tasks.lock().await;
