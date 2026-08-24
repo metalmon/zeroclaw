@@ -146,6 +146,10 @@ impl McpTaskSupervisor {
     pub fn start(config: Config, pool: Arc<crate::mcp_pool::McpConnectionPool>) -> Arc<Self> {
         let injector: Arc<dyn TaskInjector> = Arc::new(inject::RuntimeInjector {
             config: config.clone(),
+            // Same pool this supervisor borrows registries from (see the
+            // `pool` field doc above) — cloned here since `Self::new` below
+            // takes ownership of `pool` too.
+            pool: Arc::clone(&pool),
         });
         Self::new(config, injector, pool)
     }
