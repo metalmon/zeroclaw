@@ -4896,6 +4896,7 @@ impl RpcDispatcher {
                 Some(execution_capability),
                 acp_session_store,
                 self.ctx.task_supervisor.clone(),
+                None,
             ),
         )
         .await
@@ -5993,6 +5994,7 @@ impl RpcDispatcher {
                 Some(execution_capability),
                 Some(Arc::clone(&store)),
                 self.ctx.task_supervisor.clone(),
+                None,
             ),
         )
         .await

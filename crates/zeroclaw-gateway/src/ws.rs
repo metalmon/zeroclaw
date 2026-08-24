@@ -604,6 +604,7 @@ async fn handle_socket(
             Some(execution_capability),
             &[],
             state.task_supervisor.clone(),
+            None,
         )
         .await
         {
