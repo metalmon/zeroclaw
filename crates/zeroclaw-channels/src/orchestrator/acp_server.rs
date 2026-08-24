@@ -368,6 +368,7 @@ impl AcpServer {
                     )),
                     wire_skills,
                     self.task_supervisor.clone(),
+                    None,
                 )
                 .await
             } else {
@@ -407,6 +408,7 @@ impl AcpServer {
                 Some(execution_capability),
                 wire_skills,
                 self.task_supervisor.clone(),
+                None,
             )
             .await
         } else {

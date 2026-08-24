@@ -2188,6 +2188,7 @@ impl Agent {
             // exists here, matching the `mcp_registry: None` precedent for
             // this same call shape.
             None,
+            None,
         )
         .await
     }
@@ -2262,6 +2263,7 @@ impl Agent {
             execution_capability,
             wire_skills,
             task_supervisor,
+            None,
         )
         .await
     }
@@ -2300,6 +2302,7 @@ impl Agent {
             None,
             wire_skills,
             task_supervisor,
+            None,
         )
         .await
     }
@@ -2319,6 +2322,7 @@ impl Agent {
         canvas_store: Option<tools::CanvasStore>,
         wire_skills: &[crate::skills::WireSkill],
         task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+        mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
     ) -> Result<Self> {
         Self::from_live_config_with_session_cwd_and_mcp_backchannel_with_capability(
             live_config,
@@ -2333,6 +2337,7 @@ impl Agent {
             None,
             wire_skills,
             task_supervisor,
+            mcp_registry,
         )
         .await
     }
@@ -2351,6 +2356,7 @@ impl Agent {
         execution_capability: Option<AgentExecutionCapability>,
         wire_skills: &[crate::skills::WireSkill],
         task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+        mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
     ) -> Result<Self> {
         let config = live_config.read().clone();
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
@@ -2372,6 +2378,7 @@ impl Agent {
             execution_capability,
             wire_skills,
             task_supervisor,
+            mcp_registry,
         )
         .await
     }
@@ -2405,6 +2412,7 @@ impl Agent {
             canvas_store,
             &[],
             task_supervisor,
+            None,
         )
         .await
     }
@@ -2437,6 +2445,7 @@ impl Agent {
             None,
             &[],
             task_supervisor,
+            None,
         )
         .await
     }
@@ -2456,6 +2465,7 @@ impl Agent {
         execution_capability: Option<AgentExecutionCapability>,
         wire_skills: &[crate::skills::WireSkill],
         task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+        mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
     ) -> Result<Self> {
         let config = live_config.read().clone();
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
@@ -2477,6 +2487,7 @@ impl Agent {
             execution_capability,
             wire_skills,
             task_supervisor,
+            mcp_registry,
         )
         .await
     }
@@ -2545,6 +2556,7 @@ impl Agent {
             execution_capability,
             &[],
             task_supervisor,
+            None,
         )
         .await
     }
@@ -2564,6 +2576,7 @@ impl Agent {
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
         task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+        mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
     ) -> Result<Self> {
         Self::from_live_config_with_tui_env_and_principal_tools(
             live_config,
@@ -2576,6 +2589,7 @@ impl Agent {
             sop_audit,
             None,
             task_supervisor,
+            mcp_registry,
         )
         .await
     }
@@ -2594,6 +2608,7 @@ impl Agent {
         sop_audit: Option<Arc<SopAuditLogger>>,
         principal_allowed_tools: Option<Vec<String>>,
         task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+        mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
     ) -> Result<Self> {
         let config = Box::new(live_config.read().clone());
         Self::from_snapshot_with_tui_env_with_capability(
@@ -2610,6 +2625,7 @@ impl Agent {
             None,
             None,
             task_supervisor,
+            mcp_registry,
         )
         .await
     }
@@ -2643,6 +2659,7 @@ impl Agent {
             // construction path; callers needing one go through
             // `from_snapshot_with_tui_env_with_capability` directly.
             None,
+            None,
         )
         .await
     }
@@ -2664,6 +2681,7 @@ impl Agent {
         execution_capability: Option<AgentExecutionCapability>,
         acp_session_store: Option<Arc<zeroclaw_infra::acp_session_store::AcpSessionStore>>,
         task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+        mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
     ) -> Result<Self> {
         // Keep deep Agent construction off the transport's default worker stack.
         // Carry the caller's exact snapshot; rereading live config here would
@@ -2700,6 +2718,7 @@ impl Agent {
                 execution_capability,
                 &[],
                 task_supervisor,
+                mcp_registry,
             ));
             drop(construction_admission);
             result
@@ -2732,6 +2751,7 @@ impl Agent {
         execution_capability: Option<AgentExecutionCapability>,
         wire_skills: &[crate::skills::WireSkill],
         task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+        mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
     ) -> Result<Self> {
         let agent_cfg = config
             .agent(agent_alias)
@@ -2925,8 +2945,11 @@ impl Agent {
                 // `from_config` is the Agent (gateway / library) construction
                 // path: no cross-turn reuse contract, so the per-call
                 // `connect_all` is the correct choice. The daemon heartbeat
-                // worker is the only `mcp_registry` supplier.
-                mcp_registry: None,
+                // worker is the primary `mcp_registry` supplier; the ACP/WS
+                // and TUI session constructors (`from_live_config_with_*`)
+                // may also thread a caller-supplied pooled registry through
+                // here once their callers are wired to hand one in.
+                mcp_registry,
                 // `Some` only when this Agent was constructed via the ACP
                 // (`from_config_with_session_cwd_and_mcp_backchannel` family)
                 // or TUI (`from_config_with_tui_env` family) path AND the
@@ -9583,6 +9606,7 @@ mod tests {
             None,
             Arc::clone(&store),
             &[],
+            None,
         )
         .await
         .expect("ACP agent construction");
@@ -9601,6 +9625,8 @@ mod tests {
             Arc::clone(&store),
             Some(authority.execution_capability()),
             &[],
+            None,
+            None,
         )
         .await
         .expect("managed ACP agent construction");
@@ -16682,7 +16708,7 @@ model_provider = "custom.only"
                 let caller = zeroclaw_spawn::spawn!(async move {
                     let result = Agent::from_snapshot_with_tui_env_with_capability(
                         &config, live, "direct", None, false, true, None, None, None,
-                        None, Some(capability), None,
+                        None, Some(capability), None, None, None,
                     )
                     .await;
                     drop(reservation);
@@ -16735,6 +16761,8 @@ model_provider = "custom.only"
             false,
             true,
             false,
+            None,
+            None,
             None,
             None,
             None,
@@ -16792,6 +16820,8 @@ model_provider = "custom.only"
             false,
             true,
             false,
+            None,
+            None,
             None,
             None,
             None,
