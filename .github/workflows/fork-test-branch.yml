@@ -1,0 +1,57 @@
+name: Fork Test Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch or ref to test
+        required: true
+        default: fix/acp-session-cwd-fallback
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  ZC_FEATURES: agent-runtime,gateway,acp-bridge,channel-telegram,plugins-wasm
+
+jobs:
+  test:
+    name: Test (linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install system dependencies
+        run: bash scripts/ci/apt_install.sh libudev-dev ripgrep
+      - name: Ensure web/dist placeholder exists
+        run: mkdir -p web/dist && touch web/dist/.gitkeep
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Check (default features, all targets)
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo check --locked --workspace --exclude zeroclaw-desktop --all-targets
+      - name: Clippy (Lint)
+        run: bash scripts/ci/run_clippy.sh --scope workspace --summary-title "Lint diagnostics" --log-name cargo-clippy.log
+      - name: Tests (fork feature set, lib)
+        run: cargo test --no-default-features --features "$ZC_FEATURES" --lib
+      - name: Tests (member crates, lib)
+        # The root-crate lib run above does NOT exercise member-crate unit tests.
+        # Run the security-policy crate explicitly so policy.rs changes are tested.
+        run: |
+          cargo test --locked -p zeroclaw-config --all-features --lib
+          # Default features only: --all-features would pull cpal/alsa-sys (voice-wake),
+          # which needs system audio libs absent on the runner. Default includes
+          # channel-telegram, so the telegram + orchestrator tests still run.
+          cargo test --locked -p zeroclaw-channels --lib
+          # The MCP task-supervisor/poller/injector unit tests live in
+          # zeroclaw-runtime; the workspace Check compiles them but never runs
+          # them, so execute the mcp_tasks module tests explicitly. The
+          # per-scope connection-pool tests (mcp_pool) run the same way.
+          cargo test --locked -p zeroclaw-runtime --lib mcp_tasks mcp_pool
