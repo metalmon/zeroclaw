@@ -861,6 +861,9 @@ async fn run_agent_job(
         // `agent::run` is the correct choice. The daemon heartbeat
         // worker is the only `mcp_registry` supplier.
         mcp_registry: None,
+        // Cron runs derive their memory scope from `session_state_file` as
+        // usual; only the MCP-task reactive injector sets this override.
+        memory_session_override: None,
     };
     let run_result = match job.session_target {
         SessionTarget::Main | SessionTarget::Isolated => {

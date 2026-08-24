@@ -189,6 +189,10 @@ impl Tool for SpawnSubagentTool {
             // the correct choice. The daemon heartbeat worker is the
             // only `mcp_registry` supplier.
             mcp_registry: None,
+            // Subagent runs derive their memory scope from
+            // `session_state_file` as usual; only the MCP-task reactive
+            // injector sets this override.
+            memory_session_override: None,
         };
         let parent_alias = subagent_ctx.parent_alias.clone();
 
