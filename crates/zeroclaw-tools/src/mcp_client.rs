@@ -2006,8 +2006,7 @@ mod tests {
             tls_ca_cert_path: None,
             max_response_bytes: None,
             tasks_enabled: None,
-            default_task_ttl_secs: None,
-            max_concurrent_tasks_per_scope: None,
+            task_concurrency_cap: None,
         };
         let result = McpServer::connect(config).await;
         assert!(result.is_err());
@@ -2031,8 +2030,7 @@ mod tests {
             tls_ca_cert_path: None,
             max_response_bytes: None,
             tasks_enabled: None,
-            default_task_ttl_secs: None,
-            max_concurrent_tasks_per_scope: None,
+            task_concurrency_cap: None,
         }];
         let registry = McpRegistry::connect_all(&configs)
             .await
