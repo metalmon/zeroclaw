@@ -344,7 +344,7 @@ impl McpTaskSupervisor {
             .pool
             .registry_for(alias)
             .await
-            .ok_or_else(|| anyhow::anyhow!("no MCP servers for scope `{alias}`"))?;
+            .ok_or_else(|| anyhow::Error::msg(format!("no MCP servers for scope `{alias}`")))?;
         let prefixed = format!("{server}__{tool}");
         match reg.create_task(&prefixed, args).await? {
             TaskCall::Inline(v) => {
