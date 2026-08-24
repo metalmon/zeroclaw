@@ -1446,6 +1446,7 @@ impl RpcDispatcher {
             self.ctx.sop_engine.clone(),
             self.ctx.sop_audit.clone(),
             self.ctx.task_supervisor.clone(),
+            None,
         )
         .await
         .map_err(|e| rpc_err(INTERNAL_ERROR, format!("Failed to create agent: {e}")))?;
@@ -1913,6 +1914,7 @@ impl RpcDispatcher {
             self.ctx.sop_engine.clone(),
             self.ctx.sop_audit.clone(),
             self.ctx.task_supervisor.clone(),
+            None,
         )
         .await
         .ok()?;
