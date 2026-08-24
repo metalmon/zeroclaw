@@ -1409,10 +1409,20 @@ impl Agent {
             None,
             None,
             None,
+            // CLI / one-shot construction: no daemon-shared task supervisor
+            // exists here, matching the `mcp_registry: None` precedent for
+            // this same call shape.
+            None,
         )
         .await
     }
 
+    /// `task_supervisor` is `Some` only on the daemon-backed ACP surfaces
+    /// (`zeroclaw-channels::acp_server::AcpServer`, `zeroclaw-gateway::ws`)
+    /// that were handed the daemon's one shared
+    /// [`crate::mcp_tasks::McpTaskSupervisor`]; standalone/test construction
+    /// passes `None`.
+    #[allow(clippy::too_many_arguments)]
     pub async fn from_config_with_session_cwd_and_mcp_backchannel(
         config: &Config,
         agent_alias: &str,
@@ -1423,6 +1433,7 @@ impl Agent {
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
+        task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
     ) -> Result<Self> {
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
             config,
@@ -1437,12 +1448,16 @@ impl Agent {
             sop_audit,
             canvas_store,
             None,
+            task_supervisor,
         )
         .await
     }
 
     /// Build a daemon-backed ACP/WS Agent whose structured-history cap follows
-    /// the shared config after reloads.
+    /// the shared config after reloads. See
+    /// [`Self::from_config_with_session_cwd_and_mcp_backchannel`] for the
+    /// `task_supervisor` contract.
+    #[allow(clippy::too_many_arguments)]
     pub async fn from_live_config_with_session_cwd_and_mcp_backchannel(
         live_config: Arc<parking_lot::RwLock<Config>>,
         agent_alias: &str,
@@ -1453,6 +1468,7 @@ impl Agent {
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
+        task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
     ) -> Result<Self> {
         let config = live_config.read().clone();
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
@@ -1468,6 +1484,7 @@ impl Agent {
             sop_audit,
             canvas_store,
             Some(live_config),
+            task_supervisor,
         )
         .await
     }
@@ -1476,6 +1493,7 @@ impl Agent {
     /// injects the TUI's captured shell environment so that tools like
     /// `ShellTool` inherit the user's real `PATH`, `SSH_AUTH_SOCK`, etc.
     /// rather than the daemon's stripped-down process environment.
+    #[allow(clippy::too_many_arguments)]
     pub async fn from_config_with_tui_env(
         config: &Config,
         agent_alias: &str,
@@ -1485,6 +1503,7 @@ impl Agent {
         tui_env: Option<std::collections::HashMap<String, String>>,
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
+        task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
     ) -> Result<Self> {
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
             config,
@@ -1500,12 +1519,16 @@ impl Agent {
             sop_audit,
             None,
             None,
+            task_supervisor,
         )
         .await
     }
 
     /// Build a daemon-backed TUI Agent whose structured-history cap follows
-    /// the shared config after reloads.
+    /// the shared config after reloads. See
+    /// [`Self::from_config_with_session_cwd_and_mcp_backchannel`] for the
+    /// `task_supervisor` contract.
+    #[allow(clippy::too_many_arguments)]
     pub async fn from_live_config_with_tui_env(
         live_config: Arc<parking_lot::RwLock<Config>>,
         agent_alias: &str,
@@ -1515,6 +1538,7 @@ impl Agent {
         tui_env: Option<std::collections::HashMap<String, String>>,
         sop_engine: Option<Arc<std::sync::Mutex<SopEngine>>>,
         sop_audit: Option<Arc<SopAuditLogger>>,
+        task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
     ) -> Result<Self> {
         let config = live_config.read().clone();
         Self::from_config_with_session_cwd_and_mcp_approval_mode(
@@ -1531,6 +1555,7 @@ impl Agent {
             sop_audit,
             None,
             Some(live_config),
+            task_supervisor,
         )
         .await
     }
@@ -1549,6 +1574,7 @@ impl Agent {
         sop_audit: Option<Arc<SopAuditLogger>>,
         canvas_store: Option<tools::CanvasStore>,
         live_config: Option<Arc<parking_lot::RwLock<Config>>>,
+        task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
     ) -> Result<Self> {
         let agent_cfg = config
             .agent(agent_alias)
@@ -1722,7 +1748,13 @@ impl Agent {
                 // `connect_all` is the correct choice. The daemon heartbeat
                 // worker is the only `mcp_registry` supplier.
                 mcp_registry: None,
-                task_supervisor: None,
+                // `Some` only when this Agent was constructed via the ACP
+                // (`from_config_with_session_cwd_and_mcp_backchannel` family)
+                // or TUI (`from_config_with_tui_env` family) path AND the
+                // caller was handed the daemon's shared supervisor; every
+                // other construction path (plain `from_config`, CLI,
+                // one-shot, tests) passes `None` through unchanged.
+                task_supervisor,
             },
         )
         .await;

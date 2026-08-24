@@ -184,6 +184,12 @@ pub struct RpcContext {
     /// Certificate paths fail closed on `None` rather than issuing
     /// credentials with no trail.
     pub cert_audit: Option<Arc<crate::security::audit::AuditLogger>>,
+
+    /// Shared MCP task supervisor from the daemon (for RPC/TUI agent
+    /// sessions constructed via `Agent::from_live_config_with_tui_env`).
+    /// `None` when standalone/tests — those sessions get no task-enabled
+    /// MCP routing, mirroring `sop_engine`'s `None` fallback above.
+    pub task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
 }
 
 impl RpcContext {
@@ -218,6 +224,7 @@ impl RpcContext {
             sop_audit: None,
             hooks: None,
             cert_audit,
+            task_supervisor: None,
         })
     }
 
@@ -271,6 +278,7 @@ impl RpcContext {
             sop_audit: None,
             hooks: None,
             cert_audit,
+            task_supervisor: None,
         })
     }
 
@@ -297,6 +305,7 @@ impl RpcContext {
             sop_audit: None,
             hooks: None,
             cert_audit: None,
+            task_supervisor: None,
         })
     }
 
@@ -323,6 +332,7 @@ impl RpcContext {
             sop_audit: None,
             hooks: None,
             cert_audit: None,
+            task_supervisor: None,
         })
     }
 
@@ -349,6 +359,7 @@ impl RpcContext {
             sop_audit: None,
             hooks: None,
             cert_audit: None,
+            task_supervisor: None,
         })
     }
 
@@ -375,6 +386,7 @@ impl RpcContext {
             sop_audit: None,
             hooks: None,
             cert_audit: None,
+            task_supervisor: None,
         })
     }
 
@@ -402,6 +414,7 @@ impl RpcContext {
             sop_audit: None,
             hooks: None,
             cert_audit: None,
+            task_supervisor: None,
         })
     }
 
@@ -429,6 +442,7 @@ impl RpcContext {
             sop_audit: None,
             hooks: None,
             cert_audit: None,
+            task_supervisor: None,
         })
     }
 }

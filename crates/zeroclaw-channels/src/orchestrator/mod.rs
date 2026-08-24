@@ -12262,6 +12262,7 @@ struct ChannelAssembledTools {
 /// unit-tested here and a regression flipping that knob to `false` would still
 /// pass. Closing it needs a daemon-level peripheral harness; tracked as a
 /// residual, not silently skipped.
+#[allow(clippy::too_many_arguments)]
 async fn assemble_channel_agent_tools(
     config: &Config,
     agent_alias: &str,
@@ -12271,6 +12272,7 @@ async fn assemble_channel_agent_tools(
     built: tools::AllToolsResult,
     skills: &[zeroclaw_runtime::skills::Skill],
     runtime: Arc<dyn platform::RuntimeAdapter>,
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) -> ChannelAssembledTools {
     use zeroclaw_log::Instrument as _;
 
@@ -12307,7 +12309,10 @@ async fn assemble_channel_agent_tools(
                         // The heartbeat worker remains the only caller that supplies
                         // a pre-built registry for reuse across repeated assemblies.
                         mcp_registry: None,
-                        task_supervisor: None,
+                        // Threaded from the daemon's one shared supervisor
+                        // (see `start_channels`'s doc comment); `None` for
+                        // standalone/test callers that build no supervisor.
+                        task_supervisor,
                     },
                 )
                 .await
@@ -12380,13 +12385,20 @@ fn compose_channel_mcp_prompt_sections(
 }
 
 /// Start all configured channels and route messages to the agent
-#[allow(clippy::too_many_lines)]
+///
+/// `task_supervisor` is the daemon's one shared
+/// [`zeroclaw_runtime::mcp_tasks::McpTaskSupervisor`] (mirrors `sop_engine`/
+/// `sop_audit` above): `Some` on the daemon-backed path (threaded from
+/// `main.rs`, which constructs it once per run/reload iteration), `None` for
+/// standalone/test callers with no daemon-shared supervisor to hand in.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 pub async fn start_channels(
     config: Config,
     canvas_store: Option<zeroclaw_runtime::tools::CanvasStore>,
     cancel: tokio_util::sync::CancellationToken,
     sop_engine: Option<Arc<std::sync::Mutex<zeroclaw_runtime::sop::SopEngine>>>,
     sop_audit: Option<Arc<zeroclaw_runtime::sop::SopAuditLogger>>,
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) -> Result<()> {
     let config_arc = Arc::new(RwLock::new(config));
     let config: Config = config_arc.read().clone();
@@ -12594,6 +12606,7 @@ pub async fn start_channels(
             all_tools_result_ch,
             &skills,
             Arc::clone(&runtime),
+            task_supervisor.clone(),
         )
         .await;
 
@@ -20030,6 +20043,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel_all_tools_result(Vec::new()),
                 &[],
                 Arc::new(platform::NativeRuntime::new()),
+                None,
             ),
         )
         .await
@@ -20142,6 +20156,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel_all_tools_result(Vec::new()),
                 &[],
                 Arc::new(platform::NativeRuntime::new()),
+                None,
             ),
         )
         .await
@@ -20224,6 +20239,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &[],
             Arc::new(platform::NativeRuntime::new()),
+            None,
         )
         .await;
         let names: Vec<&str> = assembled.tools.iter().map(|t| t.name()).collect();
@@ -20259,6 +20275,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &[],
             Arc::new(platform::NativeRuntime::new()),
+            None,
         )
         .await;
         let names: Vec<&str> = assembled.tools.iter().map(|t| t.name()).collect();
@@ -20297,6 +20314,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &[],
             Arc::new(platform::NativeRuntime::new()),
+            None,
         )
         .await;
         let names: Vec<&str> = assembled.tools.iter().map(|t| t.name()).collect();
@@ -20384,6 +20402,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &skills,
             Arc::new(FingerprintRuntime),
+            None,
         )
         .await;
         let tool = assembled

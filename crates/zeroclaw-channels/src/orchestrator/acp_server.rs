@@ -96,6 +96,9 @@ pub struct AcpServer {
     /// build their own engine from config.
     sop_engine: Option<Arc<std::sync::Mutex<zeroclaw_runtime::sop::SopEngine>>>,
     sop_audit: Option<Arc<zeroclaw_runtime::sop::SopAuditLogger>>,
+    /// Shared MCP task supervisor from the daemon. `None` in standalone mode
+    /// — agents created by this server get no task-enabled MCP routing.
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
     /// Connection-scoped default agent alias (`?agent=` on the gateway ACP
     /// endpoint). Slots into the `session/new` alias precedence chain between
     /// an explicit `agentAlias` and `[acp].default_agent`. Not a config
@@ -217,6 +220,7 @@ impl AcpServer {
             canvas_store: None,
             sop_engine: None,
             sop_audit: None,
+            task_supervisor: None,
             connection_default_agent: None,
             client_elicitation_caps: std::sync::RwLock::new(ElicitationCapabilities::default()),
         }
@@ -263,6 +267,7 @@ impl AcpServer {
                 self.sop_engine.clone(),
                 self.sop_audit.clone(),
                 self.canvas_store.clone(),
+                self.task_supervisor.clone(),
             )
             .await
         } else {
@@ -277,6 +282,7 @@ impl AcpServer {
                 self.sop_engine.clone(),
                 self.sop_audit.clone(),
                 self.canvas_store.clone(),
+                self.task_supervisor.clone(),
             )
             .await
         }
@@ -312,6 +318,18 @@ impl AcpServer {
     ) -> Self {
         self.sop_engine = sop_engine;
         self.sop_audit = sop_audit;
+        self
+    }
+
+    /// Attach the shared MCP task supervisor from the daemon so that agents
+    /// created by this server route task-enabled MCP tool calls through the
+    /// same supervisor as the rest of the daemon. `None` (the default) is a
+    /// no-op — standalone `zeroclaw acp` builds no supervisor.
+    pub fn with_task_supervisor(
+        mut self,
+        task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    ) -> Self {
+        self.task_supervisor = task_supervisor;
         self
     }
 
