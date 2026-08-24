@@ -137,6 +137,11 @@ pub struct DaemonRegistry {
     sop_engine: Option<Arc<std::sync::Mutex<crate::sop::SopEngine>>>,
     sop_audit: Option<Arc<crate::sop::SopAuditLogger>>,
     sop_driver_handles: Option<crate::sop::SopDriverHandles>,
+    /// Shared MCP task supervisor built once per daemon run/reload
+    /// iteration. Passed through to `RpcContext` (mirroring `sop_engine`
+    /// above) so RPC/TUI agent sessions route task-enabled MCP tool calls
+    /// through the same supervisor the gateway and channel listeners use.
+    task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
 }
 
 /// The SOP wiring one daemon generation hands from `main` into the RPC
@@ -283,6 +288,21 @@ impl DaemonRegistry {
             self.sop_audit.take(),
             self.sop_driver_handles.take(),
         )
+    }
+
+    /// Set the shared MCP task supervisor for this daemon iteration.
+    pub fn set_task_supervisor(
+        &mut self,
+        task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+    ) -> &mut Self {
+        self.task_supervisor = task_supervisor;
+        self
+    }
+
+    pub(crate) fn take_task_supervisor(
+        &mut self,
+    ) -> Option<Arc<crate::mcp_tasks::McpTaskSupervisor>> {
+        self.task_supervisor.take()
     }
 }
 

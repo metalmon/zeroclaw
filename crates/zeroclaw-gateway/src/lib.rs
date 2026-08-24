@@ -799,6 +799,11 @@ pub struct AppState {
     /// Shared SOP audit logger from the daemon (for WS agent sessions).
     pub sop_audit: Option<Arc<zeroclaw_runtime::sop::SopAuditLogger>>,
     pub sop_driver_handles: Option<zeroclaw_runtime::sop::SopDriverHandles>,
+
+    /// Shared MCP task supervisor from the daemon (for ACP/WS agent
+    /// sessions). `None` when standalone/tests — those sessions get no
+    /// task-enabled MCP routing, mirroring `sop_engine` above.
+    pub task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 }
 
 impl AppState {
@@ -971,6 +976,8 @@ pub async fn run_gateway(
     // register resumed headless drivers here so reload drains them.
     sop_driver_handles: Option<zeroclaw_runtime::sop::SopDriverHandles>,
     readiness: Option<zeroclaw_runtime::daemon::GatewayReadinessReporter>,
+    // Shared MCP task supervisor from the daemon. `None` when standalone.
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) -> Result<()> {
     let authority = zeroclaw_runtime::LiveConfigAuthority::new_owned(config.clone())?;
     run_gateway_with_authority(
@@ -986,6 +993,7 @@ pub async fn run_gateway(
         daemon_authority,
         sop_driver_handles,
         readiness,
+        task_supervisor,
         authority,
     )
     .await
@@ -1007,6 +1015,8 @@ pub async fn run_gateway_with_authority(
     daemon_authority: Option<zeroclaw_runtime::daemon::DaemonInboundAuthority>,
     sop_driver_handles: Option<zeroclaw_runtime::sop::SopDriverHandles>,
     readiness: Option<zeroclaw_runtime::daemon::GatewayReadinessReporter>,
+    // Shared MCP task supervisor from the daemon. `None` when standalone.
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
     authority: zeroclaw_runtime::LiveConfigAuthority,
 ) -> Result<()> {
     Box::pin(run_gateway_with_plugin_webhooks(
@@ -1020,6 +1030,7 @@ pub async fn run_gateway_with_authority(
         sop_engine,
         sop_audit,
         daemon_authority,
+        task_supervisor,
         GatewaySupervision::new(
             readiness,
             Arc::new(zeroclaw_api::webhook::PluginWebhookRegistry::new()),
@@ -1049,6 +1060,8 @@ pub async fn run_gateway_with_plugin_webhooks(
     // either surface bind both. Standalone runs pass `None` and build their
     // own guard, authority and configuration state from config.
     daemon_authority: Option<zeroclaw_runtime::daemon::DaemonInboundAuthority>,
+    // Shared MCP task supervisor from the daemon. `None` when standalone.
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
     supervision: GatewaySupervision,
 ) -> Result<()> {
     let GatewaySupervision {
@@ -2083,6 +2096,7 @@ pub async fn run_gateway_with_plugin_webhooks(
         sop_engine,
         sop_audit,
         sop_driver_handles,
+        task_supervisor,
         #[cfg(feature = "webauthn")]
         webauthn: if config.security.webauthn.enabled {
             let secret_store = Arc::new(zeroclaw_runtime::security::SecretStore::new(
@@ -4169,6 +4183,7 @@ async fn dispatch_gateway_turn_streaming_with_agent(
             state.sop_engine.clone(),
             state.sop_audit.clone(),
             Some(state.canvas_store.clone()),
+            state.task_supervisor.clone(),
         )
         .await?;
     #[cfg(test)]
@@ -5742,6 +5757,7 @@ mod tests {
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -6737,6 +6753,7 @@ path = "{trigger_path}"
                 None,
                 None,
                 None,
+                None,
             )
             .await
         });
@@ -6809,6 +6826,7 @@ path = "{trigger_path}"
                 None,
                 None,
                 None,
+                None,
             )
             .await
         });
@@ -6858,6 +6876,7 @@ path = "{trigger_path}"
                 "127.0.0.1",
                 0,
                 config,
+                None,
                 None,
                 None,
                 None,
@@ -6936,6 +6955,7 @@ path = "{trigger_path}"
                 None,
                 None,
                 Some(readiness),
+                None,
             )
             .await
         });
@@ -7009,6 +7029,7 @@ path = "{trigger_path}"
             None,
             None,
             Some(readiness),
+            None,
         )
         .await;
 
@@ -7082,6 +7103,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7170,6 +7192,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7841,6 +7864,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
             sop_driver_handles: None,
@@ -10349,6 +10373,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -10472,6 +10497,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -10574,6 +10600,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -10890,6 +10917,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -10979,6 +11007,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -11073,6 +11102,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -11172,6 +11202,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -11266,6 +11297,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -11519,6 +11551,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -12408,6 +12441,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -12495,6 +12529,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -13109,6 +13144,7 @@ data: [DONE]\n\n";
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -13626,6 +13662,7 @@ mod accept_error_tests {
                 None,
                 None,
                 Some(readiness),
+                None,
             )
             .await
         });

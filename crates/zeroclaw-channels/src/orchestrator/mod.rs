@@ -16034,6 +16034,7 @@ struct ChannelAssembledTools {
 /// unit-tested here and a regression flipping that knob to `false` would still
 /// pass. Closing it needs a daemon-level peripheral harness; tracked as a
 /// residual, not silently skipped.
+#[allow(clippy::too_many_arguments)]
 async fn assemble_channel_agent_tools(
     config: &Config,
     agent_alias: &str,
@@ -16043,6 +16044,7 @@ async fn assemble_channel_agent_tools(
     built: tools::AllToolsResult,
     skills: &[zeroclaw_runtime::skills::Skill],
     runtime: Arc<dyn platform::RuntimeAdapter>,
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) -> ChannelAssembledTools {
     use zeroclaw_log::Instrument as _;
 
@@ -16079,7 +16081,10 @@ async fn assemble_channel_agent_tools(
                         // The heartbeat worker remains the only caller that supplies
                         // a pre-built registry for reuse across repeated assemblies.
                         mcp_registry: None,
-                        task_supervisor: None,
+                        // Threaded from the daemon's one shared supervisor
+                        // (see `start_channels`'s doc comment); `None` for
+                        // standalone/test callers that build no supervisor.
+                        task_supervisor,
                     },
                 )
                 .await
@@ -16331,6 +16336,13 @@ fn hydrate_session_transcript(
 }
 
 /// Start all configured channels and route messages to the agent
+///
+/// `task_supervisor` is the daemon's one shared
+/// [`zeroclaw_runtime::mcp_tasks::McpTaskSupervisor`] (mirrors `sop_engine`/
+/// `sop_audit` above): `Some` on the daemon-backed path (threaded from
+/// `main.rs`, which constructs it once per run/reload iteration), `None` for
+/// standalone/test callers with no daemon-shared supervisor to hand in.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 pub async fn start_channels(
     config: Config,
     canvas_store: Option<zeroclaw_runtime::tools::CanvasStore>,
@@ -16338,6 +16350,7 @@ pub async fn start_channels(
     sop_engine: Option<Arc<std::sync::Mutex<zeroclaw_runtime::sop::SopEngine>>>,
     sop_audit: Option<Arc<zeroclaw_runtime::sop::SopAuditLogger>>,
     sop_driver_sink: Option<zeroclaw_runtime::sop::SopDriverSink>,
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) -> Result<()> {
     let authority = zeroclaw_runtime::LiveConfigAuthority::new_owned(config)?;
     start_channels_with_authority(
@@ -16347,13 +16360,14 @@ pub async fn start_channels(
         sop_engine,
         sop_audit,
         sop_driver_sink,
+        task_supervisor,
     )
     .await
 }
 
 /// Start all configured channels with the live config authority owned by the
 /// current daemon generation.
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 pub async fn start_channels_with_authority(
     authority: zeroclaw_runtime::LiveConfigAuthority,
     canvas_store: Option<zeroclaw_runtime::tools::CanvasStore>,
@@ -16361,6 +16375,7 @@ pub async fn start_channels_with_authority(
     sop_engine: Option<Arc<std::sync::Mutex<zeroclaw_runtime::sop::SopEngine>>>,
     sop_audit: Option<Arc<zeroclaw_runtime::sop::SopAuditLogger>>,
     sop_driver_sink: Option<zeroclaw_runtime::sop::SopDriverSink>,
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) -> Result<()> {
     Box::pin(start_channels_with_authority_and_plugin_webhooks(
         authority,
@@ -16370,13 +16385,14 @@ pub async fn start_channels_with_authority(
         sop_audit,
         None,
         sop_driver_sink,
+        task_supervisor,
     ))
     .await
 }
 
 /// Start supervised channels with an owned config snapshot and the daemon
 /// generation's plugin-webhook route registry.
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 pub async fn start_channels_with_plugin_webhooks(
     config: Config,
     canvas_store: Option<zeroclaw_runtime::tools::CanvasStore>,
@@ -16388,6 +16404,7 @@ pub async fn start_channels_with_plugin_webhooks(
     // action to it, so one reload drains every driver the generation owns.
     // `None` standalone, where the process bounds the run instead.
     sop_driver_sink: Option<zeroclaw_runtime::sop::SopDriverSink>,
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) -> Result<()> {
     let authority = zeroclaw_runtime::LiveConfigAuthority::new_owned(config)?;
     start_channels_with_authority_and_plugin_webhooks(
@@ -16398,6 +16415,7 @@ pub async fn start_channels_with_plugin_webhooks(
         sop_audit,
         plugin_webhooks,
         sop_driver_sink,
+        task_supervisor,
     )
     .await
 }
@@ -16417,7 +16435,7 @@ tokio::task_local! {
 
 /// Start supervised channels with the shared live-config authority and the
 /// daemon generation's plugin-webhook route registry.
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 pub async fn start_channels_with_authority_and_plugin_webhooks(
     authority: zeroclaw_runtime::LiveConfigAuthority,
     canvas_store: Option<zeroclaw_runtime::tools::CanvasStore>,
@@ -16426,6 +16444,7 @@ pub async fn start_channels_with_authority_and_plugin_webhooks(
     sop_audit: Option<Arc<zeroclaw_runtime::sop::SopAuditLogger>>,
     plugin_webhooks: Option<Arc<zeroclaw_api::webhook::PluginWebhookRegistry>>,
     sop_driver_sink: Option<zeroclaw_runtime::sop::SopDriverSink>,
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) -> Result<()> {
     let plugin_webhook_registry_lease = plugin_webhooks
         .as_ref()
@@ -16635,6 +16654,7 @@ pub async fn start_channels_with_authority_and_plugin_webhooks(
             all_tools_result_ch,
             &skills,
             Arc::clone(&runtime),
+            task_supervisor.clone(),
         )
         .await;
 
@@ -21059,6 +21079,7 @@ temperature = 0.3
                             startup_authority,
                             None,
                             startup_cancel,
+                            None,
                             None,
                             None,
                             None,
@@ -27587,6 +27608,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel_all_tools_result(Vec::new()),
                 &[],
                 Arc::new(platform::NativeRuntime::new()),
+                None,
             ),
         )
         .await
@@ -27699,6 +27721,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 channel_all_tools_result(Vec::new()),
                 &[],
                 Arc::new(platform::NativeRuntime::new()),
+                None,
             ),
         )
         .await
@@ -27781,6 +27804,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &[],
             Arc::new(platform::NativeRuntime::new()),
+            None,
         )
         .await;
         let names: Vec<&str> = assembled.tools.iter().map(|t| t.name()).collect();
@@ -27816,6 +27840,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &[],
             Arc::new(platform::NativeRuntime::new()),
+            None,
         )
         .await;
         let names: Vec<&str> = assembled.tools.iter().map(|t| t.name()).collect();
@@ -27854,6 +27879,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &[],
             Arc::new(platform::NativeRuntime::new()),
+            None,
         )
         .await;
         let names: Vec<&str> = assembled.tools.iter().map(|t| t.name()).collect();
@@ -27941,6 +27967,7 @@ BTC is currently around $65,000 based on latest tool output."#
             built,
             &skills,
             Arc::new(FingerprintRuntime),
+            None,
         )
         .await;
         let tool = assembled
@@ -28016,6 +28043,7 @@ BTC is currently around $65,000 based on latest tool output."#
             channel_all_tools_result(vec![Box::new(NamedMockTool("shell"))]),
             &skills,
             Arc::new(platform::NativeRuntime::new()),
+            None,
         )
         .await;
         let effective_tool_names: HashSet<&str> =
