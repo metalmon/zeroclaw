@@ -11765,6 +11765,7 @@ mod tests {
             hooks: Some(Arc::new(runner)),
             cert_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
         });
         let (tx, _rx) = tokio::sync::mpsc::channel(64);
         let dispatcher = RpcDispatcher::new(ctx, tx, "test-peer-close:pid=1".into());
@@ -11810,6 +11811,7 @@ mod tests {
             hooks: Some(Arc::new(runner)),
             cert_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
         });
         let (tx, _rx) = tokio::sync::mpsc::channel(64);
         let dispatcher = RpcDispatcher::new(ctx, tx, "test-peer-delete:pid=1".into());
@@ -11914,6 +11916,7 @@ mod tests {
             hooks: Some(Arc::new(runner)),
             cert_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
         });
         let (tx, _rx) = tokio::sync::mpsc::channel(64);
         let dispatcher = RpcDispatcher::new(ctx, tx, "test-peer-real-close:pid=1".into());
