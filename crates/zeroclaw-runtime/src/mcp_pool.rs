@@ -67,6 +67,19 @@ impl McpConnectionPool {
         })
     }
 
+    /// Convenience constructor for call sites that only hold an owned
+    /// `Config` snapshot rather than an existing `Arc<parking_lot::RwLock<Config>>`
+    /// handle — e.g. the daemon's startup/reload loop in the root `zeroclaw`
+    /// binary crate, which does not depend on `parking_lot` directly (it is
+    /// dev-dependency-only there; see the root `Cargo.toml` comment "moved
+    /// out of `[dependencies]` — no `src/` usage"). Wraps `config` in a
+    /// fresh lock, mirroring how `McpTaskSupervisor::start` takes an owned
+    /// `Config` and keeps its own independent snapshot rather than sharing
+    /// `RpcContext.config`'s handle.
+    pub fn from_owned_config(config: Config) -> Arc<Self> {
+        Self::new(Arc::new(parking_lot::RwLock::new(config)))
+    }
+
     /// Get-or-build the shared registry for `alias`. Returns `None` when the
     /// scope has no MCP servers granted (secure by default: an alias with no
     /// `mcp_bundles` grant is an empty scope, not an error).

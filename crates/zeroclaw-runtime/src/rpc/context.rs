@@ -244,6 +244,12 @@ pub struct RpcContext {
     /// `None` when standalone/tests — those sessions get no task-enabled
     /// MCP routing, mirroring `sop_engine`'s `None` fallback above.
     pub task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
+
+    /// Shared MCP connection pool from the daemon (for RPC/TUI agent
+    /// sessions). `None` when standalone/tests — those sessions get no
+    /// pooled MCP connections, mirroring `task_supervisor`'s `None`
+    /// fallback above.
+    pub mcp_pool: Option<Arc<crate::mcp_pool::McpConnectionPool>>,
 }
 
 /// Test-only pause point inside `commit_config_with_live_session_refresh`:
@@ -346,6 +352,7 @@ impl RpcContext {
             cert_audit,
             auth,
             task_supervisor: None,
+            mcp_pool: None,
         })
     }
 
@@ -421,6 +428,7 @@ impl RpcContext {
             cert_audit,
             auth,
             task_supervisor: None,
+            mcp_pool: None,
         })
     }
 
@@ -504,6 +512,7 @@ impl RpcContext {
             cert_audit: None,
             auth,
             task_supervisor: None,
+            mcp_pool: None,
         })
     }
 
@@ -583,6 +592,7 @@ impl RpcContext {
             cert_audit: None,
             auth,
             task_supervisor: None,
+            mcp_pool: None,
         })
     }
 
@@ -620,6 +630,7 @@ impl RpcContext {
             cert_audit: None,
             auth,
             task_supervisor: None,
+            mcp_pool: None,
         })
     }
 
@@ -657,6 +668,7 @@ impl RpcContext {
             cert_audit: None,
             auth,
             task_supervisor: None,
+            mcp_pool: None,
         })
     }
 
@@ -695,6 +707,7 @@ impl RpcContext {
             cert_audit: None,
             auth,
             task_supervisor: None,
+            mcp_pool: None,
         })
     }
 
@@ -733,6 +746,7 @@ impl RpcContext {
             cert_audit: None,
             auth,
             task_supervisor: None,
+            mcp_pool: None,
         })
     }
 }
