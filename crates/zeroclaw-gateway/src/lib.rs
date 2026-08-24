@@ -571,6 +571,11 @@ pub struct AppState {
     /// sessions). `None` when standalone/tests — those sessions get no
     /// task-enabled MCP routing, mirroring `sop_engine` above.
     pub task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    /// Shared MCP connection pool from the daemon (for ACP/WS agent
+    /// sessions). `None` when standalone/tests — those sessions connect
+    /// their own per-turn MCP registries instead of drawing from the pool,
+    /// mirroring `task_supervisor` above.
+    pub mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
 }
 
 /// Run the HTTP gateway using axum with proper HTTP/1.1 compliance.
@@ -594,6 +599,8 @@ pub async fn run_gateway(
     readiness: Option<zeroclaw_runtime::daemon::GatewayReadinessReporter>,
     // Shared MCP task supervisor from the daemon. `None` when standalone.
     task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
+    // Shared MCP connection pool from the daemon. `None` when standalone.
+    mcp_pool: Option<Arc<zeroclaw_runtime::mcp_pool::McpConnectionPool>>,
 ) -> Result<()> {
     // ── Security: warn on public bind without tunnel or explicit opt-in ──
     if is_public_bind(host)
@@ -1584,6 +1591,7 @@ pub async fn run_gateway(
         sop_engine,
         sop_audit,
         task_supervisor,
+        mcp_pool,
         #[cfg(feature = "webauthn")]
         webauthn: if config.security.webauthn.enabled {
             let secret_store = Arc::new(zeroclaw_runtime::security::SecretStore::new(
@@ -4432,6 +4440,7 @@ mod tests {
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -5016,6 +5025,7 @@ path = "{trigger_path}"
                 None,
                 None,
                 None,
+                None,
             )
             .await
         });
@@ -5085,6 +5095,7 @@ path = "{trigger_path}"
                 None,
                 None,
                 None,
+                None,
             )
             .await
         });
@@ -5131,6 +5142,7 @@ path = "{trigger_path}"
                 "127.0.0.1",
                 0,
                 config,
+                None,
                 None,
                 None,
                 None,
@@ -5205,6 +5217,7 @@ path = "{trigger_path}"
                 None,
                 Some(readiness),
                 None,
+                None,
             )
             .await
         });
@@ -5274,6 +5287,7 @@ path = "{trigger_path}"
             None,
             None,
             Some(readiness),
+            None,
             None,
         )
         .await;
@@ -5347,6 +5361,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -5434,6 +5449,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -6108,6 +6124,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7015,6 +7032,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7135,6 +7153,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7235,6 +7254,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7316,6 +7336,7 @@ path = "{trigger_path}"
             )),
             auto_save: true,
             task_supervisor: None,
+            mcp_pool: None,
             pairing: Arc::new(PairingGuard::new(false, &[])),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
@@ -7549,6 +7570,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7636,6 +7658,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7728,6 +7751,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7825,6 +7849,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7918,6 +7943,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -8168,6 +8194,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -9049,6 +9076,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -9135,6 +9163,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -9746,6 +9775,7 @@ path = "{trigger_path}"
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }

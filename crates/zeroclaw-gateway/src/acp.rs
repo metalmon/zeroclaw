@@ -93,6 +93,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, default_agent: Option
             .with_canvas_store(canvas_store)
             .with_sop_engine(state.sop_engine.clone(), state.sop_audit.clone())
             .with_task_supervisor(state.task_supervisor.clone())
+            .with_mcp_pool(state.mcp_pool.clone())
             .with_connection_default_agent(default_agent),
         )
     } else {
@@ -105,6 +106,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, default_agent: Option
             .with_canvas_store(canvas_store)
             .with_sop_engine(state.sop_engine.clone(), state.sop_audit.clone())
             .with_task_supervisor(state.task_supervisor.clone())
+            .with_mcp_pool(state.mcp_pool.clone())
             .with_connection_default_agent(default_agent),
         )
     };
