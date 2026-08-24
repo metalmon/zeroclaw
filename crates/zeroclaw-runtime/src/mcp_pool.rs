@@ -300,6 +300,63 @@ done
         path
     }
 
+    /// Like [`fake_mcp_server_script`] but (a) appends a `"{name}:$$"` line
+    /// to `marker_path` synchronously, before ever reading a line of
+    /// stdin, and (b) also answers `tools/call` with a generic inline
+    /// (non-task) result. Used by Task 8's end-to-end process-sharing test:
+    /// since the marker write happens at process startup — before the
+    /// script can even complete the `initialize` handshake — a line in
+    /// `marker_path` corresponds 1:1 with a process actually having been
+    /// spawned, independent of how many `registry_for`/`create_task` calls
+    /// later reused an already-live handle. The `tools/call` case lets
+    /// `McpTaskSupervisor::create_task`'s `tools/call` round trip
+    /// (`crate::mcp_tasks`) succeed against this fake server without
+    /// needing to implement the `io.modelcontextprotocol/tasks` extension.
+    #[cfg(unix)]
+    fn fake_mcp_server_script_with_marker(
+        dir: &std::path::Path,
+        name: &str,
+        marker_path: &std::path::Path,
+    ) -> std::path::PathBuf {
+        let path = dir.join(format!("{name}.sh"));
+        let marker = marker_path.display();
+        let body = format!(
+            r#"#!/bin/sh
+printf '%s\n' "{name}:$$" >> "{marker}"
+while IFS= read -r line; do
+  id=$(printf '%s\n' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"method":"initialize"'*)
+      printf '%s\n' "{{\"jsonrpc\":\"2.0\",\"id\":$id,\"result\":{{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{{\"tools\":{{}}}},\"serverInfo\":{{\"name\":\"{name}\",\"version\":\"0.0.0\"}}}}}}"
+      ;;
+    *'"method":"tools/list"'*)
+      printf '%s\n' "{{\"jsonrpc\":\"2.0\",\"id\":$id,\"result\":{{\"tools\":[{{\"name\":\"{name}_tool\",\"description\":\"d\",\"inputSchema\":{{\"type\":\"object\"}}}}]}}}}"
+      ;;
+    *'"method":"tools/call"'*)
+      printf '%s\n' "{{\"jsonrpc\":\"2.0\",\"id\":$id,\"result\":{{\"content\":[{{\"type\":\"text\",\"text\":\"ok\"}}]}}}}"
+      ;;
+  esac
+done
+"#,
+        );
+        write_executable_script(&path, body.as_bytes());
+        path
+    }
+
+    /// Count non-empty lines in a Task 8 spawn-marker file, i.e. the number
+    /// of fake-server processes that have actually been spawned so far.
+    /// `unwrap_or_default` treats a not-yet-created marker file as zero
+    /// lines rather than a test-harness error, since the file is created
+    /// lazily by the first process's `>>` shell redirection.
+    #[cfg(unix)]
+    fn marker_spawn_count(marker_path: &std::path::Path) -> usize {
+        std::fs::read_to_string(marker_path)
+            .unwrap_or_default()
+            .lines()
+            .filter(|l| !l.is_empty())
+            .count()
+    }
+
     #[cfg(unix)]
     fn stdio_config(name: &str, script: &std::path::Path) -> McpServerConfig {
         McpServerConfig {
@@ -450,6 +507,158 @@ done
         assert!(
             !Arc::ptr_eq(&before, &after),
             "a config change for a server in the scope must rebuild the registry"
+        );
+    }
+
+    /// Task 8 end-to-end guard: a scope's MCP server runs as exactly ONE
+    /// process shared across sessions AND the task poller, and different
+    /// scopes get different processes.
+    ///
+    /// Session-to-session sharing (steps 1-2) is the same `Arc::ptr_eq`
+    /// guarantee `same_scope_returns_same_registry_arc` already proves.
+    /// This test additionally drives the guarantee through the task path:
+    /// `McpTaskSupervisor::create_task` (step 3) internally calls the
+    /// identical `pool.registry_for(alias)` the pool's own doc comment
+    /// describes — the only way it can avoid respawning a process is by
+    /// hitting the same `all_reused && names_unchanged` fast path and
+    /// returning the cached, ptr-equal `Arc<McpRegistry>` a session already
+    /// obtained. Rather than reach into the supervisor's private `pool`
+    /// field to assert `Arc::ptr_eq` directly (awkward: it is not
+    /// exposed), this proves the same fact the brief calls "the real
+    /// proof" — a process-spawn count, via a marker file every fake stdio
+    /// server appends its own `name:$$` line to synchronously at startup,
+    /// before it ever reads a line of stdin. A marker line therefore
+    /// corresponds 1:1 with a process actually having been spawned,
+    /// independent of how many `registry_for`/`create_task` calls reused
+    /// an already-live handle. `registry_for` awaits the connection
+    /// handshake before returning, so every count below is read only after
+    /// the relevant `.await` completes — deterministic, no sleeps.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn one_process_per_scope_shared_across_sessions_and_task_poller() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let marker = dir.path().join("spawn-marker.log");
+        let roy_script = fake_mcp_server_script_with_marker(dir.path(), "kutsu", &marker);
+        let hr_script = fake_mcp_server_script_with_marker(dir.path(), "kb_hr_srv", &marker);
+
+        let mut config = Config::default();
+        config.mcp.servers.push(stdio_config("kutsu", &roy_script));
+        config
+            .mcp
+            .servers
+            .push(stdio_config("kb-hr-srv", &hr_script));
+        config.mcp_bundles.insert(
+            "roy-bundle".to_string(),
+            McpBundleConfig {
+                servers: vec!["kutsu".to_string()],
+                exclude: Vec::new(),
+            },
+        );
+        config.mcp_bundles.insert(
+            "hr-bundle".to_string(),
+            McpBundleConfig {
+                servers: vec!["kb-hr-srv".to_string()],
+                exclude: Vec::new(),
+            },
+        );
+        config.agents.insert(
+            "roy".to_string(),
+            AliasedAgentConfig {
+                mcp_bundles: vec!["roy-bundle".to_string()],
+                ..AliasedAgentConfig::default()
+            },
+        );
+        config.agents.insert(
+            "kb-hr".to_string(),
+            AliasedAgentConfig {
+                mcp_bundles: vec!["hr-bundle".to_string()],
+                ..AliasedAgentConfig::default()
+            },
+        );
+        let config = Arc::new(parking_lot::RwLock::new(config));
+        let pool = McpConnectionPool::new(Arc::clone(&config));
+
+        // 1. Session 1 for "roy": first checkout spawns the process.
+        let session1 = pool.registry_for("roy").await.expect("roy session 1");
+        assert_eq!(
+            marker_spawn_count(&marker),
+            1,
+            "one checkout must spawn exactly one process"
+        );
+
+        // 2. Session 2 for "roy" (same scope): reused, no new spawn.
+        let session2 = pool.registry_for("roy").await.expect("roy session 2");
+        assert!(
+            Arc::ptr_eq(&session1, &session2),
+            "same scope must share one registry Arc across sessions"
+        );
+        assert_eq!(
+            marker_spawn_count(&marker),
+            1,
+            "reusing the same scope must not spawn a second process"
+        );
+
+        // 3. The task poller: a McpTaskSupervisor built over the SAME pool
+        // resolves the SAME live connection rather than spawning its own.
+        let owned_config = config.read().clone();
+        let supervisor =
+            crate::mcp_tasks::McpTaskSupervisor::start(owned_config, Arc::clone(&pool));
+        let dispatch = supervisor
+            .create_task(
+                "roy",
+                "kutsu",
+                "kutsu_tool",
+                ::serde_json::json!({}),
+                None,
+                None,
+                None,
+            )
+            .await
+            .expect("supervisor create_task over the shared pool");
+        assert!(
+            matches!(dispatch, crate::mcp_tasks::TaskDispatch::Inline(_)),
+            "fake server answers tools/call inline (no `resultType: task`)"
+        );
+        assert_eq!(
+            marker_spawn_count(&marker),
+            1,
+            "the task supervisor must resolve the SAME pooled connection a session already \
+             spawned, not a new one"
+        );
+
+        // 4. A different scope, identical (empty) server args: isolation —
+        // a distinct process must be spawned.
+        let hr = pool.registry_for("kb-hr").await.expect("kb-hr scope");
+        assert!(
+            !Arc::ptr_eq(&session1, &hr),
+            "separate scopes must get separate registries (process isolation)"
+        );
+        assert_eq!(
+            marker_spawn_count(&marker),
+            2,
+            "a different scope must spawn its own process"
+        );
+
+        // 5. Config change for roy's scope: the old process is left for
+        // `kill_on_drop` to reap and a new one is spawned.
+        {
+            let mut cfg = config.write();
+            if let Some(server) = cfg.mcp.servers.iter_mut().find(|s| s.name == "kutsu") {
+                server.args.push("--changed".to_string());
+            }
+        }
+        let session3 = pool
+            .registry_for("roy")
+            .await
+            .expect("roy session 3, post config change");
+        assert!(
+            !Arc::ptr_eq(&session1, &session3),
+            "a config change for a server in the scope must rebuild the registry"
+        );
+        assert_eq!(
+            marker_spawn_count(&marker),
+            3,
+            "a config change for a scope's server must spawn a new process"
         );
     }
 }
