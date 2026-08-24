@@ -117,6 +117,14 @@ pub struct ScopedAssembly<'a> {
     /// (CLI / one-shot / process_message), which is correct for
     /// callers that have no cross-turn reuse contract.
     pub mcp_registry: Option<Arc<crate::tools::McpRegistry>>,
+    /// Supervisor for task-enabled MCP servers (the
+    /// `io.modelcontextprotocol/tasks` extension). When `Some`, an MCP tool
+    /// whose server has `tasks_enabled_effective()` is installed as
+    /// `McpTaskToolWrapper` - which routes `execute` through the
+    /// supervisor's background poll+inject instead of a synchronous MCP
+    /// round trip - in place of the plain `McpToolWrapper`. `None` on every
+    /// construction site today; a later caller wires a real supervisor in.
+    pub task_supervisor: Option<Arc<crate::mcp_tasks::McpTaskSupervisor>>,
 }
 
 /// Output of [`ScopedToolRegistry::assemble`]: the scoped registry plus the
@@ -209,6 +217,7 @@ impl ScopedToolRegistry {
             list_deferred_mcp_specs,
             emit_assembly_logs,
             mcp_registry: overrides_mcp_registry,
+            task_supervisor,
         } = spec;
 
         let AllToolsResult {
@@ -533,12 +542,45 @@ impl ScopedToolRegistry {
                             continue;
                         }
                         if let Some(def) = registry.get_tool_def(&name).await {
-                            let wrapper: Arc<dyn Tool> = Arc::new(tools::McpToolWrapper::new(
-                                name,
-                                def,
-                                Arc::clone(&registry),
-                                Arc::clone(security),
-                            ));
+                            // `<server>__<tool>` per the registry's naming
+                            // convention. Task-enabled routing installs
+                            // `McpTaskToolWrapper` instead of the plain
+                            // wrapper only when BOTH a supervisor is present
+                            // AND this tool's server has
+                            // `tasks_enabled_effective()`; every other MCP
+                            // tool keeps the unmodified `McpToolWrapper` path.
+                            let server_tool = name.split_once("__");
+                            let task_enabled_server = server_tool.and_then(|(server, _)| {
+                                agent_mcp_servers
+                                    .iter()
+                                    .find(|s| s.name == server)
+                                    .filter(|s| s.tasks_enabled_effective())
+                            });
+                            let wrapper: Arc<dyn Tool> =
+                                match (task_supervisor.as_ref(), task_enabled_server) {
+                                    (Some(supervisor), Some(_)) => {
+                                        let (server, tool) =
+                                            server_tool.expect("task_enabled_server implies Some");
+                                        Arc::new(crate::mcp_tasks::wrapper::McpTaskToolWrapper {
+                                            prefixed_name: name.clone(),
+                                            description: def
+                                                .description
+                                                .clone()
+                                                .unwrap_or_else(|| "MCP tool".to_string()),
+                                            input_schema: Arc::new(def.input_schema.clone()),
+                                            server: server.to_string(),
+                                            tool: tool.to_string(),
+                                            agent_alias: agent_alias.to_string(),
+                                            supervisor: Arc::clone(supervisor),
+                                        })
+                                    }
+                                    _ => Arc::new(tools::McpToolWrapper::new(
+                                        name,
+                                        def,
+                                        Arc::clone(&registry),
+                                        Arc::clone(security),
+                                    )),
+                                };
                             if register_eager_mcp_tool_if_allowed(
                                 wrapper,
                                 &mut tools_registry,
@@ -776,6 +818,7 @@ mod tests {
             list_deferred_mcp_specs: false,
             emit_assembly_logs: false,
             mcp_registry: None,
+            task_supervisor: None,
         })
         .await
     }
@@ -979,6 +1022,7 @@ mod tests {
             list_deferred_mcp_specs: false,
             emit_assembly_logs: false,
             mcp_registry: None,
+            task_supervisor: None,
         })
         .await;
 
@@ -1080,6 +1124,7 @@ mod tests {
             list_deferred_mcp_specs: false,
             emit_assembly_logs: false,
             mcp_registry: None,
+            task_supervisor: None,
         })
         .await;
 
@@ -1123,6 +1168,7 @@ mod tests {
             list_deferred_mcp_specs: false,
             emit_assembly_logs: false,
             mcp_registry: None,
+            task_supervisor: None,
         })
         .await;
         out.registry.iter().map(|t| t.name().to_string()).collect()
@@ -1237,6 +1283,7 @@ mod tests {
             list_deferred_mcp_specs: false,
             emit_assembly_logs: false,
             mcp_registry: None,
+            task_supervisor: None,
         })
         .await;
         out.registry.iter().map(|t| t.name().to_string()).collect()
@@ -1314,6 +1361,7 @@ mod tests {
                 list_deferred_mcp_specs: false,
                 emit_assembly_logs: false,
                 mcp_registry: None,
+                task_supervisor: None,
             }),
         )
         .await
@@ -1461,6 +1509,7 @@ mod tests {
                 list_deferred_mcp_specs: true,
                 emit_assembly_logs: false,
                 mcp_registry: None,
+                task_supervisor: None,
             }),
         )
         .await
@@ -1605,6 +1654,7 @@ mod tests {
             list_deferred_mcp_specs: false,
             emit_assembly_logs: false,
             mcp_registry: None,
+            task_supervisor: None,
         })
         .await;
         assert!(
@@ -1729,6 +1779,7 @@ mod tests {
                 list_deferred_mcp_specs: false,
                 emit_assembly_logs: false,
                 mcp_registry: Some(Arc::clone(&registry)),
+                task_supervisor: None,
             }),
         )
         .await

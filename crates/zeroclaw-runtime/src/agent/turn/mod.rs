@@ -1717,6 +1717,7 @@ pub(crate) async fn assemble_owned_execution(
             // `connect_all` path inside `assemble` is the correct choice
             // (same as `process_message`).
             mcp_registry: None,
+            task_supervisor: None,
             connect_peripherals: false,
             exclude_memory: false,
             acp_delivery: false,
