@@ -5389,28 +5389,36 @@ async fn async_main(command: clap::Command) -> Result<()> {
                     current_config.sop.maintenance_interval_secs,
                 );
 
+                // Daemon-owned per-scope MCP connection pool, shared with
+                // RpcContext (RPC/TUI agent sessions) via DaemonRegistry and
+                // with the MCP task supervisor constructed just below it (so
+                // the task poller polls the SAME pooled connection an agent
+                // turn in that scope uses, instead of a duplicate
+                // task-advertising registry). Built before the supervisor so
+                // the supervisor can borrow it. `from_owned_config` takes an
+                // owned `Config` snapshot (like `McpTaskSupervisor::start`
+                // does) rather than sharing `RpcContext.config`'s
+                // `Arc<parking_lot::RwLock<Config>>` handle: no such handle
+                // exists yet at this point in the daemon startup/reload loop,
+                // and this root binary crate does not depend on
+                // `parking_lot` directly (dev-dependency-only; see root
+                // `Cargo.toml`'s "no `src/` usage" comment).
+                let mcp_pool = zeroclaw_runtime::mcp_pool::McpConnectionPool::from_owned_config(
+                    current_config.clone(),
+                );
+
                 // One MCP task supervisor per daemon run/reload iteration,
                 // shared across the gateway, channel listeners, and
                 // RpcContext (RPC/TUI sessions) below — mirrors sop_engine's
                 // per-iteration construction so every surface routes
                 // task-enabled MCP tool calls through the same admission
                 // control and poll loops instead of connecting duplicate
-                // task-advertising MCP registries per surface.
-                let task_supervisor =
-                    zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(current_config.clone());
-
-                // Daemon-owned per-scope MCP connection pool, shared with
-                // RpcContext (RPC/TUI agent sessions) via DaemonRegistry —
-                // mirrors task_supervisor's per-iteration construction just
-                // above. `from_owned_config` takes an owned `Config` snapshot
-                // (like `McpTaskSupervisor::start` does) rather than sharing
-                // `RpcContext.config`'s `Arc<parking_lot::RwLock<Config>>`
-                // handle: no such handle exists yet at this point in the
-                // daemon startup/reload loop, and this root binary crate does
-                // not depend on `parking_lot` directly (dev-dependency-only;
-                // see root `Cargo.toml`'s "no `src/` usage" comment).
-                let mcp_pool = zeroclaw_runtime::mcp_pool::McpConnectionPool::from_owned_config(
+                // task-advertising MCP registries per surface. Borrows the
+                // connection pool built just above rather than owning its
+                // own per-scope registries.
+                let task_supervisor = zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(
                     current_config.clone(),
+                    Arc::clone(&mcp_pool),
                 );
 
                 #[cfg(feature = "gateway")]
@@ -6674,10 +6682,15 @@ async fn async_main(command: clap::Command) -> Result<()> {
                     config.sop.maintenance_interval_secs,
                 );
                 // Standalone `zeroclaw channel start`: no daemon registry to
-                // share a supervisor through, so build one just for this
-                // process (mirrors the standalone `sop_engine` above).
+                // share a supervisor (or connection pool) through, so build
+                // both just for this process (mirrors the standalone
+                // `sop_engine` above). The supervisor still borrows the pool
+                // rather than owning its own per-scope registries.
+                let mcp_pool = zeroclaw_runtime::mcp_pool::McpConnectionPool::from_owned_config(
+                    config.clone(),
+                );
                 let task_supervisor =
-                    zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone());
+                    zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone(), mcp_pool);
                 let result = Box::pin(channels::start_channels(
                     config,
                     None,
@@ -9782,8 +9795,12 @@ async fn run_gateway_if_enabled(
     // for canvas_store so the gateway falls back to its own default. A
     // standalone task supervisor is still built (mirrors standalone
     // `zeroclaw channel start`) so ACP/WS sessions on this gateway get
-    // task-enabled MCP routing.
-    let task_supervisor = zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone());
+    // task-enabled MCP routing. It borrows a standalone connection pool
+    // (also built just for this process) rather than owning its own
+    // per-scope registries.
+    let mcp_pool = zeroclaw_runtime::mcp_pool::McpConnectionPool::from_owned_config(config.clone());
+    let task_supervisor =
+        zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(config.clone(), mcp_pool);
     let result = Box::pin(gateway::run_gateway(
         host,
         port,
