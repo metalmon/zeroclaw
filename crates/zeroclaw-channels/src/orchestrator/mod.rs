@@ -8423,6 +8423,7 @@ async fn dispatch_worker(
     in_flight: Arc<tokio::sync::Mutex<HashMap<String, InFlightSenderTaskState>>>,
     task_sequence: Arc<AtomicU64>,
     permit: tokio::sync::OwnedSemaphorePermit,
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) {
     let _permit = permit;
     let interrupt_enabled = ctx
@@ -8456,6 +8457,9 @@ async fn dispatch_worker(
                 "interrupting previous in-flight request for sender"
             );
             previous.cancellation.cancel();
+            if let Some(sup) = &task_supervisor {
+                sup.cancel_tasks_for_session(&sender_scope_key).await;
+            }
             previous.completion.wait().await;
         }
     }
@@ -8991,6 +8995,7 @@ async fn run_message_dispatch_loop(
     mut rx: tokio::sync::mpsc::Receiver<zeroclaw_api::channel::ChannelMessage>,
     router: AgentRouter,
     max_in_flight_messages: usize,
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) {
     let semaphore = Arc::new(tokio::sync::Semaphore::new(max_in_flight_messages));
     let mut workers = tokio::task::JoinSet::new();
@@ -9066,6 +9071,15 @@ async fn run_message_dispatch_loop(
                 let mut active = in_flight_by_sender.lock().await;
                 active.remove(&scope_key)
             };
+            // Best-effort: cancel any in-flight MCP tasks bound to this
+            // session regardless of whether an in-flight LLM turn was found
+            // above — a long-running MCP task can outlive the conversational
+            // turn that started it, so `/stop` must reach it even after
+            // `dispatch_worker` has already cleared the `in_flight_by_sender`
+            // entry.
+            if let Some(sup) = &task_supervisor {
+                sup.cancel_tasks_for_session(&scope_key).await;
+            }
             let reply = if let Some(state) = previous {
                 state.cancellation.cancel();
                 zeroclaw_runtime::i18n::get_required_cli_string("channel-runtime-stop-sent")
@@ -9117,6 +9131,7 @@ async fn run_message_dispatch_loop(
                     let debounce_in_flight = Arc::clone(&in_flight_by_sender);
                     let debounce_semaphore = Arc::clone(&semaphore);
                     let debounce_task_seq = Arc::clone(&task_sequence);
+                    let debounce_task_supervisor = task_supervisor.clone();
                     let mut debounce_msg = msg;
                     workers.spawn(async move {
                         let combined = match rx.await {
@@ -9140,6 +9155,7 @@ async fn run_message_dispatch_loop(
                             debounce_in_flight,
                             debounce_task_seq,
                             permit,
+                            debounce_task_supervisor,
                         )
                         .await;
                     });
@@ -9163,8 +9179,17 @@ async fn run_message_dispatch_loop(
         let worker_ctx = Arc::clone(&ctx);
         let in_flight = Arc::clone(&in_flight_by_sender);
         let task_sequence = Arc::clone(&task_sequence);
+        let worker_task_supervisor = task_supervisor.clone();
         workers.spawn(async move {
-            dispatch_worker(worker_ctx, msg, in_flight, task_sequence, permit).await;
+            dispatch_worker(
+                worker_ctx,
+                msg,
+                in_flight,
+                task_sequence,
+                permit,
+                worker_task_supervisor,
+            )
+            .await;
         });
 
         while let Some(result) = workers.try_join_next() {
@@ -13523,7 +13548,7 @@ pub async fn start_channels(
     let rx = rx_holder.expect("rx initialized by first agent's channel setup");
     let max_in_flight =
         max_in_flight_messages.expect("max_in_flight initialized by first agent's channel setup");
-    run_message_dispatch_loop(rx, router, max_in_flight).await;
+    run_message_dispatch_loop(rx, router, max_in_flight, task_supervisor).await;
 
     for h in listener_handles {
         let _ = h.await;
@@ -25172,7 +25197,7 @@ BTC is currently around $65,000 based on latest tool output."#
         .unwrap();
         drop(tx);
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 2).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 2, None).await;
 
         let peak = peak_in_flight.load(Ordering::SeqCst);
         assert!(
@@ -25320,7 +25345,7 @@ BTC is currently around $65,000 based on latest tool output."#
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         let sent_messages = channel_impl.sent_messages.lock().await;
@@ -25481,7 +25506,7 @@ BTC is currently around $65,000 based on latest tool output."#
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         let sent_messages = channel_impl.sent_messages.lock().await;
@@ -25645,7 +25670,7 @@ BTC is currently around $65,000 based on latest tool output."#
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         let sent_messages = channel_impl.sent_messages.lock().await;
@@ -25799,7 +25824,7 @@ BTC is currently around $65,000 based on latest tool output."#
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         let sent_messages = channel_impl.sent_messages.lock().await;
@@ -36308,7 +36333,7 @@ This is an example JSON object for profile settings."#;
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         // Both tasks should have completed — different threads, no cancellation.
@@ -38911,7 +38936,7 @@ Done."#;
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         tx.send(msg).await.expect("queue gate reply");
         drop(tx);
-        run_message_dispatch_loop(rx, router, 1).await;
+        run_message_dispatch_loop(rx, router, 1, None).await;
 
         tokio::time::timeout(Duration::from_secs(1), async {
             loop {
