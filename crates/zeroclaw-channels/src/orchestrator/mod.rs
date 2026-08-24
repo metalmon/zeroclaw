@@ -10985,6 +10985,7 @@ async fn register_inbound_turn(
     in_flight: &Arc<Mutex<HashMap<String, Vec<InFlightSenderTaskState>>>>,
     task_sequence: &Arc<AtomicU64>,
     generation_cancel: &CancellationToken,
+    task_supervisor: &Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) -> Option<TurnRegistration> {
     if msg.channel == "cli" || msg.passive_context {
         return None;
@@ -11051,6 +11052,9 @@ async fn register_inbound_turn(
                 "interrupting previous in-flight request for sender"
             );
             previous.cancellation.cancel();
+            if let Some(sup) = task_supervisor {
+                sup.cancel_tasks_for_session(&scope_key).await;
+            }
             Some(previous)
         }
         _ => None,
@@ -11734,12 +11738,14 @@ async fn run_message_dispatch_loop(
     rx: tokio::sync::mpsc::Receiver<zeroclaw_api::channel::ChannelMessage>,
     router: AgentRouter,
     max_in_flight_messages: usize,
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) {
     run_message_dispatch_loop_until_cancelled(
         rx,
         router,
         max_in_flight_messages,
         CancellationToken::new(),
+        task_supervisor,
     )
     .await;
 }
@@ -11749,6 +11755,7 @@ async fn run_message_dispatch_loop_until_cancelled(
     router: AgentRouter,
     max_in_flight_messages: usize,
     cancel: CancellationToken,
+    task_supervisor: Option<Arc<zeroclaw_runtime::mcp_tasks::McpTaskSupervisor>>,
 ) {
     let semaphore = Arc::new(tokio::sync::Semaphore::new(max_in_flight_messages));
     let pending_budget = Arc::new(tokio::sync::Semaphore::new(GLOBAL_PENDING_TURN_LIMIT));
@@ -11950,6 +11957,15 @@ async fn run_message_dispatch_loop_until_cancelled(
                         })
                     });
 
+            // Best-effort: cancel any in-flight MCP tasks bound to this
+            // session regardless of whether an in-flight LLM turn was found
+            // above — a long-running MCP task can outlive the conversational
+            // turn that started it, so `/stop` must reach it even after the
+            // turn has already cleared its `in_flight_by_sender` entry.
+            if let Some(sup) = &task_supervisor {
+                sup.cancel_tasks_for_session(&scope_key).await;
+            }
+
             let reply = if had_registered_turn || cancelled_bucket {
                 zeroclaw_runtime::i18n::get_required_cli_string("channel-runtime-stop-sent")
             } else if folded_into_another_scope {
@@ -12100,6 +12116,7 @@ async fn run_message_dispatch_loop_until_cancelled(
                         &in_flight_by_sender,
                         &task_sequence,
                         &cancel,
+                        &task_supervisor,
                     )
                     .await;
                     // This turn owns the bucket it just opened: the reserved
@@ -12169,8 +12186,15 @@ async fn run_message_dispatch_loop_until_cancelled(
 
         // Hook execution and final routing are detached and globally bounded,
         // so the loop remains free to receive `/stop` and interruptions.
-        let registration =
-            register_inbound_turn(&ctx, &msg, &in_flight_by_sender, &task_sequence, &cancel).await;
+        let registration = register_inbound_turn(
+            &ctx,
+            &msg,
+            &in_flight_by_sender,
+            &task_sequence,
+            &cancel,
+            &task_supervisor,
+        )
+        .await;
         // Registering with interruption enabled cancels the turn this one
         // supersedes. A message that bypasses debounce (a runtime command such
         // as `/new`, or a channel with no window) can supersede a turn that is
@@ -17261,7 +17285,14 @@ pub async fn start_channels_with_authority_and_plugin_webhooks(
     // picker ack registrations are reclaimed.
     #[cfg(feature = "channel-telegram")]
     let _picker_ack_cleanup = ModelPickerAckCleanupGuard;
-    run_message_dispatch_loop_until_cancelled(rx, router, max_in_flight, cancel.clone()).await;
+    run_message_dispatch_loop_until_cancelled(
+        rx,
+        router,
+        max_in_flight,
+        cancel.clone(),
+        task_supervisor,
+    )
+    .await;
 
     for h in listener_handles {
         let _ = h.await;
@@ -32471,7 +32502,8 @@ BTC is currently around $65,000 based on latest tool output."#
         let loop_task = zeroclaw_spawn::spawn!(run_message_dispatch_loop(
             rx,
             AgentRouter::single(runtime_ctx),
-            2
+            2,
+            None
         ));
         // Root message of the thread: its own ts is the history anchor.
         tx.send(zeroclaw_api::channel::ChannelMessage {
@@ -32607,7 +32639,8 @@ BTC is currently around $65,000 based on latest tool output."#
         let loop_task = zeroclaw_spawn::spawn!(run_message_dispatch_loop(
             rx,
             AgentRouter::single(runtime_ctx),
-            2
+            2,
+            None
         ));
 
         let thread = "1741234567.100001";
@@ -32746,7 +32779,8 @@ BTC is currently around $65,000 based on latest tool output."#
         let loop_task = zeroclaw_spawn::spawn!(run_message_dispatch_loop(
             rx,
             AgentRouter::single(runtime_ctx),
-            2
+            2,
+            None
         ));
         tx.send(zeroclaw_api::channel::ChannelMessage {
             id: "1741234567.100001".into(),
@@ -32907,7 +32941,8 @@ BTC is currently around $65,000 based on latest tool output."#
         let loop_task = zeroclaw_spawn::spawn!(run_message_dispatch_loop(
             rx,
             AgentRouter::single(runtime_ctx),
-            2
+            2,
+            None
         ));
         // Top-level: no `thread_ts` from Slack, so the channel implementation
         // anchors the thread on the message's own timestamp and leaves the
@@ -33040,7 +33075,8 @@ BTC is currently around $65,000 based on latest tool output."#
         let loop_task = zeroclaw_spawn::spawn!(run_message_dispatch_loop(
             rx,
             AgentRouter::single(runtime_ctx),
-            2
+            2,
+            None
         ));
         // Slack anchors a top-level message's thread on its own id and leaves
         // the interruption scope sender-wide; a reply carries the root's id as
@@ -33204,7 +33240,8 @@ BTC is currently around $65,000 based on latest tool output."#
         let loop_task = zeroclaw_spawn::spawn!(run_message_dispatch_loop(
             rx,
             AgentRouter::single(runtime_ctx),
-            2
+            2,
+            None
         ));
         let slack_message = |id: &str, thread: &str, content: &str, scope: Option<&str>| {
             zeroclaw_api::channel::ChannelMessage {
@@ -33330,7 +33367,8 @@ BTC is currently around $65,000 based on latest tool output."#
         let loop_task = zeroclaw_spawn::spawn!(run_message_dispatch_loop(
             rx,
             AgentRouter::single(runtime_ctx),
-            2
+            2,
+            None
         ));
         // One thread lane: every message below keys the same debounce bucket.
         let thread_message = |id: &str, content: &str| zeroclaw_api::channel::ChannelMessage {
@@ -33559,6 +33597,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 router,
                 2,
                 dispatch_cancel,
+                None,
             ));
             tokio::time::timeout(Duration::from_secs(1), async {
                 while peak_in_flight.load(Ordering::SeqCst) < 2 {
@@ -33585,7 +33624,7 @@ BTC is currently around $65,000 based on latest tool output."#
             assert_eq!(agent_lifecycle.active_turn_count("test-agent"), 0);
         } else {
             drop(tx);
-            run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 2).await;
+            run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 2, None).await;
         }
 
         let peak = peak_in_flight.load(Ordering::SeqCst);
@@ -33758,7 +33797,7 @@ BTC is currently around $65,000 based on latest tool output."#
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         let sent_messages = channel_impl.sent_messages.lock().await;
@@ -33927,7 +33966,7 @@ BTC is currently around $65,000 based on latest tool output."#
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         let sent_messages = channel_impl.sent_messages.lock().await;
@@ -34098,7 +34137,7 @@ BTC is currently around $65,000 based on latest tool output."#
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         tokio::time::sleep(Duration::from_millis(400)).await;
@@ -34257,7 +34296,7 @@ BTC is currently around $65,000 based on latest tool output."#
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         let sent_messages = channel_impl.sent_messages.lock().await;
@@ -34504,7 +34543,7 @@ BTC is currently around $65,000 based on latest tool output."#
             wait_for_provider_call(&send_provider, "disabled second").await;
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         let sent_messages = channel_impl.sent_messages.lock().await;
@@ -34705,7 +34744,7 @@ BTC is currently around $65,000 based on latest tool output."#
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         let sent_messages = channel_impl.sent_messages.lock().await;
@@ -37833,7 +37872,7 @@ BTC is currently around $65,000 based on latest tool output."#
             tx.send(bob).await.unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4, None).await;
         send_task.await.unwrap();
 
         let sent = channel_impl.sent_messages.lock().await;
@@ -37995,7 +38034,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         // The rendered prompt embeds the whole shared history, so completed
@@ -38069,7 +38108,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         let stop_no_task =
@@ -38142,7 +38181,7 @@ BTC is currently around $65,000 based on latest tool output."#
 
         // Budget of two: one for the busy topic's running turn, one that must
         // stay available to everybody else.
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 2).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 2, None).await;
         send_task.await.unwrap();
 
         let sent = channel_impl.sent_messages.lock().await;
@@ -38193,7 +38232,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         let stop_sent =
@@ -38267,7 +38306,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         let stop_sent =
@@ -38375,7 +38414,7 @@ BTC is currently around $65,000 based on latest tool output."#
             release_gate.add_permits(tokio::sync::Semaphore::MAX_PERMITS / 2);
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         let busy =
@@ -38451,7 +38490,7 @@ BTC is currently around $65,000 based on latest tool output."#
             release_gate.add_permits(tokio::sync::Semaphore::MAX_PERMITS / 2);
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         let busy =
@@ -38542,7 +38581,7 @@ BTC is currently around $65,000 based on latest tool output."#
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         let busy =
@@ -38850,7 +38889,7 @@ BTC is currently around $65,000 based on latest tool output."#
             }
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         let stop_no_task =
@@ -38976,7 +39015,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4, None).await;
         send_task.await.unwrap();
 
         let new_session =
@@ -39059,7 +39098,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4, None).await;
         send_task.await.unwrap();
 
         let sent = channel_impl.sent_messages.lock().await;
@@ -39139,7 +39178,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4, None).await;
         send_task.await.unwrap();
 
         let stop_sent =
@@ -39212,7 +39251,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4, None).await;
         send_task.await.unwrap();
 
         let sent = channel_impl.sent_messages.lock().await;
@@ -39381,7 +39420,7 @@ BTC is currently around $65,000 based on latest tool output."#
             tx.send(bob).await.unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4, None).await;
         send_task.await.unwrap();
 
         let mut histories = ctx
@@ -39448,7 +39487,7 @@ BTC is currently around $65,000 based on latest tool output."#
             tx.send(bob).await.unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4, None).await;
         send_task.await.unwrap();
 
         let mut histories = ctx
@@ -39509,7 +39548,7 @@ BTC is currently around $65,000 based on latest tool output."#
             tx.send(bob).await.unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4, None).await;
         send_task.await.unwrap();
 
         let mut histories = ctx
@@ -39570,7 +39609,7 @@ BTC is currently around $65,000 based on latest tool output."#
             tx.send(bob).await.unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         let sent = channel_impl.sent_messages.lock().await;
@@ -39839,7 +39878,8 @@ BTC is currently around $65,000 based on latest tool output."#
         let dispatch = zeroclaw_spawn::spawn!(run_message_dispatch_loop(
             rx,
             AgentRouter::single(Arc::clone(&ctx)),
-            4
+            4,
+            None
         ));
 
         // m1 starts and parks inside the provider.
@@ -39947,7 +39987,8 @@ BTC is currently around $65,000 based on latest tool output."#
         let dispatch = zeroclaw_spawn::spawn!(run_message_dispatch_loop(
             rx,
             AgentRouter::single(Arc::clone(&ctx)),
-            4
+            4,
+            None
         ));
 
         // m1 starts and parks inside the provider.
@@ -40043,7 +40084,7 @@ BTC is currently around $65,000 based on latest tool output."#
             tx.send(independent).await.unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         let sent = channel_impl.sent_messages.lock().await;
@@ -40131,7 +40172,7 @@ BTC is currently around $65,000 based on latest tool output."#
             }
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         assert!(
@@ -40233,7 +40274,7 @@ BTC is currently around $65,000 based on latest tool output."#
 
         tokio::time::timeout(
             Duration::from_secs(5),
-            run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4),
+            run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None),
         )
         .await
         .expect("a stale completion must not hang the next turn");
@@ -40309,7 +40350,7 @@ BTC is currently around $65,000 based on latest tool output."#
             tx.send(bob).await.unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(Arc::clone(&ctx)), 4, None).await;
         send_task.await.unwrap();
 
         let sent = channel_impl.sent_messages.lock().await;
@@ -40392,7 +40433,7 @@ BTC is currently around $65,000 based on latest tool output."#
             release_gate.add_permits(tokio::sync::Semaphore::MAX_PERMITS / 2);
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         let busy =
@@ -42198,7 +42239,7 @@ BTC is currently around $65,000 based on latest tool output."#
         tx.send(selection).await.unwrap();
         drop(tx);
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx.clone()), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx.clone()), 4, None).await;
 
         let route = runtime_ctx
             .route_overrides
@@ -42290,7 +42331,7 @@ BTC is currently around $65,000 based on latest tool output."#
         let (tx, rx) = tokio::sync::mpsc::channel::<zeroclaw_api::channel::ChannelMessage>(1);
         tx.send(selection.clone()).await.unwrap();
         drop(tx);
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx.clone()), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx.clone()), 4, None).await;
 
         {
             let overrides = runtime_ctx.route_overrides.lock().unwrap();
@@ -42451,7 +42492,7 @@ BTC is currently around $65,000 based on latest tool output."#
         tx.send(selection.clone()).await.unwrap();
         drop(tx);
         let router = AgentRouter::multi(HashMap::new(), HashMap::new(), None, None, None);
-        run_message_dispatch_loop(rx, router, 1).await;
+        run_message_dispatch_loop(rx, router, 1, None).await;
 
         assert!(
             !crate::model_picker_delivery::is_registered(&selection.id),
@@ -42489,7 +42530,7 @@ BTC is currently around $65,000 based on latest tool output."#
         let (tx, rx) = tokio::sync::mpsc::channel::<zeroclaw_api::channel::ChannelMessage>(1);
         tx.send(selection.clone()).await.unwrap();
         drop(tx);
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx.clone()), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx.clone()), 4, None).await;
 
         assert!(
             !crate::model_picker_delivery::is_registered(&selection.id),
@@ -42537,7 +42578,7 @@ BTC is currently around $65,000 based on latest tool output."#
         let (tx, rx) = tokio::sync::mpsc::channel::<zeroclaw_api::channel::ChannelMessage>(1);
         tx.send(selection.clone()).await.unwrap();
         drop(tx);
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx.clone()), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx.clone()), 4, None).await;
 
         let woken = tokio::time::timeout(Duration::from_secs(1), delivery_ack.wait()).await;
         assert!(
@@ -42677,7 +42718,7 @@ BTC is currently around $65,000 based on latest tool output."#
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         tx.send(selection.clone()).await.unwrap();
         drop(tx);
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx.clone()), 1).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx.clone()), 1, None).await;
 
         assert!(
             runtime_ctx.route_overrides.lock().unwrap().is_empty(),
@@ -51507,7 +51548,7 @@ This is an example JSON object for profile settings."#;
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(ctx), 4, None).await;
         send_task.await.unwrap();
 
         let stop_no_task =
@@ -51660,7 +51701,7 @@ This is an example JSON object for profile settings."#;
             .unwrap();
         });
 
-        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4).await;
+        run_message_dispatch_loop(rx, AgentRouter::single(runtime_ctx), 4, None).await;
         send_task.await.unwrap();
 
         // Both tasks should have completed — different threads, no cancellation.
@@ -55330,7 +55371,7 @@ Done."#;
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         tx.send(msg).await.expect("queue gate reply");
         drop(tx);
-        run_message_dispatch_loop(rx, router, 1).await;
+        run_message_dispatch_loop(rx, router, 1, None).await;
 
         tokio::time::timeout(Duration::from_secs(1), async {
             loop {
