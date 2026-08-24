@@ -7449,6 +7449,20 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                 let task_supervisor =
                     zeroclaw_runtime::mcp_tasks::McpTaskSupervisor::start(current_config.clone());
 
+                // Daemon-owned per-scope MCP connection pool, shared with
+                // RpcContext (RPC/TUI agent sessions) via DaemonRegistry —
+                // mirrors task_supervisor's per-iteration construction just
+                // above. `from_owned_config` takes an owned `Config` snapshot
+                // (like `McpTaskSupervisor::start` does) rather than sharing
+                // `RpcContext.config`'s `Arc<parking_lot::RwLock<Config>>`
+                // handle: no such handle exists yet at this point in the
+                // daemon startup/reload loop, and this root binary crate does
+                // not depend on `parking_lot` directly (dev-dependency-only;
+                // see root `Cargo.toml`'s "no `src/` usage" comment).
+                let mcp_pool = zeroclaw_runtime::mcp_pool::McpConnectionPool::from_owned_config(
+                    current_config.clone(),
+                );
+
                 #[cfg(feature = "gateway")]
                 registry.register_gateway(Box::new({
                     let sop_e = sop_engine.clone();
@@ -8060,6 +8074,9 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                 // Same for the MCP task supervisor (see its construction
                 // above for why one shared instance is threaded everywhere).
                 registry.set_task_supervisor(Some(task_supervisor));
+                // Same for the MCP connection pool (see its construction
+                // above).
+                registry.set_mcp_pool(Some(mcp_pool));
 
                 let exit = Box::pin(daemon::run_with_authority(
                     authority,
