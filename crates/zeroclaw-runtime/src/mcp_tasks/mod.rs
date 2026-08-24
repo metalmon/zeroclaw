@@ -95,9 +95,16 @@ pub(crate) trait TaskInjector: Send + Sync {
 /// session-interruption handler (`zeroclaw-channels::orchestrator`) calls it
 /// directly on the shared `Arc` it already holds.
 pub struct McpTaskSupervisor {
+    /// Kept solely for the per-scope, per-server admission cap lookup in
+    /// [`Self::create_task`] (`mcp_servers_for_agent` /
+    /// `task_concurrency_cap`) — registry resolution itself goes through
+    /// [`Self::pool`], not this snapshot.
     config: Config,
-    /// One task-advertising registry per agent scope, built lazily.
-    scopes: Mutex<HashMap<String, Arc<McpRegistry>>>,
+    /// The daemon-owned, shared MCP connection pool this supervisor borrows
+    /// registries from (`pool.registry_for(alias)`), so the task poller
+    /// polls the exact same pooled connection an agent turn in that scope
+    /// uses, instead of maintaining a duplicate per-scope registry here.
+    pool: Arc<crate::mcp_pool::McpConnectionPool>,
     tasks: Mutex<HashMap<String, TaskBinding>>,
     injector: Arc<dyn TaskInjector>,
     /// Test seam for [`McpTaskToolWrapper`](wrapper::McpTaskToolWrapper)'s unit
@@ -136,17 +143,21 @@ impl McpTaskSupervisor {
     /// daemon run/reload iteration and share the returned `Arc`; a fresh
     /// call per surface would connect duplicate MCP task-advertising
     /// registries for the same agent scope.
-    pub fn start(config: Config) -> Arc<Self> {
+    pub fn start(config: Config, pool: Arc<crate::mcp_pool::McpConnectionPool>) -> Arc<Self> {
         let injector: Arc<dyn TaskInjector> = Arc::new(inject::RuntimeInjector {
             config: config.clone(),
         });
-        Self::new(config, injector)
+        Self::new(config, injector, pool)
     }
 
-    pub(crate) fn new(config: Config, injector: Arc<dyn TaskInjector>) -> Arc<Self> {
+    pub(crate) fn new(
+        config: Config,
+        injector: Arc<dyn TaskInjector>,
+        pool: Arc<crate::mcp_pool::McpConnectionPool>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             config,
-            scopes: Mutex::new(HashMap::new()),
+            pool,
             tasks: Mutex::new(HashMap::new()),
             injector,
             #[cfg(test)]
@@ -160,21 +171,21 @@ impl McpTaskSupervisor {
         })
     }
 
-    /// Test-only: build a supervisor whose `alias` scope is pre-populated
-    /// with `registry`, so `scope_registry` never has to connect a real MCP
-    /// server. Lets the poller logic (admission, polling, terminal-state
-    /// injection) be exercised end to end against a fake registry.
+    /// Test-only: build a supervisor whose `alias` scope always resolves
+    /// (via `pool.registry_for`) to `registry`, so `create_task` never has
+    /// to connect a real MCP server. Lets the poller logic (admission,
+    /// polling, terminal-state injection) be exercised end to end against a
+    /// fake registry.
     #[cfg(test)]
     fn new_for_test(
         alias: &str,
         registry: Arc<McpRegistry>,
         injector: Arc<dyn TaskInjector>,
     ) -> Arc<Self> {
-        let mut scopes = HashMap::new();
-        scopes.insert(alias.to_string(), registry);
+        let pool = crate::mcp_pool::McpConnectionPool::for_test_with_registry(alias, registry);
         Arc::new(Self {
             config: Config::default(),
-            scopes: Mutex::new(scopes),
+            pool,
             tasks: Mutex::new(HashMap::new()),
             injector,
             test_pending: None,
@@ -199,7 +210,7 @@ impl McpTaskSupervisor {
         }
         Arc::new(Self {
             config: Config::default(),
-            scopes: Mutex::new(HashMap::new()),
+            pool: crate::mcp_pool::McpConnectionPool::from_owned_config(Config::default()),
             tasks: Mutex::new(HashMap::new()),
             injector: Arc::new(NoopInjector),
             test_pending: Some(immediate.to_string()),
@@ -212,14 +223,14 @@ impl McpTaskSupervisor {
     /// Test-only seam for [`Self::cancel_tasks_for_session`]'s unit test: a
     /// supervisor pre-populated with one live task (`task_id`, on `server`,
     /// scoped to `alias`) bound to `session_key`, with no MCP servers
-    /// configured for `alias` — so the best-effort registry cancel inside
-    /// `cancel_tasks_for_session` resolves an empty (real,
-    /// `connect_all_advertising_tasks(&[])`) registry, finds no matching
-    /// server, and is silently discarded exactly as it is in production
-    /// against a server that has since disconnected. What the unit test
-    /// actually asserts is [`Self::cancel_calls`] (recorded unconditionally,
-    /// before the registry round trip) and [`Self::is_empty`] (the binding
-    /// is dropped either way).
+    /// configured for `alias` (a default `Config`-backed pool) — so the
+    /// best-effort registry cancel inside `cancel_tasks_for_session` finds
+    /// `pool.registry_for(&alias)` returns `None` and is silently discarded
+    /// exactly as it is in production against a server that has since
+    /// disconnected. What the unit test actually asserts is
+    /// [`Self::cancel_calls`] (recorded unconditionally, before the
+    /// registry round trip) and [`Self::is_empty`] (the binding is dropped
+    /// either way).
     #[cfg(test)]
     pub(crate) fn new_for_test_with_live_task(
         session_key: &str,
@@ -245,7 +256,7 @@ impl McpTaskSupervisor {
         );
         Arc::new(Self {
             config: Config::default(),
-            scopes: Mutex::new(HashMap::new()),
+            pool: crate::mcp_pool::McpConnectionPool::from_owned_config(Config::default()),
             tasks: Mutex::new(tasks),
             injector: Arc::new(NoopInjector),
             test_pending: None,
@@ -282,27 +293,6 @@ impl McpTaskSupervisor {
     #[cfg(test)]
     pub(crate) async fn is_empty(&self) -> bool {
         self.tasks.lock().await.is_empty()
-    }
-
-    /// Build (or reuse) this scope's task-advertising registry. Only
-    /// servers with `tasks_enabled_effective()` are connected here, each
-    /// advertising the tasks extension during its handshake.
-    async fn scope_registry(self: &Arc<Self>, alias: &str) -> anyhow::Result<Arc<McpRegistry>> {
-        if let Some(r) = self.scopes.lock().await.get(alias) {
-            return Ok(Arc::clone(r));
-        }
-        let servers: Vec<_> = self
-            .config
-            .mcp_servers_for_agent(alias)
-            .into_iter()
-            .filter(|s| s.tasks_enabled_effective())
-            .collect();
-        let reg = Arc::new(McpRegistry::connect_all_advertising_tasks(&servers).await?);
-        self.scopes
-            .lock()
-            .await
-            .insert(alias.to_string(), Arc::clone(&reg));
-        Ok(reg)
     }
 
     /// Create a task for `alias` on `server`/`tool`. Subject to a
@@ -344,7 +334,11 @@ impl McpTaskSupervisor {
             }
         }
 
-        let reg = self.scope_registry(alias).await?;
+        let reg = self
+            .pool
+            .registry_for(alias)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("no MCP servers for scope `{alias}`"))?;
         let prefixed = format!("{server}__{tool}");
         match reg.create_task(&prefixed, args).await? {
             TaskCall::Inline(v) => {
@@ -394,14 +388,13 @@ impl McpTaskSupervisor {
 
     /// Background poll loop for one task. Polls on the exact registry
     /// (`reg`) the task was created on — NOT a freshly re-fetched
-    /// `scope_registry(alias)` — because rmcp task ids are scoped to the
+    /// `pool.registry_for(alias)` — because rmcp task ids are scoped to the
     /// MCP connection that created them. Re-fetching here would race a
-    /// concurrent first-ever `create_task` for the same `alias`: two
-    /// concurrent calls can each lazily build a distinct per-scope registry,
-    /// and whichever `insert` into `self.scopes` loses would leave this
-    /// poller polling a different connection than the task lives on,
-    /// making `tasks/get` fail with `-32602` and silently losing the
-    /// result.
+    /// concurrent config change reconciled by the pool: a server
+    /// reconnecting mid-poll (e.g. a config edit or a dead-handle
+    /// replacement) would leave this poller polling a different connection
+    /// than the task lives on, making `tasks/get` fail with `-32602` and
+    /// silently losing the result.
     ///
     /// Runs until the task reaches a terminal status (successfully handed
     /// off to the injector), the binding is removed out from under it (e.g.
@@ -478,7 +471,7 @@ impl McpTaskSupervisor {
         for (id, alias, server) in victims {
             #[cfg(test)]
             self.cancel_calls.lock().unwrap().push(id.clone());
-            if let Ok(reg) = self.scope_registry(&alias).await {
+            if let Some(reg) = self.pool.registry_for(&alias).await {
                 let _ = reg.cancel_task_on_server(&server, &id).await;
             }
             self.drop_task(&id).await;
