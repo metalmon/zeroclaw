@@ -93,6 +93,7 @@ fn test_state(config: Config) -> AppState {
             1000,
         )),
         task_supervisor: None,
+        mcp_pool: None,
         #[cfg(feature = "channel-whatsapp-cloud")]
         whatsapp: HashMap::new(),
         #[cfg(feature = "channel-whatsapp-cloud")]
