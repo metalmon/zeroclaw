@@ -25410,7 +25410,7 @@ mod tests {
         );
     }
 
-    #[test]
+    #[::core::prelude::v1::test]
     fn mcp_server_config_eq_detects_arg_change() {
         let a = McpServerConfig {
             name: "kb".into(),
