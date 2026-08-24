@@ -495,6 +495,10 @@ async fn handle_socket(
         return;
     }
 
+    let mcp_reg = match &state.mcp_pool {
+        Some(p) => p.registry_for(&agent_alias).await,
+        None => None,
+    };
     let mut agent =
         match zeroclaw_runtime::agent::Agent::from_live_config_with_session_cwd_and_mcp_backchannel(
             Arc::clone(&state.config),
@@ -508,7 +512,7 @@ async fn handle_socket(
             state.sop_audit.clone(),
             Some(state.canvas_store.clone()),
             state.task_supervisor.clone(),
-            None,
+            mcp_reg,
         )
         .await
         {

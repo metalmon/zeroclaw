@@ -2678,6 +2678,7 @@ mod tests {
             sop_engine: None,
             sop_audit: None,
             task_supervisor: None,
+            mcp_pool: None,
         }
     }
 
