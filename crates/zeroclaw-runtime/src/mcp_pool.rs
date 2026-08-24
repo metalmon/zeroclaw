@@ -57,6 +57,17 @@ struct ScopeEntry {
 pub struct McpConnectionPool {
     config: Arc<parking_lot::RwLock<Config>>,
     scopes: Mutex<HashMap<ScopeKey, ScopeEntry>>,
+    /// Test-only override: when set (to `(alias, registry)`), `registry_for`
+    /// returns `registry` directly for that one alias without touching
+    /// `config` or connecting any real MCP server. Lets `mcp_tasks`'s unit
+    /// tests exercise `McpTaskSupervisor::create_task`'s `pool.registry_for`
+    /// resolution against a fake in-memory `McpRegistry` (e.g.
+    /// `McpRegistry::for_test_task_two_step`) instead of spawning a real
+    /// stdio/http connection, mirroring the config-driven reconcile's
+    /// contract (same alias in, same `Arc` out) without exercising it.
+    /// Never set outside tests.
+    #[cfg(test)]
+    test_override: Option<(String, Arc<McpRegistry>)>,
 }
 
 impl McpConnectionPool {
@@ -64,6 +75,21 @@ impl McpConnectionPool {
         Arc::new(Self {
             config,
             scopes: Mutex::new(HashMap::new()),
+            #[cfg(test)]
+            test_override: None,
+        })
+    }
+
+    /// Test-only: build a pool whose `registry_for(alias)` always returns
+    /// `registry` for that exact alias, bypassing config-driven connection
+    /// reconcile entirely (no `Config` grant needed, no real MCP server
+    /// connected). See [`Self::test_override`].
+    #[cfg(test)]
+    pub(crate) fn for_test_with_registry(alias: &str, registry: Arc<McpRegistry>) -> Arc<Self> {
+        Arc::new(Self {
+            config: Arc::new(parking_lot::RwLock::new(Config::default())),
+            scopes: Mutex::new(HashMap::new()),
+            test_override: Some((alias.to_string(), registry)),
         })
     }
 
@@ -121,6 +147,13 @@ impl McpConnectionPool {
     /// revision could address by connecting outside the lock and only
     /// re-taking it to publish the result.
     pub async fn registry_for(&self, alias: &str) -> Option<Arc<McpRegistry>> {
+        #[cfg(test)]
+        if let Some((test_alias, registry)) = &self.test_override {
+            if test_alias == alias {
+                return Some(Arc::clone(registry));
+            }
+        }
+
         let servers: Vec<McpServerConfig> = {
             let cfg = self.config.read();
             cfg.mcp_servers_for_agent(alias)
