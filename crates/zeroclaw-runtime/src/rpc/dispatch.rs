@@ -4895,6 +4895,7 @@ impl RpcDispatcher {
                 self.principal_tool_narrowing(),
                 Some(execution_capability),
                 acp_session_store,
+                self.ctx.task_supervisor.clone(),
             ),
         )
         .await
@@ -5991,6 +5992,7 @@ impl RpcDispatcher {
                 self.principal_tool_narrowing(),
                 Some(execution_capability),
                 Some(Arc::clone(&store)),
+                self.ctx.task_supervisor.clone(),
             ),
         )
         .await
@@ -39840,6 +39842,7 @@ mod tests {
             auth: crate::rpc::auth::RpcInboundAuth::for_tests(
                 &zeroclaw_config::schema::Config::default(),
             ),
+            task_supervisor: None,
         });
         let (tx, _rx) = tokio::sync::mpsc::channel(64);
         let dispatcher = RpcDispatcher::new(ctx, tx, "test-peer-close:pid=1".into());
@@ -39893,6 +39896,7 @@ mod tests {
             auth: crate::rpc::auth::RpcInboundAuth::for_tests(
                 &zeroclaw_config::schema::Config::default(),
             ),
+            task_supervisor: None,
         });
         let (tx, _rx) = tokio::sync::mpsc::channel(64);
         let dispatcher = RpcDispatcher::new(ctx, tx, "test-peer-delete:pid=1".into());
@@ -40082,6 +40086,7 @@ mod tests {
             auth: crate::rpc::auth::RpcInboundAuth::for_tests(
                 &zeroclaw_config::schema::Config::default(),
             ),
+            task_supervisor: None,
         });
         let (tx, _rx) = tokio::sync::mpsc::channel(64);
         let dispatcher = RpcDispatcher::new(ctx, tx, "test-peer-real-close:pid=1".into());

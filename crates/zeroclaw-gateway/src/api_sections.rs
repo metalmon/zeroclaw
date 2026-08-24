@@ -1631,6 +1631,7 @@ mod tests {
             sop_engine: None,
             sop_audit: None,
             sop_driver_handles: None,
+            task_supervisor: None,
         }
     }
 
