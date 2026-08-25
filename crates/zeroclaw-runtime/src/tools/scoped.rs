@@ -550,17 +550,34 @@ impl ScopedToolRegistry {
                             // `tasks_enabled_effective()`; every other MCP
                             // tool keeps the unmodified `McpToolWrapper` path.
                             let server_tool = name.split_once("__");
-                            let task_enabled_server = server_tool.and_then(|(server, _)| {
-                                agent_mcp_servers
-                                    .iter()
-                                    .find(|s| s.name == server)
-                                    .filter(|s| s.tasks_enabled_effective())
-                            });
+                            // Route through `McpTaskToolWrapper` only when the
+                            // config opts in (`tasks_enabled`, default true) AND
+                            // the connected server actually announced the tasks
+                            // extension in its `initialize` result. The default
+                            // being on means the config gate alone would send
+                            // EVERY server down the task path; a plain server
+                            // that never announced tasks would then answer every
+                            // call inline through `create_task`. Requiring the
+                            // announced capability keeps such servers on the
+                            // unmodified `McpToolWrapper` path.
+                            let config_task_enabled = server_tool
+                                .and_then(|(server, _)| {
+                                    agent_mcp_servers
+                                        .iter()
+                                        .find(|s| s.name == server)
+                                        .filter(|s| s.tasks_enabled_effective())
+                                })
+                                .is_some();
+                            let server_announced_tasks = match server_tool {
+                                Some((server, _)) => registry.server_supports_tasks(server).await,
+                                None => false,
+                            };
+                            let task_routed = config_task_enabled && server_announced_tasks;
                             let wrapper: Arc<dyn Tool> =
-                                match (task_supervisor.as_ref(), task_enabled_server) {
-                                    (Some(supervisor), Some(_)) => {
-                                        let (server, tool) =
-                                            server_tool.expect("task_enabled_server implies Some");
+                                match (task_supervisor.as_ref(), task_routed) {
+                                    (Some(supervisor), true) => {
+                                        let (server, tool) = server_tool
+                                            .expect("task_routed implies server_tool is Some");
                                         Arc::new(crate::mcp_tasks::wrapper::McpTaskToolWrapper {
                                             prefixed_name: name.clone(),
                                             description: def
