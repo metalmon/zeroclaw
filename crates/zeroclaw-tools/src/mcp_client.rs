@@ -1432,6 +1432,85 @@ impl McpRegistry {
         }
     }
 
+    /// Test helper: a single-server registry whose `tools/call` returns
+    /// `result` INLINE (no task envelope), exercising the supervisor's
+    /// [`TaskCall::Inline`] path. Used to prove the supervisor materializes
+    /// base64 payloads in a server's synchronous result instead of dumping
+    /// the raw JSON into the model's context.
+    #[cfg(feature = "test-helpers")]
+    pub async fn for_test_inline_returning(
+        server_name: &str,
+        tool_name: &str,
+        result: serde_json::Value,
+    ) -> Self {
+        use crate::mcp_protocol::JsonRpcResponse;
+        use async_trait::async_trait;
+
+        struct InlineTransport {
+            result: serde_json::Value,
+        }
+
+        #[async_trait]
+        impl SharedMcpTransportConn for InlineTransport {
+            async fn send_and_recv(
+                &self,
+                request: &JsonRpcRequest,
+                _lifecycle: &McpRequestLifecycle,
+            ) -> Result<JsonRpcResponse> {
+                Ok(JsonRpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    id: request.id.clone(),
+                    result: Some(self.result.clone()),
+                    error: None,
+                })
+            }
+
+            async fn close(&self) -> Result<()> {
+                Ok(())
+            }
+        }
+
+        let transport: Arc<dyn SharedMcpTransportConn> = Arc::new(InlineTransport { result });
+        let inner = McpServerInner {
+            config: McpServerConfig {
+                name: server_name.to_string(),
+                ..McpServerConfig::default()
+            },
+            #[cfg(target_has_atomic = "64")]
+            next_id: AtomicU64::new(3),
+            #[cfg(not(target_has_atomic = "64"))]
+            next_id: AtomicU32::new(3),
+            tools: vec![McpToolDef {
+                name: tool_name.to_string(),
+                description: None,
+                input_schema: json!({}),
+            }],
+            capabilities: McpServerCapabilities::default(),
+            advertise_tasks: true,
+        };
+        let server = McpServer {
+            inner: Arc::new(Mutex::new(inner)),
+            transport,
+            epoch_gate: Arc::new(RwLock::new(0)),
+            serial_gate: None,
+            recovery: Arc::new(RecoveryBarrier::new()),
+        };
+
+        let mut server_index = HashMap::new();
+        server_index.insert(server_name.to_string(), 0usize);
+        let mut tool_index = HashMap::new();
+        tool_index.insert(
+            format!("{server_name}__{tool_name}"),
+            (0usize, tool_name.to_string()),
+        );
+
+        Self {
+            servers: vec![server],
+            tool_index,
+            server_index,
+        }
+    }
+
     /// All prefixed tool names across all connected servers.
     pub fn tool_names(&self) -> Vec<String> {
         self.tool_index.keys().cloned().collect()
@@ -1620,6 +1699,19 @@ impl McpRegistry {
     pub async fn server_supports_prompts(&self, name: &str) -> bool {
         match self.server_by_name(name) {
             Some(srv) => srv.capabilities().await.supports_prompts(),
+            None => false,
+        }
+    }
+
+    /// Whether the named server advertised the `io.modelcontextprotocol/tasks`
+    /// extension in its `initialize` result. Task-augmented tool routing must
+    /// gate on this, not on config alone: `tasks_enabled` defaults to true, so
+    /// without this check every server — including ones that never announced
+    /// task support — would be routed through the task path and fall back to an
+    /// inline result on every call.
+    pub async fn server_supports_tasks(&self, name: &str) -> bool {
+        match self.server_by_name(name) {
+            Some(srv) => srv.capabilities().await.supports_tasks(),
             None => false,
         }
     }
@@ -2800,6 +2892,36 @@ mod tests {
             serial_gate: None,
             recovery: Arc::new(RecoveryBarrier::new()),
         }
+    }
+
+    #[tokio::test]
+    async fn server_supports_tasks_reflects_announced_capability() {
+        // Task-augmented routing must gate on the server's ANNOUNCED tasks
+        // capability, not on config alone (which defaults on). A server that
+        // announced the extension → true; one that did not → false; an unknown
+        // server name → false (never a panic).
+        let with = server_with_caps_returning(
+            McpServerCapabilities {
+                resources: false,
+                prompts: false,
+                tasks: true,
+            },
+            serde_json::json!({}),
+        );
+        let reg = McpRegistry::from_servers(vec![with]).await;
+        assert!(reg.server_supports_tasks("fake").await);
+
+        let without = server_with_caps_returning(
+            McpServerCapabilities {
+                resources: false,
+                prompts: false,
+                tasks: false,
+            },
+            serde_json::json!({}),
+        );
+        let reg2 = McpRegistry::from_servers(vec![without]).await;
+        assert!(!reg2.server_supports_tasks("fake").await);
+        assert!(!reg2.server_supports_tasks("nonexistent").await);
     }
 
     #[tokio::test]
