@@ -467,10 +467,12 @@ fn materializable_base64(item: &serde_json::Value) -> Option<&str> {
 /// `structuredContent`/`_meta`/`isError`) is preserved. Results without any
 /// binary item keep the existing pretty-printed JSON shape.
 ///
-/// Crate-internal: the only caller is [`crate::mcp_tool::McpToolWrapper`]; the
-/// serialized `CallToolResult` from `McpRegistry::call_tool` remains the public
-/// surface.
-pub(crate) fn format_mcp_tool_result_for_model(
+/// Callers: the inline [`crate::mcp_tool::McpToolWrapper`] path, and the runtime
+/// MCP-task completion path (`mcp_tasks::inject`), which materializes a
+/// task's `CallToolResult` before rendering it into the injected turn — so a
+/// tool call that ran as a background task redacts base64 exactly as the inline
+/// call does, instead of dumping raw payloads into the model's context.
+pub fn format_mcp_tool_result_for_model(
     mut result: serde_json::Value,
     workspace_dir: &Path,
 ) -> Result<String, EmbeddedResourceError> {
