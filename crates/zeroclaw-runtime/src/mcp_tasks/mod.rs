@@ -23,6 +23,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use zeroclaw_config::schema::Config;
+use zeroclaw_tools::embedded_resource::format_mcp_tool_result_for_model;
 use zeroclaw_tools::mcp_client::TaskCall;
 use zeroclaw_tools::mcp_protocol::{GetTaskResult, MODEL_IMMEDIATE_RESPONSE_KEY};
 
@@ -346,7 +347,19 @@ impl McpTaskSupervisor {
         let reg = self.scope_registry(alias).await?;
         let prefixed = format!("{server}__{tool}");
         match reg.create_task(&prefixed, args).await? {
-            TaskCall::Inline(v) => Ok(TaskDispatch::Inline(serde_json::to_string_pretty(&v)?)),
+            TaskCall::Inline(v) => {
+                // A server that does not implement the tasks extension (or that
+                // runs this call synchronously) answers inline. Its result may
+                // carry base64 resource/image/audio payloads, so materialize
+                // them to the agent's workspace and hand the model markers —
+                // exactly the intake the inline `McpToolWrapper` path applies.
+                // Serializing the raw result here (the pre-fix behavior) floods
+                // the model's context and trips a `context_window` failure.
+                let workspace_dir = self.config.agent_workspace_dir(alias);
+                let text = format_mcp_tool_result_for_model(v.clone(), &workspace_dir)
+                    .unwrap_or_else(|_| serde_json::to_string_pretty(&v).unwrap_or_default());
+                Ok(TaskDispatch::Inline(text))
+            }
             TaskCall::Task(ct) => {
                 let poll = ct.task.poll_interval_ms.unwrap_or(1000);
                 let immediate = ct
@@ -618,5 +631,85 @@ mod tests {
         sup.cancel_tasks_for_session("sess-9").await;
         assert!(sup.is_empty().await);
         assert!(sup.cancel_calls().contains(&"t9".to_string()));
+    }
+
+    /// Regression: a server that answers a call INLINE (no task envelope) with
+    /// a base64 image must have that payload materialized to the agent
+    /// workspace and replaced with an `[IMAGE:]` marker — never dumped raw into
+    /// the model's context. This is the sync counterpart to the async
+    /// `render_task_result` intake; before the fix the `TaskCall::Inline` arm
+    /// serialized the raw result and blew the context window.
+    #[tokio::test]
+    async fn create_task_inline_materializes_base64_image() {
+        use base64::Engine;
+
+        let ws = tempfile::tempdir().unwrap();
+        let raw = b"inline-raw-image-bytes-must-not-leak";
+        let b64 = base64::engine::general_purpose::STANDARD.encode(raw);
+        let result = serde_json::json!({
+            "content": [{"type": "image", "data": b64.clone(), "mimeType": "image/png"}],
+            "isError": false
+        });
+        let reg = Arc::new(McpRegistry::for_test_inline_returning("glossa", "read", result).await);
+
+        struct NoopInjector;
+        #[async_trait::async_trait]
+        impl TaskInjector for NoopInjector {
+            async fn inject(&self, _binding: TaskBinding, _got: GetTaskResult) {}
+        }
+
+        // `config_path`'s parent is the install root; `agent_workspace_dir`
+        // resolves under it, so point it at the tempdir to capture the write.
+        let mut config = Config::default();
+        config.config_path = ws.path().join("config.toml");
+        // The materializer opens (does not create) the workspace dir; in
+        // production it always exists, so create it here.
+        std::fs::create_dir_all(config.agent_workspace_dir("main")).unwrap();
+
+        let mut scopes = HashMap::new();
+        scopes.insert("main".to_string(), reg);
+        let sup = Arc::new(McpTaskSupervisor {
+            config,
+            scopes: Mutex::new(scopes),
+            tasks: Mutex::new(HashMap::new()),
+            injector: Arc::new(NoopInjector),
+            test_pending: None,
+            last_session_key: std::sync::Mutex::new(None),
+            last_origin_route: std::sync::Mutex::new(None),
+            cancel_calls: std::sync::Mutex::new(Vec::new()),
+        });
+
+        let disp = sup
+            .create_task(
+                "main",
+                "glossa",
+                "read",
+                serde_json::json!({}),
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        match disp {
+            TaskDispatch::Inline(text) => {
+                assert!(
+                    !text.contains(&b64),
+                    "raw base64 leaked into inline result ({} chars)",
+                    text.len()
+                );
+                assert!(text.contains("[IMAGE:"), "expected IMAGE marker: {text}");
+            }
+            TaskDispatch::Pending { .. } => panic!("expected inline result, got pending"),
+        }
+        assert!(
+            ws.path()
+                .join("agents")
+                .join("main")
+                .join("workspace")
+                .join("uploads")
+                .exists(),
+            "image must be materialized under the agent workspace"
+        );
     }
 }
