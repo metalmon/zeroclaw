@@ -665,11 +665,10 @@ mod tests {
         // production it always exists, so create it here.
         std::fs::create_dir_all(config.agent_workspace_dir("main")).unwrap();
 
-        let mut scopes = HashMap::new();
-        scopes.insert("main".to_string(), reg);
+        let pool = crate::mcp_pool::McpConnectionPool::for_test_with_registry("main", reg);
         let sup = Arc::new(McpTaskSupervisor {
             config,
-            scopes: Mutex::new(scopes),
+            pool,
             tasks: Mutex::new(HashMap::new()),
             injector: Arc::new(NoopInjector),
             test_pending: None,
