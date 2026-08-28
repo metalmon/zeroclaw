@@ -969,45 +969,114 @@ fn workspace_prefixed_relative_suffix(path: &Path, workspace_dir: &Path) -> Opti
         .map(|suffix| PathBuf::from(suffix.replace('/', std::path::MAIN_SEPARATOR_STR)))
 }
 
-/// Skip leading environment variable assignments (e.g. `FOO=bar cmd args`).
-/// Returns the remainder starting at the first non-assignment word.
-fn skip_env_assignments(s: &str) -> &str {
-    let mut rest = s.trim_start();
-    loop {
-        let len = shell_word_len(rest);
-        if len == 0 {
-            return rest;
-        }
-        // Quote-aware `word` keeps `FOO="a b"` whole, so a spaced quoted value
-        // cannot leave `b"` behind as the apparent executable.
-        if is_env_assignment(&rest[..len]) {
-            rest = rest[len..].trim_start();
-        } else {
-            return rest;
-        }
-    }
+/// The role bash gives a segment's first shell-word when deciding whether it is
+/// a leading environment assignment rather than the command itself.
+enum AssignmentWord {
+    /// A simple `name=value` / `name+=value` we can model exactly — safe to
+    /// strip so executable discovery reaches the real command.
+    Clean,
+    /// Bash still treats this as an assignment (an array-element assignment such
+    /// as `A[0]=x`, or a value carrying an unquoted operator bash re-lexes such
+    /// as `FOO=bar>` which is `FOO=bar` then a `>` redirect), but its exact
+    /// lexing cannot be reproduced here. The effective command is unknowable, so
+    /// callers must fail closed instead of mistaking a decoy for the executable.
+    Unmodelable,
+    /// Not an assignment word — this token is the executable.
+    NotAssignment,
 }
 
-/// True when `word` is a shell environment assignment prefix — both the plain
-/// `NAME=value` form and the Bash append form `NAME+=value`. `NAME` starts with
-/// a letter or underscore and is otherwise alnum/underscore. Recognizing the
-/// append form matters for security: `NAME+=value git commit` is a valid
-/// assignment-prefixed command, so if it were not treated as an assignment the
-/// `NAME+=value` token would be misread as the executable and hide the real
-/// `git` verb from the risk classifier.
-fn is_env_assignment(word: &str) -> bool {
-    let Some(eq) = word.find('=') else {
-        return false;
-    };
-    // Accept the Bash append-assignment operator `+=` by trimming a single
-    // trailing `+` off the name before validating it.
-    let name = word[..eq].strip_suffix('+').unwrap_or(&word[..eq]);
-    !name.is_empty()
-        && name
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
-        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+/// Classify a segment's first shell-word against bash's assignment-word grammar:
+/// `name(\[subscript\])?(\+)?=value`, where `name` is `[A-Za-z_][A-Za-z0-9_]*`.
+///
+/// This mirrors when bash strips a leading word as an assignment instead of
+/// running it. A plain `name[+]=value` is `Clean`. A form bash also assigns but
+/// we cannot model — an array subscript, or a value with an unquoted operator
+/// that bash would split the word on — is `Unmodelable` so the caller fails
+/// closed. Everything else is the executable (`NotAssignment`). Getting this
+/// wrong hides the real command: `FOO=bar> /dev/null git commit` must not have
+/// its `FOO=bar>` token silently consumed (with the `>`) and leave `git commit`
+/// misread, and `A[0]=x git commit` must not treat `A[0]=x` as the executable.
+fn classify_leading_assignment(word: &str) -> AssignmentWord {
+    let bytes = word.as_bytes();
+    // Name: [A-Za-z_][A-Za-z0-9_]*
+    match bytes.first() {
+        Some(&b) if b == b'_' || b.is_ascii_alphabetic() => {}
+        _ => return AssignmentWord::NotAssignment,
+    }
+    let mut i = 1;
+    while i < bytes.len() && (bytes[i] == b'_' || bytes[i].is_ascii_alphanumeric()) {
+        i += 1;
+    }
+    // Optional array subscript `[...]`. Bash accepts `A[0]=x` as an assignment,
+    // but the subscript is a shell-evaluated index we do not model.
+    let mut has_subscript = false;
+    if bytes.get(i) == Some(&b'[') {
+        has_subscript = true;
+        match word[i..].find(']') {
+            Some(close) => i += close + 1,
+            None => i = bytes.len(),
+        }
+    }
+    // Optional Bash append operator `+`.
+    if bytes.get(i) == Some(&b'+') {
+        i += 1;
+    }
+    // An assignment word requires `=` at this position.
+    if bytes.get(i) != Some(&b'=') {
+        return AssignmentWord::NotAssignment;
+    }
+    if has_subscript {
+        return AssignmentWord::Unmodelable;
+    }
+    if value_has_unquoted_word_operator(&word[i + 1..]) {
+        return AssignmentWord::Unmodelable;
+    }
+    AssignmentWord::Clean
+}
+
+/// True when an assignment value carries an unquoted shell operator that bash
+/// treats as a word boundary or re-lexes — `< > | & ; ( )` or a command-
+/// substitution backtick. Quote/escape-aware, so `FOO="a>b"` stays clean.
+///
+/// Glob metacharacters (`* ? [ {`) and `$` are intentionally NOT flagged: bash
+/// performs neither pathname nor brace expansion on an assignment right-hand
+/// side, so they are literal there and do not hide the executable. Flagging them
+/// would fail closed on ordinary values like `PATH=/a:$PATH`.
+fn value_has_unquoted_word_operator(value: &str) -> bool {
+    let mut quote = QuoteState::None;
+    let mut escaped = false;
+    for ch in value.chars() {
+        match quote {
+            QuoteState::Single => {
+                if ch == '\'' {
+                    quote = QuoteState::None;
+                }
+            }
+            QuoteState::Double => {
+                if escaped {
+                    escaped = false;
+                } else if ch == '\\' {
+                    escaped = true;
+                } else if ch == '"' {
+                    quote = QuoteState::None;
+                }
+            }
+            QuoteState::None => {
+                if escaped {
+                    escaped = false;
+                } else {
+                    match ch {
+                        '\\' => escaped = true,
+                        '\'' => quote = QuoteState::Single,
+                        '"' => quote = QuoteState::Double,
+                        '<' | '>' | '|' | '&' | ';' | '(' | ')' | '`' => return true,
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 /// Byte length of the first shell word in the already left-trimmed `s`, honoring
@@ -1129,14 +1198,42 @@ fn strip_leading_redirections(segment: &str) -> &str {
 /// cannot hide the command from one gate while another still sees it. A
 /// prefix-only segment resolves to `""` (no real executable) — callers treat
 /// that as "no command present" rather than accepting the raw prefix token.
-fn strip_command_prefix(segment: &str) -> &str {
+enum CommandPrefix<'a> {
+    /// The executable-and-arguments remainder (raw slice; empty when the segment
+    /// is prefix-only, e.g. `FOO=bar > /dev/null`).
+    Resolved(&'a str),
+    /// A leading construct cannot be reconciled with bash's own lexing (an
+    /// array-element assignment, an assignment glued to a redirect operator, or
+    /// a word bash re-splits). The effective command is unknowable, so every
+    /// caller must fail closed rather than guess an executable.
+    Unmodelable,
+}
+
+fn strip_command_prefix(segment: &str) -> CommandPrefix<'_> {
     let mut rest = segment.trim_start();
     loop {
-        let next = strip_leading_redirections(skip_env_assignments(rest));
-        if next.len() == rest.len() {
-            return next;
+        let before = rest.len();
+        // Strip leading *simple* env assignments; fail closed the instant we
+        // meet an assignment word bash lexes differently than we can model.
+        loop {
+            let len = shell_word_len(rest);
+            if len == 0 {
+                break;
+            }
+            // Quote-aware `word` keeps `FOO="a b"` whole, so a spaced quoted
+            // value cannot leave `b"` behind as the apparent executable.
+            match classify_leading_assignment(&rest[..len]) {
+                AssignmentWord::Clean => rest = rest[len..].trim_start(),
+                AssignmentWord::Unmodelable => return CommandPrefix::Unmodelable,
+                AssignmentWord::NotAssignment => break,
+            }
         }
-        rest = next;
+        // Strip leading redirections (and their targets), then loop so an
+        // assignment placed after a redirect is still resolved.
+        rest = strip_leading_redirections(rest);
+        if rest.len() == before {
+            return CommandPrefix::Resolved(rest);
+        }
     }
 }
 
@@ -1560,6 +1657,22 @@ fn contains_unquoted_shell_variable_expansion(command: &str) -> bool {
 
 fn strip_wrapping_quotes(token: &str) -> &str {
     token.trim_matches(|c| c == '"' || c == '\'')
+}
+
+/// Resolve the executable spelling the shell runs from a segment's first word:
+/// strip a wrapping quote pair and any inline redirection suffix (`"git"` ->
+/// `git`, `cat</dev/null` -> `cat`). The allowlist, the explicit-high-risk-allow
+/// check, and the risk classifier all derive the executable through this one
+/// helper, so a quoted spelling can never be admitted by one gate while another
+/// reads the raw token (`"git"`) as an unknown, lower-risk command. Returns the
+/// executable slice (which may be a path, for path-entry allowlist matching);
+/// empty when the word is only a redirect operator.
+fn segment_executable(word: &str) -> &str {
+    let raw = strip_wrapping_quotes(word).trim();
+    match raw.find(['<', '>']) {
+        Some(idx) => raw[..idx].trim(),
+        None => raw,
+    }
 }
 
 fn looks_like_path(candidate: &str) -> bool {
@@ -2560,15 +2673,23 @@ impl SecurityPolicy {
         for segment in split_unquoted_segments(command) {
             // Resolve the executable past interleaved leading env assignments and
             // redirections (quote-aware) so `> /dev/null FOO=bar git commit` is
-            // classified on `git`, not `FOO=bar` or `>`. Both allowlist checks
-            // strip the same prefix so no gate can be bypassed while another sees it.
-            let cmd_part = strip_command_prefix(&segment);
+            // classified on `git`, not `FOO=bar` or `>`. Every gate resolves the
+            // prefix and the executable through the same helpers so no gate can be
+            // bypassed while another still sees the real command. A prefix bash
+            // lexes differently than we can model fails closed to High.
+            let cmd_part = match strip_command_prefix(&segment) {
+                CommandPrefix::Resolved(cmd_part) => cmd_part,
+                CommandPrefix::Unmodelable => return CommandRiskLevel::High,
+            };
             let mut words = cmd_part.split_whitespace();
             let Some(base_raw) = words.next() else {
                 continue;
             };
 
-            let base_owned = command_basename(base_raw).to_ascii_lowercase();
+            // Dequote the executable exactly as the allowlist does, so a quoted
+            // spelling (`"git"`, `"rm"`) is classified on its real risk instead
+            // of read as an unknown, Low-risk command.
+            let base_owned = command_basename(segment_executable(base_raw)).to_ascii_lowercase();
             let base = strip_windows_exe_suffix(&base_owned);
 
             let args: Vec<String> = words.map(|w| w.to_ascii_lowercase()).collect();
@@ -2792,14 +2913,14 @@ impl SecurityPolicy {
     fn is_command_explicitly_allowed(&self, command: &str) -> bool {
         let segments = split_unquoted_segments(command);
         for segment in &segments {
-            let cmd_part = strip_command_prefix(segment);
-            let mut words = cmd_part.split_whitespace();
-            let raw_executable = strip_wrapping_quotes(words.next().unwrap_or("")).trim();
-            let executable = if let Some(idx) = raw_executable.find(['<', '>']) {
-                &raw_executable[..idx]
-            } else {
-                raw_executable
+            let cmd_part = match strip_command_prefix(segment) {
+                CommandPrefix::Resolved(cmd_part) => cmd_part,
+                // An unmodelable prefix is never an explicit high-risk allowance;
+                // fail closed so a hidden command cannot claim the exemption.
+                CommandPrefix::Unmodelable => return false,
             };
+            let mut words = cmd_part.split_whitespace();
+            let executable = segment_executable(words.next().unwrap_or(""));
             let base_cmd_owned = command_basename(executable).to_ascii_lowercase();
             let base_cmd = strip_windows_exe_suffix(&base_cmd_owned);
 
@@ -2825,10 +2946,14 @@ impl SecurityPolicy {
         // redirection-only segment (`> /dev/null`) must not count, or a leading
         // redirect would make the whole command look explicitly allowed
         // regardless of the allowlist.
-        segments.iter().any(|s| {
-            let s = strip_command_prefix(s.trim());
-            s.split_whitespace().next().is_some_and(|w| !w.is_empty())
-        })
+        segments
+            .iter()
+            .any(|s| match strip_command_prefix(s.trim()) {
+                CommandPrefix::Resolved(s) => {
+                    s.split_whitespace().next().is_some_and(|w| !w.is_empty())
+                }
+                CommandPrefix::Unmodelable => false,
+            })
     }
 
     // ── Layered Command Allowlist ──────────────────────────────────────────
@@ -2972,22 +3097,18 @@ impl SecurityPolicy {
         let segments = split_unquoted_segments(command);
         for segment in &segments {
             // Resolve the executable past interleaved leading env assignments and
-            // redirections (quote-aware), so a redirect or assignment placed
-            // before the command (`> /dev/null FOO=bar git commit`) cannot hide
-            // the real executable from the allowlist. The risk classifier and the
-            // explicit-high-risk-allow check strip the same prefix so no gate can
-            // be bypassed while another still sees the command.
-            let cmd_part = strip_command_prefix(segment);
-            let mut words = cmd_part.split_whitespace();
-            let raw_executable = strip_wrapping_quotes(words.next().unwrap_or("")).trim();
-            // Strip inline redirections from the executable token, e.g.
-            // `cat</dev/null` -> `cat`, so the allowlist check sees the real
-            // command name rather than the redirect target path.
-            let executable = if let Some(idx) = raw_executable.find(['<', '>']) {
-                &raw_executable[..idx]
-            } else {
-                raw_executable
+            // redirections (quote-aware), and dequote it, so a redirect,
+            // assignment, or quoted/escaped spelling placed before the command
+            // (`> /dev/null FOO=bar git commit`, `"git" commit`) cannot hide the
+            // real executable from the allowlist. Every gate resolves through the
+            // same helpers so no gate can be bypassed while another still sees the
+            // command, and a prefix bash lexes differently fails closed.
+            let cmd_part = match strip_command_prefix(segment) {
+                CommandPrefix::Resolved(cmd_part) => cmd_part,
+                CommandPrefix::Unmodelable => return false,
             };
+            let mut words = cmd_part.split_whitespace();
+            let executable = segment_executable(words.next().unwrap_or(""));
             let base_cmd_owned = command_basename(executable).to_ascii_lowercase();
             let base_cmd = strip_windows_exe_suffix(&base_cmd_owned);
 
@@ -3016,10 +3137,14 @@ impl SecurityPolicy {
 
         // At least one real command must be present past any prefix — a
         // redirection-only segment (`> /dev/null`) is not a command.
-        segments.iter().any(|s| {
-            let s = strip_command_prefix(s.trim());
-            s.split_whitespace().next().is_some_and(|w| !w.is_empty())
-        })
+        segments
+            .iter()
+            .any(|s| match strip_command_prefix(s.trim()) {
+                CommandPrefix::Resolved(s) => {
+                    s.split_whitespace().next().is_some_and(|w| !w.is_empty())
+                }
+                CommandPrefix::Unmodelable => false,
+            })
     }
 
     fn is_args_safe(&self, base: &str, args: &[String], args_cased: &[String]) -> bool {
@@ -3182,7 +3307,12 @@ impl SecurityPolicy {
         };
 
         for segment in split_unquoted_segments(command) {
-            let cmd_part = strip_command_prefix(&segment);
+            let cmd_part = match strip_command_prefix(&segment) {
+                CommandPrefix::Resolved(cmd_part) => cmd_part,
+                // Unmodelable prefixes are already rejected by the allowlist gate
+                // that runs before this Windows path scan; skip the segment here.
+                CommandPrefix::Unmodelable => continue,
+            };
             let mut words = cmd_part.split_whitespace();
             let Some(executable) = words.next() else {
                 continue;
@@ -5184,6 +5314,241 @@ mod tests {
             Ok(CommandRiskLevel::Medium),
             "read-git behind a quoted redirect char fails closed to Medium"
         );
+    }
+
+    #[test]
+    fn quoted_executable_write_git_is_gated_at_the_enforcement_boundary() {
+        // The allowlist dequotes the executable but the risk classifier used to
+        // read the raw token, so a shell-valid quoted spelling (`"git"`) was
+        // admitted by the allowlist yet classified on the quoted token instead of
+        // `git` — letting a write skip the medium-risk gate. Both gates must
+        // resolve the executable the same way. Drive the real approval decision
+        // through `validate_command_execution`.
+        let p = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+
+        for write in [
+            r#""git" commit"#,          // double-quoted executable
+            r#"'git' commit"#,          // single-quoted executable
+            r"\git commit",             // escaped executable (path-separator form)
+            r#""git" -C /repo commit"#, // quoted executable with a global option
+        ] {
+            assert!(
+                p.validate_command_execution(write, false).is_err(),
+                "unapproved quoted-executable write-git must be rejected: {write}"
+            );
+            assert_eq!(
+                p.validate_command_execution(write, true),
+                Ok(CommandRiskLevel::Medium),
+                "approved quoted-executable write-git must classify Medium: {write}"
+            );
+        }
+
+        // The matching quoted-executable read stays Low and needs no approval.
+        assert_eq!(
+            p.validate_command_execution(r#""git" status"#, false),
+            Ok(CommandRiskLevel::Low),
+            "quoted-executable read-git must remain Low"
+        );
+    }
+
+    #[test]
+    fn quoted_executable_high_risk_is_gated_at_the_enforcement_boundary() {
+        // The same divergence let a quoted high-risk executable (`"rm"`) classify
+        // Low and skip the high-risk block. The classifier must resolve the real
+        // `rm` past the quotes, and the high-risk block must then fire for a
+        // command that is not an explicit allowlist entry.
+        let p = SecurityPolicy {
+            allowed_commands: vec!["*".into()],
+            autonomy: AutonomyLevel::Full,
+            block_high_risk_commands: true,
+            ..SecurityPolicy::default()
+        };
+
+        for cmd in [
+            r#""rm" -rf /tmp/x"#,
+            r#"'rm' -rf /tmp/x"#,
+            r"\rm -rf /tmp/x",
+        ] {
+            assert_eq!(
+                p.command_risk_level(cmd),
+                CommandRiskLevel::High,
+                "quoted high-risk executable must classify High: {cmd}"
+            );
+            assert!(
+                p.validate_command_execution(cmd, false).is_err(),
+                "quoted high-risk executable must be blocked under wildcard + block_high_risk: {cmd}"
+            );
+        }
+    }
+
+    #[test]
+    fn array_assignment_prefix_fails_closed_at_the_enforcement_boundary() {
+        // Bash treats `A[0]=x` as an (array) assignment and runs the following
+        // `git commit`, but the subscript is a shell-evaluated index we cannot
+        // model. The prefix resolver must fail closed rather than mistake
+        // `A[0]=x` for the executable and classify the hidden write Low. Under a
+        // wildcard allowlist with high-risk blocking, the unmodelable prefix is
+        // rejected outright.
+        let p = SecurityPolicy {
+            allowed_commands: vec!["*".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            block_high_risk_commands: true,
+            ..SecurityPolicy::default()
+        };
+
+        for cmd in [
+            "A[0]=x git commit",
+            "A[0]=x git push",
+            "A[10]=y rm -rf /tmp/x",
+        ] {
+            assert_eq!(
+                p.command_risk_level(cmd),
+                CommandRiskLevel::High,
+                "array-assignment prefix must fail closed to High: {cmd}"
+            );
+            assert!(
+                p.validate_command_execution(cmd, false).is_err(),
+                "array-assignment-prefixed command must be rejected: {cmd}"
+            );
+        }
+
+        // A simple scalar assignment prefix is still modeled and does not fail
+        // closed — a clean control proving the guard is narrow: the hidden git
+        // write resolves and classifies Medium, not High or Low.
+        let g = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+        assert!(
+            g.validate_command_execution("A=x git commit", false)
+                .is_err()
+        );
+        assert_eq!(
+            g.validate_command_execution("A=x git commit", true),
+            Ok(CommandRiskLevel::Medium),
+            "clean scalar-assignment prefix still resolves the git write to Medium"
+        );
+        assert_eq!(
+            g.validate_command_execution("A=x git status", false),
+            Ok(CommandRiskLevel::Low),
+            "clean scalar-assignment prefix on a read stays Low"
+        );
+    }
+
+    #[test]
+    fn assignment_glued_redirect_prefix_fails_closed_at_the_enforcement_boundary() {
+        // `FOO=bar>` is one whitespace word but bash lexes it as `FOO=bar` then a
+        // `>` redirect, running the following `git commit`. Consuming the whole
+        // token as an assignment (with the `>`) hid the real command and
+        // classified the write Low. The resolver must fail closed when an
+        // assignment value carries an unquoted redirect/operator.
+        let wild = SecurityPolicy {
+            allowed_commands: vec!["*".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            block_high_risk_commands: true,
+            ..SecurityPolicy::default()
+        };
+        for cmd in [
+            "FOO=bar> /dev/null git commit",
+            "FOO=bar>/dev/null git commit",
+            "FOO=bar< in git commit",
+        ] {
+            assert_eq!(
+                wild.command_risk_level(cmd),
+                CommandRiskLevel::High,
+                "assignment glued to an operator must fail closed to High: {cmd}"
+            );
+            assert!(
+                wild.validate_command_execution(cmd, false).is_err(),
+                "assignment glued to an operator must be rejected: {cmd}"
+            );
+        }
+
+        // The whitespace-separated forms remain modelable and keep the existing
+        // behavior: the write resolves to Medium, not fail-closed High.
+        let g = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+        for write in ["FOO=bar > /dev/null git commit", "FOO=bar git commit"] {
+            assert!(
+                g.validate_command_execution(write, false).is_err(),
+                "spaced/clean assignment-prefixed write stays gated: {write}"
+            );
+            assert_eq!(
+                g.validate_command_execution(write, true),
+                Ok(CommandRiskLevel::Medium),
+                "spaced/clean assignment-prefixed write resolves to Medium: {write}"
+            );
+        }
+    }
+
+    #[test]
+    fn classify_leading_assignment_matches_bash_grammar() {
+        assert!(matches!(
+            classify_leading_assignment("FOO=bar"),
+            AssignmentWord::Clean
+        ));
+        assert!(matches!(
+            classify_leading_assignment("GIT_CONFIG_COUNT+=1"),
+            AssignmentWord::Clean
+        ));
+        assert!(matches!(
+            classify_leading_assignment(r#"FOO="a b c""#),
+            AssignmentWord::Clean
+        ));
+        assert!(matches!(
+            classify_leading_assignment("PATH=/usr/bin:$PATH"),
+            AssignmentWord::Clean
+        ));
+        // Array-element assignment: bash assigns, we cannot model → fail closed.
+        assert!(matches!(
+            classify_leading_assignment("A[0]=x"),
+            AssignmentWord::Unmodelable
+        ));
+        // Value carrying an unquoted operator bash re-lexes → fail closed.
+        assert!(matches!(
+            classify_leading_assignment("FOO=bar>"),
+            AssignmentWord::Unmodelable
+        ));
+        assert!(matches!(
+            classify_leading_assignment("FOO=$(rm -rf x)"),
+            AssignmentWord::Unmodelable
+        ));
+        // Not assignment words → the executable.
+        assert!(matches!(
+            classify_leading_assignment("git"),
+            AssignmentWord::NotAssignment
+        ));
+        assert!(matches!(
+            classify_leading_assignment("2>&1"),
+            AssignmentWord::NotAssignment
+        ));
+        assert!(matches!(
+            classify_leading_assignment("./configure"),
+            AssignmentWord::NotAssignment
+        ));
+    }
+
+    #[test]
+    fn segment_executable_dequotes_and_strips_inline_redirect() {
+        assert_eq!(segment_executable(r#""git""#), "git");
+        assert_eq!(segment_executable("'git'"), "git");
+        assert_eq!(segment_executable("git"), "git");
+        assert_eq!(segment_executable("cat</dev/null"), "cat");
+        assert_eq!(segment_executable(r#""/usr/bin/git""#), "/usr/bin/git");
+        assert_eq!(segment_executable(">"), "");
     }
 
     #[test]
