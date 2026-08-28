@@ -11632,7 +11632,6 @@ fn collect_configured_channels(
             alias: Some(alias.clone()),
             channel: Arc::new(crate::speech_to_speech::SpeechToSpeechChannel::new(
                 alias.clone(),
-                s2s.clone(),
             )),
         });
     }
