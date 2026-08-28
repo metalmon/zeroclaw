@@ -35517,6 +35517,56 @@ Done."#;
         }
     }
 
+    #[tokio::test]
+    async fn multi_message_narration_is_committed_as_text_independent_of_the_final_route() {
+        use zeroclaw_runtime::agent::loop_::StreamDelta;
+
+        // Contract (multi_message): narration streamed during a turn is published
+        // as separate, permanent text messages. `run_draft_updater` has no
+        // per-turn routing input by design, so the narration commits as text
+        // regardless of a later `send_via(modality = "voice")` route — that route
+        // governs only the final reply and cannot retract narration already sent.
+        // This is the "narration stays text" half of the voice-route contract;
+        // that the final answer is then a voice note, and that finalization does
+        // not delete the sent narration, is covered at the Telegram layer
+        // (`send()` force_voice + `cancel_draft` on a multi_message draft).
+        let known: HashSet<String> = HashSet::new();
+        let channel_impl = Arc::new(DraftRecordingChannel::new(false, false));
+        let channel: Arc<dyn Channel> = channel_impl.clone();
+        let (tx, rx) = tokio::sync::mpsc::channel::<zeroclaw_runtime::agent::loop_::DraftEvent>(32);
+
+        // A completed narration turn (plain prose, not a tool protocol) followed
+        // by the `Status` event that drives the permanent flush.
+        tx.send(StreamDelta::Text("Checking prices for you.".to_string()))
+            .await
+            .unwrap();
+        tx.send(StreamDelta::Status("Working.".to_string()))
+            .await
+            .unwrap();
+        drop(tx);
+
+        run_draft_updater(
+            channel,
+            "chat-1".to_string(),
+            "draft-1".to_string(),
+            known,
+            true,
+            None,
+            zeroclaw_config::schema::LeakDetectionConfig::default(),
+            "telegram.test".to_string(),
+            rx,
+        )
+        .await;
+
+        let flushed = channel_impl.flushed_turns.lock().await;
+        assert!(
+            flushed
+                .iter()
+                .any(|t| t.contains("Checking prices for you.")),
+            "multi_message narration must commit as permanent text during the turn: {flushed:?}"
+        );
+    }
+
     /// The counterweight to the two suppression tests above: a genuine answer
     /// *about* tool protocol, and an ordinary fenced code block, must still
     /// stream. Suppressing everything JSON-shaped would be an easy way to pass

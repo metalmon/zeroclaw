@@ -1249,6 +1249,12 @@ impl TelegramChannel {
         // override) opts back into text delivery. This mirrors the ordinary
         // `send()`/`finalize_draft` behavior so multi_message mode does not
         // bypass the modality contract.
+        //
+        // Only a STATICALLY-configured voice peer suppresses narration here. A
+        // per-turn `send_via(voice)` route on a text-default peer is unknowable
+        // while narration streams, and narration is published as separate,
+        // permanent messages — so it stays text and is not retracted; that route
+        // makes only the final answer a voice note (see the `send()` contract).
         let voice_only = !suppress_voice && self.is_voice_peer(recipient);
 
         let key = Self::multi_draft_key(recipient, message_id);
@@ -4953,7 +4959,11 @@ impl Channel for TelegramChannel {
             self.try_queue_voice_reply(&message.recipient, &content, false, message.force_voice);
         }
 
-        // Voice-only peers (or explicit force_voice): the voice note is the sole reply — skip text.
+        // Voice-only peers (or explicit force_voice): the voice note is the sole
+        // FINAL reply — skip the final text. In multi_message mode, narration
+        // already streamed earlier this turn is delivered as separate, permanent
+        // messages that cannot be retracted; a per-turn voice route governs the
+        // final answer only and does not convert or delete that narration.
         if !message.suppress_voice
             && (self.is_voice_peer(&message.recipient) || message.force_voice)
         {
@@ -6134,6 +6144,119 @@ mod tests {
             ch.multi_message_drafts
                 .lock()
                 .contains_key(&TelegramChannel::multi_draft_key("123", &other_id))
+        );
+    }
+
+    #[tokio::test]
+    async fn multi_message_voice_route_keeps_narration_text_and_skips_final_text() {
+        use wiremock::matchers::{method, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        // Contract (multi_message): a per-turn `send_via(voice)` route governs the
+        // FINAL reply only. Narration already streamed as separate, permanent
+        // messages stays text and is NOT retracted; the final answer is delivered
+        // by voice, so no final `sendMessage` is sent. The finalization path is
+        // `cancel_draft` (bookkeeping only, no `deleteMessage`) + `send(force_voice)`.
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 1 } }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+        // The voice route must never retract already-published narration.
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/deleteMessage$"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "ok": true, "result": true })),
+            )
+            .expect(0)
+            .mount(&mock_server)
+            .await;
+
+        let recipient = "123";
+        let ch =
+            multi_message_test_channel("telegram_test_alias", 0).with_api_base(mock_server.uri());
+
+        let draft_id = ch
+            .send_draft(&SendMessage::new("...", recipient))
+            .await
+            .unwrap()
+            .expect("draft id");
+        // Narration is published as a permanent text message.
+        ch.flush_draft_turn(recipient, &draft_id, "Working on it...")
+            .await
+            .unwrap();
+        // Voice-route finalization: cancel the draft (keeps sent narration) and
+        // deliver the final answer by voice.
+        ch.cancel_draft(recipient, &draft_id).await.unwrap();
+        ch.send(&SendMessage::new("Here is your answer.", recipient).force_voice())
+            .await
+            .unwrap();
+
+        let send_message_calls = mock_server
+            .received_requests()
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|r| r.url.path().ends_with("/sendMessage"))
+            .count();
+        assert_eq!(
+            send_message_calls, 1,
+            "voice route must keep the one narration text message and send no final text"
+        );
+    }
+
+    #[tokio::test]
+    async fn multi_message_text_route_sends_final_answer_as_text() {
+        use wiremock::matchers::{method, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        // Control for the voice-route test: a text route (no `force_voice`) keeps
+        // the streamed narration AND sends the final answer as text — two
+        // `sendMessage` calls. This proves the voice-route carve-out does not
+        // weaken ordinary text delivery.
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path_regex(r"/bot[^/]+/sendMessage$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({ "ok": true, "result": { "message_id": 1 } }),
+                ),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let recipient = "123";
+        let ch =
+            multi_message_test_channel("telegram_test_alias", 0).with_api_base(mock_server.uri());
+
+        let draft_id = ch
+            .send_draft(&SendMessage::new("...", recipient))
+            .await
+            .unwrap()
+            .expect("draft id");
+        ch.flush_draft_turn(recipient, &draft_id, "Working on it...")
+            .await
+            .unwrap();
+        ch.send(&SendMessage::new("Here is your answer.", recipient))
+            .await
+            .unwrap();
+
+        let send_message_calls = mock_server
+            .received_requests()
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|r| r.url.path().ends_with("/sendMessage"))
+            .count();
+        assert_eq!(
+            send_message_calls, 2,
+            "text route sends both the narration and the final answer as text"
         );
     }
 
