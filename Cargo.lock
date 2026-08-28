@@ -13656,6 +13656,7 @@ dependencies = [
  "directories",
  "ecb",
  "futures-util",
+ "gemini-live",
  "glob",
  "hex",
  "hmac 0.12.1",
