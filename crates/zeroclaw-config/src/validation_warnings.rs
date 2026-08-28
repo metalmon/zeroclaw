@@ -83,8 +83,10 @@ pub const SERVER_FALLBACK_MODEL_DUPLICATES_PRIMARY: &str =
 ///   transcripts/prompts derived from it, to the configured speech backend
 ///   provider (e.g. Google Gemini Live), which may retain that data; session
 ///   resumption can extend retention (on the order of ~24h beyond a single
-///   session). Raised once per enabled alias (see
-///   `Config::collect_speech_to_speech_warnings` in `schema.rs`).
+///   session). The notice also states that enabled input/output transcription
+///   is billed as text tokens on top of the audio usage. Raised once per
+///   enabled alias (see `Config::collect_speech_to_speech_warnings` in
+///   `schema.rs`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 pub struct ValidationWarning {
