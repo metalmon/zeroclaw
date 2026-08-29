@@ -1655,6 +1655,91 @@ fn contains_unquoted_shell_variable_expansion(command: &str) -> bool {
     false
 }
 
+/// True when a `cmd.exe` command carries a caret escape or a `%…%` variable
+/// reference — both change what `cmd.exe /C` runs but are invisible to the
+/// POSIX-oriented classifier (`git co^mmit` runs `git commit`; `%GIT_SUBCOMMAND%`
+/// expands to the real verb). Flagged conservatively: any `^` or `%` counts,
+/// since modeling cmd.exe's exact caret/percent rules is out of scope here.
+fn contains_unquoted_cmd_metachar(command: &str) -> bool {
+    command.contains('^') || command.contains('%')
+}
+
+/// True when a command carries shell syntax that can change the effective
+/// executable or verb in a way this policy does not model, so the tokens the
+/// classifier and allowlist inspect may differ from what the shell runs.
+/// Callers fail closed (classifier → High, allowlist → reject). Deliberately
+/// bounded — it recognizes specific unmodeled constructs rather than emulating a
+/// shell; broader shell-word normalization is a separate hardening effort.
+///
+/// POSIX (the `WindowsCmd` classifier reuses the POSIX path, so it applies
+/// there too):
+///   - ANSI-C (`$'…'`) and locale (`$"…"`) quoting. The existing
+///     `contains_unquoted_shell_variable_expansion` guard does not flag a `$`
+///     followed by a quote, and `shlex` strips the quotes to a token that is
+///     not the literal word bash runs — hiding the real executable or verb.
+///   - A backslash-escaped newline (line continuation bash removes before
+///     execution), which would otherwise split one command across two segments.
+///
+/// `WindowsCmd` additionally flags caret/percent metacharacters (see
+/// [`contains_unquoted_cmd_metachar`]).
+///
+/// Ordinary `$VAR` / `$(…)` / backtick are already rejected by the allowlist's
+/// existing guards; this closes the forms those guards miss.
+fn contains_unmodeled_shell_construct(command: &str, dialect: ShellDialect) -> bool {
+    // ANSI-C / locale quoting: an *unquoted* `$` immediately followed by `'` or
+    // `"`. Quote-aware so a literal `$'` inside single or double quotes (where
+    // bash does not treat it as ANSI-C quoting) is not flagged.
+    let mut quote = QuoteState::None;
+    let mut escaped = false;
+    let mut prev_dollar = false;
+    for ch in command.chars() {
+        match quote {
+            QuoteState::Single => {
+                prev_dollar = false;
+                if ch == '\'' {
+                    quote = QuoteState::None;
+                }
+            }
+            QuoteState::Double => {
+                if escaped {
+                    escaped = false;
+                } else if ch == '\\' {
+                    escaped = true;
+                } else if ch == '"' {
+                    quote = QuoteState::None;
+                }
+                prev_dollar = false;
+            }
+            QuoteState::None => {
+                if escaped {
+                    escaped = false;
+                    prev_dollar = false;
+                } else if prev_dollar && (ch == '\'' || ch == '"') {
+                    return true; // `$'…'` (ANSI-C) or `$"…"` (locale) quoting
+                } else if ch == '\\' {
+                    escaped = true;
+                    prev_dollar = false;
+                } else if ch == '\'' {
+                    quote = QuoteState::Single;
+                    prev_dollar = false;
+                } else if ch == '"' {
+                    quote = QuoteState::Double;
+                    prev_dollar = false;
+                } else {
+                    prev_dollar = ch == '$';
+                }
+            }
+        }
+    }
+
+    // Backslash-escaped newline (line continuation).
+    if command.contains("\\\n") || command.contains("\\\r\n") {
+        return true;
+    }
+
+    dialect == ShellDialect::WindowsCmd && contains_unquoted_cmd_metachar(command)
+}
+
 fn strip_wrapping_quotes(token: &str) -> &str {
     token.trim_matches(|c| c == '"' || c == '\'')
 }
@@ -2670,6 +2755,14 @@ impl SecurityPolicy {
     pub fn command_risk_level(&self, command: &str) -> CommandRiskLevel {
         let mut saw_medium = false;
 
+        // Fail closed on shell syntax that can change the effective executable
+        // or verb but which this classifier does not model (ANSI-C/locale
+        // quoting, line continuation). The dialect-aware caller adds WindowsCmd
+        // caret/percent forms before delegating here.
+        if contains_unmodeled_shell_construct(command, ShellDialect::Posix) {
+            return CommandRiskLevel::High;
+        }
+
         for segment in split_unquoted_segments(command) {
             // Resolve the executable past interleaved leading env assignments and
             // redirections (quote-aware) so `> /dev/null FOO=bar git commit` is
@@ -2689,7 +2782,15 @@ impl SecurityPolicy {
             // Dequote the executable exactly as the allowlist does, so a quoted
             // spelling (`"git"`, `"rm"`) is classified on its real risk instead
             // of read as an unknown, Low-risk command.
-            let base_owned = command_basename(segment_executable(base_raw)).to_ascii_lowercase();
+            let executable = segment_executable(base_raw);
+            // A mixed-fragment executable (`g"it"`, `r"m"`) is joined by the
+            // shell into a name edge-only quote trimming cannot recover, so its
+            // command family is unknown — fail closed rather than read the raw,
+            // Low-risk token.
+            if executable.contains(['"', '\'']) {
+                return CommandRiskLevel::High;
+            }
+            let base_owned = command_basename(executable).to_ascii_lowercase();
             let base = strip_windows_exe_suffix(&base_owned);
 
             let args: Vec<String> = words.map(|w| w.to_ascii_lowercase()).collect();
@@ -2716,7 +2817,17 @@ impl SecurityPolicy {
         dialect: ShellDialect,
     ) -> CommandRiskLevel {
         match dialect {
-            ShellDialect::Posix | ShellDialect::WindowsCmd => {
+            ShellDialect::Posix => {
+                return self.command_risk_level(command);
+            }
+            ShellDialect::WindowsCmd => {
+                // The runtime executes the approved string with `cmd.exe /C`,
+                // whose caret escape and `%…%` expansion the POSIX classifier
+                // does not model (`git co^mmit` runs `git commit`). Fail closed
+                // before reusing that classifier.
+                if contains_unmodeled_shell_construct(command, ShellDialect::WindowsCmd) {
+                    return CommandRiskLevel::High;
+                }
                 return self.command_risk_level(command);
             }
             ShellDialect::None => return CommandRiskLevel::High,
@@ -3064,6 +3175,14 @@ impl SecurityPolicy {
             return false;
         }
 
+        // Fail closed on unmodeled shell syntax (ANSI-C/locale quoting, line
+        // continuation, and — under cmd.exe — caret/percent metacharacters) so a
+        // spelling this policy cannot resolve does not pass the allowlist while
+        // the shell runs a different command.
+        if contains_unmodeled_shell_construct(command, dialect) {
+            return false;
+        }
+
         // Block shell redirections that target files. Allow safe forms:
         //   - `2>/dev/null`, `>/dev/null`, `1>/dev/null` (output suppression)
         //   - `2>&1`, `1>&2` (fd merging)
@@ -3109,6 +3228,12 @@ impl SecurityPolicy {
             };
             let mut words = cmd_part.split_whitespace();
             let executable = segment_executable(words.next().unwrap_or(""));
+            // Mixed-fragment executable (`g"it"`, `r"m"`) — same fail-closed rule
+            // as the risk classifier, so neither gate admits the raw token while
+            // the shell joins it into a different command.
+            if executable.contains(['"', '\'']) {
+                return false;
+            }
             let base_cmd_owned = command_basename(executable).to_ascii_lowercase();
             let base_cmd = strip_windows_exe_suffix(&base_cmd_owned);
 
@@ -5549,6 +5674,114 @@ mod tests {
         assert_eq!(segment_executable("cat</dev/null"), "cat");
         assert_eq!(segment_executable(r#""/usr/bin/git""#), "/usr/bin/git");
         assert_eq!(segment_executable(">"), "");
+    }
+
+    #[test]
+    fn unmodeled_posix_word_construction_fails_closed_at_the_enforcement_boundary() {
+        // Bash concatenates quoted/unquoted fragments (`g"it"`), removes an
+        // escaped newline, and resolves ANSI-C `$'…'` / locale `$"…"` quoting to
+        // a literal word — none of which edge-only quote trimming or `shlex`
+        // model faithfully. The shared path must fail closed so a hidden
+        // executable or verb cannot skip the approval / high-risk boundary.
+
+        // Wildcard executable forms: the command family is unknown, so a hidden
+        // `rm`/`git` must classify High and, not being explicitly allowed, be
+        // blocked.
+        let wild = SecurityPolicy {
+            allowed_commands: vec!["*".into()],
+            autonomy: AutonomyLevel::Full,
+            block_high_risk_commands: true,
+            ..SecurityPolicy::default()
+        };
+        for cmd in [r#"g"it" commit"#, r#"r"m" -rf /tmp/x"#, r#""g"it commit"#] {
+            assert_eq!(
+                wild.command_risk_level(cmd),
+                CommandRiskLevel::High,
+                "mixed-fragment executable must fail closed to High: {cmd}"
+            );
+            assert!(
+                wild.validate_command_execution(cmd, false).is_err(),
+                "mixed-fragment executable must be blocked under wildcard + block: {cmd}"
+            );
+        }
+
+        // Named-allowlist Git forms: ANSI-C quoting and an escaped-newline
+        // executable must not resolve to a Low-risk `git` that skips the gate.
+        let git = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+        for cmd in [r#"git $'commit'"#, "g\\\nit commit"] {
+            assert_eq!(
+                git.command_risk_level(cmd),
+                CommandRiskLevel::High,
+                "unmodeled git word construction must fail closed to High: {cmd}"
+            );
+            assert!(
+                git.validate_command_execution(cmd, false).is_err(),
+                "unmodeled git word construction must not pass unapproved: {cmd}"
+            );
+        }
+
+        // Controls (the guard is narrow): a cleanly wrapped executable and an
+        // ordinary quoted argument are modeled and must NOT fail closed.
+        assert_eq!(
+            git.validate_command_execution(r#""git" commit"#, true),
+            Ok(CommandRiskLevel::Medium),
+            "a cleanly quoted git executable still resolves to a Medium write"
+        );
+        assert_eq!(
+            git.validate_command_execution(r#"git commit -m "a message""#, true),
+            Ok(CommandRiskLevel::Medium),
+            "an ordinary quoted argument must not trip the unmodeled-syntax guard"
+        );
+        assert_eq!(
+            git.validate_command_execution(r#"git log --grep "fix""#, false),
+            Ok(CommandRiskLevel::Low),
+            "a quoted-argument read must stay Low"
+        );
+    }
+
+    #[test]
+    fn windows_cmd_metacharacters_fail_closed_before_the_approval_gate() {
+        // Native Windows validation runs the approved string through `cmd.exe
+        // /C`, whose caret escape and `%…%` expansion the POSIX classifier does
+        // not model: `git co^mmit` runs `git commit`, `%GIT_SUBCOMMAND%` expands
+        // to the real verb, and `r^m` runs `rm`. All must fail closed for the
+        // WindowsCmd dialect before the approval decision.
+        let git = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+        for cmd in ["git co^mmit", "git %GIT_SUBCOMMAND%", "r^m -rf /tmp/x"] {
+            assert_eq!(
+                git.command_risk_level_for_shell(cmd, ShellDialect::WindowsCmd),
+                CommandRiskLevel::High,
+                "cmd.exe caret/percent must fail closed to High: {cmd}"
+            );
+            assert!(
+                git.validate_command_execution_for_shell(cmd, false, ShellDialect::WindowsCmd)
+                    .is_err(),
+                "cmd.exe caret/percent must not pass the approval gate: {cmd}"
+            );
+        }
+
+        // Dialect-scoped: under a POSIX shell `^` and `%` are ordinary
+        // characters, and an ordinary WindowsCmd git write is still Medium.
+        assert_eq!(
+            git.command_risk_level_for_shell("git co^mmit", ShellDialect::Posix),
+            CommandRiskLevel::Low,
+            "under POSIX, a literal caret is not a cmd.exe escape"
+        );
+        assert_eq!(
+            git.command_risk_level_for_shell("git commit", ShellDialect::WindowsCmd),
+            CommandRiskLevel::Medium,
+            "an ordinary WindowsCmd git write is still Medium"
+        );
     }
 
     #[test]
