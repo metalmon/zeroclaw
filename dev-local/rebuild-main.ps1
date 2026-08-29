@@ -31,7 +31,7 @@ $ErrorActionPreference = "Stop"
 # to current branch) to avoid re-applying already-cherry-picked commits.
 $Branches = @(
     "feat/telegram-multi-message",            # PR #8561 - Telegram multi_message streaming mode
-    "fix/telegram-reply-thread-history",      # issue #10237 - reply-threads share main chat conversation history (gate thread_ts on is_topic_message)
+    # Dropped 2026-08-29: fix/telegram-reply-thread-history (#10418 / issue #10237) merged upstream.
     # fix/pipeline-tool-gating DROPPED: #9062/#7960 closed as duplicate; upstream
     # closed #7947 (execute_pipeline confused-deputy) with its own per-agent
     # ToolAccessPolicy gating, now in master. The local branch is redundant and
