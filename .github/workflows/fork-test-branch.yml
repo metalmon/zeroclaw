@@ -54,4 +54,4 @@ jobs:
           # zeroclaw-runtime; the workspace Check compiles them but never runs
           # them, so execute the mcp_tasks module tests explicitly. The
           # per-scope connection-pool tests (mcp_pool) run the same way.
-          cargo test --locked -p zeroclaw-runtime --lib mcp_tasks mcp_pool
+          cargo test --locked -p zeroclaw-runtime --lib -- mcp_tasks mcp_pool
