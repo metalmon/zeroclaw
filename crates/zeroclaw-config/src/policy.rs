@@ -1661,7 +1661,23 @@ fn contains_unquoted_shell_variable_expansion(command: &str) -> bool {
 /// expands to the real verb). Flagged conservatively: any `^` or `%` counts,
 /// since modeling cmd.exe's exact caret/percent rules is out of scope here.
 fn contains_unquoted_cmd_metachar(command: &str) -> bool {
-    command.contains('^') || command.contains('%')
+    // Caret escape and `%…%` expansion (`git co^mmit`, `%GIT_SUBCOMMAND%`).
+    if command.contains('^') || command.contains('%') {
+        return true;
+    }
+    // The shared POSIX scanners (segmentation, ampersand/redirection) treat a
+    // single quote as quoting and a backslash as an escape, but cmd.exe treats
+    // a single quote as an ordinary character and does not escape with `\`. So a
+    // single quote, or a backslash directly before a cmd.exe command operator,
+    // can hide a real `&`/`|`/`<`/`>` separator from those scanners
+    // (`git status 'x & whoami'`, `git status foo\& whoami`). Fail closed.
+    if command.contains('\'') {
+        return true;
+    }
+    command
+        .as_bytes()
+        .windows(2)
+        .any(|w| w[0] == b'\\' && matches!(w[1], b'&' | b'|' | b'<' | b'>' | b';'))
 }
 
 /// True when a command carries shell syntax that can change the effective
@@ -1680,7 +1696,10 @@ fn contains_unquoted_cmd_metachar(command: &str) -> bool {
 ///   - A backslash-escaped newline (line continuation bash removes before
 ///     execution), which would otherwise split one command across two segments.
 ///
-/// `WindowsCmd` additionally flags caret/percent metacharacters (see
+/// `WindowsCmd` additionally flags cmd.exe metacharacters the shared POSIX
+/// scanners cannot model — caret escape, `%…%` expansion, a single quote (not a
+/// cmd.exe quote), and a backslash directly before a command operator — any of
+/// which could hide a real `&`/`|`/`<`/`>` separator (see
 /// [`contains_unquoted_cmd_metachar`]).
 ///
 /// Ordinary `$VAR` / `$(…)` / backtick are already rejected by the allowlist's
@@ -2753,13 +2772,18 @@ impl SecurityPolicy {
 
     /// Classify command risk. Any high-risk segment marks the whole command high.
     pub fn command_risk_level(&self, command: &str) -> CommandRiskLevel {
+        // The public entry classifies against the conservative POSIX dialect.
+        self.command_risk_level_impl(command, ShellDialect::Posix)
+    }
+
+    fn command_risk_level_impl(&self, command: &str, dialect: ShellDialect) -> CommandRiskLevel {
         let mut saw_medium = false;
 
-        // Fail closed on shell syntax that can change the effective executable
-        // or verb but which this classifier does not model (ANSI-C/locale
-        // quoting, line continuation). The dialect-aware caller adds WindowsCmd
-        // caret/percent forms before delegating here.
-        if contains_unmodeled_shell_construct(command, ShellDialect::Posix) {
+        // Fail closed on shell syntax this classifier does not model faithfully:
+        // ANSI-C/locale quoting and line continuation on every dialect, plus —
+        // under WindowsCmd — caret/percent, single quotes, and backslash-escaped
+        // operators that the shared POSIX scanners misread.
+        if contains_unmodeled_shell_construct(command, dialect) {
             return CommandRiskLevel::High;
         }
 
@@ -2790,6 +2814,14 @@ impl SecurityPolicy {
             if executable.contains(['"', '\'']) {
                 return CommandRiskLevel::High;
             }
+            // A POSIX shell removes backslash escapes in the executable word
+            // (`g\it` -> `git`, `r\m` -> `rm`), but `command_basename` treats `\`
+            // as a path separator and would resolve the wrong family (`it`/`m`).
+            // Fail closed. Under WindowsCmd `\` is a real path separator, so this
+            // check is POSIX-only.
+            if dialect == ShellDialect::Posix && executable.contains('\\') {
+                return CommandRiskLevel::High;
+            }
             let base_owned = command_basename(executable).to_ascii_lowercase();
             let base = strip_windows_exe_suffix(&base_owned);
 
@@ -2817,18 +2849,12 @@ impl SecurityPolicy {
         dialect: ShellDialect,
     ) -> CommandRiskLevel {
         match dialect {
-            ShellDialect::Posix => {
-                return self.command_risk_level(command);
-            }
-            ShellDialect::WindowsCmd => {
-                // The runtime executes the approved string with `cmd.exe /C`,
-                // whose caret escape and `%…%` expansion the POSIX classifier
-                // does not model (`git co^mmit` runs `git commit`). Fail closed
-                // before reusing that classifier.
-                if contains_unmodeled_shell_construct(command, ShellDialect::WindowsCmd) {
-                    return CommandRiskLevel::High;
-                }
-                return self.command_risk_level(command);
+            // The runtime executes an approved WindowsCmd string with `cmd.exe
+            // /C`, whose caret/percent, single-quote, and backslash semantics
+            // differ from POSIX; the dialect-aware classifier fails closed on the
+            // forms the shared POSIX scanners cannot model for that shell.
+            ShellDialect::Posix | ShellDialect::WindowsCmd => {
+                return self.command_risk_level_impl(command, dialect);
             }
             ShellDialect::None => return CommandRiskLevel::High,
             ShellDialect::PowerShell => {}
@@ -3232,6 +3258,12 @@ impl SecurityPolicy {
             // as the risk classifier, so neither gate admits the raw token while
             // the shell joins it into a different command.
             if executable.contains(['"', '\'']) {
+                return false;
+            }
+            // POSIX backslash escape in the executable (`g\it`, `r\m`) — the shell
+            // removes it to a different name than `command_basename` resolves;
+            // fail closed. WindowsCmd `\` is a path separator, so POSIX-only.
+            if dialect == ShellDialect::Posix && executable.contains('\\') {
                 return false;
             }
             let base_cmd_owned = command_basename(executable).to_ascii_lowercase();
@@ -5459,7 +5491,6 @@ mod tests {
         for write in [
             r#""git" commit"#,          // double-quoted executable
             r#"'git' commit"#,          // single-quoted executable
-            r"\git commit",             // escaped executable (path-separator form)
             r#""git" -C /repo commit"#, // quoted executable with a global option
         ] {
             assert!(
@@ -5781,6 +5812,87 @@ mod tests {
             git.command_risk_level_for_shell("git commit", ShellDialect::WindowsCmd),
             CommandRiskLevel::Medium,
             "an ordinary WindowsCmd git write is still Medium"
+        );
+    }
+
+    #[test]
+    fn posix_backslash_escaped_executable_fails_closed_at_the_enforcement_boundary() {
+        // A POSIX shell removes a backslash escape in the executable word
+        // (`g\it` -> `git`, `r\m` -> `rm`), but `command_basename` treats `\` as
+        // a path separator and would resolve `it`/`m`, selecting no risky family.
+        // Fail closed so the hidden Git write or `rm` cannot skip the approval /
+        // high-risk boundary.
+        let wild = SecurityPolicy {
+            allowed_commands: vec!["*".into()],
+            autonomy: AutonomyLevel::Full,
+            block_high_risk_commands: true,
+            ..SecurityPolicy::default()
+        };
+        for cmd in [r"g\it commit", r"r\m -rf /tmp/x", r"\git commit"] {
+            assert_eq!(
+                wild.command_risk_level(cmd),
+                CommandRiskLevel::High,
+                "backslash-escaped executable must fail closed to High: {cmd}"
+            );
+            assert!(
+                wild.validate_command_execution(cmd, false).is_err(),
+                "backslash-escaped executable must be blocked under wildcard + block: {cmd}"
+            );
+        }
+
+        // Named-allowlist Git: the backslash form is rejected outright, not
+        // admitted as a Low-risk `git`.
+        let git = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+        assert!(
+            git.validate_command_execution(r"g\it commit", false)
+                .is_err(),
+            "a backslash-escaped git executable must not pass the named allowlist"
+        );
+        // Control: the clean spelling still resolves to a Medium git write.
+        assert_eq!(
+            git.validate_command_execution("git commit", true),
+            Ok(CommandRiskLevel::Medium),
+            "the clean executable spelling is unaffected by the backslash guard"
+        );
+    }
+
+    #[test]
+    fn windows_cmd_hidden_operator_fails_closed_before_the_approval_gate() {
+        // cmd.exe does not quote with single quotes and does not escape with `\`,
+        // so `git status 'x & whoami'` and `git status foo\& whoami` each hide a
+        // real `&` separator (a second command) from the shared POSIX scanners.
+        // Fail closed for the WindowsCmd dialect.
+        let git = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+        for cmd in [r"git status 'x & whoami'", r"git status foo\& whoami"] {
+            assert_eq!(
+                git.command_risk_level_for_shell(cmd, ShellDialect::WindowsCmd),
+                CommandRiskLevel::High,
+                "cmd.exe hidden operator must fail closed to High: {cmd}"
+            );
+            assert!(
+                git.validate_command_execution_for_shell(cmd, false, ShellDialect::WindowsCmd)
+                    .is_err(),
+                "cmd.exe hidden operator must not pass the approval gate: {cmd}"
+            );
+        }
+
+        // Dialect-scoped: under a POSIX shell the single quote is a real quote
+        // (so `'x & whoami'` is one quoted argument to `git status`), and the
+        // command stays a Low-risk read.
+        assert_eq!(
+            git.command_risk_level_for_shell(r"git status 'x & whoami'", ShellDialect::Posix),
+            CommandRiskLevel::Low,
+            "under POSIX the quoted argument is one read-git segment"
         );
     }
 
