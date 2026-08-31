@@ -46,6 +46,9 @@ jobs:
         # Run the security-policy crate explicitly so policy.rs changes are tested.
         run: |
           cargo test --locked -p zeroclaw-config --all-features --lib
+          # zeroclaw-tools unit tests (e.g. embedded_resource MCP image/audio
+          # materialization) are compiled by the workspace Check but never run.
+          cargo test --locked -p zeroclaw-tools --lib
           # Default features only: --all-features would pull cpal/alsa-sys (voice-wake),
           # which needs system audio libs absent on the runner. Default includes
           # channel-telegram, so the telegram + orchestrator tests still run.
