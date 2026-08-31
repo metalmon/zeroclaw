@@ -40,8 +40,11 @@ $Branches = @(
     # now has OpenRouterModelProvider::merge_extra_body + a builder .extra_body()
     # setter applied across chat/stream_chat, so the local branch is redundant and
     # its tests use the removed ::new constructor (builder pattern now).
-    "pr2/mcp-embedded-resource-blob-intake",  # PR #9196 - MCP resource.blob materialization + per-call item/byte caps (supersedes fix/mcp-resource-blob-intake #9195, now merged)
-    "feat/mcp-image-multimodal",              # stacked on pr2 - materialize MCP type:image/audio into [IMAGE:]/[AUDIO:] markers for the multimodal pipeline
+    # Dropped 2026-08-31: pr2/mcp-embedded-resource-blob-intake (#9196) merged upstream.
+    # CASCADE: feat/mcp-image-multimodal was stacked on pr2 — rebase it onto current
+    # master (dropping the now-merged pr2 commits) before the next rebuild, or the
+    # cherry-pick will replay pr2's patches and conflict.
+    "feat/mcp-image-multimodal",              # materialize MCP type:image/audio into [IMAGE:]/[AUDIO:] markers for the multimodal pipeline (was stacked on #9196; rebase onto master)
     "fix/mcp-image-role-user",                # relocate MCP tool-result images to a user message (role:tool 400 fix); no upstream PR yet
     "feat/acp-wire-skills",                   # ACP client-delivered skills via _meta extension
     # Dropped 2026-08-21: fix/acp-session-cwd-fallback (#9536) merged upstream.
