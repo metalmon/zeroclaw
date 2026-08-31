@@ -48,7 +48,9 @@ jobs:
           cargo test --locked -p zeroclaw-config --all-features --lib
           # zeroclaw-tools unit tests (e.g. embedded_resource MCP image/audio
           # materialization) are compiled by the workspace Check but never run.
-          cargo test --locked -p zeroclaw-tools --lib
+          # Scoped to embedded_resource: the claude_code_runner tests need tmux,
+          # which the runner does not install.
+          cargo test --locked -p zeroclaw-tools --lib -- embedded_resource
           # Default features only: --all-features would pull cpal/alsa-sys (voice-wake),
           # which needs system audio libs absent on the runner. Default includes
           # channel-telegram, so the telegram + orchestrator tests still run.
