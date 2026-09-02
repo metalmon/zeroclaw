@@ -10740,8 +10740,6 @@ data: [DONE]\n\n";
             nextcloud_talk: HashMap::new(),
             #[cfg(feature = "channel-nextcloud")]
             nextcloud_talk_webhook_secret: HashMap::new(),
-            #[cfg(feature = "channel-wati")]
-            wati: HashMap::new(),
             #[cfg(feature = "channel-email")]
             gmail_push: None,
             observer: Arc::new(zeroclaw_runtime::observability::NoopObserver),
@@ -11397,6 +11395,8 @@ data: [DONE]\n\n";
             model: "test-model".into(),
             temperature: None,
             mem: memory.clone(),
+            task_supervisor: None,
+            mcp_pool: None,
             memory_strategy: Arc::new(DefaultMemoryStrategy::with_config(
                 Arc::clone(&memory),
                 zeroclaw_config::schema::MemoryConfig::default(),

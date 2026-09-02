@@ -15922,6 +15922,7 @@ Let me check the result."#;
                 agent_alias: "test",
                 security: &security,
                 built,
+                task_supervisor: None,
                 skills: std::slice::from_ref(&skill),
                 runtime: Arc::new(crate::platform::NativeRuntime::new()),
                 caller_allowed: None,
