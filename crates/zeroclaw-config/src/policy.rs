@@ -2647,23 +2647,67 @@ fn git_segment_is_write(segment: &str) -> bool {
     // tokens[0] is the `git` executable; classify the verb the shell would run,
     // past any leading global options and shell redirections.
     let args = git_effective_args(tokens);
-    git_subcommand(&args).is_some_and(|verb| {
-        matches!(
-            verb,
-            "commit"
-                | "push"
-                | "reset"
-                | "clean"
-                | "rebase"
-                | "merge"
-                | "cherry-pick"
-                | "revert"
-                | "branch"
-                | "checkout"
-                | "switch"
-                | "tag"
-        )
-    })
+    // Fail closed: a resolved git verb is a WRITE unless it is an unambiguously
+    // read-only subcommand (see `is_git_read_only_verb`); a missing/unresolved
+    // verb is also a write. This inverts the previous hand-maintained write
+    // allowlist — which silently classified any omitted mutating verb (`pull`,
+    // `stash`, `am`, `apply`, a `config`/`remote`/`branch` write, …) as Low, so
+    // a state-changing operation could skip the approval gate just by being
+    // absent from that list. The classifier now models the read-only class and
+    // treats everything else as a write, closing that omission class.
+    match git_subcommand(&args) {
+        Some(verb) => !is_git_read_only_verb(verb),
+        None => true,
+    }
+}
+
+/// Git subcommands that cannot mutate the repository, index, working tree, or
+/// config regardless of their arguments — the read-only allowlist the
+/// fail-closed write classifier ([`git_segment_is_write`]) trusts to stay Low.
+/// Verbs whose read/write behavior depends on their arguments (`config`,
+/// `remote`, `branch`, `tag`, `stash`, `reflog`, `symbolic-ref`, `notes`,
+/// `worktree`, `submodule`, `bisect`, `fetch`, `pull`, …) are deliberately
+/// EXCLUDED so their mutating forms reach the medium-risk approval gate; the
+/// conservative direction is to gate a read, never to admit a write.
+fn is_git_read_only_verb(verb: &str) -> bool {
+    matches!(
+        verb,
+        "log"
+            | "status"
+            | "diff"
+            | "diff-tree"
+            | "diff-files"
+            | "diff-index"
+            | "show"
+            | "whatchanged"
+            | "rev-parse"
+            | "rev-list"
+            | "ls-files"
+            | "ls-tree"
+            | "ls-remote"
+            | "cat-file"
+            | "describe"
+            | "blame"
+            | "annotate"
+            | "shortlog"
+            | "for-each-ref"
+            | "show-ref"
+            | "merge-base"
+            | "cherry"
+            | "count-objects"
+            | "grep"
+            | "name-rev"
+            | "verify-commit"
+            | "verify-tag"
+            | "verify-pack"
+            | "fsck"
+            | "check-ignore"
+            | "check-attr"
+            | "check-ref-format"
+            | "help"
+            | "version"
+            | "var"
+    )
 }
 
 fn generic_segment_risk(
@@ -5113,6 +5157,74 @@ mod tests {
     }
 
     #[test]
+    fn git_pull_and_unlisted_mutating_verbs_fail_closed_to_write() {
+        // The classifier models the read-only git verbs and treats everything
+        // else as a write. A mutating verb absent from the old hand-maintained
+        // write list — `pull` (fetch + fast-forward/merge into the working tree
+        // and refs), and likewise `stash`/`am`/`apply`/`restore`/`fetch` and a
+        // `config`/`remote` write — must reach the medium-risk approval gate,
+        // including behind the agent-facing `-C <path>` global option.
+        let git = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+        for write in [
+            "git pull origin main",
+            "git -C /repo pull origin main",
+            "git stash",
+            "git am patch.mbox",
+            "git apply patch.diff",
+            "git restore src/main.rs",
+            "git fetch origin",
+            "git remote add o https://e.example/r.git",
+        ] {
+            assert_eq!(
+                git.command_risk_level(write),
+                CommandRiskLevel::Medium,
+                "unlisted mutating git verb must classify Medium: {write}"
+            );
+            assert!(
+                git.validate_command_execution(write, false).is_err(),
+                "unapproved mutating git verb must be rejected: {write}"
+            );
+            assert_eq!(
+                git.validate_command_execution(write, true),
+                Ok(CommandRiskLevel::Medium),
+                "approved mutating git verb must classify Medium: {write}"
+            );
+        }
+
+        // `git config` is gated even harder — the argument-safety layer rejects
+        // it outright (config-injection surface), not merely medium-risk
+        // approval — so it is covered regardless of the write classifier.
+        assert!(
+            git.validate_command_execution("git config user.email x@y.z", true)
+                .is_err(),
+            "git config write must be rejected outright"
+        );
+
+        // Read-only verbs stay Low so the fail-closed default does not over-gate
+        // legitimate read-git (control that the inversion is not blanket-Medium).
+        for read in [
+            "git log --oneline",
+            "git -C /repo status",
+            "git diff HEAD~1",
+            "git show HEAD",
+            "git rev-parse HEAD",
+            "git ls-files",
+            "git merge-base main dev",
+        ] {
+            assert_eq!(
+                git.command_risk_level(read),
+                CommandRiskLevel::Low,
+                "read-only git verb must stay Low: {read}"
+            );
+        }
+    }
+
+    #[test]
     fn git_subcommand_skips_global_options() {
         let v = |s: &str| {
             let args: Vec<String> = s
@@ -5808,11 +5920,14 @@ mod tests {
         }
 
         // Dialect-scoped: under a POSIX shell `^` and `%` are ordinary
-        // characters, and an ordinary WindowsCmd git write is still Medium.
+        // characters, so the WindowsCmd fail-closed-High guard does not fire.
+        // The verb `co^mmit` is then an ordinary (unrecognized) git subcommand,
+        // which the fail-closed write classifier gates to Medium — not the
+        // cmd.exe High path. An ordinary WindowsCmd git write is still Medium.
         assert_eq!(
             git.command_risk_level_for_shell("git co^mmit", ShellDialect::Posix),
-            CommandRiskLevel::Low,
-            "under POSIX, a literal caret is not a cmd.exe escape"
+            CommandRiskLevel::Medium,
+            "under POSIX, a literal caret is not a cmd.exe escape (verb still gated by the read-only classifier)"
         );
         assert_eq!(
             git.command_risk_level_for_shell("git commit", ShellDialect::WindowsCmd),
@@ -5943,8 +6058,8 @@ mod tests {
         );
         assert_eq!(
             git.command_risk_level_for_shell("git !GIT_SUBCOMMAND!", ShellDialect::Posix),
-            CommandRiskLevel::Low,
-            "under POSIX, `!…!` is not cmd.exe delayed expansion"
+            CommandRiskLevel::Medium,
+            "under POSIX, `!…!` is not cmd.exe delayed expansion; the literal `!GIT_SUBCOMMAND!` is an unrecognized verb the read-only classifier fails closed to Medium"
         );
     }
 
