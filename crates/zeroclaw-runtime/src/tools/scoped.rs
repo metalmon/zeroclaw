@@ -1223,6 +1223,7 @@ mod tests {
             agent_alias: "default",
             security: &security,
             built: built_with(Vec::new()),
+            task_supervisor: None,
             skills: std::slice::from_ref(&skill),
             runtime: Arc::new(crate::platform::NativeRuntime::new()),
             caller_allowed: None,

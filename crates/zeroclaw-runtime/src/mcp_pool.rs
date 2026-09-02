@@ -148,10 +148,10 @@ impl McpConnectionPool {
     /// re-taking it to publish the result.
     pub async fn registry_for(&self, alias: &str) -> Option<Arc<McpRegistry>> {
         #[cfg(test)]
-        if let Some((test_alias, registry)) = &self.test_override {
-            if test_alias == alias {
-                return Some(Arc::clone(registry));
-            }
+        if let Some((test_alias, registry)) = &self.test_override
+            && test_alias == alias
+        {
+            return Some(Arc::clone(registry));
         }
 
         let servers: Vec<McpServerConfig> = {

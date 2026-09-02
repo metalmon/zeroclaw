@@ -2722,6 +2722,7 @@ impl DelegateTool {
                         agent_alias: agent_name,
                         security: &bounded_security,
                         built: crate::tools::AllToolsResult::from_prebuilt_tools(filtered),
+                        task_supervisor: None,
                         // Empty is load-bearing: bounded children inherit no target skill
                         // tools, and a non-empty list would make this default policy active.
                         skills: &[],
