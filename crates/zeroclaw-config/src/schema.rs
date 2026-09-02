@@ -846,11 +846,22 @@ impl WireApi {
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ToolResultImagePolicy {
-    /// Send declared tool-result images as structured `image_url` parts.
-    #[default]
+    /// Preserve tool-result image markers as structured `image_url` parts,
+    /// kept inside the `role = "tool"` message. Many OpenAI-compatible endpoints
+    /// reject image parts in a tool result (HTTP 400), so this is opt-in.
     ImageUrl,
     /// Drop declared tool-result images and leave a fixed notice for the model.
     Omit,
+    /// Preserve tool-result images but move each `image_url` part out of the
+    /// `role = "tool"` message into a following `role = "user"` message (merged
+    /// into an adjacent user message when present). OpenAI-compatible endpoints
+    /// reject image parts in a tool result but accept them in a user message, so
+    /// this delivers the image to the model without the tool-result 400 and
+    /// without discarding it the way `omit` does. This is the default: it is
+    /// safe on every vision-capable provider (a user-message image is accepted
+    /// wherever a tool-message image is) and needs no per-provider config.
+    #[default]
+    Relocate,
 }
 
 fn is_default_tool_result_image_policy(value: &ToolResultImagePolicy) -> bool {
@@ -1114,9 +1125,12 @@ pub struct ModelProviderConfig {
     pub vision: Option<bool>,
     /// How native compatible chat-completions providers handle images a
     /// role=`tool` result declared in its `attachments` array. `image_url`
-    /// sends them as structured image parts; `omit` drops them and appends a
-    /// fixed notice, keeping the result text verbatim. Legacy tool results
-    /// (no array key) pass verbatim under both settings: they declare
+    /// preserves them as structured image parts inside the tool message;
+    /// `omit` removes their payloads and appends a fixed notice, keeping the
+    /// result text verbatim; `relocate` preserves the image but moves it into
+    /// a following user message, so endpoints that reject images in a tool
+    /// result still receive the image without discarding it. Legacy tool
+    /// results (no array key) pass verbatim under all settings: they declare
     /// nothing and their bodies are text, so literal marker syntax in a
     /// tool's output never drives this policy. This does not affect direct
     /// user image content or OpenAI Responses providers.
@@ -32728,7 +32742,7 @@ auto_save = true
         let parsed: ModelProviderConfig = toml::from_str("").unwrap();
         assert_eq!(
             parsed.tool_result_image_policy,
-            ToolResultImagePolicy::ImageUrl
+            ToolResultImagePolicy::Relocate
         );
         let serialized = toml::to_string(&parsed).unwrap();
         assert!(
@@ -32741,6 +32755,15 @@ auto_save = true
         assert_eq!(parsed.tool_result_image_policy, ToolResultImagePolicy::Omit);
         let serialized = toml::to_string(&parsed).unwrap();
         assert!(serialized.contains("tool_result_image_policy = \"omit\""));
+
+        let parsed: ModelProviderConfig =
+            toml::from_str("tool_result_image_policy = \"image_url\"").unwrap();
+        assert_eq!(
+            parsed.tool_result_image_policy,
+            ToolResultImagePolicy::ImageUrl
+        );
+        let serialized = toml::to_string(&parsed).unwrap();
+        assert!(serialized.contains("tool_result_image_policy = \"image_url\""));
     }
 
     #[::core::prelude::v1::test]
