@@ -21186,6 +21186,8 @@ BTC is currently around $65,000 based on latest tool output."#
             channel_all_tools_result(vec![Box::new(NamedMockTool("shell"))]),
             &skills,
             Arc::new(platform::NativeRuntime::new()),
+            None,
+            None,
         )
         .await;
         let effective_tool_names: HashSet<&str> =

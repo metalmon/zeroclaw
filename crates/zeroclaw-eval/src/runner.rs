@@ -90,6 +90,7 @@ pub async fn run_case(trace: &LlmTrace) -> anyhow::Result<RunRecord> {
             agent_alias: "eval",
             security: &eval_security,
             built: zeroclaw_runtime::tools::AllToolsResult::from_prebuilt_tools(default_tools()),
+            task_supervisor: None,
             skills: &[],
             runtime: Arc::new(zeroclaw_runtime::platform::NativeRuntime::new()),
             caller_allowed: None,
