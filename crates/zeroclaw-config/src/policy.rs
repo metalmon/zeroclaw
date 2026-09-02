@@ -1655,14 +1655,20 @@ fn contains_unquoted_shell_variable_expansion(command: &str) -> bool {
     false
 }
 
-/// True when a `cmd.exe` command carries a caret escape or a `%…%` variable
-/// reference — both change what `cmd.exe /C` runs but are invisible to the
-/// POSIX-oriented classifier (`git co^mmit` runs `git commit`; `%GIT_SUBCOMMAND%`
-/// expands to the real verb). Flagged conservatively: any `^` or `%` counts,
-/// since modeling cmd.exe's exact caret/percent rules is out of scope here.
+/// True when a `cmd.exe` command carries a caret escape, a `%…%` variable
+/// reference, or a `!…!` delayed-expansion reference — all change what
+/// `cmd.exe /C` runs but are invisible to the POSIX-oriented classifier
+/// (`git co^mmit` runs `git commit`; `%GIT_SUBCOMMAND%` expands to the real
+/// verb; `!GIT_SUBCOMMAND!` expands to it once `setlocal EnableDelayedExpansion`
+/// or `cmd /V:ON` is in effect — even inside double quotes). Flagged
+/// conservatively: any `^`, `%`, or `!` counts, since modeling cmd.exe's exact
+/// caret/percent/delayed-expansion rules is out of scope here.
 fn contains_unquoted_cmd_metachar(command: &str) -> bool {
-    // Caret escape and `%…%` expansion (`git co^mmit`, `%GIT_SUBCOMMAND%`).
-    if command.contains('^') || command.contains('%') {
+    // Caret escape, `%…%` expansion, and `!…!` delayed expansion
+    // (`git co^mmit`, `%GIT_SUBCOMMAND%`, `git !GIT_SUBCOMMAND!`). Delayed
+    // expansion can be enabled within the same `/C` line, so a `!` reference is
+    // not modelable in isolation; fail closed on any `!`.
+    if command.contains('^') || command.contains('%') || command.contains('!') {
         return true;
     }
     // The shared POSIX scanners (segmentation, ampersand/redirection) treat a
@@ -1697,10 +1703,10 @@ fn contains_unquoted_cmd_metachar(command: &str) -> bool {
 ///     execution), which would otherwise split one command across two segments.
 ///
 /// `WindowsCmd` additionally flags cmd.exe metacharacters the shared POSIX
-/// scanners cannot model — caret escape, `%…%` expansion, a single quote (not a
-/// cmd.exe quote), and a backslash directly before a command operator — any of
-/// which could hide a real `&`/`|`/`<`/`>` separator (see
-/// [`contains_unquoted_cmd_metachar`]).
+/// scanners cannot model — caret escape, `%…%` expansion, `!…!` delayed
+/// expansion, a single quote (not a cmd.exe quote), and a backslash directly
+/// before a command operator — any of which could hide a real `&`/`|`/`<`/`>`
+/// separator or the effective verb (see [`contains_unquoted_cmd_metachar`]).
 ///
 /// Ordinary `$VAR` / `$(…)` / backtick are already rejected by the allowlist's
 /// existing guards; this closes the forms those guards miss.
@@ -5893,6 +5899,52 @@ mod tests {
             git.command_risk_level_for_shell(r"git status 'x & whoami'", ShellDialect::Posix),
             CommandRiskLevel::Low,
             "under POSIX the quoted argument is one read-git segment"
+        );
+    }
+
+    #[test]
+    fn windows_cmd_delayed_expansion_fails_closed_before_the_approval_gate() {
+        // cmd.exe delayed expansion (`setlocal EnableDelayedExpansion` or
+        // `cmd /V:ON`) rewrites `!VAR!` to its value before Git runs, so
+        // `set GIT_SUBCOMMAND=commit && setlocal EnableDelayedExpansion &&
+        // git !GIT_SUBCOMMAND!` runs `git commit` while the POSIX classifier sees
+        // the literal `!GIT_SUBCOMMAND!` as a non-write argument. Delayed
+        // expansion can be enabled within the same `/C` line, so any `!` must
+        // fail closed for the WindowsCmd dialect before the approval decision.
+        let git = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+        for cmd in [
+            "set GIT_SUBCOMMAND=commit && setlocal EnableDelayedExpansion && git !GIT_SUBCOMMAND!",
+            "git !GIT_SUBCOMMAND!",
+        ] {
+            assert_eq!(
+                git.command_risk_level_for_shell(cmd, ShellDialect::WindowsCmd),
+                CommandRiskLevel::High,
+                "cmd.exe delayed expansion must fail closed to High: {cmd}"
+            );
+            assert!(
+                git.validate_command_execution_for_shell(cmd, false, ShellDialect::WindowsCmd)
+                    .is_err(),
+                "cmd.exe delayed expansion must not pass the approval gate: {cmd}"
+            );
+        }
+
+        // Clean WindowsCmd Git-read control: without `!` the ordinary read stays
+        // Low and is admitted. Dialect-scoped: under a POSIX shell `!` is not
+        // cmd.exe delayed expansion, so the literal argument keeps the read Low.
+        assert_eq!(
+            git.command_risk_level_for_shell("git status", ShellDialect::WindowsCmd),
+            CommandRiskLevel::Low,
+            "a clean WindowsCmd git read is unaffected by the delayed-expansion guard"
+        );
+        assert_eq!(
+            git.command_risk_level_for_shell("git !GIT_SUBCOMMAND!", ShellDialect::Posix),
+            CommandRiskLevel::Low,
+            "under POSIX, `!…!` is not cmd.exe delayed expansion"
         );
     }
 
