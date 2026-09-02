@@ -41,11 +41,10 @@ $Branches = @(
     # setter applied across chat/stream_chat, so the local branch is redundant and
     # its tests use the removed ::new constructor (builder pattern now).
     # Dropped 2026-08-31: pr2/mcp-embedded-resource-blob-intake (#9196) merged upstream.
-    # CASCADE: feat/mcp-image-multimodal was stacked on pr2 — rebase it onto current
-    # master (dropping the now-merged pr2 commits) before the next rebuild, or the
-    # cherry-pick will replay pr2's patches and conflict.
-    "feat/mcp-image-multimodal",              # materialize MCP type:image/audio into [IMAGE:]/[AUDIO:] markers for the multimodal pipeline (was stacked on #9196; rebase onto master)
-    "fix/mcp-image-role-user",                # relocate MCP tool-result images to a user message (role:tool 400 fix); no upstream PR yet
+    # feat/mcp-image-multimodal was stacked on pr2; pr2 is now in master and only its
+    # own single commit remains — verified 2026-09-02 to cherry-pick cleanly onto master.
+    "feat/mcp-image-multimodal",              # materialize MCP type:image/audio into [IMAGE:]/[AUDIO:] markers for the multimodal pipeline (single commit; applies clean on master)
+    "fix/mcp-image-role-user",                # PR #10502 - tool_result_image_policy=relocate (now the default) moves role:tool images into a user message (role:tool 400 fix); adds the variant on top of #10448's enum, already in master
     "feat/acp-wire-skills",                   # ACP client-delivered skills via _meta extension
     # Dropped 2026-08-21: fix/acp-session-cwd-fallback (#9536) merged upstream.
     "fix/multimodal-token-estimation",        # fix: multimodal token estimation for vision models
