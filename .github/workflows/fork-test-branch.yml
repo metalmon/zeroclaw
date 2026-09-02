@@ -46,9 +46,10 @@ jobs:
         # Run the security-policy crate explicitly so policy.rs changes are tested.
         run: |
           cargo test --locked -p zeroclaw-config --all-features --lib
-          # zeroclaw-providers OpenAI-compatible message assembly (e.g. the
-          # tool-result image relocation) — scoped to keep the run light.
-          cargo test --locked -p zeroclaw-providers --lib -- convert_messages_for_native
+          # zeroclaw-providers full lib suite: OpenAI-compatible message assembly
+          # (tool-result image relocation) AND provider routing/options tests —
+          # the latter caught a default-coupled failure a scoped run had missed.
+          cargo test --locked -p zeroclaw-providers --lib
           # zeroclaw-tools unit tests (e.g. embedded_resource MCP image/audio
           # materialization) are compiled by the workspace Check but never run.
           # Scoped to embedded_resource: the claude_code_runner tests need tmux,
