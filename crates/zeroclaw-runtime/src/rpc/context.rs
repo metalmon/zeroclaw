@@ -254,6 +254,8 @@ impl RpcContext {
             sop_audit: None,
             hooks: None,
             cert_audit: None,
+            mcp_pool: None,
+            task_supervisor: None,
         })
     }
 
