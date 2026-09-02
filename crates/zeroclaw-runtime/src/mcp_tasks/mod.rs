@@ -659,8 +659,10 @@ mod tests {
 
         // `config_path`'s parent is the install root; `agent_workspace_dir`
         // resolves under it, so point it at the tempdir to capture the write.
-        let mut config = Config::default();
-        config.config_path = ws.path().join("config.toml");
+        let config = Config {
+            config_path: ws.path().join("config.toml"),
+            ..Default::default()
+        };
         // The materializer opens (does not create) the workspace dir; in
         // production it always exists, so create it here.
         std::fs::create_dir_all(config.agent_workspace_dir("main")).unwrap();
