@@ -87,6 +87,7 @@ pub async fn maybe_run_skill_review(
             agent_alias: review_alias,
             security: &review_security,
             built: crate::tools::AllToolsResult::from_prebuilt_tools(review_tools),
+            task_supervisor: None,
             skills: &[],
             runtime: Arc::new(crate::platform::NativeRuntime::new()),
             caller_allowed: None,
