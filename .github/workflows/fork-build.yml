@@ -6,7 +6,8 @@
 # dispatch. Jobs:
 #   web           — build the Vite/TS dashboard (web/dist) once; upload as artifact
 #   test          — fmt + clippy + tests on Linux (fast red/green)
-#   build-windows — release build of the deploy binary; uploads zeroclaw.exe
+#   build-windows — release build of the deploy binaries; uploads
+#                   zeroclaw.exe, zeroclaw-acp-bridge.exe, zerocode.exe
 # `web` runs first because the `embedded-web` feature's build.rs requires
 # web/dist/index.html (a gitignored artifact absent from a clean checkout). The
 # dist is platform-independent, so both downstream jobs reuse the one artifact.
@@ -140,6 +141,13 @@ jobs:
       - name: Release build
         shell: bash
         run: cargo build --release --no-default-features --features "$ZC_FEATURES"
+      # zerocode is the RPC-only CLI companion (apps/zerocode); it does not link
+      # the zeroclaw-* crates and takes no features. Build it from the same
+      # checkout so its version matches the daemon and the runtime version-match
+      # check passes.
+      - name: Release build (zerocode CLI)
+        shell: bash
+        run: cargo build --release -p zerocode
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
@@ -147,5 +155,6 @@ jobs:
           path: |
             target/release/zeroclaw.exe
             target/release/zeroclaw-acp-bridge.exe
+            target/release/zerocode.exe
           if-no-files-found: error
           retention-days: 14
