@@ -107,6 +107,39 @@ foreach ($b in $Branches) {
     }
 }
 
+# --- Post-assembly test-drift fixups (patch final `main`, not cherry-picked) ---
+# These re-apply on every rebuild automatically (literal text replace on the
+# assembled tree — never a cherry-pick, so never conflicts). Use ONLY for
+# test-only compile drift we cannot fix on the owning branch.
+#
+# TEMPORARY (#8561 x #9319): the parked, approved #8561 (telegram multi_message)
+# test fixtures set `tools_registry` to a raw `Vec<Box<dyn Tool>>`, which upstream
+# #9319 (ScopedToolRegistry seal) rejects once #8561 is assembled onto current
+# master. We must not force-push #8561 (drops its approval), so patch the
+# assembled main. REMOVE this block when #8561 is refreshed against master.
+$fixups = @(
+    @{
+        File = "crates/zeroclaw-channels/src/orchestrator/mod.rs"
+        From = "tools_registry: Arc::new(vec![Box::new(MockPriceTool)])"
+        To   = "tools_registry: Arc::new(zeroclaw_runtime::tools::scoped::ScopedToolRegistry::from_raw_for_test(vec![Box::new(MockPriceTool)]))"
+    }
+)
+$patched = $false
+foreach ($fx in $fixups) {
+    $path = Resolve-Path -LiteralPath $fx.File
+    $orig = [System.IO.File]::ReadAllText($path)
+    $new  = $orig.Replace($fx.From, $fx.To)
+    if ($new -ne $orig) {
+        [System.IO.File]::WriteAllText($path, $new)
+        git add -- $fx.File
+        $patched = $true
+        Write-Host "==> post-assembly fixup applied: $($fx.File)" -ForegroundColor Yellow
+    }
+}
+if ($patched) {
+    git commit -q -m "test: post-assembly drift fixups (remove when the owning PRs refresh)"
+}
+
 Write-Host "==> main rebuilt:" -ForegroundColor Green
 git --no-pager log --oneline -n ($Branches.Count + 1)
 
