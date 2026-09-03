@@ -137,6 +137,12 @@ foreach ($fx in $fixups) {
     }
 }
 if ($patched) {
+    # The literal replacements can exceed rustfmt's line width; format so the
+    # `Format` CI gate stays green. main was fmt-clean pre-replace, so this only
+    # touches the wrapped lines.
+    Write-Host "==> formatting post-assembly fixups (cargo fmt)" -ForegroundColor Yellow
+    cargo fmt
+    git add -u
     git commit -q -m "test: post-assembly drift fixups (remove when the owning PRs refresh)"
 }
 
