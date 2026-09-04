@@ -150,13 +150,18 @@ pub fn materialize_resource_blob(
 }
 
 /// Materialize an MCP `type: "image"` payload, which carries a base64 `data`
-/// field and no source URI. The on-disk extension is derived from the image
-/// type so the `[IMAGE:<path>]` the multimodal loader lifts resolves to the
-/// correct provider MIME — that loader prefers a path's extension over the
-/// decoded bytes' magic, so a wrong extension would mislabel the image. The type
-/// is taken from a declared `image/*` `mimeType`, else sniffed from the decoded
-/// bytes, else defaults to PNG — so a JPEG that arrives without (or with a
-/// non-image) `mimeType` is not stored or labelled as PNG.
+/// field and no source URI. The on-disk extension must match the bytes: the
+/// multimodal loader prefers a path's extension over the decoded bytes' magic,
+/// so a wrong extension would mislabel the image to the provider.
+///
+/// The supported raster type is resolved in this order: the declared `mimeType`,
+/// canonicalized to its RFC 6838 essence (lowercased, parameters stripped) and
+/// only when it names a type the vision pipeline accepts; otherwise the decoded
+/// bytes are sniffed. If neither yields a supported raster type, this degrades
+/// with an error and writes nothing — a declared but unsupported/parameterized
+/// `image/*` (e.g. `image/bmp`, `image/jpeg; charset=binary`) is never trusted
+/// to name the extension, and a case variant like `IMAGE/JPEG` resolves to
+/// `.jpg` rather than a `.bin` document.
 ///
 /// Kept separate from [`materialize_resource_blob`] so this URI-absent
 /// MIME-to-extension behavior stays confined to the MCP image entry point and
@@ -168,20 +173,55 @@ fn materialize_mcp_image(
     data_b64: &str,
 ) -> Result<MaterializedResource, EmbeddedResourceError> {
     let bytes = decode_embedded_blob(data_b64)?;
-    let mime = declared_mime
-        .map(str::trim)
-        .filter(|s| s.to_ascii_lowercase().starts_with("image/"))
-        .map(str::to_string)
-        .or_else(|| sniff_image_mime(&bytes).map(str::to_string))
-        .unwrap_or_else(|| "image/png".to_string());
-    let filename = format!("upload.{}", ext_from_mime(&mime));
+    // Canonical media-type essence: lowercase, drop any `;`-parameters, trim.
+    let declared_essence = declared_mime
+        .map(|m| {
+            m.split(';')
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_ascii_lowercase()
+        })
+        .filter(|m| !m.is_empty());
+    // Prefer a declared type only when it maps to a supported raster extension;
+    // otherwise sniff the bytes. Neither → degrade without writing.
+    let mime: String = match declared_essence
+        .as_deref()
+        .filter(|m| supported_image_ext(m).is_some())
+    {
+        Some(m) => m.to_string(),
+        None => match sniff_image_mime(&bytes) {
+            Some(m) => m.to_string(),
+            None => {
+                return Err(EmbeddedResourceError(
+                    "unsupported image media type: no PNG/JPEG/WebP/GIF identified".into(),
+                ));
+            }
+        },
+    };
+    let ext = supported_image_ext(&mime).expect("mime is supported by construction");
+    let filename = format!("upload.{ext}");
     materialize_bytes(workspace_dir, &bytes, &filename, &mime)
 }
 
+/// Canonical file extension for the raster image types the vision pipeline
+/// accepts (`PROVIDER_IMAGE_MIME_TYPES`: PNG, JPEG, WebP, GIF). `None` for any
+/// other media type, so the caller sniffs the bytes or degrades rather than
+/// writing a mislabelled file. `mime` must already be the lowercased essence.
+fn supported_image_ext(mime: &str) -> Option<&'static str> {
+    match mime {
+        "image/png" => Some("png"),
+        "image/jpeg" => Some("jpg"),
+        "image/webp" => Some("webp"),
+        "image/gif" => Some("gif"),
+        _ => None,
+    }
+}
+
 /// Identify a raster image from its leading magic bytes, for MCP image items
-/// that arrive without a usable `mimeType`. Returns the canonical `image/*`
-/// type this module knows how to name on disk, or `None` when the bytes match
-/// no known signature (the caller then falls back to a PNG default).
+/// whose declared `mimeType` is absent or not a supported raster type. Returns
+/// one of the vision-accepted `image/*` types, or `None` when the bytes match no
+/// supported signature (the caller then degrades without writing).
 fn sniff_image_mime(bytes: &[u8]) -> Option<&'static str> {
     if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
         Some("image/jpeg")
@@ -651,20 +691,6 @@ fn sanitize_filename(name: &str) -> String {
         "upload.bin".to_string()
     } else {
         sanitized
-    }
-}
-
-fn ext_from_mime(mime: &str) -> &'static str {
-    match mime {
-        "image/png" => "png",
-        "image/jpeg" => "jpg",
-        "image/gif" => "gif",
-        "image/webp" => "webp",
-        "application/pdf" => "pdf",
-        "text/plain" => "txt",
-        "text/markdown" => "md",
-        "application/json" => "json",
-        _ => "bin",
     }
 }
 
@@ -1597,6 +1623,95 @@ mod tests {
             out.marker.starts_with("[IMAGE:"),
             "ACP image blob still materializes as IMAGE: {}",
             out.marker
+        );
+    }
+
+    #[test]
+    fn mcp_intake_image_uppercase_mime_normalized_to_jpg() {
+        // RFC 6838 media types are case-insensitive: IMAGE/JPEG must resolve to a
+        // .jpg IMAGE marker, not a .bin document.
+        let dir = tempdir().unwrap();
+        let jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, b'J', b'F', b'I', b'F'];
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, jpeg);
+        let result = json!({
+            "content": [ { "type": "image", "data": b64, "mimeType": "IMAGE/JPEG" } ]
+        });
+        let out = format_mcp_tool_result_for_model(result, dir.path()).unwrap();
+        assert!(
+            out.contains("[IMAGE:"),
+            "uppercase mime should still be an image: {out}"
+        );
+        assert!(
+            out.contains(".jpg") && !out.contains(".bin"),
+            "IMAGE/JPEG should normalize to .jpg: {out}"
+        );
+    }
+
+    #[test]
+    fn mcp_intake_image_parameterized_mime_uses_essence() {
+        // A `; charset=…` parameter is not part of the media-type essence.
+        let dir = tempdir().unwrap();
+        let png = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0];
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, png);
+        let result = json!({
+            "content": [ { "type": "image", "data": b64, "mimeType": "image/png; charset=binary" } ]
+        });
+        let out = format_mcp_tool_result_for_model(result, dir.path()).unwrap();
+        assert!(
+            out.contains("[IMAGE:"),
+            "parameterized mime should still be an image: {out}"
+        );
+        assert!(
+            out.contains(".png") && !out.contains(".bin"),
+            "parameterized image/png should resolve to .png: {out}"
+        );
+    }
+
+    #[test]
+    fn mcp_intake_image_untabled_mime_falls_back_to_sniff() {
+        // A declared but unsupported image type (image/bmp) must not name the
+        // extension; the real PNG bytes are sniffed and stored as .png.
+        let dir = tempdir().unwrap();
+        let png = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4];
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, png);
+        let result = json!({
+            "content": [ { "type": "image", "data": b64, "mimeType": "image/bmp" } ]
+        });
+        let out = format_mcp_tool_result_for_model(result, dir.path()).unwrap();
+        assert!(
+            out.contains("[IMAGE:"),
+            "sniffed PNG should be an image: {out}"
+        );
+        assert!(
+            out.contains(".png") && !out.contains(".bin"),
+            "untabled declaration should fall back to sniffed .png: {out}"
+        );
+    }
+
+    #[test]
+    fn mcp_intake_image_unsupported_and_unsniffable_degrades_without_write() {
+        // Declared type has no supported extension AND the bytes match no known
+        // raster signature: degrade to an unavailable marker, write nothing.
+        let dir = tempdir().unwrap();
+        let b64 = base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            b"this is not a raster image",
+        );
+        let result = json!({
+            "content": [ { "type": "image", "data": b64, "mimeType": "image/bmp" } ]
+        });
+        let out = format_mcp_tool_result_for_model(result, dir.path()).unwrap();
+        assert!(
+            out.contains("[attachment unavailable:"),
+            "unsupported unidentifiable image should degrade: {out}"
+        );
+        assert!(
+            !out.contains("[IMAGE:"),
+            "must not emit an image marker: {out}"
+        );
+        assert!(
+            !dir.path().join("uploads").exists(),
+            "must not write a mislabelled file: {out}"
         );
     }
 }
