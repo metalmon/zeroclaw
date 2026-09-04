@@ -227,12 +227,17 @@ The two other binary MCP content shapes are mapped as follows. A `type: "image"`
 item (base64 `data` + `mimeType`) is materialized the same way and its content
 item is rewritten to a text item carrying the `[IMAGE:<path>]` marker, which the
 multimodal pipeline lifts into a native provider image part; the item's
-`annotations`/`_meta` and other non-binary fields are preserved, and the on-disk
-extension is derived from the image type (declared `mimeType`, else sniffed from
-the bytes) so the provider receives the correct MIME. A `type: "audio"` item is
-**not** materialized in this path, because no provider resolves an audio path
-into content parts today, so its `data` is stripped to a non-materializing
-`[audio attachment: <mime>]` placeholder. In every case the raw base64 never
+`annotations`/`_meta` and other non-binary fields are preserved. Only the raster
+formats the vision pipeline accepts are materialized: PNG, JPEG, WebP, and GIF.
+The on-disk extension is derived from the declared `mimeType` (canonicalized to
+its case-insensitive essence, parameters dropped) when it names one of those
+types, otherwise from sniffing the decoded bytes; the extension must match the
+bytes because the loader prefers a path's extension over its magic. An image
+whose type is neither a supported declared type nor a recognized supported
+signature degrades to `[attachment unavailable: …]` and is not written. A
+`type: "audio"` item is **not** materialized in this path, because no provider
+resolves an audio path into content parts today, so its `data` is stripped to a
+non-materializing `[audio attachment: <mime>]` placeholder. In every case the raw base64 never
 reaches the model, including for a malformed image/audio item whose `data` is
 empty or not a string.
 
