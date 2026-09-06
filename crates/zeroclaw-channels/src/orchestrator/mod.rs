@@ -21501,7 +21501,11 @@ BTC is currently around $65,000 based on latest tool output."#
                     std::path::PathBuf::new(),
                 ),
             ),
-            tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
+            tools_registry: Arc::new(
+                zeroclaw_runtime::tools::scoped::ScopedToolRegistry::from_raw_for_test(vec![
+                    Box::new(MockPriceTool),
+                ]),
+            ),
             observer: Arc::new(NoopObserver),
             system_prompt: Arc::new("test-system-prompt".to_string()),
             model: Arc::new("test-model".to_string()),
@@ -21697,7 +21701,11 @@ BTC is currently around $65,000 based on latest tool output."#
                     std::path::PathBuf::new(),
                 ),
             ),
-            tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
+            tools_registry: Arc::new(
+                zeroclaw_runtime::tools::scoped::ScopedToolRegistry::from_raw_for_test(vec![
+                    Box::new(MockPriceTool),
+                ]),
+            ),
             observer: Arc::new(NoopObserver),
             system_prompt: Arc::new("test-system-prompt".to_string()),
             model: Arc::new("test-model".to_string()),
@@ -21876,7 +21884,11 @@ BTC is currently around $65,000 based on latest tool output."#
                     std::path::PathBuf::new(),
                 ),
             ),
-            tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
+            tools_registry: Arc::new(
+                zeroclaw_runtime::tools::scoped::ScopedToolRegistry::from_raw_for_test(vec![
+                    Box::new(MockPriceTool),
+                ]),
+            ),
             observer: Arc::new(NoopObserver),
             system_prompt: Arc::new("test-system-prompt".to_string()),
             model: Arc::new("test-model".to_string()),
@@ -22064,7 +22076,11 @@ BTC is currently around $65,000 based on latest tool output."#
                     std::path::PathBuf::new(),
                 ),
             ),
-            tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
+            tools_registry: Arc::new(
+                zeroclaw_runtime::tools::scoped::ScopedToolRegistry::from_raw_for_test(vec![
+                    Box::new(MockPriceTool),
+                ]),
+            ),
             observer: Arc::new(NoopObserver),
             system_prompt: Arc::new("test-system-prompt".to_string()),
             model: Arc::new("test-model".to_string()),
@@ -22626,7 +22642,11 @@ BTC is currently around $65,000 based on latest tool output."#
                     std::path::PathBuf::new(),
                 ),
             ),
-            tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
+            tools_registry: Arc::new(
+                zeroclaw_runtime::tools::scoped::ScopedToolRegistry::from_raw_for_test(vec![
+                    Box::new(MockPriceTool),
+                ]),
+            ),
             observer: Arc::new(NoopObserver),
             system_prompt: Arc::new("test-system-prompt".to_string()),
             model: Arc::new("test-model".to_string()),
