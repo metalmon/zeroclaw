@@ -181,6 +181,45 @@ pairing disabled the gateway answers unauthenticated requests on `/webhook`,
 other hosts, drop the `127.0.0.1:` prefix **and** enable pairing or put the
 gateway behind an authenticating reverse proxy or tunnel.
 
+### Public/private surface split (`[gateway.public]`)
+
+The `[gateway]` bind above (host/`allow_public_bind`/`ports:` mapping) is the
+**private** surface: dashboard, `/api/*`, `/admin/*`, REST `/pair`,
+`/health`, `/metrics`. Setting `[gateway.public].enabled = true` adds a
+second, independent listener that exposes **only `/acp`**, over TLS from
+`[gateway.tls]` (mandatory: the public listener refuses to start without
+it). See [Operations → Network deployment](../ops/network-deployment.md#publicprivate-surface-split-gatewaypublic)
+for the full config shape and the pairing-over-ACP handshake that lets a
+network client on the public listener obtain a token without touching the
+private surface.
+
+In a container, publish each surface separately and keep the private one on
+host loopback:
+
+```yaml
+services:
+  zeroclaw:
+    image: ghcr.io/zeroclaw-labs/zeroclaw:latest
+    ports:
+      - "127.0.0.1:42617:42617"   # private: dashboard, /api, /admin, REST /pair
+      - "443:443"                  # public: /acp only, TLS required
+    environment:
+      - ZEROCLAW_gateway__host=0.0.0.0
+      - ZEROCLAW_gateway__allow_public_bind=true
+      - ZEROCLAW_gateway__public__enabled=true
+```
+
+**`is_loopback`-in-container caveat.** The daemon's loopback checks (the
+`allow_remote_admin` guard on `/admin/reload`, the auth rate limiter's
+loopback carve-out) look at the peer IP the gateway process itself sees.
+Inside a bridged container network, that is the container's own network
+stack; the daemon has no way to tell "arrived via the host's loopback" from
+"arrived from the bridge network" by peer IP alone. In practice this means
+the `ports:` mapping is the only boundary Docker actually enforces here:
+`"127.0.0.1:42617:42617"` keeps the private surface off the network
+regardless of what the in-daemon loopback check would otherwise allow.
+Don't loosen it and rely on `is_loopback` to make up the difference.
+
 ### Rootless Compose with the Debian image
 
 For rootless Docker or Podman Compose deployments that need shell tools inside
