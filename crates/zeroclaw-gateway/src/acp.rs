@@ -13,8 +13,12 @@ use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+use zeroclaw_api::principal::{AuthOutcome, Principal};
 use zeroclaw_channels::orchestrator::acp_server::{AcpServer, AcpServerConfig};
+use zeroclaw_config::authz::AuthzConfig;
 use zeroclaw_infra::acp_session_store::AcpSessionStore;
+use zeroclaw_runtime::security::auth_provider::{Credential, ProviderRegistry};
+use zeroclaw_runtime::security::pairing_auth_provider::PairingAuthProvider;
 
 const ACP_WS_PROTOCOL: &str = "zeroclaw.acp.v1";
 
@@ -55,11 +59,62 @@ pub async fn handle_ws_acp(
         ws
     };
 
-    ws.on_upgrade(move |socket| handle_socket(socket, state, params.agent))
+    // Resolve the authenticated subject for this connection. Fail-closed once
+    // authz is enforced; otherwise fall back to the shared operator so the
+    // legacy single-operator path (including no-pairing deployments) is
+    // unchanged.
+    let token = extract_ws_token(&headers, params.token.as_deref());
+    let authz_enforced = state.config.read().authz.is_enforced();
+    let principal = match resolve_principal(&state.provider_registry, token).await {
+        Some(principal) => principal,
+        None if !authz_enforced => Principal::shared_operator(),
+        None => {
+            return (
+                axum::http::StatusCode::UNAUTHORIZED,
+                "Unauthorized - no principal is entitled for the presented credential",
+            )
+                .into_response();
+        }
+    };
+
+    ws.on_upgrade(move |socket| handle_socket(socket, state, params.agent, principal))
         .into_response()
 }
 
-async fn handle_socket(socket: WebSocket, state: AppState, default_agent: Option<String>) {
+/// Build the ACP connection auth registry from the fork-local `[[authz]]` map.
+/// Registers the [`PairingAuthProvider`], which maps a paired bearer to a
+/// principal when authz is enforced and to the shared-operator sentinel
+/// otherwise. Built once at daemon start and shared via [`AppState`].
+#[must_use]
+pub fn build_provider_registry(authz: AuthzConfig) -> Arc<ProviderRegistry> {
+    let mut registry = ProviderRegistry::new();
+    registry.register(Arc::new(PairingAuthProvider::new(authz)));
+    Arc::new(registry)
+}
+
+/// Resolve a presented bearer to a [`Principal`] via the registry. `None` means
+/// the credential was denied (or absent); the caller decides whether that is a
+/// hard reject (authz enforced) or the shared-operator fallback (legacy).
+pub async fn resolve_principal(
+    registry: &ProviderRegistry,
+    token: Option<&str>,
+) -> Option<Principal> {
+    let credential = match token {
+        Some(token) if !token.is_empty() => Credential::Bearer(token.to_string()),
+        _ => Credential::None,
+    };
+    match registry.resolve(&credential).await {
+        AuthOutcome::Authenticated(principal) | AuthOutcome::Trusted(principal) => Some(principal),
+        AuthOutcome::Denied { .. } => None,
+    }
+}
+
+async fn handle_socket(
+    socket: WebSocket,
+    state: AppState,
+    default_agent: Option<String>,
+    principal: Principal,
+) {
     let (mut sender, mut receiver) = socket.split();
     let (input_tx, input_rx) = mpsc::channel::<String>(256);
     let (output_tx, mut output_rx) = mpsc::channel::<String>(256);
@@ -92,7 +147,8 @@ async fn handle_socket(socket: WebSocket, state: AppState, default_agent: Option
             )
             .with_canvas_store(canvas_store)
             .with_sop_engine(state.sop_engine.clone(), state.sop_audit.clone())
-            .with_connection_default_agent(default_agent),
+            .with_connection_default_agent(default_agent)
+            .with_principal(principal),
         )
     } else {
         Arc::new(
@@ -103,7 +159,8 @@ async fn handle_socket(socket: WebSocket, state: AppState, default_agent: Option
             )
             .with_canvas_store(canvas_store)
             .with_sop_engine(state.sop_engine.clone(), state.sop_audit.clone())
-            .with_connection_default_agent(default_agent),
+            .with_connection_default_agent(default_agent)
+            .with_principal(principal),
         )
     };
 
@@ -369,5 +426,34 @@ mod tests {
             "omitted-cwd session/new over the real /acp WebSocket route must \
              return the per-agent workspace, not the daemon CWD"
         );
+    }
+
+    #[tokio::test]
+    async fn resolve_denies_unmapped_when_enforced() {
+        use zeroclaw_config::authz::{AuthzConfig, PrincipalRecord};
+        use zeroclaw_config::pairing::PairingGuard;
+
+        let authz = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "alice".into(),
+                allowed_agents: vec!["crm-bot".into()],
+                device_ids: vec![],
+                token_hashes: vec![PairingGuard::token_hash("good")],
+            }],
+        };
+        let registry = super::build_provider_registry(authz);
+
+        assert!(
+            super::resolve_principal(&registry, Some("bad"))
+                .await
+                .is_none(),
+            "an unmapped bearer must be denied once authz is enforced"
+        );
+
+        let principal = super::resolve_principal(&registry, Some("good"))
+            .await
+            .expect("the mapped bearer must resolve to a principal");
+        assert!(principal.may_bind("crm-bot"));
+        assert!(!principal.may_bind("hr-bot"));
     }
 }

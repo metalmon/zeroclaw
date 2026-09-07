@@ -2382,6 +2382,7 @@ pub(crate) mod tests {
             reload_tx: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }

@@ -2677,6 +2677,7 @@ mod tests {
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
         }
     }
 

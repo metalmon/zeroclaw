@@ -625,6 +625,10 @@ pub struct AppState {
     pub sop_engine: Option<Arc<std::sync::Mutex<zeroclaw_runtime::sop::SopEngine>>>,
     /// Shared SOP audit logger from the daemon (for WS agent sessions).
     pub sop_audit: Option<Arc<zeroclaw_runtime::sop::SopAuditLogger>>,
+    /// Inbound-auth provider registry, built once at daemon start from the
+    /// fork-local `[[authz]]` map. The ACP endpoint resolves each connection's
+    /// [`zeroclaw_api::principal::Principal`] through it at connect time.
+    pub provider_registry: Arc<zeroclaw_runtime::security::auth_provider::ProviderRegistry>,
 }
 
 /// Run the HTTP gateway using axum with proper HTTP/1.1 compliance.
@@ -1632,6 +1636,7 @@ pub async fn run_gateway(
         tui_registry,
         sop_engine,
         sop_audit,
+        provider_registry: acp::build_provider_registry(config.authz.clone()),
         #[cfg(feature = "webauthn")]
         webauthn: if config.security.webauthn.enabled {
             let secret_store = Arc::new(zeroclaw_runtime::security::SecretStore::new(
@@ -4519,6 +4524,7 @@ mod tests {
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -5439,6 +5445,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -5525,6 +5532,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -6198,6 +6206,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7104,6 +7113,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7223,6 +7233,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7322,6 +7333,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7527,6 +7539,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7613,6 +7626,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7704,6 +7718,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7800,6 +7815,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7892,6 +7908,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7992,6 +8009,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -8141,6 +8159,7 @@ path = "{trigger_path}"
             cancel_tokens: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -9021,6 +9040,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -9106,6 +9126,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -9716,6 +9737,7 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            provider_registry: crate::acp::build_provider_registry(Default::default()),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
