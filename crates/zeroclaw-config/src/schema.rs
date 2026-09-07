@@ -323,6 +323,8 @@ pub struct Config {
 
     /// Fork-local per-principal agent authorization (`[[authz.principals]]`).
     #[serde(default)]
+    #[nested]
+    #[group = "Operations"]
     pub authz: crate::authz::AuthzConfig,
 
     /// Inbound A2A discovery server (`[a2a.server]`). Default-closed:
