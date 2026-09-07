@@ -2418,11 +2418,34 @@ async fn handle_pair(
                 return (StatusCode::INTERNAL_SERVER_ERROR, Json(body));
             }
 
+            // Best-effort onboarding convenience (`get-paircode --new
+            // --principal <id>`): the code was tagged with a principal, so
+            // committing it above stashed a binding. F4a does not wire an
+            // automatic write into `[[authz.principals]]` here — surface it
+            // for the operator instead, matching the documented fallback
+            // (pair, then add the token hash to that principal by hand).
+            let principal_binding = state.pairing.take_pending_binding().inspect(|binding| {
+                ::zeroclaw_log::record!(
+                    WARN,
+                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                        .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
+                        .with_attrs(::serde_json::json!({
+                            "principal_id": binding.principal_id,
+                            "token_hash": binding.token_hash,
+                        })),
+                    "device paired with a principal-tagged code; add this token_hash to that principal's [[authz.principals]] token_hashes to complete the binding"
+                );
+            });
+
             let body = serde_json::json!({
                 "paired": true,
                 "persisted": true,
                 "token": token,
-                "message": "Save this token — use it as Authorization: Bearer <token>"
+                "message": "Save this token — use it as Authorization: Bearer <token>",
+                "principal_binding": principal_binding.map(|binding| serde_json::json!({
+                    "principal_id": binding.principal_id,
+                    "token_hash": binding.token_hash,
+                })),
             });
             (StatusCode::OK, Json(body))
         }
@@ -3943,6 +3966,11 @@ async fn handle_admin_paircode(
 pub struct AdminPaircodeQuery {
     #[serde(default)]
     pub rotate: Option<String>,
+    /// Tag the minted code with a principal id (`get-paircode --new
+    /// --principal <id>`). Absent for ordinary codes, which leaves today's
+    /// behavior unchanged.
+    #[serde(default)]
+    pub principal: Option<String>,
 }
 
 async fn handle_admin_paircode_new(
@@ -4066,23 +4094,43 @@ async fn handle_admin_paircode_new(
         None => None,
     };
 
-    let code = state
-        .pairing
-        .generate_new_pairing_code()
-        .expect("require_pairing checked above");
+    let principal = params
+        .principal
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    let code = match principal {
+        Some(principal_id) => state.pairing.mint_code_for_principal(principal_id),
+        None => state
+            .pairing
+            .generate_new_pairing_code()
+            .expect("require_pairing checked above"),
+    };
     if rotate.is_none() {
         ::zeroclaw_log::record!(
             INFO,
-            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_attrs(::serde_json::json!({"principal": principal})),
             "new pairing code generated via admin endpoint"
         );
     }
 
-    let message = match revocation_message {
-        Some(revoked) => {
+    let message = match (revocation_message, principal) {
+        (Some(revoked), Some(principal_id)) => {
+            format!(
+                "{revoked} Use this one-time code to re-pair, tagged for principal '{principal_id}'."
+            )
+        }
+        (Some(revoked), None) => {
             format!("{revoked} Use this one-time code to re-pair.")
         }
-        None => "New pairing code generated — use this one-time code to pair".to_string(),
+        (None, Some(principal_id)) => {
+            format!(
+                "New pairing code generated, tagged for principal '{principal_id}' — use this one-time code to pair"
+            )
+        }
+        (None, None) => "New pairing code generated — use this one-time code to pair".to_string(),
     };
 
     let body = serde_json::json!({
@@ -4770,6 +4818,7 @@ path = "{trigger_path}"
                 test_connect_info(),
                 Query(AdminPaircodeQuery {
                     rotate: Some("all".into()),
+                    principal: None,
                 }),
             )
             .await,
@@ -4809,6 +4858,7 @@ path = "{trigger_path}"
                 test_connect_info(),
                 Query(AdminPaircodeQuery {
                     rotate: Some("dev-a".into()),
+                    principal: None,
                 }),
             )
             .await,
@@ -4845,6 +4895,7 @@ path = "{trigger_path}"
                 test_connect_info(),
                 Query(AdminPaircodeQuery {
                     rotate: Some("ghost".into()),
+                    principal: None,
                 }),
             )
             .await,
@@ -4869,6 +4920,7 @@ path = "{trigger_path}"
                 test_connect_info(),
                 Query(AdminPaircodeQuery {
                     rotate: Some("all".into()),
+                    principal: None,
                 }),
             )
             .await,

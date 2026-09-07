@@ -47,6 +47,11 @@ pub const PAIRING_CODE_TTL: Duration = Duration::from_secs(10 * 60);
 struct PendingCode {
     code: String,
     minted_at: Instant,
+    /// Principal id this code was minted for (`get-paircode --new --principal
+    /// <id>`), if any. Carried through to the `PairingReservation` so a
+    /// successful `commit()` can produce a `PrincipalBinding`. Absent for
+    /// every ordinary code, which preserves today's behavior exactly.
+    principal_id: Option<String>,
 }
 
 impl PendingCode {
@@ -54,18 +59,46 @@ impl PendingCode {
         Self {
             code,
             minted_at: Instant::now(),
+            principal_id: None,
+        }
+    }
+
+    /// Mint a code tagged with a principal id.
+    fn new_for_principal(code: String, principal_id: String) -> Self {
+        Self {
+            code,
+            minted_at: Instant::now(),
+            principal_id: Some(principal_id),
         }
     }
 
     /// Restore a previously reserved code WITHOUT refreshing its lifetime: a
-    /// failed issuance must not extend the window.
-    fn restored(code: String, minted_at: Instant) -> Self {
-        Self { code, minted_at }
+    /// failed issuance must not extend the window. Preserves whatever
+    /// principal tag the code carried so a retry after a failed commit does
+    /// not silently drop the binding.
+    fn restored(code: String, minted_at: Instant, principal_id: Option<String>) -> Self {
+        Self {
+            code,
+            minted_at,
+            principal_id,
+        }
     }
 
     fn is_expired_at(&self, now: Instant) -> bool {
         now.duration_since(self.minted_at) >= PAIRING_CODE_TTL
     }
+}
+
+/// A `(token_hash, principal_id)` binding produced when a principal-tagged
+/// pairing code (`get-paircode --new --principal <id>`) is redeemed. The
+/// daemon drains this via [`PairingGuard::take_pending_binding`] after a
+/// successful `/pair` and either persists it into that principal's
+/// `[[authz.principals]]` record or, if the principal id is not yet
+/// configured, surfaces it for the operator to add by hand.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrincipalBinding {
+    pub token_hash: String,
+    pub principal_id: String,
 }
 
 /// Read the live code, clearing it first if its lifetime has elapsed. Every
@@ -90,6 +123,12 @@ pub struct PairingGuard {
     paired_tokens: Arc<Mutex<HashSet<String>>>,
     /// Brute-force protection: per-client failed attempt state + last sweep timestamp.
     failed_attempts: Arc<Mutex<(HashMap<String, FailedAttemptState>, Instant)>>,
+    /// The most recent `(token_hash, principal_id)` binding produced by
+    /// committing a principal-tagged reservation, awaiting drain by
+    /// [`PairingGuard::take_pending_binding`]. A single slot mirrors
+    /// `pairing_code`'s one-active-code model: only one principal-tagged code
+    /// can be outstanding at a time.
+    pending_binding: Arc<Mutex<Option<PrincipalBinding>>>,
 }
 
 /// A successfully matched pairing code whose final token is not yet committed.
@@ -103,6 +142,8 @@ pub struct PairingReservation {
     /// Preserved so restoring the code on a failed issuance does not reset its
     /// lifetime.
     minted_at: Instant,
+    /// Principal id carried from the reserved [`PendingCode`], if any.
+    principal_id: Option<String>,
     token: String,
     committed: bool,
 }
@@ -113,10 +154,20 @@ impl PairingReservation {
         hash_token(&self.token)
     }
 
-    /// Commit the reservation, consuming the one-time code and storing the token.
+    /// Commit the reservation, consuming the one-time code and storing the
+    /// token. If the code was minted for a principal, stashes a
+    /// [`PrincipalBinding`] the caller can drain via
+    /// [`PairingGuard::take_pending_binding`].
     pub fn commit(mut self) -> String {
         let token = self.token.clone();
-        self.guard.paired_tokens.lock().insert(hash_token(&token));
+        let token_hash = hash_token(&token);
+        self.guard.paired_tokens.lock().insert(token_hash.clone());
+        if let Some(principal_id) = self.principal_id.take() {
+            *self.guard.pending_binding.lock() = Some(PrincipalBinding {
+                token_hash,
+                principal_id,
+            });
+        }
         self.committed = true;
         token
     }
@@ -129,7 +180,11 @@ impl Drop for PairingReservation {
         }
         let mut slot = self.guard.pairing_code.lock();
         if slot.is_none() {
-            *slot = Some(PendingCode::restored(self.code.clone(), self.minted_at));
+            *slot = Some(PendingCode::restored(
+                self.code.clone(),
+                self.minted_at,
+                self.principal_id.clone(),
+            ));
         }
     }
 }
@@ -156,6 +211,7 @@ impl PairingGuard {
             pairing_code: Arc::new(Mutex::new(code)),
             paired_tokens: Arc::new(Mutex::new(tokens)),
             failed_attempts: Arc::new(Mutex::new((HashMap::new(), Instant::now()))),
+            pending_binding: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -278,6 +334,7 @@ impl PairingGuard {
                 guard: self.clone(),
                 code: pending.code.clone(),
                 minted_at: pending.minted_at,
+                principal_id: pending.principal_id.clone(),
                 token: generate_token(),
                 committed: false,
             };
@@ -388,6 +445,32 @@ impl PairingGuard {
         let new_code = generate_code();
         *self.pairing_code.lock() = Some(PendingCode::new(new_code.clone()));
         Some(new_code)
+    }
+
+    /// Generate a new pairing code tagged with a principal id
+    /// (`get-paircode --new --principal <id>`). Once redeemed, the resulting
+    /// bearer token's hash is available via [`PairingGuard::take_pending_binding`]
+    /// so the caller can bind it to that principal (append to
+    /// `[[authz.principals]]`, or surface it for a manual edit).
+    ///
+    /// Mirrors [`PairingGuard::generate_new_pairing_code`]'s semantics:
+    /// unconditionally replaces any pending code (tagged or not) rather than
+    /// refusing when a code is already outstanding, so tagging a code for
+    /// onboarding never gets stuck behind an untagged one.
+    pub fn mint_code_for_principal(&self, principal_id: &str) -> String {
+        let new_code = generate_code();
+        *self.pairing_code.lock() = Some(PendingCode::new_for_principal(
+            new_code.clone(),
+            principal_id.to_string(),
+        ));
+        new_code
+    }
+
+    /// Drain the binding produced by the most recently committed,
+    /// principal-tagged reservation. Returns `None` once already taken, or
+    /// when no principal-tagged code has been redeemed.
+    pub fn take_pending_binding(&self) -> Option<PrincipalBinding> {
+        self.pending_binding.lock().take()
     }
 
     pub fn generate_pairing_code_if_vacant(&self) -> Result<String, GeneratePairingCodeError> {
@@ -574,6 +657,75 @@ mod tests {
         assert!(token.starts_with("zc_"));
         assert!(guard.pairing_code().is_none());
         assert!(guard.is_authenticated(&token));
+    }
+
+    // ── Principal-tagged pairing (`get-paircode --new --principal <id>`) ────
+
+    #[test]
+    async fn committing_a_principal_tagged_code_binds_the_token_hash() {
+        let guard = PairingGuard::new(true, &[]);
+        let code = guard.mint_code_for_principal("alice");
+        let reservation = guard.try_reserve_code(&code).unwrap();
+        let token = reservation.commit();
+        // the reservation carried "alice" -> a binding record is produced
+        let binding = guard.take_pending_binding().unwrap();
+        assert_eq!(binding.principal_id, "alice");
+        assert_eq!(binding.token_hash, PairingGuard::token_hash(&token));
+    }
+
+    #[test]
+    async fn take_pending_binding_drains_only_once() {
+        let guard = PairingGuard::new(true, &[]);
+        let code = guard.mint_code_for_principal("alice");
+        guard.try_reserve_code(&code).unwrap().commit();
+        assert!(guard.take_pending_binding().is_some());
+        assert!(
+            guard.take_pending_binding().is_none(),
+            "a drained binding must not be returned twice"
+        );
+    }
+
+    #[test]
+    async fn mint_code_for_principal_replaces_a_pending_untagged_code() {
+        let guard = PairingGuard::new(true, &[]);
+        let untagged = guard.pairing_code().unwrap().to_string();
+        let tagged = guard.mint_code_for_principal("bob");
+        assert_ne!(untagged, tagged, "tagging must mint a fresh code");
+        assert!(
+            guard.try_reserve_code(&untagged).is_none(),
+            "the superseded untagged code must not redeem"
+        );
+        assert!(guard.try_reserve_code(&tagged).is_some());
+    }
+
+    /// A dropped, uncommitted reservation for a principal-tagged code must
+    /// restore the tag along with the code, so a retry after a transient
+    /// failure still produces the binding on the next commit.
+    #[test]
+    async fn dropping_an_uncommitted_principal_reservation_restores_the_tag() {
+        let guard = PairingGuard::new(true, &[]);
+        let code = guard.mint_code_for_principal("alice");
+        {
+            let _reservation = guard.try_reserve_code(&code).expect("code should reserve");
+        }
+        let reservation = guard
+            .try_reserve_code(&code)
+            .expect("restored code should reserve again");
+        let token = reservation.commit();
+        let binding = guard.take_pending_binding().unwrap();
+        assert_eq!(binding.principal_id, "alice");
+        assert_eq!(binding.token_hash, PairingGuard::token_hash(&token));
+    }
+
+    /// Codes minted without `--principal` must be entirely unaffected:
+    /// committing one never produces a binding to drain.
+    #[test]
+    async fn untagged_code_produces_no_pending_binding() {
+        let guard = PairingGuard::new(true, &[]);
+        let code = guard.pairing_code().unwrap().to_string();
+        let token = guard.try_pair(&code, "test_client").await.unwrap();
+        assert!(token.is_some());
+        assert!(guard.take_pending_binding().is_none());
     }
 
     #[test]

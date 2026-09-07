@@ -181,11 +181,15 @@ must re-pair.
 With --rotate-device ID, revokes just that device's bearer token \
 and issues a fresh code for re-pairing that one device.
 
+With --principal ID (alongside --new), tags the minted code so the \
+paired device's token binds to that principal (see [[authz.principals]]).
+
 Examples:
   zeroclaw gateway get-paircode               # show current pairing code
   zeroclaw gateway get-paircode --new         # add another client (no revocation)
   zeroclaw gateway get-paircode --rotate      # revoke ALL tokens, then issue a code
   zeroclaw gateway get-paircode --rotate-device dash-1  # revoke one device's token
+  zeroclaw gateway get-paircode --new --principal alice # onboard a principal
   zeroclaw gateway get-paircode --new --port 3001 # target alternate-port gateway")]
     GetPaircode {
         /// Generate a new pairing code for adding a client (does not revoke existing tokens)
@@ -199,6 +203,14 @@ Examples:
         /// Revoke a single device's bearer token by id, then issue a new code
         #[arg(long, value_name = "DEVICE_ID", conflicts_with_all = ["new", "rotate"])]
         rotate_device: Option<String>,
+
+        /// Tag the minted code with a principal id (an `[[authz.principals]]
+        /// id`). Once the resulting device pairs, the daemon log records the
+        /// paired token's hash for that principal; if the principal is
+        /// already configured, it is bound automatically. Has no effect on
+        /// codes minted without this flag.
+        #[arg(long, value_name = "PRINCIPAL_ID")]
+        principal: Option<String>,
 
         /// Port of the running gateway to query; defaults to config gateway.port
         #[arg(short, long)]
