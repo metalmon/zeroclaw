@@ -32,6 +32,7 @@ $ErrorActionPreference = "Stop"
 $Branches = @(
     "feat/telegram-multi-message",            # PR #8561 - Telegram multi_message streaming mode
     "fix/heartbeat-composite-channel-target", # PR #10671 (issue #10670) - heartbeat.target accepts a channel instance composite key (telegram.roy); validate the type segment. Independent single commit; drop when merged upstream.
+    "pr-10604-opencode-session",              # PR #10604 (issue #10603, v0.8.5) - send opaque x-opencode-session on opencode.ai requests (Console Go now rejects header-less requests). Upstream author JordanTheJet; mirror of that PR head. Drop when merged upstream.
     # Dropped 2026-08-29: fix/telegram-reply-thread-history (#10418 / issue #10237) merged upstream.
     # fix/pipeline-tool-gating DROPPED: #9062/#7960 closed as duplicate; upstream
     # closed #7947 (execute_pipeline confused-deputy) with its own per-agent
