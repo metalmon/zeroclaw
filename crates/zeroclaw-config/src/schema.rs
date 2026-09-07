@@ -19260,6 +19260,7 @@ impl Default for Config {
             conversational_ai: ConversationalAiConfig::default(),
             security: SecurityConfig::default(),
             security_ops: SecurityOpsConfig::default(),
+            authz: crate::authz::AuthzConfig::default(),
             runtime: RuntimeConfig::default(),
             reliability: ReliabilityConfig::default(),
             scheduler: SchedulerConfig::default(),
@@ -28242,6 +28243,7 @@ auto_save = true
             conversational_ai: ConversationalAiConfig::default(),
             security: SecurityConfig::default(),
             security_ops: SecurityOpsConfig::default(),
+            authz: crate::authz::AuthzConfig::default(),
             runtime: RuntimeConfig {
                 kind: RuntimeKind::Docker,
                 ..RuntimeConfig::default()
@@ -29274,6 +29276,7 @@ default_temperature = 0.7
             conversational_ai: ConversationalAiConfig::default(),
             security: SecurityConfig::default(),
             security_ops: SecurityOpsConfig::default(),
+            authz: crate::authz::AuthzConfig::default(),
             runtime: RuntimeConfig::default(),
             reliability: ReliabilityConfig::default(),
             scheduler: SchedulerConfig::default(),
