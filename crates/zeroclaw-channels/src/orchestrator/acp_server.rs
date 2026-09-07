@@ -607,6 +607,38 @@ impl AcpServer {
             zeroclaw_meta["defaultModel"] = serde_json::json!(model);
         }
 
+        // Principal-scoped agent roster: configured, dispatchable agents
+        // (mirrors `AliasedAgentConfig::is_dispatchable`, the same
+        // eligibility check `validate_dispatchable_agent_alias` applies)
+        // intersected with this connection's entitlement (mirrors the
+        // `authorize_principal_for_alias` permitted-decision, inlined here
+        // to avoid an audit-log record per listed alias). The list never
+        // exceeds what `session/new` would admit for this principal.
+        // `AliasedAgentConfig` has no per-agent display-name field today,
+        // so `display_name` falls back to the alias.
+        let mut entitled_aliases: Vec<&String> = config
+            .agents
+            .iter()
+            .filter(|(alias, agent)| {
+                agent.is_dispatchable()
+                    && (!self.principal.is_authenticated()
+                        || self.principal.may_bind(alias.as_str()))
+            })
+            .map(|(alias, _)| alias)
+            .collect();
+        entitled_aliases.sort();
+        let agents: Vec<serde_json::Value> = entitled_aliases
+            .into_iter()
+            .map(|alias| {
+                serde_json::json!({
+                    "alias": alias,
+                    "display_name": alias,
+                    "default": config.acp.default_agent.as_deref() == Some(alias.as_str()),
+                })
+            })
+            .collect();
+        zeroclaw_meta["agents"] = serde_json::json!(agents);
+
         let session_capabilities = if self.store.is_some() {
             serde_json::json!({ "resume": {}, "close": {} })
         } else {
@@ -3912,6 +3944,58 @@ mod tests {
         assert!(
             ok.is_ok(),
             "shared-operator fallback must bind any configured alias, got: {ok:?}"
+        );
+    }
+
+    #[test]
+    fn initialize_lists_only_entitled_agents() {
+        use zeroclaw_api::principal::{AgentAlias, AuthMethod, Principal, PrincipalId};
+
+        let cwd = tempfile::tempdir().unwrap();
+        let config = crm_hr_config(cwd.path());
+        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native)
+            .with_allowed_aliases(vec![AgentAlias("crm-bot".into())]);
+        let server = AcpServer::new(config, AcpServerConfig::default()).with_principal(principal);
+
+        let resp = server.handle_initialize(&serde_json::json!({})).unwrap();
+        let agents = &resp["_meta"]["zeroclaw"]["agents"];
+        let aliases: Vec<&str> = agents
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|a| a["alias"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            aliases,
+            vec!["crm-bot"],
+            "hr-bot is configured and dispatchable but alice is not entitled to it"
+        );
+    }
+
+    #[test]
+    fn initialize_marks_configured_default_agent() {
+        let cwd = tempfile::tempdir().unwrap();
+        let mut config = crm_hr_config(cwd.path());
+        config.acp.default_agent = Some("hr-bot".to_string());
+        // Unset (shared-operator) principal: binds every configured alias,
+        // same as `session_new_shared_operator_may_bind_any_alias`.
+        let server = AcpServer::new(config, AcpServerConfig::default());
+
+        let resp = server.handle_initialize(&serde_json::json!({})).unwrap();
+        let agents = resp["_meta"]["zeroclaw"]["agents"].as_array().unwrap();
+        let defaults: Vec<(&str, bool)> = agents
+            .iter()
+            .map(|a| {
+                (
+                    a["alias"].as_str().unwrap(),
+                    a["default"].as_bool().unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            defaults,
+            vec![("crm-bot", false), ("hr-bot", true)],
+            "only the configured acp.default_agent should be flagged default"
         );
     }
 
