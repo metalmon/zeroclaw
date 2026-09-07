@@ -181,19 +181,17 @@ impl TokenBindingStore {
             std::fs::create_dir_all(parent)?;
         }
         let json = serde_json::to_vec_pretty(map)?;
-        let dir = path.parent().unwrap_or_else(|| std::path::Path::new("."));
-        let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
-        use std::io::Write as _;
-        tmp.write_all(&json)?;
-        tmp.flush()?;
+        // Atomic replace via a sibling temp file + rename, using only `std::fs`
+        // (no `tempfile` prod dependency). `rename` over the same directory is
+        // atomic on POSIX and replaces the target on Windows.
+        let tmp = path.with_extension("json.tmp");
+        std::fs::write(&tmp, &json)?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt as _;
-            let _ = std::fs::set_permissions(tmp.path(), std::fs::Permissions::from_mode(0o600));
+            let _ = std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600));
         }
-        // persist() atomically renames the temp over any existing file.
-        tmp.persist(path)
-            .map_err(|e| anyhow::anyhow!("failed to persist authz bindings: {}", e.error))?;
+        std::fs::rename(&tmp, path)?;
         Ok(())
     }
 }
