@@ -5172,16 +5172,16 @@ async fn async_main(command: clap::Command) -> Result<()> {
                                     "  🏷️  Tagged for principal '{principal_id}'." // i18n-exempt: literal identifier interpolation, matches surrounding CLI output
                                 );
                                 println!(
-                                    "  Once the device pairs, the daemon logs and returns the resulting" // i18n-exempt: operator instructions, matches surrounding CLI output
+                                    "  On redemption the token is automatically bound to this" // i18n-exempt: operator instructions, matches surrounding CLI output
                                 );
                                 println!(
-                                    "  token_hash -> principal binding. This is NOT persisted" // i18n-exempt: operator instructions, matches surrounding CLI output
+                                    "  principal in the runtime binding store — effective on the" // i18n-exempt: operator instructions, matches surrounding CLI output
                                 );
                                 println!(
-                                    "  automatically — add the token_hash to that principal's" // i18n-exempt: operator instructions, matches surrounding CLI output
+                                    "  next connect, no reload. Its permissions come from that" // i18n-exempt: operator instructions, matches surrounding CLI output
                                 );
                                 println!(
-                                    "  [[authz.principals]] token_hashes by hand to complete the binding." // i18n-exempt: operator instructions, matches surrounding CLI output
+                                    "  principal's [[authz.principals]].allowed_agents." // i18n-exempt: operator instructions, matches surrounding CLI output
                                 );
                             }
                         }
