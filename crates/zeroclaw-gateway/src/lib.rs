@@ -2143,10 +2143,17 @@ pub async fn run_gateway(
         }
         let public_tls_acceptor = tls::build_tls_acceptor(tls_cfg)?;
 
-        let public_addr = zeroclaw_infra::effective_gateway_bind_socket_addr(
-            &config.gateway.public.host,
-            config.gateway.public.port,
-        );
+        // Resolve through the tested helper rather than re-deriving the
+        // address inline, so the unit-tested code path IS the bind path.
+        // The private side keeps using the pre-existing `listener`
+        // (bound above from the function's `host`/`port` args, which
+        // callers already source from `[gateway].host`/`port` — that
+        // path also carries CLI-override handling `resolve_listeners`
+        // doesn't need to duplicate), so only the public half is taken
+        // from the resolver here.
+        let (_, resolved_public_addr) = resolve_listeners(&config.gateway);
+        let public_addr = resolved_public_addr
+            .expect("resolve_listeners returns Some when [gateway.public].enabled is true, which gated entry into this branch");
         let public_listener = tokio::net::TcpListener::bind(public_addr).await?;
 
         let private_app = private_router(state.clone(), advertise)
@@ -2199,7 +2206,7 @@ pub async fn run_gateway(
                                     tokio::time::sleep(Duration::from_millis(ACCEPT_ERROR_BACKOFF_MS)).await;
                                     continue;
                                 }
-                                ::zeroclaw_log::record!(WARN, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail).with_outcome(::zeroclaw_log::EventOutcome::Failure).with_attrs(::serde_json::json!({"error": format!("{}", e)})), "public gateway listener stopped accepting connections");
+                                ::zeroclaw_log::record!(ERROR, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail).with_outcome(::zeroclaw_log::EventOutcome::Failure).with_attrs(::serde_json::json!({"error": format!("{}", e)})), "public gateway listener stopped accepting connections");
                                 break;
                             }
                         };
@@ -2270,7 +2277,7 @@ pub async fn run_gateway(
         // the private surface, so both stop together.
         if let Err(err) = public_task.await {
             ::zeroclaw_log::record!(
-                WARN,
+                ERROR,
                 ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
                     .with_outcome(::zeroclaw_log::EventOutcome::Failure)
                     .with_attrs(::serde_json::json!({"error": format!("{err}")})),
