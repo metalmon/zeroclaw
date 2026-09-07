@@ -19,6 +19,7 @@ use zeroclaw_api::jsonrpc::{
 };
 use zeroclaw_api::model_provider::ConversationMessage;
 use zeroclaw_api::plan::PlanEntry;
+use zeroclaw_api::principal::Principal;
 use zeroclaw_config::schema::Config;
 use zeroclaw_infra::acp_session_store::AcpSessionStore;
 use zeroclaw_runtime::agent::agent::{Agent, TurnEvent};
@@ -102,6 +103,14 @@ pub struct AcpServer {
     /// change: it only supplies the default for new sessions on this
     /// connection (restore keeps the operator-controlled fallback chain).
     connection_default_agent: Option<String>,
+    /// The authenticated subject bound to this ACP connection. Every
+    /// `session/new` (explicit `agentAlias`, connection `?agent=`, or
+    /// `[acp].default_agent`) is gated against it at
+    /// [`Self::validate_dispatchable_agent_alias`]. Defaults to
+    /// [`Principal::shared_operator`] — the trusted-local / legacy fallback
+    /// that may bind any configured alias, preserving today's behaviour when
+    /// no authz principals are configured.
+    principal: Principal,
     client_elicitation_caps: std::sync::RwLock<ElicitationCapabilities>,
 }
 
@@ -218,6 +227,7 @@ impl AcpServer {
             sop_engine: None,
             sop_audit: None,
             connection_default_agent: None,
+            principal: Principal::shared_operator(),
             client_elicitation_caps: std::sync::RwLock::new(ElicitationCapabilities::default()),
         }
     }
@@ -292,6 +302,17 @@ impl AcpServer {
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(str::to_string);
+        self
+    }
+
+    /// Bind the authenticated [`Principal`] resolved at ACP connect. Every
+    /// `session/new` on this connection is then gated against the principal's
+    /// allowed aliases at [`Self::validate_dispatchable_agent_alias`]. When
+    /// unset, the server keeps the [`Principal::shared_operator`] fallback that
+    /// may bind any configured alias (today's single-operator behaviour).
+    #[must_use]
+    pub fn with_principal(mut self, principal: Principal) -> Self {
+        self.principal = principal;
         self
     }
 
@@ -631,10 +652,17 @@ impl AcpServer {
     }
 
     /// Shared validation for explicit `agentAlias`, `?agent=`, config defaults,
-    /// and sole-agent auto-select.
+    /// and sole-agent auto-select. This is the single authorization chokepoint
+    /// for ACP session binding: after the agent is confirmed configured and
+    /// dispatchable, the connection's [`Principal`] must be entitled to the
+    /// alias (`principal.may_bind`). The trusted-local / legacy
+    /// [`Principal::shared_operator`] fallback (`!is_authenticated`) may bind
+    /// any configured alias, preserving today's behaviour when no authz
+    /// principals are configured.
     fn validate_dispatchable_agent_alias(
         config: &Config,
         agent_alias: &str,
+        principal: &Principal,
     ) -> Result<(), RpcError> {
         match config.agent(agent_alias) {
             None => Err(RpcError {
@@ -649,7 +677,44 @@ impl AcpServer {
                 message: format!("Agent `{agent_alias}` is not enabled for dispatch"),
                 data: None,
             }),
-            Some(_) => Ok(()),
+            Some(_) => Self::authorize_principal_for_alias(principal, agent_alias),
+        }
+    }
+
+    /// Entitlement gate + audit for a configured, dispatchable alias. A distinct
+    /// authenticated principal is bound to its `allowed_aliases`
+    /// (`may_bind` — explicit alias or `"*"`); the shared-operator fallback is
+    /// allowed unconditionally. The decision (principal id, alias, allow/deny)
+    /// is audited on every call.
+    fn authorize_principal_for_alias(
+        principal: &Principal,
+        agent_alias: &str,
+    ) -> Result<(), RpcError> {
+        let permitted = !principal.is_authenticated() || principal.may_bind(agent_alias);
+        ::zeroclaw_log::record!(
+            INFO,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_category(::zeroclaw_log::EventCategory::Channel)
+                .with_outcome(if permitted {
+                    ::zeroclaw_log::EventOutcome::Success
+                } else {
+                    ::zeroclaw_log::EventOutcome::Failure
+                })
+                .with_attrs(::serde_json::json!({
+                    "principal": principal.id.as_str(),
+                    "agent": agent_alias,
+                    "decision": if permitted { "allow" } else { "deny" },
+                })),
+            "ACP agent authorization decision"
+        );
+        if permitted {
+            Ok(())
+        } else {
+            Err(RpcError {
+                code: INVALID_PARAMS,
+                message: format!("Agent `{agent_alias}` is not permitted for this principal"),
+                data: None,
+            })
         }
     }
 
@@ -719,7 +784,7 @@ impl AcpServer {
                     .to_string(),
                 data: None,
             })?;
-        Self::validate_dispatchable_agent_alias(&config, &agent_alias)?;
+        Self::validate_dispatchable_agent_alias(&config, &agent_alias, &self.principal)?;
 
         // Default workspace is the per-agent directory. An explicit
         // `cwd`/`workspaceDir`/`workspace_dir` is the session's file-access
@@ -3741,6 +3806,113 @@ mod tests {
             );
         }
         cfg
+    }
+
+    /// Config with two dispatchable agents (`crm-bot`, `hr-bot`) for the
+    /// principal-entitlement gate tests. Both build offline from the
+    /// model-only anthropic provider seeded by `make_test_config`.
+    fn crm_hr_config(cwd: &std::path::Path) -> Config {
+        let mut cfg = make_test_config(cwd);
+        for alias in ["crm-bot", "hr-bot"] {
+            cfg.agents.insert(
+                alias.to_string(),
+                dispatchable_test_agent("anthropic.default"),
+            );
+        }
+        cfg
+    }
+
+    #[tokio::test]
+    async fn session_new_denies_agent_not_in_allowed_aliases() {
+        use zeroclaw_api::principal::{AgentAlias, AuthMethod, Principal, PrincipalId};
+
+        let cwd = tempfile::tempdir().unwrap();
+        let config = crm_hr_config(cwd.path());
+        // alice is a distinct authenticated principal entitled to crm-bot only.
+        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native)
+            .with_allowed_aliases(vec![AgentAlias("crm-bot".into())]);
+        let server = AcpServer::new(config, AcpServerConfig::default()).with_principal(principal);
+
+        let ok = tokio::time::timeout(
+            DEADLOCK_GUARD,
+            server.handle_session_new(&serde_json::json!({
+                "agentAlias": "crm-bot",
+                "cwd": cwd.path().to_string_lossy(),
+                "mcpServers": []
+            })),
+        )
+        .await
+        .expect("session/new should not block");
+        assert!(
+            ok.is_ok(),
+            "crm-bot is entitled for alice and must bind, got: {ok:?}"
+        );
+
+        let denied = tokio::time::timeout(
+            DEADLOCK_GUARD,
+            server.handle_session_new(&serde_json::json!({
+                "agentAlias": "hr-bot",
+                "cwd": cwd.path().to_string_lossy(),
+                "mcpServers": []
+            })),
+        )
+        .await
+        .expect("session/new should not block");
+        let err = denied.expect_err("hr-bot is not entitled for alice and must be denied");
+        assert_eq!(err.code, INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn denied_agent_reports_alias_not_entitled_reason() {
+        use zeroclaw_api::principal::{AgentAlias, AuthMethod, Principal, PrincipalId};
+
+        let cwd = tempfile::tempdir().unwrap();
+        let config = crm_hr_config(cwd.path());
+        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native)
+            .with_allowed_aliases(vec![AgentAlias("crm-bot".into())]);
+        let server = AcpServer::new(config, AcpServerConfig::default()).with_principal(principal);
+
+        let err = tokio::time::timeout(
+            DEADLOCK_GUARD,
+            server.handle_session_new(&serde_json::json!({
+                "agentAlias": "hr-bot",
+                "cwd": cwd.path().to_string_lossy(),
+                "mcpServers": []
+            })),
+        )
+        .await
+        .expect("session/new should not block")
+        .expect_err("hr-bot is not entitled for alice and must be denied");
+        let rendered = format!("{err:?}");
+        assert!(
+            rendered.contains("not permitted") || rendered.to_lowercase().contains("entitled"),
+            "deny reason should be attributable, got: {rendered}"
+        );
+    }
+
+    #[tokio::test]
+    async fn session_new_shared_operator_may_bind_any_alias() {
+        // The default (unset) principal is the shared-operator fallback: it is
+        // not a distinct authenticated identity, so it binds any configured
+        // alias — today's single-operator behaviour is preserved.
+        let cwd = tempfile::tempdir().unwrap();
+        let config = crm_hr_config(cwd.path());
+        let server = AcpServer::new(config, AcpServerConfig::default());
+
+        let ok = tokio::time::timeout(
+            DEADLOCK_GUARD,
+            server.handle_session_new(&serde_json::json!({
+                "agentAlias": "hr-bot",
+                "cwd": cwd.path().to_string_lossy(),
+                "mcpServers": []
+            })),
+        )
+        .await
+        .expect("session/new should not block");
+        assert!(
+            ok.is_ok(),
+            "shared-operator fallback must bind any configured alias, got: {ok:?}"
+        );
     }
 
     async fn session_agent_alias(server: &AcpServer, session_id: &str) -> String {
