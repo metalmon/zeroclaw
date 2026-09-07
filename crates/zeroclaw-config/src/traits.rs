@@ -201,6 +201,10 @@ impl HasPropKind for crate::scattered_types::EmailOAuth2Config {
     const PROP_KIND: PropKind = PropKind::Object;
 }
 
+impl HasPropKind for crate::authz::AuthzConfig {
+    const PROP_KIND: PropKind = PropKind::Object;
+}
+
 impl HasPropKind for Vec<crate::schema::ClassificationRule> {
     const PROP_KIND: PropKind = PropKind::ObjectArray;
 }

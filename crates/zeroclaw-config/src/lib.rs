@@ -8,6 +8,7 @@
 
 pub mod alias_refs;
 pub mod api_error;
+pub mod authz;
 pub mod autonomy;
 pub mod comment_writer;
 pub mod cost;

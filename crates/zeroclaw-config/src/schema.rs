@@ -321,6 +321,10 @@ pub struct Config {
     #[group = "Network"]
     pub gateway: GatewayConfig,
 
+    /// Fork-local per-principal agent authorization (`[[authz.principals]]`).
+    #[serde(default)]
+    pub authz: crate::authz::AuthzConfig,
+
     /// Inbound A2A discovery server (`[a2a.server]`). Default-closed:
     /// serves the well-known catalog card and per-alias agent cards only
     /// when `enabled = true`. See `crate::multi_agent::A2aServerConfig`.
