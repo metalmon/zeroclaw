@@ -62,6 +62,42 @@ agent.example.com {
 
 The gateway stays bound to `127.0.0.1`, the proxy does the listening.
 
+## Public/private surface split (`[gateway.public]`)
+
+By default the gateway is a single listener bound to `[gateway].host:port` (loopback unless you opt into Option 1 above) that serves the whole surface: dashboard, `/api/*`, `/admin/*`, REST `/pair`, `/health`, `/metrics`, and `/acp`. Nothing below changes that default.
+
+Setting `[gateway.public].enabled = true` splits the gateway into two listeners instead:
+
+```toml
+[gateway.public]
+enabled = true
+host = "0.0.0.0"   # default
+port = 443          # default
+```
+
+- The **public** listener (`[gateway.public].host:port`) exposes **only `/acp`** (the ACP WebSocket), and only over TLS. TLS material comes from the existing `[gateway.tls]` section; the public listener refuses to start at all if `[gateway.tls]` is absent or `enabled = false`. This is fail-closed by design: there is no plaintext-ACP-on-the-network fallback.
+- The **private** listener (`[gateway].host:port`, the pre-existing bind) keeps serving everything else: the dashboard, `/api/*`, `/admin/*`, REST `/pair`, `/health`, `/metrics`.
+
+### Pairing over ACP
+
+A network client that only has access to the public `/acp` endpoint pairs **in-band**: an unauthenticated ACP connection is upgraded and allowed to call exactly one method, `zeroclaw/pair {code}`, to exchange a pairing code for a bearer token, then continues on the same WebSocket connection as an authenticated principal. There is no separate REST round trip on the public surface. REST `/pair` (and `/admin/paircode`) remain reachable only on the private listener, unchanged. See [Channels → ACP](../channels/acp.md#configuration) for the pre-auth handshake details.
+
+### `allow_public_bind` still guards the private listener
+
+`allow_public_bind` (see Option 1 above) only applies to `[gateway].host`: it warns/refuses when the **private** surface is bound to a non-loopback address, because that surface carries the dashboard and admin routes. The public listener is public by design and is not gated by `allow_public_bind`; its own safety net is the mandatory-TLS, ACP-only surface described above.
+
+### Container topology
+
+In Docker/Podman, publish the private surface to the host loopback interface only and publish the public surface as needed for `/acp`:
+
+```yaml
+ports:
+  - "127.0.0.1:42617:42617"   # private: dashboard, /api, /admin, REST /pair
+  - "443:443"                  # public: /acp only, TLS-terminated by the gateway itself
+```
+
+**Caveat:** inside a bridged container network, the daemon's `is_loopback` peer-IP check (used for `allow_remote_admin`'s guard and the auth rate limiter's loopback carve-out) sees the container's own network stack, not the Docker host boundary, so it cannot tell a request that arrived via the published private port from one that arrived via a different route by peer IP alone. The port publishing at the Docker layer (`-p 127.0.0.1:<port>:<port>` vs `-p <port>:<port>`) is what actually bounds the private surface in a containerized deployment; don't rely on in-daemon loopback detection to do that job for you. See [Setup → Container](../setup/container.md) for the full topology writeup.
+
 ## Generic gateway webhook authentication
 
 The gateway's `POST /webhook` and SOP-only `POST /sop/*` routes can require an
@@ -234,5 +270,6 @@ See [Channels → Webhooks](../channels/webhook.md) for the full set of knobs.
 
 - [Setup → Container](../setup/container.md): Docker-specific network config
 - [Setup → Service management](../setup/service.md): platform service integration
+- [Channels → ACP](../channels/acp.md): the `/acp` endpoint and pairing-over-ACP handshake
 - [Operations → Overview](./overview.md)
 - [Security → Overview](../security/overview.md)
