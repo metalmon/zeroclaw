@@ -2127,6 +2127,18 @@ pub async fn run_gateway(
                  plaintext ACP exposed to the network)"
             );
         };
+        // Footgun guard: pairing is the only authentication boundary on `/acp`.
+        // With `require_pairing = false`, the public listener hands every network
+        // client an unauthenticated shared-operator session (TLS-encrypted, but
+        // no pairing). Warn loudly; the operator's config still wins.
+        if !config.gateway.require_pairing {
+            ::zeroclaw_log::record!(
+                WARN,
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
+                "[gateway.public] enabled with require_pairing=false: the public /acp listener accepts UNAUTHENTICATED network clients (TLS-encrypted, but no pairing). Set [gateway] require_pairing=true to require in-band pairing on the public surface."
+            );
+        }
+
         let has_mtls = tls_cfg.client_auth.as_ref().is_some_and(|ca| ca.enabled);
         if has_mtls {
             ::zeroclaw_log::record!(
