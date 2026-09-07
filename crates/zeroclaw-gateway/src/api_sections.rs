@@ -227,6 +227,18 @@ pub fn build_agent_options(cfg: &zeroclaw_config::schema::Config) -> AgentOption
     channel_types.sort();
     channel_types.dedup();
 
+    // F4a does not resolve an authenticated `Principal` on this REST
+    // surface (dashboard, behind `require_auth`'s existing pairing check) —
+    // pass the shared-operator sentinel so the filter is a no-op today and
+    // ready for F4b, when a real per-request principal starts flowing here.
+    let principal = zeroclaw_api::principal::Principal::shared_operator();
+    let all_agents = cfg.resolve_alias_source(AliasSource::Agents);
+    let all_agent_refs: Vec<&str> = all_agents.iter().map(String::as_str).collect();
+    let agents = zeroclaw_api::principal::filter_agents_for_principal(&all_agent_refs, &principal)
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+
     AgentOptionsResponse {
         channels,
         channel_types,
@@ -236,7 +248,7 @@ pub fn build_agent_options(cfg: &zeroclaw_config::schema::Config) -> AgentOption
         skill_bundles: cfg.resolve_alias_source(AliasSource::SkillBundles),
         knowledge_bundles: cfg.resolve_alias_source(AliasSource::KnowledgeBundles),
         mcp_bundles: cfg.resolve_alias_source(AliasSource::McpBundles),
-        agents: cfg.resolve_alias_source(AliasSource::Agents),
+        agents,
     }
 }
 

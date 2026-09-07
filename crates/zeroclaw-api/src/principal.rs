@@ -189,6 +189,27 @@ impl Principal {
     }
 }
 
+/// Filter agent aliases down to the ones `principal` may see on a private
+/// list surface — RPC `agents/list` (zerocode) and REST
+/// `GET /api/config/agent-options` (dashboard). Applies the same gate
+/// predicate as the ACP bind-time check
+/// (`crates/zeroclaw-channels/src/orchestrator/acp_server.rs`): an
+/// authenticated principal is shown only its explicitly granted aliases via
+/// [`Principal::may_bind`]; an unauthenticated/trusted principal — today's
+/// [`Principal::shared_operator`] on both of these surfaces, since neither
+/// resolves an authenticated principal yet — sees every alias. Do not
+/// replace the `!is_authenticated() || may_bind(...)` gate with a bare
+/// `may_bind` call: `shared_operator` carries no `allowed_aliases`, so that
+/// would return an empty list for the trusted-local path instead of the
+/// full one.
+#[must_use]
+pub fn filter_agents_for_principal<'a>(all: &'a [&'a str], principal: &Principal) -> Vec<&'a str> {
+    all.iter()
+        .copied()
+        .filter(|alias| !principal.is_authenticated() || principal.may_bind(alias))
+        .collect()
+}
+
 /// Why a credential was rejected. Fail-closed: any ambiguity ⇒ a `Denied` variant,
 /// never a silent allow.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -336,6 +357,24 @@ mod tests {
         let admin = Principal::new(PrincipalId::from("admin"), "admin", AuthMethod::Native)
             .with_allowed_aliases(vec![AgentAlias("*".into())]);
         assert!(admin.may_bind("anything"));
+    }
+
+    #[test]
+    fn agents_list_filters_by_principal() {
+        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native)
+            .with_allowed_aliases(vec![AgentAlias("crm-bot".into())]);
+        let listed = filter_agents_for_principal(&["crm-bot", "hr-bot"], &principal);
+        assert_eq!(listed, vec!["crm-bot"]);
+    }
+
+    #[test]
+    fn agents_list_shows_everything_for_shared_operator() {
+        // The trusted-local / shared-bearer path carries no `allowed_aliases`.
+        // The gate must fall back to "show everything" here, not filter to
+        // empty — this bug has bitten this feature twice before.
+        let principal = Principal::shared_operator();
+        let listed = filter_agents_for_principal(&["crm-bot", "hr-bot"], &principal);
+        assert_eq!(listed, vec!["crm-bot", "hr-bot"]);
     }
 
     #[test]

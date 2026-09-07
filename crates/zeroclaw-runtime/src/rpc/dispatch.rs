@@ -3913,9 +3913,20 @@ impl RpcDispatcher {
 
     fn handle_agents_list(&self) -> RpcResult {
         let config = self.ctx.config.read().clone();
+        // F4a does not resolve an authenticated `Principal` on this local RPC
+        // socket (trusted/operator surface) — pass the shared-operator
+        // sentinel so the filter is a no-op today and ready for F4b, when a
+        // real per-connection principal starts flowing here.
+        let principal = zeroclaw_api::principal::Principal::shared_operator();
+        let all_aliases: Vec<&str> = config.agents.keys().map(String::as_str).collect();
+        let visible: std::collections::HashSet<&str> =
+            zeroclaw_api::principal::filter_agents_for_principal(&all_aliases, &principal)
+                .into_iter()
+                .collect();
         let agents: Vec<AgentEntry> = config
             .agents
             .iter()
+            .filter(|(alias, _)| visible.contains(alias.as_str()))
             .map(|(alias, agent_cfg)| AgentEntry {
                 alias: alias.clone(),
                 enabled: agent_cfg.enabled,
