@@ -3,16 +3,21 @@
 use super::AppState;
 use axum::{
     extract::{
-        Query, State, WebSocketUpgrade,
+        ConnectInfo, Query, State, WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
     http::HeaderMap,
     response::IntoResponse,
 };
+use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
+use serde_json::Value;
+use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc;
+use zeroclaw_api::jsonrpc::{JSONRPC_VERSION, JsonRpcError, JsonRpcResponse, error_codes};
 use zeroclaw_api::principal::{AuthOutcome, Principal};
 use zeroclaw_channels::orchestrator::acp_server::{AcpServer, AcpServerConfig};
 use zeroclaw_config::authz::AuthzConfig;
@@ -21,6 +26,12 @@ use zeroclaw_runtime::security::auth_provider::{Credential, ProviderRegistry};
 use zeroclaw_runtime::security::pairing_auth_provider::PairingAuthProvider;
 
 const ACP_WS_PROTOCOL: &str = "zeroclaw.acp.v1";
+
+/// How long an unauthenticated `/acp` connection may sit in pre-auth mode
+/// (only `zeroclaw/pair` accepted) before the gateway drops it. Bounds the
+/// resource an anonymous inbound connection can hold open without ever
+/// pairing.
+const PRE_AUTH_HANDSHAKE_TIMEOUT_SECS: u64 = 30;
 
 #[derive(Debug, Deserialize)]
 pub struct AcpQuery {
@@ -34,20 +45,25 @@ pub struct AcpQuery {
 
 pub async fn handle_ws_acp(
     State(state): State<AppState>,
+    ConnectInfo(peer_addr): ConnectInfo<SocketAddr>,
     Query(params): Query<AcpQuery>,
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    if state.pairing.require_pairing() {
-        let token = extract_ws_token(&headers, params.token.as_deref()).unwrap_or("");
-        if !state.pairing.is_authenticated(token) {
-            return (
-                axum::http::StatusCode::UNAUTHORIZED,
-                "Unauthorized - provide Authorization header, Sec-WebSocket-Protocol bearer, or ?token= query param",
-            )
-                .into_response();
-        }
-    }
+    let token = extract_ws_token(&headers, params.token.as_deref()).map(str::to_string);
+
+    // Pairing-over-ACP (fork-local): when pairing is required and the
+    // presented token is absent or not (yet) paired, do NOT 401 — upgrade
+    // the connection in pre-auth mode instead. A pre-auth connection may
+    // call only `zeroclaw/pair`; on a successful pair it resolves its
+    // principal and proceeds on the SAME socket (see `handle_socket`). This
+    // is the only branch that departs from today's behavior: a deployment
+    // with `require_pairing = false`, or a connection presenting an already
+    // -paired token, takes the authenticated path exactly as before.
+    let authenticated = !state.pairing.require_pairing()
+        || token
+            .as_deref()
+            .is_some_and(|t| state.pairing.is_authenticated(t));
 
     let ws = if headers
         .get("sec-websocket-protocol")
@@ -59,13 +75,27 @@ pub async fn handle_ws_acp(
         ws
     };
 
+    if !authenticated {
+        // Pre-auth: no principal to resolve yet, no 401 — the connection
+        // itself is allowed; only its method set is restricted, enforced in
+        // `handle_socket`. `client_id` buckets `PairingGuard`'s brute-force
+        // lockout the same way the REST `/pair` and channel front doors key
+        // it: by peer identity.
+        let client_id = peer_addr.to_string();
+        return ws
+            .on_upgrade(move |socket| {
+                handle_socket(socket, state, params.agent, client_id, ConnAuth::PreAuth)
+            })
+            .into_response();
+    }
+
     // Resolve the authenticated subject for this connection. Fail-closed once
     // authz is enforced; otherwise fall back to the shared operator so the
     // legacy single-operator path (including no-pairing deployments) is
-    // unchanged.
-    let token = extract_ws_token(&headers, params.token.as_deref());
+    // unchanged. Unchanged from before pairing-over-ACP: a presented-but
+    // -Denied bearer is still rejected with a hard 401 here.
     let authz_enforced = state.config.read().authz.is_enforced();
-    let principal = match resolve_principal(&state.provider_registry, token).await {
+    let principal = match resolve_principal(&state.provider_registry, token.as_deref()).await {
         Some(principal) => principal,
         None if !authz_enforced => Principal::shared_operator(),
         None => {
@@ -77,8 +107,26 @@ pub async fn handle_ws_acp(
         }
     };
 
-    ws.on_upgrade(move |socket| handle_socket(socket, state, params.agent, principal))
-        .into_response()
+    let client_id = peer_addr.to_string();
+    ws.on_upgrade(move |socket| {
+        handle_socket(
+            socket,
+            state,
+            params.agent,
+            client_id,
+            ConnAuth::Authenticated(principal),
+        )
+    })
+    .into_response()
+}
+
+/// The connection's auth state at the moment its socket is handed to
+/// `handle_socket`. `PreAuth` is resolved into `Authenticated` in-place, on
+/// the same connection, by a successful `zeroclaw/pair` — see
+/// `run_pre_auth`.
+enum ConnAuth {
+    Authenticated(Principal),
+    PreAuth,
 }
 
 /// Build the ACP connection auth registry from the fork-local `[[authz]]` map.
@@ -116,9 +164,24 @@ async fn handle_socket(
     socket: WebSocket,
     state: AppState,
     default_agent: Option<String>,
-    principal: Principal,
+    client_id: String,
+    auth: ConnAuth,
 ) {
     let (mut sender, mut receiver) = socket.split();
+
+    let principal = match auth {
+        ConnAuth::Authenticated(principal) => principal,
+        ConnAuth::PreAuth => {
+            match run_pre_auth(&mut sender, &mut receiver, &state, &client_id).await {
+                Some(principal) => principal,
+                // Idle timeout, socket closed, or write failure before a
+                // successful pair: nothing more to do. No `AcpServer` or
+                // session was ever constructed for this connection.
+                None => return,
+            }
+        }
+    };
+
     let (input_tx, input_rx) = mpsc::channel::<String>(256);
     let (output_tx, mut output_rx) = mpsc::channel::<String>(256);
 
@@ -241,6 +304,208 @@ async fn handle_socket(
         ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
         "ACP WebSocket disconnected"
     );
+}
+
+/// Pre-auth frame loop for an unauthenticated `/acp` connection. Reads
+/// JSON-RPC frames directly off the socket (no `AcpServer`, no session — none
+/// is constructed until a principal is resolved). The only accepted method is
+/// `zeroclaw/pair`; every other method gets an `AuthRequired` error and the
+/// loop keeps waiting. Returns the resolved [`Principal`] on a successful
+/// pair (the caller then proceeds on the SAME socket, reusing `sender` and
+/// `receiver`), or `None` if the socket closes, errors, a write fails, or the
+/// handshake timeout elapses first.
+async fn run_pre_auth(
+    sender: &mut SplitSink<WebSocket, Message>,
+    receiver: &mut SplitStream<WebSocket>,
+    state: &AppState,
+    client_id: &str,
+) -> Option<Principal> {
+    let deadline =
+        tokio::time::Instant::now() + Duration::from_secs(PRE_AUTH_HANDSHAKE_TIMEOUT_SECS);
+
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            return None;
+        }
+        let message = match tokio::time::timeout(remaining, receiver.next()).await {
+            Ok(Some(Ok(message))) => message,
+            Ok(Some(Err(_)) | None) | Err(_) => return None,
+        };
+
+        let text = match message {
+            Message::Text(text) => text.to_string(),
+            Message::Binary(bytes) => match String::from_utf8(bytes.to_vec()) {
+                Ok(text) => text,
+                Err(_) => continue,
+            },
+            Message::Close(_) => return None,
+            Message::Ping(_) | Message::Pong(_) => continue,
+        };
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let value: Value = match serde_json::from_str(trimmed) {
+            Ok(value) => value,
+            Err(e) => {
+                if !send_pre_auth_error(
+                    sender,
+                    Value::Null,
+                    error_codes::PARSE_ERROR,
+                    &format!("Parse error: {e}"),
+                )
+                .await
+                {
+                    return None;
+                }
+                continue;
+            }
+        };
+        let id = value.get("id").cloned().unwrap_or(Value::Null);
+        let method = value.get("method").and_then(Value::as_str).unwrap_or("");
+
+        if method != "zeroclaw/pair" {
+            if !send_pre_auth_error(
+                sender,
+                id,
+                error_codes::AUTH_REQUIRED,
+                "pair first via zeroclaw/pair",
+            )
+            .await
+            {
+                return None;
+            }
+            continue;
+        }
+
+        let code = value
+            .get("params")
+            .and_then(|params| params.get("code"))
+            .and_then(Value::as_str)
+            .unwrap_or("");
+
+        match state.pairing.try_pair(code, client_id).await {
+            Ok(Some(token)) => {
+                // A principal-tagged code (`get-paircode --new --principal
+                // <id>`) stashes a binding that must be drained into the live
+                // runtime store before it resolves — mirrors the REST
+                // `/pair` handler in `lib.rs` so a principal-tagged code
+                // works identically whether redeemed over `/pair` or over
+                // `zeroclaw/pair`.
+                if let Some(binding) = state.pairing.take_pending_binding() {
+                    let _ = state
+                        .token_bindings
+                        .set(binding.token_hash, binding.principal_id);
+                }
+
+                let authz_enforced = state.config.read().authz.is_enforced();
+                let principal = match resolve_principal(&state.provider_registry, Some(&token))
+                    .await
+                {
+                    Some(principal) => principal,
+                    None if !authz_enforced => Principal::shared_operator(),
+                    None => {
+                        // Paired, but the issued token is not entitled
+                        // under enforced authz (e.g. a stale/removed
+                        // principal binding). Stay pre-auth rather than
+                        // proceeding with no principal.
+                        if !send_pre_auth_error(
+                            sender,
+                            id,
+                            error_codes::AUTH_REQUIRED,
+                            "pairing succeeded but no principal is entitled for the issued token",
+                        )
+                        .await
+                        {
+                            return None;
+                        }
+                        continue;
+                    }
+                };
+
+                if !send_pre_auth_result(sender, id, serde_json::json!({ "token": token })).await {
+                    return None;
+                }
+                return Some(principal);
+            }
+            Ok(None) => {
+                if !send_pre_auth_error(
+                    sender,
+                    id,
+                    error_codes::AUTH_REQUIRED,
+                    "invalid pairing code",
+                )
+                .await
+                {
+                    return None;
+                }
+            }
+            Err(retry_after) => {
+                if !send_pre_auth_error(
+                    sender,
+                    id,
+                    error_codes::AUTH_REQUIRED,
+                    &format!("too many attempts, retry after {retry_after}s"),
+                )
+                .await
+                {
+                    return None;
+                }
+            }
+        }
+    }
+}
+
+/// Write a JSON-RPC success response directly to the WS sink, before any
+/// `AcpServer`/`RpcOutbound` exists for this connection. Returns whether the
+/// write succeeded.
+async fn send_pre_auth_result(
+    sender: &mut SplitSink<WebSocket, Message>,
+    id: Value,
+    result: Value,
+) -> bool {
+    send_pre_auth_response(sender, id, Some(result), None).await
+}
+
+/// Write a JSON-RPC error response directly to the WS sink. Returns whether
+/// the write succeeded.
+async fn send_pre_auth_error(
+    sender: &mut SplitSink<WebSocket, Message>,
+    id: Value,
+    code: i32,
+    message: &str,
+) -> bool {
+    send_pre_auth_response(
+        sender,
+        id,
+        None,
+        Some(JsonRpcError {
+            code,
+            message: message.to_string(),
+            data: None,
+        }),
+    )
+    .await
+}
+
+async fn send_pre_auth_response(
+    sender: &mut SplitSink<WebSocket, Message>,
+    id: Value,
+    result: Option<Value>,
+    error: Option<JsonRpcError>,
+) -> bool {
+    let response = JsonRpcResponse {
+        jsonrpc: JSONRPC_VERSION,
+        result,
+        error,
+        id,
+    };
+    match serde_json::to_string(&response) {
+        Ok(json) => sender.send(Message::Text(json.into())).await.is_ok(),
+        Err(_) => false,
+    }
 }
 
 fn extract_ws_token<'a>(headers: &'a HeaderMap, query_token: Option<&'a str>) -> Option<&'a str> {
@@ -461,5 +726,238 @@ mod tests {
             .expect("the mapped bearer must resolve to a principal");
         assert!(principal.may_bind("crm-bot"));
         assert!(!principal.may_bind("hr-bot"));
+    }
+
+    /// `front_door_config` with pairing turned on and no pre-paired tokens,
+    /// so `run_gateway` mints a fresh one-time code at boot (mirrors the
+    /// `PairingGuard::new` "no tokens yet" branch).
+    fn pairing_required_front_door_config(
+        install_root: &std::path::Path,
+    ) -> zeroclaw_config::schema::Config {
+        let mut cfg = front_door_config(install_root);
+        cfg.gateway.require_pairing = true;
+        cfg
+    }
+
+    /// Fetch the live one-time pairing code the same way an operator or the
+    /// CLI does — `GET /pair/code` — without pulling in an HTTP client
+    /// dependency: a bare TCP request with `Connection: close` so the server
+    /// closes the socket once the response is fully written, then the JSON
+    /// body is the tail end of the response past the header/body blank line.
+    async fn fetch_pairing_code(addr: &str) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let mut stream = tokio::net::TcpStream::connect(addr)
+            .await
+            .expect("connect for GET /pair/code");
+        let request =
+            format!("GET /pair/code HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n");
+        stream
+            .write_all(request.as_bytes())
+            .await
+            .expect("write GET /pair/code request");
+        let mut raw = Vec::new();
+        stream
+            .read_to_end(&mut raw)
+            .await
+            .expect("read GET /pair/code response");
+        let response = String::from_utf8_lossy(&raw).into_owned();
+        let head_end = response
+            .find("\r\n\r\n")
+            .map(|i| i + 4)
+            .expect("HTTP response must have a header/body separator");
+        let tail = &response[head_end..];
+        // Locate the JSON object by its braces rather than assuming the body
+        // is unwrapped: hyper may send it chunked (a hex length line before
+        // the object, a "0\r\n\r\n" terminator after), and slicing on braces
+        // is robust to either framing.
+        let start = tail.find('{').expect("response body must contain JSON");
+        let end = tail.rfind('}').expect("response body must contain JSON") + 1;
+        let value: serde_json::Value =
+            serde_json::from_str(&tail[start..end]).expect("/pair/code body must be JSON");
+        value["pairing_code"]
+            .as_str()
+            .expect("pairing_code must be exposed before the first pairing")
+            .to_string()
+    }
+
+    /// Pairing-over-ACP front-door proof: an unauthenticated `/acp`
+    /// connection may call ONLY `zeroclaw/pair`; a successful pair resolves
+    /// its principal and lets the SAME connection proceed — no reconnect.
+    /// Drives the real route exactly like the sibling front-door test above.
+    #[tokio::test]
+    async fn acp_unauth_connection_only_allows_pairing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let install_root = tmp.path();
+        let cfg = pairing_required_front_door_config(install_root);
+        std::fs::create_dir_all(&cfg.data_dir).unwrap();
+
+        let probe = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = probe.local_addr().unwrap().port();
+        drop(probe);
+
+        let (shutdown_tx, _shutdown_rx) = tokio::sync::watch::channel(false);
+        let (reload_tx, _reload_rx) = tokio::sync::watch::channel(false);
+        let reload_controls = zeroclaw_runtime::daemon::GatewayReloadControls {
+            shutdown_tx: shutdown_tx.clone(),
+            reload_tx,
+        };
+
+        let server = zeroclaw_spawn::spawn!(crate::run_gateway(
+            "127.0.0.1",
+            port,
+            cfg,
+            None,
+            Some(reload_controls),
+            None,
+            None,
+            None,
+            None,
+            None,
+        ));
+
+        let addr = format!("127.0.0.1:{port}");
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                if tokio::net::TcpStream::connect(&addr).await.is_ok() {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .expect("gateway should accept connections");
+
+        // The one-time code is exposed via GET /pair/code before the first
+        // successful pairing — capture it the same way an operator/CLI would.
+        let code = fetch_pairing_code(&addr).await;
+
+        let url = format!("ws://{addr}/acp");
+        let (mut ws, _resp) = tokio_tungstenite::connect_async(&url)
+            .await
+            .expect("WebSocket upgrade on /acp must succeed even when unauthenticated");
+
+        // (a) An unauth non-pair method is rejected with an AuthRequired
+        // error, never reaching a session.
+        ws.send(Message::Text(
+            serde_json::json!({
+                "jsonrpc":"2.0","id":1,"method":"session/new",
+                "params":{"agentAlias":"test-agent"}
+            })
+            .to_string()
+            .into(),
+        ))
+        .await
+        .unwrap();
+
+        let rejected = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                let msg = ws
+                    .next()
+                    .await
+                    .expect("socket closed before session/new rejection")
+                    .unwrap();
+                let Message::Text(text) = msg else { continue };
+                let value: serde_json::Value = match serde_json::from_str(&text) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                if value.get("id").and_then(serde_json::Value::as_i64) == Some(1) {
+                    return value;
+                }
+            }
+        })
+        .await
+        .expect("session/new rejection should arrive before timeout");
+        assert!(
+            rejected.get("error").is_some(),
+            "unauth session/new must be rejected with a JSON-RPC error: {rejected}"
+        );
+        assert!(
+            rejected.get("result").is_none(),
+            "unauth session/new must not create a session: {rejected}"
+        );
+
+        // (b) zeroclaw/pair with the live code returns a token on the SAME
+        // connection.
+        ws.send(Message::Text(
+            serde_json::json!({
+                "jsonrpc":"2.0","id":2,"method":"zeroclaw/pair",
+                "params":{"code":code}
+            })
+            .to_string()
+            .into(),
+        ))
+        .await
+        .unwrap();
+
+        let token = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                let msg = ws
+                    .next()
+                    .await
+                    .expect("socket closed before pair response")
+                    .unwrap();
+                let Message::Text(text) = msg else { continue };
+                let value: serde_json::Value = match serde_json::from_str(&text) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                if value.get("id").and_then(serde_json::Value::as_i64) == Some(2) {
+                    if let Some(err) = value.get("error") {
+                        panic!("zeroclaw/pair with the live code returned an error: {err}");
+                    }
+                    return value["result"]["token"].as_str().map(String::from);
+                }
+            }
+        })
+        .await
+        .expect("pair response should arrive before timeout")
+        .expect("zeroclaw/pair with the live code must return a token");
+        assert!(!token.is_empty(), "the issued token must be non-empty");
+
+        // (c) The SAME connection can now call session/new — no reconnect.
+        ws.send(Message::Text(
+            serde_json::json!({
+                "jsonrpc":"2.0","id":3,"method":"session/new",
+                "params":{"agentAlias":"test-agent"}
+            })
+            .to_string()
+            .into(),
+        ))
+        .await
+        .unwrap();
+
+        let session_response = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            loop {
+                let msg = ws
+                    .next()
+                    .await
+                    .expect("socket closed before session/new response")
+                    .unwrap();
+                let Message::Text(text) = msg else { continue };
+                let value: serde_json::Value = match serde_json::from_str(&text) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                if value.get("id").and_then(serde_json::Value::as_i64) == Some(3) {
+                    return value;
+                }
+            }
+        })
+        .await
+        .expect("session/new response should arrive before timeout");
+
+        shutdown_tx.send(true).ok();
+        server.abort();
+
+        assert!(
+            session_response.get("error").is_none(),
+            "post-pair session/new on the SAME connection must succeed: {session_response}"
+        );
+        assert!(
+            session_response["result"]["workspaceDir"].is_string(),
+            "post-pair session/new must return a session: {session_response}"
+        );
     }
 }
