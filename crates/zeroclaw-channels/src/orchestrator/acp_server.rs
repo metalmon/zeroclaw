@@ -3978,7 +3978,10 @@ mod tests {
         let mut config = crm_hr_config(cwd.path());
         config.acp.default_agent = Some("hr-bot".to_string());
         // Unset (shared-operator) principal: binds every configured alias,
-        // same as `session_new_shared_operator_may_bind_any_alias`.
+        // same as `session_new_shared_operator_may_bind_any_alias`. That
+        // includes `test-agent`, which `crm_hr_config` inherits from the
+        // `make_test_config` base it builds on top of (crm-bot/hr-bot are
+        // added, not substituted).
         let server = AcpServer::new(config, AcpServerConfig::default());
 
         let resp = server.handle_initialize(&serde_json::json!({})).unwrap();
@@ -3994,7 +3997,7 @@ mod tests {
             .collect();
         assert_eq!(
             defaults,
-            vec![("crm-bot", false), ("hr-bot", true)],
+            vec![("crm-bot", false), ("hr-bot", true), ("test-agent", false)],
             "only the configured acp.default_agent should be flagged default"
         );
     }
