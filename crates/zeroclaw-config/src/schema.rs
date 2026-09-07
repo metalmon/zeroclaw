@@ -7194,6 +7194,13 @@ pub struct GatewayConfig {
     #[nested]
     pub tls: Option<GatewayTlsConfig>,
 
+    /// Public-surface gateway configuration (`[gateway.public]`), for
+    /// deployments that expose a separate public-facing listener distinct
+    /// from the primary gateway bind.
+    #[serde(default)]
+    #[nested]
+    pub public: GatewayPublicConfig,
+
     /// HTTP request timeout (seconds) for gateway routes other than the
     /// long-running cron-trigger endpoint. Default: 30s.
     #[serde(default = "default_gateway_request_timeout_secs")]
@@ -7298,6 +7305,7 @@ impl Default for GatewayConfig {
             pairing_dashboard: PairingDashboardConfig::default(),
             web_dist_dir: None,
             tls: None,
+            public: GatewayPublicConfig::default(),
             request_timeout_secs: default_gateway_request_timeout_secs(),
             long_running_request_timeout_secs: default_gateway_long_running_request_timeout_secs(),
             check_updates: true,
@@ -7407,6 +7415,44 @@ impl Default for GatewayClientAuthConfig {
             require_client_cert: default_true(),
             pinned_certs: Vec::new(),
             crl_path: String::new(),
+        }
+    }
+}
+
+/// Public-surface gateway configuration (`[gateway.public]`).
+///
+/// Distinct from the primary `[gateway]` bind: this describes an optional
+/// separate listener intended for deployments that expose a public-facing
+/// endpoint alongside the primary (typically loopback or LAN) gateway.
+#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[prefix = "gateway.public"]
+pub struct GatewayPublicConfig {
+    /// Enable the public-surface gateway listener (default: false).
+    #[serde(default)]
+    pub enabled: bool,
+    /// Bind host for the public-surface listener.
+    #[serde(default = "default_gateway_public_host")]
+    pub host: String,
+    /// Bind port for the public-surface listener.
+    #[serde(default = "default_gateway_public_port")]
+    pub port: u16,
+}
+
+fn default_gateway_public_host() -> String {
+    "0.0.0.0".into()
+}
+
+fn default_gateway_public_port() -> u16 {
+    443
+}
+
+impl Default for GatewayPublicConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            host: default_gateway_public_host(),
+            port: default_gateway_public_port(),
         }
     }
 }
@@ -30903,6 +30949,14 @@ allowed_numbers = ["+1", "+2"]
     }
 
     #[test]
+    fn gateway_public_parses_and_defaults() {
+        let c: Config = toml::from_str("[gateway.public]\nenabled=true\nport=8443\n").unwrap();
+        assert!(c.gateway.public.enabled);
+        assert_eq!(c.gateway.public.port, 8443);
+        assert!(!Config::default().gateway.public.enabled);
+    }
+
+    #[test]
     async fn checklist_gateway_cli_default_host_is_localhost() {
         // The CLI default for --host is 127.0.0.1 (checked in main.rs)
         // Here we verify the config default matches
@@ -30940,6 +30994,7 @@ allowed_numbers = ["+1", "+2"]
             pairing_dashboard: PairingDashboardConfig::default(),
             web_dist_dir: None,
             tls: None,
+            public: GatewayPublicConfig::default(),
             request_timeout_secs: 30,
             long_running_request_timeout_secs: 600,
             check_updates: true,
