@@ -168,6 +168,15 @@ impl Principal {
         self
     }
 
+    /// Whether this principal may bind the given agent alias.
+    /// `"*"` in `allowed_aliases` grants every alias (the operator/admin case).
+    #[must_use]
+    pub fn may_bind(&self, alias: &str) -> bool {
+        self.allowed_aliases
+            .iter()
+            .any(|a| a.as_str() == "*" || a.as_str() == alias)
+    }
+
     /// `true` once a *distinct* identity source authenticated this principal —
     /// i.e. not unbound ([`AuthMethod::None`]) and not the shared-operator
     /// sentinel. A2A distinct-principal routing keys on this.
@@ -315,6 +324,18 @@ mod tests {
         assert_eq!(p.expires_at, 42);
         assert_eq!(p.allowed_aliases.len(), 1);
         assert_eq!(p.allowed_aliases[0].as_str(), "bot");
+    }
+
+    #[test]
+    fn may_bind_explicit_and_wildcard() {
+        let p = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native)
+            .with_allowed_aliases(vec![AgentAlias("crm-bot".into())]);
+        assert!(p.may_bind("crm-bot"));
+        assert!(!p.may_bind("hr-bot"));
+
+        let admin = Principal::new(PrincipalId::from("admin"), "admin", AuthMethod::Native)
+            .with_allowed_aliases(vec![AgentAlias("*".into())]);
+        assert!(admin.may_bind("anything"));
     }
 
     #[test]
