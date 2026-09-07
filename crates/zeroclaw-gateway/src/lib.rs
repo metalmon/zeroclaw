@@ -644,7 +644,7 @@ pub struct AppState {
 /// nothing else needs to be reachable here.
 ///
 /// Carries the same gateway-wide baseline layers (`RequestBodyLimitLayer`
-/// + `TimeoutLayer`) `/acp` already receives today so behavior is
+/// and `TimeoutLayer`) that `/acp` already receives today, so behavior is
 /// unchanged: `/acp` is a WS upgrade, so both layers are harmless (the
 /// upgrade response returns immediately and the socket then runs in its
 /// own task, outside the HTTP layer stack).
