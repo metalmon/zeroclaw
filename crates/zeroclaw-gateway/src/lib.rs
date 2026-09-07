@@ -578,6 +578,392 @@ pub struct AppState {
     pub token_bindings: Arc<zeroclaw_config::authz::TokenBindingStore>,
 }
 
+/// Public-facing router: exposes only the ACP WebSocket bridge (`/acp`).
+/// This is the surface intended for a listener that is reachable beyond
+/// loopback; every other route stays on [`private_router`]. `/acp`
+/// resolves its own principal at upgrade time (`acp::handle_ws_acp`), so
+/// nothing else needs to be reachable here.
+pub fn public_router(state: AppState) -> Router {
+    Router::new()
+        .route("/acp", get(acp::handle_ws_acp))
+        .with_state(state)
+}
+
+/// Private (control-plane) router: every gateway route except `/acp` —
+/// admin, health/metrics, pairing, webhooks, the full `/api/*` dashboard
+/// surface, WebSocket chat/SOP/canvas/node feeds, and static dashboard
+/// assets. Mirrors the route table assembled inline in [`run_gateway`]
+/// minus the ACP bridge.
+///
+/// `run_gateway`'s own inline construction is left untouched by this
+/// split (byte-for-byte identical single-listener behavior); wiring the
+/// live listener(s) through `public_router`/`private_router` is left to a
+/// later task. The per-route body-size/timeout layer overrides that
+/// `run_gateway` applies to `/api/upload` and `/api/cron/{id}/run` on
+/// their own sub-routers are intentionally not reproduced here — this
+/// function's job is route *membership*, not middleware fidelity.
+#[allow(clippy::too_many_lines)]
+pub fn private_router(state: AppState) -> Router {
+    let inner = Router::new()
+        // ── Admin routes (for CLI management) ──
+        .route("/admin/shutdown", post(handle_admin_shutdown))
+        .route("/admin/reload", post(handle_admin_reload))
+        .route("/admin/sop/pending", get(api_sop::handle_sop_pending))
+        .route("/admin/sop/approve", post(api_sop::handle_sop_approve))
+        .route("/admin/sop/deny", post(api_sop::handle_sop_deny))
+        .route("/admin/paircode", get(handle_admin_paircode))
+        .route("/admin/paircode/new", post(handle_admin_paircode_new))
+        // ── Existing routes ──
+        .route("/health", get(handle_health))
+        .route("/metrics", get(handle_metrics))
+        .route("/pair", post(handle_pair))
+        .route("/pair/code", get(handle_pair_code))
+        .route("/webhook", post(handle_webhook))
+        .merge(sop_webhook_routes())
+        .merge(optional_channel_routes())
+        // ── Claude Code runner hooks ──
+        .route("/hooks/claude-code", post(api::handle_claude_code_hook))
+        // ── Web Dashboard API routes ──
+        .route("/api/status", get(api::handle_api_status))
+        .route("/api/version/check", get(version::handle_version_check))
+        .route("/api/version/upgrade", post(version::handle_version_upgrade))
+        .route(
+            "/api/version/upgrade/status",
+            get(version::handle_version_upgrade_status),
+        )
+        .route("/api/logs", get(api_logs::handle_api_logs))
+        .route(
+            "/api/config",
+            get(api_config::handle_config_get)
+                .patch(api_config::handle_patch)
+                .options(api_config::handle_options_config),
+        )
+        .route(
+            "/api/config/prop",
+            get(api_config::handle_prop_get)
+                .put(api_config::handle_prop_put)
+                .delete(api_config::handle_prop_delete)
+                .options(api_config::handle_options_prop),
+        )
+        .route("/api/config/list", get(api_config::handle_list))
+        .route(
+            "/api/sops",
+            get(api_sop_author::handle_sops_list).post(api_sop_author::handle_sop_create),
+        )
+        .route(
+            "/api/sops/{name}",
+            put(api_sop_author::handle_sop_save).delete(api_sop_author::handle_sop_delete),
+        )
+        .route(
+            "/api/sops/{name}/graph",
+            get(api_sop_author::handle_sop_graph),
+        )
+        .route(
+            "/api/sops/{name}/run",
+            post(api_sop_author::handle_sop_run),
+        )
+        .route("/api/sops/runs", get(api_sop_author::handle_sop_runs))
+        .route(
+            "/api/sops/{name}/full",
+            get(api_sop_author::handle_sop_full),
+        )
+        .route(
+            "/api/sops/wire-draft",
+            post(api_sop_author::handle_sop_wire_draft),
+        )
+        .route(
+            "/api/sops/graph-draft",
+            post(api_sop_author::handle_sop_graph_draft),
+        )
+        .route(
+            "/api/sops/trigger-sources",
+            get(api_sop_author::handle_sop_trigger_sources),
+        )
+        .route(
+            "/api/sops/graph-legend",
+            get(api_sop_author::handle_sop_graph_legend),
+        )
+        .route(
+            "/api/tools/param-options",
+            post(api_sop_author::handle_tools_param_options),
+        )
+        .route(
+            "/api/sops/{name}/runs/{run_id}/overlay",
+            get(api_sop_author::handle_sop_run_overlay),
+        )
+        .route(
+            "/api/sops/{name}/runs/{run_id}/decide",
+            post(api_sop_author::handle_sop_decide),
+        )
+        .route(
+            "/api/sops/{name}/runs/{run_id}/cancel",
+            post(api_sop_author::handle_sop_cancel),
+        )
+        .route("/api/config/drift", get(api_config::handle_drift))
+        .route(
+            "/api/config/reload-status",
+            get(api_config::handle_reload_status),
+        )
+        .route("/api/config/templates", get(api_config::handle_templates))
+        .route("/api/config/map-keys", get(api_config::handle_get_map_keys))
+        .route(
+            "/api/config/resolve-alias-source",
+            get(api_config::handle_resolve_alias_source),
+        )
+        .route(
+            "/api/config/map-key",
+            post(api_config::handle_map_key).delete(api_config::handle_delete_map_key),
+        )
+        .route("/api/config/rename-map-key", post(api_config::handle_rename_map_key))
+        .route(
+            "/api/config/model-providers/{type}/{alias}/refresh-context-window",
+            post(api_config::handle_refresh_context_window),
+        )
+        .route("/api/config/delete-plan", get(api_config::handle_delete_plan))
+        .route("/api/config/catalog", get(api_sections::handle_catalog))
+        .route(
+            "/api/config/catalog/models",
+            get(api_sections::handle_catalog_models),
+        )
+        .route("/api/config/status", get(api_sections::handle_section_status))
+        .route(
+            "/api/config/agent-options",
+            get(api_sections::handle_agent_options),
+        )
+        .route("/api/config/sections", get(api_sections::handle_sections))
+        .route(
+            "/api/config/sections/{section}",
+            get(api_sections::handle_section_picker),
+        )
+        .route(
+            "/api/config/sections/{section}/items/{key}",
+            post(api_sections::handle_section_select),
+        )
+        .route("/api/personality", get(api_personality::handle_index))
+        .route(
+            "/api/quickstart/state",
+            get(api_quickstart::handle_state),
+        )
+        .route(
+            "/api/quickstart/fields",
+            post(api_quickstart::handle_fields),
+        )
+        .route(
+            "/api/quickstart/validate",
+            post(api_quickstart::handle_validate),
+        )
+        .route(
+            "/api/quickstart/apply",
+            post(api_quickstart::handle_apply),
+        )
+        .route(
+            "/api/quickstart/dismiss",
+            post(api_quickstart::handle_dismiss),
+        )
+        .route(
+            "/api/personality/templates",
+            get(api_personality::handle_templates),
+        )
+        .route(
+            "/api/personality/{filename}",
+            get(api_personality::handle_get).put(api_personality::handle_put),
+        )
+        .route("/api/browse", get(api_browse::handle_browse))
+        .route("/api/browse/mkdir", post(api_browse::handle_browse_mkdir))
+        .route("/api/browse/rmdir", delete(api_browse::handle_browse_rmdir))
+        .route(
+            "/api/agents/{alias}/workspace/list",
+            get(api_browse::handle_agent_workspace_list),
+        )
+        .route(
+            "/api/agents/{alias}/workspace/read",
+            get(api_browse::handle_agent_workspace_read),
+        )
+        .route(
+            "/api/agents/{alias}/workspace/path",
+            delete(api_browse::handle_agent_workspace_delete),
+        )
+        .route(
+            "/api/agents/{alias}/workspace/move",
+            post(api_browse::handle_agent_workspace_move),
+        )
+        .route(
+            "/api/agents/{alias}/workspace/mkdir",
+            post(api_browse::handle_agent_workspace_mkdir),
+        )
+        .route(
+            "/api/agents/{alias}/skills",
+            get(api_skills::handle_agent_skills),
+        )
+        .route("/api/skills/bundles", get(api_skills::handle_list_bundles))
+        .route(
+            "/api/skills/slash-option-kinds",
+            get(api_skills::handle_slash_option_kinds),
+        )
+        .route(
+            "/api/skills/bundles/{alias}/skills",
+            get(api_skills::handle_list_skills).post(api_skills::handle_create_skill),
+        )
+        .route(
+            "/api/skills/bundles/{alias}/skills/{name}",
+            get(api_skills::handle_read_skill)
+                .put(api_skills::handle_write_skill)
+                .delete(api_skills::handle_delete_skill),
+        )
+        .route("/api/config/init", post(api_config::handle_init))
+        .route("/api/config/migrate", post(api_config::handle_migrate))
+        .route("/api/openapi.json", get(openapi::handle_openapi_json))
+        .route("/api/docs", get(openapi::handle_docs))
+        .route("/api/tools", get(api::handle_api_tools))
+        .route("/api/cron", get(api::handle_api_cron_list))
+        .route("/api/cron", post(api::handle_api_cron_add))
+        .route(
+            "/api/cron/settings",
+            get(api::handle_api_cron_settings_get).patch(api::handle_api_cron_settings_patch),
+        )
+        .route(
+            "/api/cron/{id}",
+            delete(api::handle_api_cron_delete).patch(api::handle_api_cron_patch),
+        )
+        .route("/api/cron/{id}/runs", get(api::handle_api_cron_runs))
+        // `/api/cron/{id}/run` runs a manual cron trigger synchronously and
+        // routinely exceeds the 30s gateway-wide default; `run_gateway`
+        // registers it on a separate sub-router with a longer TimeoutLayer.
+        // Included here (plain, default timeout) for route-membership
+        // completeness — this function does not reproduce that layer.
+        .route("/api/cron/{id}/run", post(api::handle_api_cron_run))
+        .route("/api/integrations", get(api::handle_api_integrations))
+        .route(
+            "/api/integrations/settings",
+            get(api::handle_api_integrations_settings),
+        )
+        .route(
+            "/api/doctor",
+            get(api::handle_api_doctor).post(api::handle_api_doctor),
+        )
+        .route("/api/memory", get(api::handle_api_memory_list))
+        .route("/api/memory", post(api::handle_api_memory_store))
+        .route("/api/memory/{key}", delete(api::handle_api_memory_delete))
+        .route("/api/cost", get(api::handle_api_cost))
+        .route("/api/cli-tools", get(api::handle_api_cli_tools))
+        .route("/api/channels", get(api::handle_api_channels))
+        .route(
+            "/api/channels/bind",
+            post(api_config::handle_api_channel_bind),
+        )
+        .route(
+            "/api/channels/{channel}/relink",
+            post(api::handle_api_channel_relink),
+        )
+        .route("/api/health", get(api::handle_api_health))
+        .route("/api/tuis", get(api::handle_api_tuis))
+        .route("/api/sessions", get(api::handle_api_sessions_list))
+        .route("/api/sessions/running", get(api::handle_api_sessions_running))
+        .route(
+            "/api/sessions/{id}/messages",
+            get(api::handle_api_session_messages).post(api::handle_api_session_message_post),
+        )
+        .route("/api/sessions/{id}", delete(api::handle_api_session_delete).put(api::handle_api_session_rename))
+        .route("/api/sessions/{id}/state", get(api::handle_api_session_state))
+        .route("/api/sessions/{id}/abort", post(api::handle_api_session_abort))
+        // ── Pairing + Device management API ──
+        .route("/api/pairing/initiate", post(api_pairing::initiate_pairing))
+        .route("/api/pair", post(api_pairing::submit_pairing_enhanced))
+        .route("/api/devices", get(api_pairing::list_devices))
+        .route(
+            "/api/devices/me/capabilities",
+            post(api_pairing::update_my_capabilities),
+        )
+        .route("/api/devices/{id}", delete(api_pairing::revoke_device))
+        .route(
+            "/api/devices/{id}/token/rotate",
+            post(api_pairing::rotate_token),
+        )
+        // ── Live Canvas (A2UI) routes ──
+        .route("/api/canvas", get(canvas::handle_canvas_list))
+        .route(
+            "/api/canvas/{id}",
+            get(canvas::handle_canvas_get)
+                .post(canvas::handle_canvas_post)
+                .delete(canvas::handle_canvas_clear),
+        )
+        .route(
+            "/api/canvas/{id}/history",
+            get(canvas::handle_canvas_history),
+        )
+        // The dashboard image upload route (`/api/upload`) lives on its own
+        // sub-router in `run_gateway` so it can opt out of the gateway-wide
+        // body-size limit; included here plainly for membership parity.
+        .route(
+            "/api/upload",
+            post(api_upload::handle_upload).layer(axum::extract::DefaultBodyLimit::max(
+                api_upload::UPLOAD_BODY_CEILING_BYTES,
+            )),
+        )
+        // ── SSE event stream ──
+        .route("/api/events", get(sse::handle_sse_events))
+        .route("/api/events/history", get(sse::handle_events_history))
+        // ── WebSocket agent chat ──
+        .route("/ws/chat", get(ws::handle_ws_chat))
+        // ── WebSocket SOP runs feed ──
+        .route("/ws/sops/runs", get(ws_sop_runs::handle_ws_sop_runs))
+        // ── WebSocket canvas updates ──
+        .route("/ws/canvas/{id}", get(canvas::handle_ws_canvas))
+        // ── WebSocket node discovery ──
+        .route("/ws/nodes", get(nodes::handle_ws_nodes))
+        // ── Static assets (web dashboard) ──
+        .merge(static_file_routes())
+        // ── SPA fallback: non-API GET requests serve index.html ──
+        .fallback(get(static_files::handle_spa_fallback));
+
+    // `AdvertisedGatewayEndpoint` needs the runtime listener's host/port,
+    // which this state-only function does not receive; `None` falls back
+    // to the card's config-driven URL override (see
+    // `a2a_routes_with_endpoint`'s doc comment). `run_gateway`'s own
+    // construction still passes the real endpoint.
+    #[cfg(feature = "a2a")]
+    let inner = inner
+        .merge(a2a::a2a_routes_with_endpoint(None))
+        .merge(a2a::a2a_task_route());
+
+    // ── WebAuthn hardware key authentication API (requires webauthn feature) ──
+    #[cfg(feature = "webauthn")]
+    let inner = inner
+        .route(
+            "/api/webauthn/register/start",
+            post(api_webauthn::handle_register_start),
+        )
+        .route(
+            "/api/webauthn/register/finish",
+            post(api_webauthn::handle_register_finish),
+        )
+        .route(
+            "/api/webauthn/auth/start",
+            post(api_webauthn::handle_auth_start),
+        )
+        .route(
+            "/api/webauthn/auth/finish",
+            post(api_webauthn::handle_auth_finish),
+        )
+        .route(
+            "/api/webauthn/credentials",
+            get(api_webauthn::handle_list_credentials),
+        )
+        .route(
+            "/api/webauthn/credentials/{id}",
+            delete(api_webauthn::handle_delete_credential),
+        );
+
+    // ── Plugin management API (requires plugins-wasm feature) ──
+    #[cfg(feature = "plugins-wasm")]
+    let inner = inner.route(
+        "/api/plugins",
+        get(api_plugins::plugin_routes::list_plugins),
+    );
+
+    inner.with_state(state)
+}
+
 /// Run the HTTP gateway using axum with proper HTTP/1.1 compliance.
 #[allow(clippy::too_many_lines)]
 pub async fn run_gateway(
@@ -4645,6 +5031,80 @@ path = "{trigger_path}"
         app.oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
             .await
             .unwrap()
+    }
+
+    /// `public_router` must serve `/acp` and must NOT serve anything else —
+    /// this is the whole point of the public/private split (the public
+    /// listener is the one surface that may end up reachable beyond
+    /// loopback, so it must carry nothing but the self-authenticating ACP
+    /// bridge).
+    #[tokio::test]
+    async fn public_router_serves_only_acp() {
+        let tmp = tempfile::tempdir().unwrap();
+        let state = admin_paircode_state(&tmp, false, false);
+        let app = public_router(state);
+
+        let acp_response = app
+            .clone()
+            .oneshot(Request::builder().uri("/acp").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_ne!(
+            acp_response.status(),
+            StatusCode::NOT_FOUND,
+            "public_router must serve /acp"
+        );
+
+        let private_response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/status")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            private_response.status(),
+            StatusCode::NOT_FOUND,
+            "public_router must not serve private control-plane routes like /api/status"
+        );
+    }
+
+    /// `private_router` is the mirror image: it must carry every
+    /// control-plane route (e.g. `/api/status`, `/pair`) and must NOT
+    /// carry `/acp` — that route belongs solely to `public_router`.
+    #[tokio::test]
+    async fn private_router_serves_everything_except_acp() {
+        let tmp = tempfile::tempdir().unwrap();
+        let state = admin_paircode_state(&tmp, false, false);
+        let app = private_router(state);
+
+        let status_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/status")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_ne!(
+            status_response.status(),
+            StatusCode::NOT_FOUND,
+            "private_router must serve /api/status"
+        );
+
+        let acp_response = app
+            .oneshot(Request::builder().uri("/acp").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(
+            acp_response.status(),
+            StatusCode::NOT_FOUND,
+            "private_router must not serve /acp — that belongs to public_router only"
+        );
     }
 
     /// Pair a device into both the pairing guard and the device registry,
