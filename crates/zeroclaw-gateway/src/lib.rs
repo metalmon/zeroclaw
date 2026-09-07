@@ -570,6 +570,12 @@ pub struct AppState {
     /// fork-local `[[authz]]` map. The ACP endpoint resolves each connection's
     /// [`zeroclaw_api::principal::Principal`] through it at connect time.
     pub provider_registry: Arc<zeroclaw_runtime::security::auth_provider::ProviderRegistry>,
+    /// Live runtime `token_hash -> principal_id` binding store, shared (`Arc`)
+    /// with the `PairingAuthProvider` inside `provider_registry`. `/pair` writes
+    /// a binding here when a `--principal`-tagged code is redeemed; the auth
+    /// provider reads it on the next connect (no reload). Persisted to
+    /// `<data_dir>/authz-bindings.json`.
+    pub token_bindings: Arc<zeroclaw_config::authz::TokenBindingStore>,
 }
 
 /// Run the HTTP gateway using axum with proper HTTP/1.1 compliance.
@@ -1528,6 +1534,14 @@ pub async fn run_gateway(
         None
     };
 
+    // One live binding store shared by the auth provider (reads) and `/pair`
+    // (writes), so a freshly-paired --principal token resolves on the next
+    // connect with no reload. Persisted under data_dir; a missing/corrupt file
+    // loads empty and never blocks daemon start.
+    let token_bindings = Arc::new(zeroclaw_config::authz::TokenBindingStore::new(
+        &config.data_dir,
+    ));
+
     let state = AppState {
         config: config_state,
         config_write_lock: Arc::new(tokio::sync::Mutex::new(())),
@@ -1578,7 +1592,11 @@ pub async fn run_gateway(
         tui_registry,
         sop_engine,
         sop_audit,
-        provider_registry: acp::build_provider_registry(config.authz.clone()),
+        provider_registry: acp::build_provider_registry(
+            config.authz.clone(),
+            Arc::clone(&token_bindings),
+        ),
+        token_bindings,
         #[cfg(feature = "webauthn")]
         webauthn: if config.security.webauthn.enabled {
             let secret_store = Arc::new(zeroclaw_runtime::security::SecretStore::new(
@@ -2360,23 +2378,40 @@ async fn handle_pair(
                 return (StatusCode::INTERNAL_SERVER_ERROR, Json(body));
             }
 
-            // Best-effort onboarding convenience (`get-paircode --new
-            // --principal <id>`): the code was tagged with a principal, so
-            // committing it above stashed a binding. F4a does not wire an
-            // automatic write into `[[authz.principals]]` here — surface it
-            // for the operator instead, matching the documented fallback
-            // (pair, then add the token hash to that principal by hand).
+            // Onboarding (`get-paircode --new --principal <id>`): the code was
+            // tagged with a principal, so committing it above stashed a binding.
+            // Write it into the live runtime store so the token auto-resolves to
+            // that principal on the next connect (permissions come from
+            // `[[authz.principals]].<id>.allowed_agents`) — no config edit, no
+            // reload. A disk failure here is WARN-only: the token is already
+            // paired; the binding can be retried and it still resolves in-process
+            // for the life of this daemon.
             let principal_binding = state.pairing.take_pending_binding().inspect(|binding| {
-                ::zeroclaw_log::record!(
-                    WARN,
-                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
-                        .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
-                        .with_attrs(::serde_json::json!({
-                            "principal_id": binding.principal_id,
-                            "token_hash": binding.token_hash,
-                        })),
-                    "device paired with a principal-tagged code; add this token_hash to that principal's [[authz.principals]] token_hashes to complete the binding"
-                );
+                match state
+                    .token_bindings
+                    .set(binding.token_hash.clone(), binding.principal_id.clone())
+                {
+                    Ok(()) => ::zeroclaw_log::record!(
+                        INFO,
+                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                            .with_attrs(::serde_json::json!({
+                                "principal_id": binding.principal_id,
+                                "token_hash": binding.token_hash,
+                            })),
+                        "device paired with a principal-tagged code; token bound to principal in the runtime binding store"
+                    ),
+                    Err(err) => ::zeroclaw_log::record!(
+                        WARN,
+                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                            .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
+                            .with_attrs(::serde_json::json!({
+                                "principal_id": binding.principal_id,
+                                "token_hash": binding.token_hash,
+                                "error": format!("{err}"),
+                            })),
+                        "device paired with a principal-tagged code but persisting the token→principal binding failed; the token is paired and the binding is active in-process, retry to persist"
+                    ),
+                }
             });
 
             let body = serde_json::json!({
@@ -4440,7 +4475,13 @@ mod tests {
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -5354,7 +5395,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -5441,7 +5488,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -6115,7 +6168,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7022,7 +7081,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7142,7 +7207,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7242,7 +7313,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7448,7 +7525,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7535,7 +7618,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7627,7 +7716,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7724,7 +7819,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7817,7 +7918,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -7918,7 +8025,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -8068,7 +8181,13 @@ path = "{trigger_path}"
             cancel_tokens: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -8949,7 +9068,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }
@@ -9035,7 +9160,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
@@ -9646,7 +9777,13 @@ path = "{trigger_path}"
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
-            provider_registry: crate::acp::build_provider_registry(Default::default()),
+            provider_registry: crate::acp::build_provider_registry(
+                Default::default(),
+                std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            ),
+            token_bindings: std::sync::Arc::new(
+                zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+            ),
             #[cfg(feature = "webauthn")]
             webauthn: None,
         }

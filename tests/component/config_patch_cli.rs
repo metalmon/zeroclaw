@@ -125,7 +125,13 @@ fn test_state(config: Config) -> AppState {
         tui_registry: None,
         sop_engine: None,
         sop_audit: None,
-        provider_registry: gateway::acp::build_provider_registry(Default::default()),
+        provider_registry: gateway::acp::build_provider_registry(
+            Default::default(),
+            std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+        ),
+        token_bindings: std::sync::Arc::new(
+            zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
+        ),
     }
 }
 

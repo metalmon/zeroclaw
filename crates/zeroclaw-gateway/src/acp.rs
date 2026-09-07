@@ -86,9 +86,12 @@ pub async fn handle_ws_acp(
 /// principal when authz is enforced and to the shared-operator sentinel
 /// otherwise. Built once at daemon start and shared via [`AppState`].
 #[must_use]
-pub fn build_provider_registry(authz: AuthzConfig) -> Arc<ProviderRegistry> {
+pub fn build_provider_registry(
+    authz: AuthzConfig,
+    bindings: Arc<zeroclaw_config::authz::TokenBindingStore>,
+) -> Arc<ProviderRegistry> {
     let mut registry = ProviderRegistry::new();
-    registry.register(Arc::new(PairingAuthProvider::new(authz)));
+    registry.register(Arc::new(PairingAuthProvider::new(authz, bindings)));
     Arc::new(registry)
 }
 
@@ -441,7 +444,10 @@ mod tests {
                 token_hashes: vec![PairingGuard::token_hash("good")],
             }],
         };
-        let registry = super::build_provider_registry(authz);
+        let registry = super::build_provider_registry(
+            authz,
+            std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+        );
 
         assert!(
             super::resolve_principal(&registry, Some("bad"))
