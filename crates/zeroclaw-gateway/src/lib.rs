@@ -167,6 +167,26 @@ pub fn gateway_long_running_request_timeout_secs(
 ) -> u64 {
     cfg.long_running_request_timeout_secs
 }
+
+/// Resolve the private and (optional) public bind addresses from typed
+/// config. Pure — no I/O, no binding. The private address always comes from
+/// `[gateway].host`/`port` (today's single-listener bind); the public
+/// address is present iff `[gateway.public].enabled`, in which case it comes
+/// from `[gateway.public].host`/`port`. Host parsing mirrors the existing
+/// gateway bind path (`zeroclaw_infra::effective_gateway_bind_socket_addr`),
+/// so an unparsable host falls back to loopback on the given port rather
+/// than erroring, matching `run_gateway`'s own bind fallback.
+pub fn resolve_listeners(
+    g: &zeroclaw_config::schema::GatewayConfig,
+) -> (SocketAddr, Option<SocketAddr>) {
+    let private = zeroclaw_infra::effective_gateway_bind_socket_addr(&g.host, g.port);
+    let public = g
+        .public
+        .enabled
+        .then(|| zeroclaw_infra::effective_gateway_bind_socket_addr(&g.public.host, g.public.port));
+    (private, public)
+}
+
 /// Sliding window used by gateway rate limiting.
 pub const RATE_LIMIT_WINDOW_SECS: u64 = 60;
 /// Fallback max distinct client keys tracked in gateway rate limiter.
@@ -1104,6 +1124,10 @@ pub async fn run_gateway(
     readiness: Option<zeroclaw_runtime::daemon::GatewayReadinessReporter>,
 ) -> Result<()> {
     // ── Security: warn on public bind without tunnel or explicit opt-in ──
+    // `host` here is always `[gateway].host` — the PRIVATE surface (loopback
+    // by default), whether or not `[gateway.public]` is also enabled below.
+    // `[gateway.public].host` is public-by-design and intentionally exempt
+    // from this guard.
     if is_public_bind(host)
         && config.tunnel.tunnel_provider == "none"
         && !config.gateway.allow_public_bind
@@ -1961,6 +1985,15 @@ pub async fn run_gateway(
         .map(|controls| (controls.shutdown_tx, Some(controls.reload_tx)))
         .unwrap_or((owned_shutdown_tx, None));
     let mut shutdown_rx = shutdown_tx.subscribe();
+    // A second, independent shutdown receiver for the public-surface serve
+    // loop in dual-listener mode (`[gateway.public].enabled`). Subscribed
+    // here, before `shutdown_tx` is moved into `AppState` below, and kept
+    // as `None` in single-listener mode so it costs nothing there.
+    let public_shutdown_rx = config
+        .gateway
+        .public
+        .enabled
+        .then(|| shutdown_tx.subscribe());
 
     // Node registry for dynamic node discovery
     let node_registry = Arc::new(nodes::NodeRegistry::new(config.nodes.max_nodes));
@@ -2127,136 +2160,156 @@ pub async fn run_gateway(
         },
     };
 
-    // Serve the same routes as before this refactor, but sourced from a
-    // single router-construction path: `private_router` now owns the full
-    // control-plane route table (previously duplicated here and inside
-    // `private_router` itself) plus the baseline + bespoke layers, and
-    // `public_router` owns `/acp`. Both are already `.with_state(...)`-baked,
-    // so `.merge()` combines them into one fully assembled `Router` served
-    // on this single listener. The merge is MANDATORY: serving
-    // `private_router` alone would silently drop `/acp` (it now lives
-    // solely on `public_router`), breaking every ACP client.
+    // `advertise` is the a2a host/port pair for the PRIVATE surface only;
+    // shared by both branches below (`[gateway.public]`, when enabled, does
+    // not get its own a2a advertisement — out of scope here).
     let advertise: Option<(String, u16)> = Some((host.to_string(), actual_port));
-    let app = private_router(state.clone(), advertise).merge(public_router(state));
-
-    // Nest under path prefix when configured (axum strips prefix before routing).
-    // nest() at "/prefix" handles both "/prefix" and "/prefix/*" but not "/prefix/"
-    // with a trailing slash, so we add a fallback redirect for that case.
-    let app = if let Some(prefix) = path_prefix {
-        let redirect_target = prefix.to_string();
-        Router::new().nest(prefix, app).route(
-            &format!("{prefix}/"),
-            get(|| async move { axum::response::Redirect::permanent(&redirect_target) }),
-        )
-    } else {
-        app
-    };
-
-    let tls_enabled = config
-        .gateway
-        .tls
-        .as_ref()
-        .is_some_and(|tls_cfg| tls_cfg.enabled);
-    let app = if tls_enabled {
-        app.layer(axum::middleware::from_fn(security_headers::apply_with_hsts))
-    } else {
-        app.layer(axum::middleware::from_fn(security_headers::apply))
-    };
-
-    // ── TLS / mTLS setup ───────────────────────────────────────────
-    let tls_acceptor = match &config.gateway.tls {
-        Some(tls_cfg) if tls_cfg.enabled => {
-            let has_mtls = tls_cfg.client_auth.as_ref().is_some_and(|ca| ca.enabled);
-            if has_mtls {
-                ::zeroclaw_log::record!(
-                    INFO,
-                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
-                    "TLS enabled with mutual TLS (mTLS) client verification"
-                );
-            } else {
-                ::zeroclaw_log::record!(
-                    INFO,
-                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
-                    "TLS enabled (no client certificate requirement)"
-                );
-            }
-            Some(tls::build_tls_acceptor(tls_cfg)?)
+    if config.gateway.public.enabled {
+        // ── Dual-listener mode ──────────────────────────────────────
+        // `[gateway.public]` requests a distinct public-facing surface for
+        // `/acp`, separate from the primary (typically loopback) bind
+        // above. The private listener (`listener`, already bound to
+        // `[gateway].host:port`) keeps serving every control-plane route
+        // via `private_router`; a second listener is bound here for the
+        // public surface and serves ONLY `public_router` (`/acp`).
+        //
+        // Fail-closed: the public listener puts live traffic on the
+        // network, so — unlike the primary listener, which may fall back
+        // to plaintext — it never does. `[gateway.tls]` is mandatory
+        // whenever `[gateway.public]` is enabled; refuse to start rather
+        // than expose plaintext `/acp`.
+        let Some(tls_cfg) = config.gateway.tls.as_ref().filter(|t| t.enabled) else {
+            anyhow::bail!(
+                "[gateway.public] is enabled but [gateway.tls] is absent or disabled; \
+                 refusing to start a public /acp listener without TLS (fail-closed — no \
+                 plaintext ACP exposed to the network)"
+            );
+        };
+        let has_mtls = tls_cfg.client_auth.as_ref().is_some_and(|ca| ca.enabled);
+        if has_mtls {
+            ::zeroclaw_log::record!(
+                INFO,
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
+                "TLS enabled with mutual TLS (mTLS) client verification"
+            );
+        } else {
+            ::zeroclaw_log::record!(
+                INFO,
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
+                "TLS enabled (no client certificate requirement)"
+            );
         }
-        _ => None,
-    };
+        let public_tls_acceptor = tls::build_tls_acceptor(tls_cfg)?;
 
-    if let Some(readiness) = readiness {
-        readiness.report_ready(actual_addr);
-    }
+        let public_addr = zeroclaw_infra::effective_gateway_bind_socket_addr(
+            &config.gateway.public.host,
+            config.gateway.public.port,
+        );
+        let public_listener = tokio::net::TcpListener::bind(public_addr).await?;
 
-    if let Some(tls_acceptor) = tls_acceptor {
-        // Manual TLS accept loop — serves each connection via hyper.
-        let app = app.into_make_service_with_connect_info::<SocketAddr>();
-        let mut app = app;
+        let private_app = private_router(state.clone(), advertise)
+            .layer(axum::middleware::from_fn(security_headers::apply));
+        let private_app = if let Some(prefix) = path_prefix {
+            let redirect_target = prefix.to_string();
+            Router::new().nest(prefix, private_app).route(
+                &format!("{prefix}/"),
+                get(|| async move { axum::response::Redirect::permanent(&redirect_target) }),
+            )
+        } else {
+            private_app
+        };
 
-        let mut shutdown_signal = shutdown_rx;
-        loop {
-            tokio::select! {
-                conn = listener.accept() => {
-                    let (tcp_stream, remote_addr) = match conn {
-                        Ok(pair) => pair,
-                        Err(e) => {
-                            if is_recoverable_accept_error(&e) {
-                                // Transient (e.g. EMFILE under fd pressure):
-                                // the listener is still valid. Back off
-                                // briefly to avoid hot-spinning, then keep
-                                // serving rather than killing the daemon
-                                ::zeroclaw_log::record!(WARN, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_outcome(::zeroclaw_log::EventOutcome::Unknown).with_attrs(::serde_json::json!({"error": format!("{}", e)})), "gateway accept() failed with a transient error; backing off and continuing");
-                                tokio::time::sleep(Duration::from_millis(ACCEPT_ERROR_BACKOFF_MS)).await;
-                                continue;
-                            }
-                            return Err(e.into());
-                        }
-                    };
-                    let tls_acceptor = tls_acceptor.clone();
-                    let svc = tower::MakeService::<
-                        SocketAddr,
-                        hyper::Request<hyper::body::Incoming>,
-                    >::make_service(&mut app, remote_addr)
-                    .await
-                    .expect("infallible make_service");
+        let public_app = public_router(state)
+            .layer(axum::middleware::from_fn(security_headers::apply_with_hsts));
+        let public_app = if let Some(prefix) = path_prefix {
+            let redirect_target = prefix.to_string();
+            Router::new().nest(prefix, public_app).route(
+                &format!("{prefix}/"),
+                get(|| async move { axum::response::Redirect::permanent(&redirect_target) }),
+            )
+        } else {
+            public_app
+        };
 
-                    zeroclaw_spawn::spawn!(async move {
-                        let tls_stream = match tls_acceptor.accept(tcp_stream).await {
-                            Ok(s) => s,
+        if let Some(readiness) = readiness {
+            readiness.report_ready(actual_addr);
+        }
+
+        // Public surface runs on its own task — a manual TLS accept loop,
+        // mirroring the single-listener TLS path below — so it serves
+        // concurrently with the private surface, which stays on the
+        // current task. `zeroclaw_spawn::spawn!`, not raw `tokio::spawn`,
+        // per workspace policy.
+        let public_shutdown_signal = public_shutdown_rx
+            .expect("subscribed above because [gateway.public].enabled is true here");
+        let public_task = zeroclaw_spawn::spawn!(async move {
+            let public_app = public_app.into_make_service_with_connect_info::<SocketAddr>();
+            let mut public_app = public_app;
+            let mut shutdown_signal = public_shutdown_signal;
+            loop {
+                tokio::select! {
+                    conn = public_listener.accept() => {
+                        let (tcp_stream, remote_addr) = match conn {
+                            Ok(pair) => pair,
                             Err(e) => {
-                                ::zeroclaw_log::record!(DEBUG, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_attrs(::serde_json::json!({"error": format!("{}", e), "remote_addr": remote_addr})), "TLS handshake failed from");
-                                return;
+                                if is_recoverable_accept_error(&e) {
+                                    ::zeroclaw_log::record!(WARN, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_outcome(::zeroclaw_log::EventOutcome::Unknown).with_attrs(::serde_json::json!({"error": format!("{}", e)})), "public gateway accept() failed with a transient error; backing off and continuing");
+                                    tokio::time::sleep(Duration::from_millis(ACCEPT_ERROR_BACKOFF_MS)).await;
+                                    continue;
+                                }
+                                ::zeroclaw_log::record!(WARN, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail).with_outcome(::zeroclaw_log::EventOutcome::Failure).with_attrs(::serde_json::json!({"error": format!("{}", e)})), "public gateway listener stopped accepting connections");
+                                break;
                             }
                         };
-                        let io = hyper_util::rt::TokioIo::new(tls_stream);
-                        let hyper_svc = hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
-                            let mut svc = svc.clone();
-                            async move {
-                                tower::Service::call(&mut svc, req).await
+                        let tls_acceptor = public_tls_acceptor.clone();
+                        let svc = tower::MakeService::<
+                            SocketAddr,
+                            hyper::Request<hyper::body::Incoming>,
+                        >::make_service(&mut public_app, remote_addr)
+                        .await
+                        .expect("infallible make_service");
+
+                        zeroclaw_spawn::spawn!(async move {
+                            let tls_stream = match tls_acceptor.accept(tcp_stream).await {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    ::zeroclaw_log::record!(DEBUG, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_attrs(::serde_json::json!({"error": format!("{}", e), "remote_addr": remote_addr})), "TLS handshake failed from");
+                                    return;
+                                }
+                            };
+                            let io = hyper_util::rt::TokioIo::new(tls_stream);
+                            let hyper_svc = hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
+                                let mut svc = svc.clone();
+                                async move {
+                                    tower::Service::call(&mut svc, req).await
+                                }
+                            });
+                            if let Err(e) = hyper_util::server::conn::auto::Builder::new(
+                                hyper_util::rt::TokioExecutor::new(),
+                            )
+                            .serve_connection(io, hyper_svc)
+                            .await
+                            {
+                                ::zeroclaw_log::record!(DEBUG, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_attrs(::serde_json::json!({"error": format!("{}", e), "remote_addr": remote_addr})), "connection error from");
                             }
                         });
-                        if let Err(e) = hyper_util::server::conn::auto::Builder::new(
-                            hyper_util::rt::TokioExecutor::new(),
-                        )
-                        .serve_connection(io, hyper_svc)
-                        .await
-                        {
-                            ::zeroclaw_log::record!(DEBUG, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_attrs(::serde_json::json!({"error": format!("{}", e), "remote_addr": remote_addr})), "connection error from");
-                        }
-                    });
-                }
-                _ = shutdown_signal.changed() => {
-                    ::zeroclaw_log::record!(INFO, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note), "ZeroClaw Gateway shutting down");
-                    break;
+                    }
+                    _ = shutdown_signal.changed() => {
+                        ::zeroclaw_log::record!(INFO, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note), "ZeroClaw public gateway listener shutting down");
+                        break;
+                    }
                 }
             }
-        }
-    } else {
-        // Plain TCP — use axum's built-in serve.
+        });
+
+        // Private surface: plain TCP on the loopback-default listener
+        // already bound above — no TLS needed here, since the public
+        // surface (just spawned) is what's exposed to the network. Served
+        // on the current task so `run_gateway` still returns once
+        // shutdown fires, mirroring the non-split plain-TCP path below.
         axum::serve(
             listener,
-            app.into_make_service_with_connect_info::<SocketAddr>(),
+            private_app.into_make_service_with_connect_info::<SocketAddr>(),
         )
         .with_graceful_shutdown(async move {
             let _ = shutdown_rx.changed().await;
@@ -2267,6 +2320,164 @@ pub async fn run_gateway(
             );
         })
         .await?;
+
+        // Join the public-surface task so its errors (if any) surface in
+        // logs rather than being silently dropped once `run_gateway`
+        // returns. Shutdown of the public loop is driven by
+        // `public_shutdown_signal` above via the same watch channel as
+        // the private surface, so both stop together.
+        if let Err(err) = public_task.await {
+            ::zeroclaw_log::record!(
+                WARN,
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
+                    .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                    .with_attrs(::serde_json::json!({"error": format!("{err}")})),
+                "public gateway listener task join failed"
+            );
+        }
+    } else {
+        // ── Single-listener mode (unchanged) ────────────────────────
+        // Serve the same routes as before this refactor, but sourced from a
+        // single router-construction path: `private_router` now owns the
+        // full control-plane route table (previously duplicated here and
+        // inside `private_router` itself) plus the baseline + bespoke
+        // layers, and `public_router` owns `/acp`. Both are already
+        // `.with_state(...)`-baked, so `.merge()` combines them into one
+        // fully assembled `Router` served on this single listener. The
+        // merge is MANDATORY: serving `private_router` alone would
+        // silently drop `/acp` (it now lives solely on `public_router`),
+        // breaking every ACP client.
+        let app = private_router(state.clone(), advertise).merge(public_router(state));
+
+        // Nest under path prefix when configured (axum strips prefix before routing).
+        // nest() at "/prefix" handles both "/prefix" and "/prefix/*" but not "/prefix/"
+        // with a trailing slash, so we add a fallback redirect for that case.
+        let app = if let Some(prefix) = path_prefix {
+            let redirect_target = prefix.to_string();
+            Router::new().nest(prefix, app).route(
+                &format!("{prefix}/"),
+                get(|| async move { axum::response::Redirect::permanent(&redirect_target) }),
+            )
+        } else {
+            app
+        };
+
+        let tls_enabled = config
+            .gateway
+            .tls
+            .as_ref()
+            .is_some_and(|tls_cfg| tls_cfg.enabled);
+        let app = if tls_enabled {
+            app.layer(axum::middleware::from_fn(security_headers::apply_with_hsts))
+        } else {
+            app.layer(axum::middleware::from_fn(security_headers::apply))
+        };
+
+        // ── TLS / mTLS setup ───────────────────────────────────────────
+        let tls_acceptor = match &config.gateway.tls {
+            Some(tls_cfg) if tls_cfg.enabled => {
+                let has_mtls = tls_cfg.client_auth.as_ref().is_some_and(|ca| ca.enabled);
+                if has_mtls {
+                    ::zeroclaw_log::record!(
+                        INFO,
+                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
+                        "TLS enabled with mutual TLS (mTLS) client verification"
+                    );
+                } else {
+                    ::zeroclaw_log::record!(
+                        INFO,
+                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
+                        "TLS enabled (no client certificate requirement)"
+                    );
+                }
+                Some(tls::build_tls_acceptor(tls_cfg)?)
+            }
+            _ => None,
+        };
+
+        if let Some(readiness) = readiness {
+            readiness.report_ready(actual_addr);
+        }
+
+        if let Some(tls_acceptor) = tls_acceptor {
+            // Manual TLS accept loop — serves each connection via hyper.
+            let app = app.into_make_service_with_connect_info::<SocketAddr>();
+            let mut app = app;
+
+            let mut shutdown_signal = shutdown_rx;
+            loop {
+                tokio::select! {
+                    conn = listener.accept() => {
+                        let (tcp_stream, remote_addr) = match conn {
+                            Ok(pair) => pair,
+                            Err(e) => {
+                                if is_recoverable_accept_error(&e) {
+                                    // Transient (e.g. EMFILE under fd pressure):
+                                    // the listener is still valid. Back off
+                                    // briefly to avoid hot-spinning, then keep
+                                    // serving rather than killing the daemon
+                                    ::zeroclaw_log::record!(WARN, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_outcome(::zeroclaw_log::EventOutcome::Unknown).with_attrs(::serde_json::json!({"error": format!("{}", e)})), "gateway accept() failed with a transient error; backing off and continuing");
+                                    tokio::time::sleep(Duration::from_millis(ACCEPT_ERROR_BACKOFF_MS)).await;
+                                    continue;
+                                }
+                                return Err(e.into());
+                            }
+                        };
+                        let tls_acceptor = tls_acceptor.clone();
+                        let svc = tower::MakeService::<
+                            SocketAddr,
+                            hyper::Request<hyper::body::Incoming>,
+                        >::make_service(&mut app, remote_addr)
+                        .await
+                        .expect("infallible make_service");
+
+                        zeroclaw_spawn::spawn!(async move {
+                            let tls_stream = match tls_acceptor.accept(tcp_stream).await {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    ::zeroclaw_log::record!(DEBUG, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_attrs(::serde_json::json!({"error": format!("{}", e), "remote_addr": remote_addr})), "TLS handshake failed from");
+                                    return;
+                                }
+                            };
+                            let io = hyper_util::rt::TokioIo::new(tls_stream);
+                            let hyper_svc = hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
+                                let mut svc = svc.clone();
+                                async move {
+                                    tower::Service::call(&mut svc, req).await
+                                }
+                            });
+                            if let Err(e) = hyper_util::server::conn::auto::Builder::new(
+                                hyper_util::rt::TokioExecutor::new(),
+                            )
+                            .serve_connection(io, hyper_svc)
+                            .await
+                            {
+                                ::zeroclaw_log::record!(DEBUG, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_attrs(::serde_json::json!({"error": format!("{}", e), "remote_addr": remote_addr})), "connection error from");
+                            }
+                        });
+                    }
+                    _ = shutdown_signal.changed() => {
+                        ::zeroclaw_log::record!(INFO, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note), "ZeroClaw Gateway shutting down");
+                        break;
+                    }
+                }
+            }
+        } else {
+            // Plain TCP — use axum's built-in serve.
+            axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .with_graceful_shutdown(async move {
+                let _ = shutdown_rx.changed().await;
+                ::zeroclaw_log::record!(
+                    INFO,
+                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
+                    "ZeroClaw Gateway shutting down"
+                );
+            })
+            .await?;
+        }
     }
 
     if let Some(task) = mdns_task {
@@ -4396,6 +4607,16 @@ mod tests {
     fn gateway_timeout_uses_typed_config_default() {
         let cfg = zeroclaw_config::schema::GatewayConfig::default();
         assert_eq!(gateway_request_timeout_secs(&cfg), 30);
+    }
+
+    #[test]
+    fn resolve_listeners_public_only_when_enabled() {
+        let mut g = zeroclaw_config::schema::GatewayConfig::default();
+        assert!(resolve_listeners(&g).1.is_none());
+        g.public.enabled = true;
+        g.public.host = "0.0.0.0".into();
+        g.public.port = 443;
+        assert_eq!(resolve_listeners(&g).1.unwrap().port(), 443);
     }
 
     #[test]
