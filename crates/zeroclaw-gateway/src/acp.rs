@@ -401,17 +401,16 @@ async fn run_pre_auth(
                 }
 
                 let authz_enforced = state.config.read().authz.is_enforced();
-                let principal = match resolve_principal(&state.provider_registry, Some(&token))
-                    .await
-                {
-                    Some(principal) => principal,
-                    None if !authz_enforced => Principal::shared_operator(),
-                    None => {
-                        // Paired, but the issued token is not entitled
-                        // under enforced authz (e.g. a stale/removed
-                        // principal binding). Stay pre-auth rather than
-                        // proceeding with no principal.
-                        if !send_pre_auth_error(
+                let principal =
+                    match resolve_principal(&state.provider_registry, Some(&token)).await {
+                        Some(principal) => principal,
+                        None if !authz_enforced => Principal::shared_operator(),
+                        None => {
+                            // Paired, but the issued token is not entitled
+                            // under enforced authz (e.g. a stale/removed
+                            // principal binding). Stay pre-auth rather than
+                            // proceeding with no principal.
+                            if !send_pre_auth_error(
                             sender,
                             id,
                             error_codes::AUTH_REQUIRED,
@@ -421,9 +420,9 @@ async fn run_pre_auth(
                         {
                             return None;
                         }
-                        continue;
-                    }
-                };
+                            continue;
+                        }
+                    };
 
                 if !send_pre_auth_result(sender, id, serde_json::json!({ "token": token })).await {
                     return None;
