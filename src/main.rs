@@ -5104,6 +5104,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                     new,
                     rotate,
                     rotate_device,
+                    principal,
                     port,
                     host,
                 }) => {
@@ -5120,12 +5121,17 @@ async fn async_main(command: clap::Command) -> Result<()> {
                         PaircodeAction::Show
                     };
                     let rotating = action.is_rotation();
+                    let principal = principal
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|p| !p.is_empty());
 
                     match fetch_paircode(
                         &host,
                         port,
                         config.gateway.path_prefix.as_deref(),
                         &action,
+                        principal,
                     )
                     .await
                     {
@@ -5160,6 +5166,24 @@ async fn async_main(command: clap::Command) -> Result<()> {
                                     "POST /pair with header X-Pairing-Code"
                                 )
                             );
+                            if let Some(principal_id) = principal {
+                                println!();
+                                println!(
+                                    "  🏷️  Tagged for principal '{principal_id}'." // i18n-exempt: literal identifier interpolation, matches surrounding CLI output
+                                );
+                                println!(
+                                    "  Once the device pairs, the daemon log records the resulting token" // i18n-exempt: operator instructions, matches surrounding CLI output
+                                );
+                                println!(
+                                    "  hash. If '{principal_id}' is already an [[authz.principals]] entry," // i18n-exempt: operator instructions, matches surrounding CLI output
+                                );
+                                println!(
+                                    "  it binds automatically; otherwise add the printed hash to that" // i18n-exempt: operator instructions, matches surrounding CLI output
+                                );
+                                println!(
+                                    "  principal's token_hashes by hand." // i18n-exempt: operator instructions, matches surrounding CLI output
+                                );
+                            }
                         }
                         Ok(PaircodeResult::NoCode { message }) => {
                             println!(
@@ -8642,14 +8666,22 @@ async fn fetch_paircode(
     port: u16,
     path_prefix: Option<&str>,
     action: &PaircodeAction,
+    principal: Option<&str>,
 ) -> Result<PaircodeResult> {
     let client = reqwest::Client::new();
 
     let response = if action.mints_code() {
         let mut url = gateway_admin_url(host, port, path_prefix, "/admin/paircode/new");
+        let mut query_parts: Vec<String> = Vec::new();
         if let Some(rotate) = action.rotate_query() {
-            url.push_str("?rotate=");
-            url.push_str(&urlencoding::encode(&rotate));
+            query_parts.push(format!("rotate={}", urlencoding::encode(&rotate)));
+        }
+        if let Some(principal_id) = principal {
+            query_parts.push(format!("principal={}", urlencoding::encode(principal_id)));
+        }
+        if !query_parts.is_empty() {
+            url.push('?');
+            url.push_str(&query_parts.join("&"));
         }
         client
             .post(&url)
@@ -10934,6 +10966,7 @@ mod tests {
                         new,
                         rotate,
                         rotate_device,
+                        principal,
                         port,
                         host,
                     }),
@@ -10941,8 +10974,33 @@ mod tests {
                 assert!(new);
                 assert!(!rotate);
                 assert_eq!(rotate_device, None);
+                assert_eq!(principal, None);
                 assert_eq!(port, Some(3001));
                 assert_eq!(host.as_deref(), Some("192.168.1.20"));
+            }
+            other => panic!("expected gateway get-paircode command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "agent-runtime")]
+    fn gateway_get_paircode_cli_accepts_principal_flag() {
+        let cli = Cli::try_parse_from([
+            "zeroclaw",
+            "gateway",
+            "get-paircode",
+            "--new",
+            "--principal",
+            "alice",
+        ])
+        .expect("gateway get-paircode --new --principal should parse");
+
+        match cli.command {
+            Commands::Gateway {
+                gateway_command: Some(zeroclaw::GatewayCommands::GetPaircode { new, principal, .. }),
+            } => {
+                assert!(new);
+                assert_eq!(principal.as_deref(), Some("alice"));
             }
             other => panic!("expected gateway get-paircode command, got {other:?}"),
         }
