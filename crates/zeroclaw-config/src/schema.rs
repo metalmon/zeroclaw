@@ -30888,7 +30888,7 @@ allowed_numbers = ["+1", "+2"]
     }
 
     #[test]
-    fn gateway_public_parses_and_defaults() {
+    async fn gateway_public_parses_and_defaults() {
         let c: Config = toml::from_str("[gateway.public]\nenabled=true\nport=8443\n").unwrap();
         assert!(c.gateway.public.enabled);
         assert_eq!(c.gateway.public.port, 8443);
