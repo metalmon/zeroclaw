@@ -2,17 +2,43 @@ use serde::{Deserialize, Serialize};
 
 /// Fork-local principal → allowed-agents map (`[[authz.principals]]`).
 /// Absent/empty ⇒ authz not enforced (legacy shared-operator).
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+///
+/// Mirrors the `[mcp]` / `[[mcp.servers]]` shape: this wrapper struct
+/// derives `Configurable` with `#[prefix = "authz"]`, and its `principals`
+/// Vec is `#[nested]` + `#[natural_key = "id"]` so each element is a real
+/// `Configurable` child (see `PrincipalRecord`) reachable at
+/// `authz.principals.<id>.<field>` instead of a single opaque leaf prop.
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, zeroclaw_macros::Configurable,
+)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[prefix = "authz"]
 pub struct AuthzConfig {
+    /// Configured principals. `#[natural_key = "id"]` opts the Vec into
+    /// per-element property routing (`authz.principals.<id>.<field>`),
+    /// matching `mcp.servers` / `model_routes`.
     #[serde(default, rename = "principals")]
+    #[nested]
+    #[natural_key = "id"]
     pub principals: Vec<PrincipalRecord>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// One fork-local principal: the bearer identity (token hash / device id)
+/// mapped to the set of agent aliases it may reach. `#[prefix =
+/// "authz.principals"]` is the full dotted path (parent `authz` +
+/// this field's own name `principals`), matching `McpServerConfig`'s
+/// `#[prefix = "mcp.servers"]`. Every field carries `#[serde(default)]` so
+/// `create_map_key` can default-construct a blank element from `{}` before
+/// the natural key (`id`) is injected via `set_prop`.
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, zeroclaw_macros::Configurable,
+)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[prefix = "authz.principals"]
 pub struct PrincipalRecord {
+    #[serde(default)]
     pub id: String,
+    #[serde(default)]
     pub allowed_agents: Vec<String>,
     #[serde(default)]
     pub device_ids: Vec<String>,
