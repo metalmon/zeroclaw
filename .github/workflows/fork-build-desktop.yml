@@ -1,0 +1,77 @@
+# Fork-only, on-demand build of the Tauri desktop app (`zeroclaw-desktop`,
+# apps/tauri) into a Windows installer. NOT an upstream workflow — lives on the
+# `local/dev-tooling` branch so rebuild-main.ps1 re-applies it; never reaches
+# zeroclaw-labs.
+#
+# The desktop app is a thin Tauri shell (tauri + reqwest + tokio; no zeroclaw-*
+# crates) whose WebView points at a running gateway on 127.0.0.1, so this build
+# does NOT need the web/dist bundle — frontendDist is the in-tree `splash/` dir.
+# A web/dist placeholder is created only to keep the workspace embedded-web
+# build path happy, mirroring desktop-check.yml.
+#
+# Dispatch: gh workflow run fork-build-desktop.yml --repo metalmon/zeroclaw \
+#             --ref local/dev-tooling -f ref=main
+name: Fork Build Desktop
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or ref to build the desktop app from
+        required: true
+        default: main
+      bundles:
+        description: Tauri bundle targets (comma-separated, e.g. nsis or nsis,msi)
+        required: false
+        default: nsis
+
+concurrency:
+  group: fork-build-desktop-${{ github.event.inputs.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  desktop-windows:
+    name: Desktop installer (windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+      # The desktop app points its WebView at the running gateway; a placeholder
+      # dist keeps the workspace embedded-web build path happy during compile.
+      - name: Ensure web/dist placeholder exists
+        shell: bash
+        run: mkdir -p web/dist && touch web/dist/.gitkeep
+      - name: Install tauri-cli
+        run: cargo install tauri-cli --version "^2.0" --locked
+      # Run from apps/tauri so tauri-cli finds tauri.conf.json; the bundle lands
+      # in the workspace target/ at the repo root. `--bundles` overrides the
+      # conf's "all" (which would also attempt msi/WiX + a signed updater).
+      - name: Build desktop bundle
+        working-directory: apps/tauri
+        run: cargo tauri build --bundles ${{ github.event.inputs.bundles }}
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: zeroclaw-desktop-windows-${{ github.sha }}
+          path: |
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/msi/*.msi
+            target/release/zeroclaw-desktop.exe
+          if-no-files-found: error
+          retention-days: 14
