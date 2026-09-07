@@ -4043,7 +4043,10 @@ async fn handle_admin_paircode_new(
         .filter(|s| !s.is_empty());
 
     let code = match principal {
-        Some(principal_id) => state.pairing.mint_code_for_principal(principal_id),
+        Some(principal_id) => state
+            .pairing
+            .mint_code_for_principal(principal_id)
+            .expect("require_pairing checked above"),
         None => state
             .pairing
             .generate_new_pairing_code()

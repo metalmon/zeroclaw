@@ -456,14 +456,19 @@ impl PairingGuard {
     /// Mirrors [`PairingGuard::generate_new_pairing_code`]'s semantics:
     /// unconditionally replaces any pending code (tagged or not) rather than
     /// refusing when a code is already outstanding, so tagging a code for
-    /// onboarding never gets stuck behind an untagged one.
-    pub fn mint_code_for_principal(&self, principal_id: &str) -> String {
+    /// onboarding never gets stuck behind an untagged one. Also mirrors its
+    /// `require_pairing` guard: pairing is off, no code (tagged or
+    /// otherwise) should ever be issued.
+    pub fn mint_code_for_principal(&self, principal_id: &str) -> Option<String> {
+        if !self.require_pairing {
+            return None;
+        }
         let new_code = generate_code();
         *self.pairing_code.lock() = Some(PendingCode::new_for_principal(
             new_code.clone(),
             principal_id.to_string(),
         ));
-        new_code
+        Some(new_code)
     }
 
     /// Drain the binding produced by the most recently committed,
@@ -664,7 +669,7 @@ mod tests {
     #[test]
     async fn committing_a_principal_tagged_code_binds_the_token_hash() {
         let guard = PairingGuard::new(true, &[]);
-        let code = guard.mint_code_for_principal("alice");
+        let code = guard.mint_code_for_principal("alice").unwrap();
         let reservation = guard.try_reserve_code(&code).unwrap();
         let token = reservation.commit();
         // the reservation carried "alice" -> a binding record is produced
@@ -676,7 +681,7 @@ mod tests {
     #[test]
     async fn take_pending_binding_drains_only_once() {
         let guard = PairingGuard::new(true, &[]);
-        let code = guard.mint_code_for_principal("alice");
+        let code = guard.mint_code_for_principal("alice").unwrap();
         guard.try_reserve_code(&code).unwrap().commit();
         assert!(guard.take_pending_binding().is_some());
         assert!(
@@ -689,7 +694,7 @@ mod tests {
     async fn mint_code_for_principal_replaces_a_pending_untagged_code() {
         let guard = PairingGuard::new(true, &[]);
         let untagged = guard.pairing_code().unwrap().to_string();
-        let tagged = guard.mint_code_for_principal("bob");
+        let tagged = guard.mint_code_for_principal("bob").unwrap();
         assert_ne!(untagged, tagged, "tagging must mint a fresh code");
         assert!(
             guard.try_reserve_code(&untagged).is_none(),
@@ -698,13 +703,22 @@ mod tests {
         assert!(guard.try_reserve_code(&tagged).is_some());
     }
 
+    /// Mirrors `generate_new_pairing_code`'s `require_pairing` guard:
+    /// pairing disabled means no code is issued, tagged or not.
+    #[test]
+    async fn mint_code_for_principal_returns_none_when_pairing_disabled() {
+        let guard = PairingGuard::new(false, &[]);
+        assert_eq!(guard.mint_code_for_principal("alice"), None);
+        assert!(guard.pairing_code().is_none());
+    }
+
     /// A dropped, uncommitted reservation for a principal-tagged code must
     /// restore the tag along with the code, so a retry after a transient
     /// failure still produces the binding on the next commit.
     #[test]
     async fn dropping_an_uncommitted_principal_reservation_restores_the_tag() {
         let guard = PairingGuard::new(true, &[]);
-        let code = guard.mint_code_for_principal("alice");
+        let code = guard.mint_code_for_principal("alice").unwrap();
         {
             let _reservation = guard.try_reserve_code(&code).expect("code should reserve");
         }

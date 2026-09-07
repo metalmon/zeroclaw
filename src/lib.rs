@@ -181,8 +181,9 @@ must re-pair.
 With --rotate-device ID, revokes just that device's bearer token \
 and issues a fresh code for re-pairing that one device.
 
-With --principal ID (alongside --new), tags the minted code so the \
-paired device's token binds to that principal (see [[authz.principals]]).
+With --principal ID (alongside --new), tags the minted code. Once redeemed, \
+the daemon logs and returns the token_hash -> principal binding for you to \
+add to [[authz.principals]] by hand; it is not persisted automatically.
 
 Examples:
   zeroclaw gateway get-paircode               # show current pairing code
@@ -205,10 +206,12 @@ Examples:
         rotate_device: Option<String>,
 
         /// Tag the minted code with a principal id (an `[[authz.principals]]
-        /// id`). Once the resulting device pairs, the daemon log records the
-        /// paired token's hash for that principal; if the principal is
-        /// already configured, it is bound automatically. Has no effect on
-        /// codes minted without this flag.
+        /// id`). Once the resulting device pairs, the daemon logs the
+        /// token_hash -> principal binding and returns it in the pairing
+        /// response; it is NOT written to config automatically. Add the
+        /// logged token_hash to that principal's [[authz.principals]] by
+        /// hand to complete the binding. Has no effect on codes minted
+        /// without this flag.
         #[arg(long, value_name = "PRINCIPAL_ID")]
         principal: Option<String>,
 
