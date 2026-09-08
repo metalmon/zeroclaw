@@ -62,34 +62,47 @@ impl AuthProvider for PairingAuthProvider {
     }
 
     fn accepts(&self, credential: &Credential) -> bool {
-        matches!(credential, Credential::Bearer(_))
+        matches!(credential, Credential::Bearer(_) | Credential::Mtls { .. })
     }
 
     async fn verify(&self, credential: &Credential) -> AuthOutcome {
-        let Credential::Bearer(tok) = credential else {
-            return AuthOutcome::Denied {
-                reason: DenyReason::NoCredential,
-            };
+        // Derive the (optional) bearer token and (optional) mTLS device_id
+        // from whichever accepted credential shape was presented. A device
+        // -only credential (no token) resolves purely by device_id below.
+        let (token, device_id): (Option<&str>, Option<&str>) = match credential {
+            Credential::Bearer(tok) => (Some(tok.as_str()), None),
+            Credential::Mtls { device_id, token } => (token.as_deref(), Some(device_id.as_str())),
+            _ => {
+                return AuthOutcome::Denied {
+                    reason: DenyReason::NoCredential,
+                };
+            }
         };
         // 1. No principals configured → legacy shared-operator (unchanged).
         if !self.authz.is_enforced() {
             return AuthOutcome::Trusted(Principal::shared_operator());
         }
-        let hash = PairingGuard::token_hash(tok);
+        let hash = token.map(PairingGuard::token_hash);
         // 2. Live runtime binding store (auto-managed by `--principal` pairing).
+        //    Bindings are keyed by token hash only, so this step is skipped
+        //    entirely for a device-only credential (no token presented).
         //    A binding names a principal id; it only grants access if that id
         //    still resolves in config. If the admin removed the principal, the
         //    stale binding fails closed (Denied) rather than silently allowing.
-        if let Some(pid) = self.bindings.get(&hash) {
-            return match self.authz.by_id(&pid) {
-                Some(rec) => Self::authenticated(rec),
-                None => AuthOutcome::Denied {
-                    reason: DenyReason::BadCredential,
-                },
-            };
+        if let Some(h) = hash.as_deref() {
+            if let Some(pid) = self.bindings.get(h) {
+                return match self.authz.by_id(&pid) {
+                    Some(rec) => Self::authenticated(rec),
+                    None => AuthOutcome::Denied {
+                        reason: DenyReason::BadCredential,
+                    },
+                };
+            }
         }
-        // 3. Manual config pins (`token_hashes`/`device_ids`).
-        match self.authz.lookup(&hash, None) {
+        // 3. Manual config pins (`token_hashes`/`device_ids`). `hash` is `""`
+        //    (never a real SHA-256 hex digest) when no token was presented, so
+        //    this can only match on `device_id`.
+        match self.authz.lookup(hash.as_deref().unwrap_or(""), device_id) {
             Some(rec) => Self::authenticated(rec),
             // 4. Neither bound nor pinned under enforcement → fail closed.
             None => AuthOutcome::Denied {
@@ -235,14 +248,76 @@ mod tests {
     }
 
     #[test]
-    fn accepts_only_bearer_credentials() {
+    fn accepts_bearer_and_mtls_credentials() {
         let p = PairingAuthProvider::new(
             AuthzConfig::default(),
             Arc::new(TokenBindingStore::new_ephemeral()),
         );
         assert!(p.accepts(&Credential::Bearer("x".into())));
+        assert!(p.accepts(&Credential::Mtls {
+            device_id: "dev-abc".into(),
+            token: None,
+        }));
         assert!(!p.accepts(&Credential::None));
         assert!(!p.accepts(&Credential::Peercred { uid: 0 }));
+    }
+
+    fn provider_with_device(alias: &str, device_id: &str) -> PairingAuthProvider {
+        let authz = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "alice".into(),
+                allowed_agents: vec![alias.into()],
+                device_ids: vec![device_id.into()],
+                token_hashes: vec![],
+            }],
+        };
+        PairingAuthProvider::new(authz, Arc::new(TokenBindingStore::new_ephemeral()))
+    }
+
+    #[tokio::test]
+    async fn device_only_credential_matching_device_id_authenticates() {
+        let p = provider_with_device("crm-bot", "dev-abc");
+        let out = p
+            .verify(&Credential::Mtls {
+                device_id: "dev-abc".into(),
+                token: None,
+            })
+            .await;
+        let principal = out.principal().expect("matching device_id authenticates");
+        assert!(principal.may_bind("crm-bot"));
+    }
+
+    #[tokio::test]
+    async fn device_only_credential_with_no_matching_device_id_is_denied() {
+        let p = provider_with_device("crm-bot", "dev-abc");
+        let out = p
+            .verify(&Credential::Mtls {
+                device_id: "dev-nope".into(),
+                token: None,
+            })
+            .await;
+        assert!(out.principal().is_none());
+        assert!(matches!(
+            out,
+            AuthOutcome::Denied {
+                reason: DenyReason::BadCredential
+            }
+        ));
+    }
+
+    #[tokio::test]
+    async fn mtls_credential_with_paired_token_still_resolves_by_token() {
+        // A connection presenting BOTH a client cert and a bearer resolves via
+        // the normal token path (device_id unset in config for this principal).
+        let p = provider_with("crm-bot", "tok-a");
+        let out = p
+            .verify(&Credential::Mtls {
+                device_id: "unregistered-device".into(),
+                token: Some("tok-a".into()),
+            })
+            .await;
+        let principal = out.principal().expect("token still resolves");
+        assert!(principal.may_bind("crm-bot"));
     }
 
     #[test]

@@ -610,6 +610,27 @@ mod tests {
         assert!(client_cert_node_id(b"not a cert").is_none());
     }
 
+    /// `client_cert_node_id` is the reusable CN reader for resolving an mTLS
+    /// connection's device_id at the gateway accept loop (F4b-3): fed a
+    /// CA-signed leaf built the same way a real device cert is issued
+    /// (`testing::gen_client_csr` + `sign_csr`), it reads back the CN the CA
+    /// stamped as `device_id`.
+    #[test]
+    fn client_cert_node_id_reads_cn_from_issued_device_leaf() {
+        ensure_crypto_provider();
+        let (ca_cert, ca_key) = testing::gen_ca();
+        let (csr, _device_key) = testing::gen_client_csr("dev-abc");
+        let leaf = sign_csr(&ca_cert, &ca_key, "dev-abc", &csr).unwrap();
+        let der = rustls_pemfile::certs(&mut leaf.cert_pem.as_bytes())
+            .next()
+            .expect("one certificate in the issued PEM")
+            .expect("valid certificate PEM");
+        assert_eq!(
+            client_cert_node_id(der.as_ref()).as_deref(),
+            Some("dev-abc")
+        );
+    }
+
     #[test]
     fn load_revoked_fingerprints_normalizes_and_skips_comments() {
         let f = tempfile::NamedTempFile::new().unwrap();

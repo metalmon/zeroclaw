@@ -1,7 +1,8 @@
 //! ACP-over-WebSocket gateway endpoint.
 
-use super::AppState;
+use super::{AppState, ClientDeviceId};
 use axum::{
+    Extension,
     extract::{
         ConnectInfo, Query, State, WebSocketUpgrade,
         ws::{Message, WebSocket},
@@ -47,10 +48,17 @@ pub async fn handle_ws_acp(
     State(state): State<AppState>,
     ConnectInfo(peer_addr): ConnectInfo<SocketAddr>,
     Query(params): Query<AcpQuery>,
+    // Present only on a connection whose TLS layer is mTLS AND presented a
+    // client certificate (the public accept loop attaches this extension
+    // per-connection from the peer cert's subject CN). Absent on the
+    // loopback/private listener (no TLS) and on any TLS connection without a
+    // client cert — `device_id` stays `None`, unchanged behavior.
+    device_id_ext: Option<Extension<ClientDeviceId>>,
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
     let token = extract_ws_token(&headers, params.token.as_deref()).map(str::to_string);
+    let device_id = device_id_ext.map(|Extension(ClientDeviceId(id))| id);
 
     // Pairing-over-ACP (fork-local): when pairing is required and the
     // presented token is absent or not (yet) paired, do NOT 401 — upgrade
@@ -95,7 +103,13 @@ pub async fn handle_ws_acp(
     // unchanged. Unchanged from before pairing-over-ACP: a presented-but
     // -Denied bearer is still rejected with a hard 401 here.
     let authz_enforced = state.config.read().authz.is_enforced();
-    let principal = match resolve_principal(&state.provider_registry, token.as_deref()).await {
+    let principal = match resolve_principal(
+        &state.provider_registry,
+        token.as_deref(),
+        device_id.as_deref(),
+    )
+    .await
+    {
         Some(principal) => principal,
         None if !authz_enforced => Principal::shared_operator(),
         None => {
@@ -143,16 +157,27 @@ pub fn build_provider_registry(
     Arc::new(registry)
 }
 
-/// Resolve a presented bearer to a [`Principal`] via the registry. `None` means
-/// the credential was denied (or absent); the caller decides whether that is a
-/// hard reject (authz enforced) or the shared-operator fallback (legacy).
+/// Resolve a presented bearer and/or mTLS `device_id` to a [`Principal`] via
+/// the registry. `None` means the credential was denied (or absent); the
+/// caller decides whether that is a hard reject (authz enforced) or the
+/// shared-operator fallback (legacy).
+///
+/// `device_id` (the client cert's subject CN, when the connection is mTLS) is
+/// threaded alongside `token` so `[[authz.principals]].device_ids`-based
+/// principals can bind even when no bearer was presented.
 pub async fn resolve_principal(
     registry: &ProviderRegistry,
     token: Option<&str>,
+    device_id: Option<&str>,
 ) -> Option<Principal> {
-    let credential = match token {
-        Some(token) if !token.is_empty() => Credential::Bearer(token.to_string()),
-        _ => Credential::None,
+    let token = token.filter(|t| !t.is_empty()).map(str::to_string);
+    let credential = match (device_id, token) {
+        (Some(device_id), token) => Credential::Mtls {
+            device_id: device_id.to_string(),
+            token,
+        },
+        (None, Some(token)) => Credential::Bearer(token),
+        (None, None) => Credential::None,
     };
     match registry.resolve(&credential).await {
         AuthOutcome::Authenticated(principal) | AuthOutcome::Trusted(principal) => Some(principal),
@@ -402,7 +427,7 @@ async fn run_pre_auth(
 
                 let authz_enforced = state.config.read().authz.is_enforced();
                 let principal =
-                    match resolve_principal(&state.provider_registry, Some(&token)).await {
+                    match resolve_principal(&state.provider_registry, Some(&token), None).await {
                         Some(principal) => principal,
                         None if !authz_enforced => Principal::shared_operator(),
                         None => {
@@ -714,17 +739,47 @@ mod tests {
         );
 
         assert!(
-            super::resolve_principal(&registry, Some("bad"))
+            super::resolve_principal(&registry, Some("bad"), None)
                 .await
                 .is_none(),
             "an unmapped bearer must be denied once authz is enforced"
         );
 
-        let principal = super::resolve_principal(&registry, Some("good"))
+        let principal = super::resolve_principal(&registry, Some("good"), None)
             .await
             .expect("the mapped bearer must resolve to a principal");
         assert!(principal.may_bind("crm-bot"));
         assert!(!principal.may_bind("hr-bot"));
+    }
+
+    #[tokio::test]
+    async fn resolve_principal_binds_by_device_id_with_no_token() {
+        use zeroclaw_config::authz::{AuthzConfig, PrincipalRecord};
+
+        let authz = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "alice".into(),
+                allowed_agents: vec!["crm-bot".into()],
+                device_ids: vec!["dev-abc".into()],
+                token_hashes: vec![],
+            }],
+        };
+        let registry = super::build_provider_registry(
+            authz,
+            std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+        );
+
+        assert!(
+            super::resolve_principal(&registry, None, Some("dev-nope"))
+                .await
+                .is_none(),
+            "a non-matching device_id must be denied once authz is enforced"
+        );
+
+        let principal = super::resolve_principal(&registry, None, Some("dev-abc"))
+            .await
+            .expect("the matching device_id must resolve to a principal, with no token needed");
+        assert!(principal.may_bind("crm-bot"));
     }
 
     /// `front_door_config` with pairing turned on and no pre-paired tokens,
