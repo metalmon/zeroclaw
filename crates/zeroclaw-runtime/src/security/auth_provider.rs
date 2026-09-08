@@ -53,6 +53,17 @@ pub enum Credential {
     },
     /// A local transport peer credential (Unix-socket uid).
     Peercred { uid: u32 },
+    /// An mTLS client-certificate credential: the peer certificate's subject
+    /// Common Name (`device_id`), plus an optional bearer token presented
+    /// alongside it on the same connection (e.g. a `?token=` query param over
+    /// a client-cert-authenticated WS handshake). A new variant rather than a
+    /// field added to `Bearer` so `Bearer(String)` — and every existing match
+    /// on it — is untouched; verification must handle a `device_id` with or
+    /// without a paired `token`.
+    Mtls {
+        device_id: String,
+        token: Option<String>,
+    },
 }
 
 impl std::fmt::Debug for Credential {
@@ -68,6 +79,13 @@ impl std::fmt::Debug for Credential {
             Self::Peercred { uid } => f
                 .debug_struct("Credential::Peercred")
                 .field("uid", uid)
+                .finish(),
+            Self::Mtls { device_id, token } => f
+                .debug_struct("Credential::Mtls")
+                // device_id is the certificate's public subject CN, not
+                // secret — safe to show, unlike the paired token.
+                .field("device_id", device_id)
+                .field("token", &token.as_ref().map(|_| "<redacted>"))
                 .finish(),
         }
     }
@@ -332,5 +350,19 @@ mod tests {
         assert!(dbg.contains("alice"));
         assert!(dbg.contains("<redacted>"));
         assert!(!dbg.contains("222")); // 0xde — raw signature byte must not appear
+    }
+
+    #[test]
+    fn debug_shows_device_id_but_redacts_paired_token() {
+        let dbg = format!(
+            "{:?}",
+            Credential::Mtls {
+                device_id: "dev-abc".into(),
+                token: Some("super-secret".into()),
+            }
+        );
+        assert!(dbg.contains("dev-abc"));
+        assert!(dbg.contains("<redacted>"));
+        assert!(!dbg.contains("super-secret"));
     }
 }

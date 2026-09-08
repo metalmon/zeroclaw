@@ -465,6 +465,17 @@ fn default_agent_alias(config: &Config) -> Option<String> {
 /// value into a delegated helper without lifetime coupling.
 pub(crate) type ConfigWriteGuard = tokio::sync::OwnedMutexGuard<()>;
 
+/// The connecting client's mTLS device identity, resolved from its peer
+/// certificate's subject Common Name by the TLS accept loop and attached to
+/// every request served on that connection via an axum `Extension`. Absent
+/// (no `Extension<ClientDeviceId>` in the request) when the connection is
+/// not mTLS, or is TLS/mTLS but the client presented no certificate — the
+/// private/loopback listener (plain TCP, no TLS) never carries this
+/// extension. Handlers read it as `Option<Extension<ClientDeviceId>>` so its
+/// absence is not an extraction error.
+#[derive(Debug, Clone)]
+pub struct ClientDeviceId(pub String);
+
 /// Shared state for all axum handlers
 #[derive(Clone)]
 pub struct AppState {
@@ -2238,9 +2249,26 @@ pub async fn run_gateway(
                                     return;
                                 }
                             };
+                            // Resolve the mTLS device_id (peer leaf cert's
+                            // subject CN) BEFORE the stream is moved into
+                            // `TokioIo` — `peer_certificates()` borrows the
+                            // underlying `rustls::ServerConnection`. `None`
+                            // when the client presented no certificate
+                            // (mTLS not required, or a server-only TLS
+                            // listener): the extension is simply omitted
+                            // below, matching today's behavior.
+                            let device_id = tls_stream
+                                .get_ref()
+                                .1
+                                .peer_certificates()
+                                .and_then(|certs| certs.first())
+                                .and_then(|leaf| zeroclaw_tls::client_cert_node_id(leaf.as_ref()));
                             let io = hyper_util::rt::TokioIo::new(tls_stream);
-                            let hyper_svc = hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
+                            let hyper_svc = hyper::service::service_fn(move |mut req: hyper::Request<hyper::body::Incoming>| {
                                 let mut svc = svc.clone();
+                                if let Some(id) = &device_id {
+                                    req.extensions_mut().insert(ClientDeviceId(id.clone()));
+                                }
                                 async move {
                                     tower::Service::call(&mut svc, req).await
                                 }
@@ -2400,9 +2428,23 @@ pub async fn run_gateway(
                                     return;
                                 }
                             };
+                            // Resolve the mTLS device_id (peer leaf cert's
+                            // subject CN) BEFORE the stream is moved into
+                            // `TokioIo` — mirrors the split-mode public
+                            // accept loop above. `None` when the client
+                            // presented no certificate.
+                            let device_id = tls_stream
+                                .get_ref()
+                                .1
+                                .peer_certificates()
+                                .and_then(|certs| certs.first())
+                                .and_then(|leaf| zeroclaw_tls::client_cert_node_id(leaf.as_ref()));
                             let io = hyper_util::rt::TokioIo::new(tls_stream);
-                            let hyper_svc = hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
+                            let hyper_svc = hyper::service::service_fn(move |mut req: hyper::Request<hyper::body::Incoming>| {
                                 let mut svc = svc.clone();
+                                if let Some(id) = &device_id {
+                                    req.extensions_mut().insert(ClientDeviceId(id.clone()));
+                                }
                                 async move {
                                     tower::Service::call(&mut svc, req).await
                                 }
