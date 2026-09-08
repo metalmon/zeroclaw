@@ -89,15 +89,13 @@ impl AuthProvider for PairingAuthProvider {
         //    A binding names a principal id; it only grants access if that id
         //    still resolves in config. If the admin removed the principal, the
         //    stale binding fails closed (Denied) rather than silently allowing.
-        if let Some(h) = hash.as_deref() {
-            if let Some(pid) = self.bindings.get(h) {
-                return match self.authz.by_id(&pid) {
-                    Some(rec) => Self::authenticated(rec),
-                    None => AuthOutcome::Denied {
-                        reason: DenyReason::BadCredential,
-                    },
-                };
-            }
+        if let Some(pid) = hash.as_deref().and_then(|h| self.bindings.get(h)) {
+            return match self.authz.by_id(&pid) {
+                Some(rec) => Self::authenticated(rec),
+                None => AuthOutcome::Denied {
+                    reason: DenyReason::BadCredential,
+                },
+            };
         }
         // 3. Manual config pins (`token_hashes`/`device_ids`). `hash` is `""`
         //    (never a real SHA-256 hex digest) when no token was presented, so

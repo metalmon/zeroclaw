@@ -60,18 +60,38 @@ pub async fn handle_ws_acp(
     let token = extract_ws_token(&headers, params.token.as_deref()).map(str::to_string);
     let device_id = device_id_ext.map(|Extension(ClientDeviceId(id))| id);
 
+    // Resolve the presented credential up front (pure reads only — no
+    // binding-store writes happen on this path) so its outcome can feed
+    // BOTH the pre-auth/authenticated gate below and, on the authenticated
+    // branch, the principal actually bound to the socket. Resolving early
+    // is what lets a device_id-bound principal (mTLS client-cert CN
+    // matching `[[authz.principals]].device_ids`) skip pre-auth even with
+    // no pairing token at all — see `connection_is_authenticated`.
+    let resolved = resolve_principal(
+        &state.provider_registry,
+        token.as_deref(),
+        device_id.as_deref(),
+    )
+    .await;
+
     // Pairing-over-ACP (fork-local): when pairing is required and the
     // presented token is absent or not (yet) paired, do NOT 401 — upgrade
-    // the connection in pre-auth mode instead. A pre-auth connection may
-    // call only `zeroclaw/pair`; on a successful pair it resolves its
-    // principal and proceeds on the SAME socket (see `handle_socket`). This
-    // is the only branch that departs from today's behavior: a deployment
-    // with `require_pairing = false`, or a connection presenting an already
-    // -paired token, takes the authenticated path exactly as before.
-    let authenticated = !state.pairing.require_pairing()
-        || token
+    // the connection in pre-auth mode instead, UNLESS the credential
+    // already resolved to a DISTINCT authenticated principal (condition 3
+    // below). A pre-auth connection may call only `zeroclaw/pair`; on a
+    // successful pair it resolves its principal and proceeds on the SAME
+    // socket (see `handle_socket`). This is the only branch that departs
+    // from today's behavior: a deployment with `require_pairing = false`,
+    // a connection presenting an already-paired token, or a connection
+    // whose mTLS device_id already resolved to a distinct principal, takes
+    // the authenticated path exactly as before.
+    let authenticated = connection_is_authenticated(
+        state.pairing.require_pairing(),
+        token
             .as_deref()
-            .is_some_and(|t| state.pairing.is_authenticated(t));
+            .is_some_and(|t| state.pairing.is_authenticated(t)),
+        resolved.as_ref(),
+    );
 
     let ws = if headers
         .get("sec-websocket-protocol")
@@ -97,19 +117,14 @@ pub async fn handle_ws_acp(
             .into_response();
     }
 
-    // Resolve the authenticated subject for this connection. Fail-closed once
-    // authz is enforced; otherwise fall back to the shared operator so the
-    // legacy single-operator path (including no-pairing deployments) is
-    // unchanged. Unchanged from before pairing-over-ACP: a presented-but
-    // -Denied bearer is still rejected with a hard 401 here.
+    // The authenticated subject for this connection — reusing `resolved`
+    // from the up-front resolution above (no second registry round-trip).
+    // Fail-closed once authz is enforced; otherwise fall back to the shared
+    // operator so the legacy single-operator path (including no-pairing
+    // deployments) is unchanged. Unchanged from before pairing-over-ACP: a
+    // presented-but-Denied bearer is still rejected with a hard 401 here.
     let authz_enforced = state.config.read().authz.is_enforced();
-    let principal = match resolve_principal(
-        &state.provider_registry,
-        token.as_deref(),
-        device_id.as_deref(),
-    )
-    .await
-    {
+    let principal = match resolved {
         Some(principal) => principal,
         None if !authz_enforced => Principal::shared_operator(),
         None => {
@@ -132,6 +147,30 @@ pub async fn handle_ws_acp(
         )
     })
     .into_response()
+}
+
+/// The connection-gate decision: should this `/acp` connection skip
+/// pre-auth pairing and proceed straight to `handle_socket` as
+/// authenticated? `true` when ANY of:
+/// 1. pairing is not required at all (`!require_pairing`, legacy, unchanged),
+/// 2. the presented token is already a valid *paired* token
+///    (`token_is_paired`, the existing `PairingGuard` path), or
+/// 3. the credential already resolved to a DISTINCT authenticated principal
+///    (`resolved.is_authenticated()`) — e.g. an mTLS client-cert `device_id`
+///    matching a `[[authz.principals]].device_ids` entry under enforced
+///    authz.
+///
+/// Condition 3 can never be satisfied by [`Principal::shared_operator`]
+/// (`is_authenticated() == false`), so a bare CA-issued client certificate
+/// can NEVER bypass `require_pairing` when authz is NOT enforced — only a
+/// config-backed *distinct* principal (i.e. authz IS enforced and the
+/// device_id/token actually maps to a configured principal) skips pairing.
+fn connection_is_authenticated(
+    require_pairing: bool,
+    token_is_paired: bool,
+    resolved: Option<&Principal>,
+) -> bool {
+    !require_pairing || token_is_paired || resolved.is_some_and(Principal::is_authenticated)
 }
 
 /// The connection's auth state at the moment its socket is handed to
@@ -780,6 +819,130 @@ mod tests {
             .await
             .expect("the matching device_id must resolve to a principal, with no token needed");
         assert!(principal.may_bind("crm-bot"));
+    }
+
+    // --- connection_is_authenticated (the pre-auth/authenticated gate) ---
+
+    #[test]
+    fn legacy_no_pairing_required_is_always_authenticated() {
+        // Condition 1: require_pairing = false short-circuits regardless of
+        // token/resolved state — unchanged legacy behavior.
+        assert!(super::connection_is_authenticated(false, false, None));
+    }
+
+    #[test]
+    fn paired_token_is_authenticated_even_with_no_resolved_principal() {
+        // Condition 2: the existing PairingGuard token-paired path, untouched
+        // by the device_id feature.
+        assert!(super::connection_is_authenticated(true, true, None));
+    }
+
+    #[test]
+    fn distinct_resolved_principal_authenticates_under_required_pairing() {
+        // Condition 3 (NEW): under require_pairing = true, with no paired
+        // token, a distinct principal already resolved (e.g. via a matching
+        // mTLS device_id under enforced authz) is sufficient to skip
+        // pre-auth — this is the enterprise-default fix.
+        use zeroclaw_api::principal::{AuthMethod, Principal, PrincipalId};
+
+        let principal = Principal::new(
+            PrincipalId::from("alice".to_string()),
+            "alice".to_string(),
+            AuthMethod::Native,
+        );
+        assert!(principal.is_authenticated());
+        assert!(super::connection_is_authenticated(
+            true,
+            false,
+            Some(&principal)
+        ));
+    }
+
+    #[test]
+    fn shared_operator_never_bypasses_required_pairing() {
+        // The safety property the review validated: resolve_principal falls
+        // back to shared_operator() when authz is NOT enforced (e.g. a bare
+        // mTLS cert with no matching principal, or no cert at all). That
+        // sentinel is never "distinct" (`is_authenticated() == false`), so it
+        // must NOT satisfy condition 3 — a bare CA cert can never bypass
+        // require_pairing this way.
+        use zeroclaw_api::principal::Principal;
+
+        let shared = Principal::shared_operator();
+        assert!(!shared.is_authenticated());
+        assert!(!super::connection_is_authenticated(
+            true,
+            false,
+            Some(&shared)
+        ));
+    }
+
+    #[test]
+    fn no_resolved_principal_does_not_authenticate_under_required_pairing() {
+        // A device_id (or token) matching nothing at all — `resolved` is
+        // `None` — must still fall through to pre-auth (or, on the
+        // authenticated branch reached via another condition, to the
+        // existing 401/shared-operator handling). It never satisfies
+        // condition 3.
+        assert!(!super::connection_is_authenticated(true, false, None));
+    }
+
+    /// End-to-end composition of resolve_principal + connection_is_authenticated
+    /// for the three scenarios the security review asked to be pinned down:
+    /// enforced authz + matching device_id skips pre-auth and binds the
+    /// principal; enforced authz + non-matching device_id stays gated;
+    /// UNenforced authz + a device_id never bypasses required pairing.
+    #[tokio::test]
+    async fn device_id_gate_composition_matches_reviewed_rule() {
+        use zeroclaw_config::authz::{AuthzConfig, PrincipalRecord};
+
+        let enforced_registry = super::build_provider_registry(
+            AuthzConfig {
+                principals: vec![PrincipalRecord {
+                    id: "alice".into(),
+                    allowed_agents: vec!["crm-bot".into()],
+                    device_ids: vec!["dev-abc".into()],
+                    token_hashes: vec![],
+                }],
+            },
+            std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+        );
+
+        // Enforced authz + matching device_id, no token, require_pairing=true
+        // -> resolves to a distinct principal -> gate is authenticated.
+        let matched = super::resolve_principal(&enforced_registry, None, Some("dev-abc")).await;
+        assert!(super::connection_is_authenticated(
+            true,
+            false,
+            matched.as_ref()
+        ));
+        assert!(matched.unwrap().may_bind("crm-bot"));
+
+        // Enforced authz + non-matching device_id -> Denied (None) -> gate
+        // stays pre-auth.
+        let unmatched = super::resolve_principal(&enforced_registry, None, Some("dev-nope")).await;
+        assert!(unmatched.is_none());
+        assert!(!super::connection_is_authenticated(
+            true,
+            false,
+            unmatched.as_ref()
+        ));
+
+        // UNenforced authz + a device_id (no matching config at all) ->
+        // shared_operator, not distinct -> gate stays pre-auth even though
+        // resolve_principal returned Some.
+        let unenforced_registry = super::build_provider_registry(
+            AuthzConfig::default(),
+            std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+        );
+        let bare_cert =
+            super::resolve_principal(&unenforced_registry, None, Some("any-cert-cn")).await;
+        assert!(bare_cert.as_ref().is_some_and(|p| !p.is_authenticated()));
+        assert!(!super::connection_is_authenticated(
+            true,
+            false,
+            bare_cert.as_ref()
+        ));
     }
 
     /// `front_door_config` with pairing turned on and no pre-paired tokens,
