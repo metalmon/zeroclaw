@@ -53,9 +53,13 @@ impl AuthzConfig {
     }
 
     /// Find the principal a bearer maps to, by token-hash first then device id.
+    /// An empty `token_hash` (device-only credential, no bearer) never matches a
+    /// configured `token_hashes` entry — otherwise a misconfigured `[""]` pin
+    /// would spuriously match a token-less connection. Device-only credentials
+    /// resolve solely via `device_id`.
     pub fn lookup(&self, token_hash: &str, device_id: Option<&str>) -> Option<&PrincipalRecord> {
         self.principals.iter().find(|p| {
-            p.token_hashes.iter().any(|h| h == token_hash)
+            (!token_hash.is_empty() && p.token_hashes.iter().any(|h| h == token_hash))
                 || device_id.is_some_and(|d| p.device_ids.iter().any(|x| x == d))
         })
     }
@@ -238,6 +242,25 @@ mod tests {
     fn lookup_by_device_id() {
         let c = cfg();
         assert_eq!(c.lookup("other", Some("dev-1")).unwrap().id, "admin");
+    }
+
+    #[test]
+    fn lookup_empty_token_hash_never_matches_a_pin() {
+        // A device-only (token-less) credential passes "" as the token hash.
+        // Even a misconfigured empty `token_hashes` pin must NOT match it;
+        // resolution for such a credential is device_id-only.
+        let c: AuthzConfig = toml::from_str(
+            r#"
+            [[principals]]
+            id = "x"
+            allowed_agents = ["bot"]
+            token_hashes = [""]
+            device_ids = ["dev-x"]
+            "#,
+        )
+        .unwrap();
+        assert!(c.lookup("", None).is_none());
+        assert_eq!(c.lookup("", Some("dev-x")).unwrap().id, "x");
     }
 
     #[test]
