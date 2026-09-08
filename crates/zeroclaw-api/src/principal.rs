@@ -187,6 +187,21 @@ impl Principal {
             AuthMethod::None | AuthMethod::SharedOperator
         )
     }
+
+    /// The fork-local entitlement predicate: `true` if this principal may bind
+    /// or dispatch `alias`. The trusted-local / legacy
+    /// [`Principal::shared_operator`] (`!is_authenticated`) may reach any
+    /// configured alias, preserving today's behaviour when no authz principals
+    /// are configured; a *distinct* authenticated principal is limited to its
+    /// `allowed_aliases` ([`Principal::may_bind`] — explicit alias or `"*"`).
+    /// This is THE shared gate for every dispatch chokepoint (ACP bind today;
+    /// REST/A2A once they resolve an authenticated principal). Do not substitute
+    /// a bare [`Principal::may_bind`]: `shared_operator` carries no
+    /// `allowed_aliases`, so that would deny the trusted-local path.
+    #[must_use]
+    pub fn is_entitled_to_alias(&self, alias: &str) -> bool {
+        !self.is_authenticated() || self.may_bind(alias)
+    }
 }
 
 /// Filter agent aliases down to the ones `principal` may see on a private
@@ -206,7 +221,7 @@ impl Principal {
 pub fn filter_agents_for_principal<'a>(all: &'a [&'a str], principal: &Principal) -> Vec<&'a str> {
     all.iter()
         .copied()
-        .filter(|alias| !principal.is_authenticated() || principal.may_bind(alias))
+        .filter(|alias| principal.is_entitled_to_alias(alias))
         .collect()
 }
 
@@ -287,6 +302,32 @@ mod tests {
             allowed_aliases: vec![AgentAlias("main".to_owned())],
         };
         assert!(p.is_authenticated());
+    }
+
+    #[test]
+    fn is_entitled_to_alias_gate() {
+        // Trusted-local / legacy: no allowed_aliases, yet reaches any alias.
+        let shared = Principal::shared_operator();
+        assert!(shared.is_entitled_to_alias("anything"));
+        assert!(shared.is_entitled_to_alias("crm-bot"));
+
+        // Distinct authenticated principal: limited to its allowed_aliases.
+        let mut alice = Principal {
+            id: PrincipalId::from("alice"),
+            user_id: "alice".to_owned(),
+            roles: vec![],
+            scopes: vec![],
+            auth_method: AuthMethod::Oidc,
+            mfa_verified: false,
+            expires_at: 0,
+            allowed_aliases: vec![AgentAlias("crm-bot".to_owned())],
+        };
+        assert!(alice.is_entitled_to_alias("crm-bot"));
+        assert!(!alice.is_entitled_to_alias("payroll-bot"));
+
+        // Wildcard grants every alias.
+        alice.allowed_aliases = vec![AgentAlias("*".to_owned())];
+        assert!(alice.is_entitled_to_alias("payroll-bot"));
     }
 
     #[test]

@@ -722,7 +722,7 @@ impl AcpServer {
         principal: &Principal,
         agent_alias: &str,
     ) -> Result<(), RpcError> {
-        let permitted = !principal.is_authenticated() || principal.may_bind(agent_alias);
+        let permitted = principal.is_entitled_to_alias(agent_alias);
         ::zeroclaw_log::record!(
             INFO,
             ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
