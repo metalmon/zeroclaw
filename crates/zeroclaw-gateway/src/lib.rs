@@ -2248,7 +2248,7 @@ pub async fn run_gateway(
                             if let Err(e) = hyper_util::server::conn::auto::Builder::new(
                                 hyper_util::rt::TokioExecutor::new(),
                             )
-                            .serve_connection(io, hyper_svc)
+                            .serve_connection_with_upgrades(io, hyper_svc)
                             .await
                             {
                                 ::zeroclaw_log::record!(DEBUG, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_attrs(::serde_json::json!({"error": format!("{}", e), "remote_addr": remote_addr})), "connection error from");
@@ -2410,7 +2410,7 @@ pub async fn run_gateway(
                             if let Err(e) = hyper_util::server::conn::auto::Builder::new(
                                 hyper_util::rt::TokioExecutor::new(),
                             )
-                            .serve_connection(io, hyper_svc)
+                            .serve_connection_with_upgrades(io, hyper_svc)
                             .await
                             {
                                 ::zeroclaw_log::record!(DEBUG, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_attrs(::serde_json::json!({"error": format!("{}", e), "remote_addr": remote_addr})), "connection error from");
