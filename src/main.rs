@@ -11088,6 +11088,23 @@ mod tests {
 
     #[test]
     #[cfg(feature = "agent-runtime")]
+    fn gateway_get_paircode_cli_rejects_principal_without_new() {
+        let result = Cli::try_parse_from([
+            "zeroclaw",
+            "gateway",
+            "get-paircode",
+            "--principal",
+            "alice",
+        ]);
+
+        assert!(
+            result.is_err(),
+            "expected --principal without --new to be rejected, got {result:?}"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "agent-runtime")]
     fn gateway_get_paircode_cli_accepts_principal_flag() {
         let cli = Cli::try_parse_from([
             "zeroclaw",
