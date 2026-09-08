@@ -1,0 +1,35 @@
+# Fork-only: build the debian (shell) container image for a branch and upload it
+# as a loadable tar artifact (air-gapped delivery + local E2E). Not for upstream.
+name: Fork Docker Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch or ref to build
+        required: true
+        default: feat/fork-device-id
+
+jobs:
+  image:
+    name: Build image (debian)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 1
+      - uses: docker/setup-buildx-action@v3
+      - name: Build zeroclaw:f4-debian
+        run: |
+          docker build -f Dockerfile.debian -t zeroclaw:f4-debian .
+      - name: Save image to a loadable tar
+        run: |
+          docker save zeroclaw:f4-debian | gzip > zeroclaw-f4-debian.tar.gz
+          ls -lh zeroclaw-f4-debian.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zeroclaw-f4-debian-image
+          path: zeroclaw-f4-debian.tar.gz
+          retention-days: 7
