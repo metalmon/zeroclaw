@@ -1150,6 +1150,16 @@ impl AcpServer {
         // owner is missing or not dispatchable. `?agent=` is not consulted.
         let restore_alias = Self::resolve_restore_agent_alias(&config, &data.agent_alias);
 
+        // Re-check the current connection's principal against the persisted
+        // owner alias before restoring it. `resolve_restore_agent_alias`
+        // already confirmed the alias is configured and dispatchable, so the
+        // narrower entitlement-only gate (no redundant "unknown agent" /
+        // "not dispatchable" checks) is what's missing here.
+        if let Err(e) = Self::authorize_principal_for_alias(&self.principal, &restore_alias) {
+            self.loading_sessions.lock().await.remove(&session_id);
+            return Err(e);
+        }
+
         // MCP init follows the restored agent's own opt-in
         // (`[agents.<alias>].acp_enable_mcp`), matching `session/new`.
         let enable_mcp = config
@@ -1363,6 +1373,16 @@ impl AcpServer {
         // ACP default (or sole agent, or "default") only when the persisted
         // owner is missing or not dispatchable. `?agent=` is not consulted.
         let restore_alias = Self::resolve_restore_agent_alias(&config, &data.agent_alias);
+
+        // Re-check the current connection's principal against the persisted
+        // owner alias before restoring it. `resolve_restore_agent_alias`
+        // already confirmed the alias is configured and dispatchable, so the
+        // narrower entitlement-only gate (no redundant "unknown agent" /
+        // "not dispatchable" checks) is what's missing here.
+        if let Err(e) = Self::authorize_principal_for_alias(&self.principal, &restore_alias) {
+            self.loading_sessions.lock().await.remove(&session_id);
+            return Err(e);
+        }
 
         // MCP init follows the restored agent's own opt-in
         // (`[agents.<alias>].acp_enable_mcp`), matching `session/new`.
@@ -3945,6 +3965,90 @@ mod tests {
             ok.is_ok(),
             "shared-operator fallback must bind any configured alias, got: {ok:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn session_restore_rejects_unentitled_principal() {
+        use zeroclaw_api::principal::{AgentAlias, AuthMethod, Principal, PrincipalId};
+
+        let cwd = tempfile::tempdir().unwrap();
+        let config = crm_hr_config(cwd.path());
+
+        let store =
+            Arc::new(zeroclaw_infra::acp_session_store::AcpSessionStore::new(cwd.path()).unwrap());
+        // Every persisted session below is owned by `hr-bot`.
+        for session_id in [
+            "sess-denied-load",
+            "sess-denied-resume",
+            "sess-control-load",
+            "sess-control-resume",
+        ] {
+            store
+                .create_session(session_id, "hr-bot", &cwd.path().to_string_lossy())
+                .unwrap();
+        }
+
+        // alice is a distinct authenticated principal entitled to `crm-bot`
+        // only — she must not be able to reach `hr-bot` by loading/resuming a
+        // session that happens to be owned by it, even though `hr-bot` is
+        // configured and dispatchable.
+        let alice = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Oidc)
+            .with_allowed_aliases(vec![AgentAlias("crm-bot".into())]);
+        let (writer_tx, _rx) = tokio::sync::mpsc::channel::<String>(64);
+        let denied_server = Arc::new(
+            AcpServer::new_with_writer_and_store(
+                config.clone(),
+                AcpServerConfig::default(),
+                writer_tx,
+                Arc::clone(&store),
+            )
+            .with_principal(alice),
+        );
+
+        let load_err = denied_server
+            .handle_session_load(&serde_json::json!({
+                "sessionId": "sess-denied-load",
+                "cwd": cwd.path().to_string_lossy()
+            }))
+            .await
+            .expect_err("alice is not entitled to hr-bot; session/load must be denied");
+        assert_eq!(load_err.code, INVALID_PARAMS);
+
+        let resume_err = denied_server
+            .handle_session_resume(&serde_json::json!({
+                "sessionId": "sess-denied-resume",
+                "cwd": cwd.path().to_string_lossy()
+            }))
+            .await
+            .expect_err("alice is not entitled to hr-bot; session/resume must be denied");
+        assert_eq!(resume_err.code, INVALID_PARAMS);
+
+        // Control: the shared-operator fallback (default/unset principal) is
+        // not a distinct authenticated identity, so it still restores any
+        // configured alias — today's single-operator behaviour is preserved.
+        let (writer_tx2, _rx2) = tokio::sync::mpsc::channel::<String>(64);
+        let control_server = Arc::new(AcpServer::new_with_writer_and_store(
+            config,
+            AcpServerConfig::default(),
+            writer_tx2,
+            Arc::clone(&store),
+        ));
+
+        control_server
+            .handle_session_load(&serde_json::json!({
+                "sessionId": "sess-control-load",
+                "cwd": cwd.path().to_string_lossy()
+            }))
+            .await
+            .expect("shared operator must still be able to restore hr-bot");
+
+        control_server
+            .handle_session_resume(&serde_json::json!({
+                "sessionId": "sess-control-resume",
+                "cwd": cwd.path().to_string_lossy()
+            }))
+            .await
+            .expect("shared operator must still be able to restore hr-bot");
     }
 
     #[test]
