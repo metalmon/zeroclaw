@@ -207,12 +207,12 @@ Examples:
         rotate_device: Option<String>,
 
         /// Tag the minted code with a principal id (an `[[authz.principals]]
-        /// id`). When the resulting device pairs, the token is automatically
+        /// id`). Requires --new: tagging only makes sense when minting a new
+        /// code. When the resulting device pairs, the token is automatically
         /// bound to that principal in the runtime binding store and resolves
         /// on the next connect with no reload; its permissions come from that
-        /// principal's [[authz.principals]].allowed_agents. Has no effect on
-        /// codes minted without this flag.
-        #[arg(long, value_name = "PRINCIPAL_ID")]
+        /// principal's [[authz.principals]].allowed_agents.
+        #[arg(long, value_name = "PRINCIPAL_ID", requires = "new")]
         principal: Option<String>,
 
         /// Port of the running gateway to query; defaults to config gateway.port
