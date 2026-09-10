@@ -37,9 +37,21 @@ impl PairingAuthProvider {
     }
 
     /// Build the `Authenticated` outcome for a resolved principal record,
-    /// carrying its configured `allowed_agents` as bindable aliases.
-    fn authenticated(rec: &PrincipalRecord) -> AuthOutcome {
-        let aliases = rec.allowed_agents.iter().cloned().map(AgentAlias).collect();
+    /// carrying its LIVE `AuthzConfig::effective_agents` union — the bound
+    /// profiles' `allowed_agents` (or `["*"]` if any bound profile is
+    /// `admin`) — as bindable aliases, not the legacy inline
+    /// `rec.allowed_agents` field. This snapshot is best-effort/audit only:
+    /// the ACP chokepoint (`validate_dispatchable_agent_alias`) recomputes
+    /// the live grant set from `&Config` on every privileged op and is the
+    /// authoritative decision, so a config edit still applies with no
+    /// restart even though this snapshot is frozen at auth time.
+    fn authenticated(&self, rec: &PrincipalRecord) -> AuthOutcome {
+        let aliases = self
+            .authz
+            .effective_agents(&rec.id)
+            .into_iter()
+            .map(AgentAlias)
+            .collect();
         AuthOutcome::Authenticated(
             Principal::new(
                 PrincipalId::from(rec.id.clone()),
@@ -91,7 +103,7 @@ impl AuthProvider for PairingAuthProvider {
         //    stale binding fails closed (Denied) rather than silently allowing.
         if let Some(pid) = hash.as_deref().and_then(|h| self.bindings.get(h)) {
             return match self.authz.by_id(&pid) {
-                Some(rec) => Self::authenticated(rec),
+                Some(rec) => self.authenticated(rec),
                 None => AuthOutcome::Denied {
                     reason: DenyReason::BadCredential,
                 },
@@ -101,7 +113,7 @@ impl AuthProvider for PairingAuthProvider {
         //    (never a real SHA-256 hex digest) when no token was presented, so
         //    this can only match on `device_id`.
         match self.authz.lookup(hash.as_deref().unwrap_or(""), device_id) {
-            Some(rec) => Self::authenticated(rec),
+            Some(rec) => self.authenticated(rec),
             // 4. Neither bound nor pinned under enforcement → fail closed.
             None => AuthOutcome::Denied {
                 reason: DenyReason::BadCredential,
@@ -116,17 +128,29 @@ mod tests {
     // module now imports them at the top for the resolution logic).
     use super::*;
 
-    fn provider_with(alias: &str, tok: &str) -> PairingAuthProvider {
-        let authz = AuthzConfig {
-            principals: vec![PrincipalRecord {
-                id: "alice".into(),
-                allowed_agents: vec![alias.into()],
-                device_ids: vec![],
-                token_hashes: vec![PairingGuard::token_hash(tok)],
-                profiles: vec![],
-            }],
+    /// Builds an `AuthzConfig` with a single principal and runs it through
+    /// `migrate_inline_agents()` — the same field migration the real config
+    /// loader applies (`apply_field_migrations` in `zeroclaw-config`) — so
+    /// the legacy inline `allowed_agents` field used by these fixtures lands
+    /// in a generated profile and `AuthzConfig::effective_agents` (which only
+    /// reads `profiles`, never the inline field) resolves it correctly.
+    fn migrated_authz(principals: Vec<PrincipalRecord>) -> AuthzConfig {
+        let mut authz = AuthzConfig {
+            principals,
             profiles: vec![],
         };
+        authz.migrate_inline_agents();
+        authz
+    }
+
+    fn provider_with(alias: &str, tok: &str) -> PairingAuthProvider {
+        let authz = migrated_authz(vec![PrincipalRecord {
+            id: "alice".into(),
+            allowed_agents: vec![alias.into()],
+            device_ids: vec![],
+            token_hashes: vec![PairingGuard::token_hash(tok)],
+            profiles: vec![],
+        }]);
         PairingAuthProvider::new(authz, Arc::new(TokenBindingStore::new_ephemeral()))
     }
 
@@ -163,13 +187,7 @@ mod tests {
         store
             .set(PairingGuard::token_hash(tok), bound_id.into())
             .unwrap();
-        PairingAuthProvider::new(
-            AuthzConfig {
-                principals,
-                profiles: vec![],
-            },
-            Arc::new(store),
-        )
+        PairingAuthProvider::new(migrated_authz(principals), Arc::new(store))
     }
 
     #[tokio::test]
@@ -271,16 +289,13 @@ mod tests {
     }
 
     fn provider_with_device(alias: &str, device_id: &str) -> PairingAuthProvider {
-        let authz = AuthzConfig {
-            principals: vec![PrincipalRecord {
-                id: "alice".into(),
-                allowed_agents: vec![alias.into()],
-                device_ids: vec![device_id.into()],
-                token_hashes: vec![],
-                profiles: vec![],
-            }],
+        let authz = migrated_authz(vec![PrincipalRecord {
+            id: "alice".into(),
+            allowed_agents: vec![alias.into()],
+            device_ids: vec![device_id.into()],
+            token_hashes: vec![],
             profiles: vec![],
-        };
+        }]);
         PairingAuthProvider::new(authz, Arc::new(TokenBindingStore::new_ephemeral()))
     }
 
@@ -338,5 +353,85 @@ mod tests {
         );
         assert_eq!(p.name(), "pairing");
         assert_eq!(p.method(), AuthMethod::Native);
+    }
+
+    #[tokio::test]
+    async fn authenticated_outcome_carries_the_union_of_bound_profiles() {
+        // `authenticated()` must build `allowed_aliases` from
+        // `AuthzConfig::effective_agents` (the union of every bound
+        // profile's `allowed_agents`), not the legacy inline
+        // `PrincipalRecord::allowed_agents` field.
+        let authz = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "alice".into(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec![PairingGuard::token_hash("tok-a")],
+                profiles: vec!["crm".into(), "hr".into()],
+            }],
+            profiles: vec![
+                zeroclaw_config::authz::PermissionProfile {
+                    id: "crm".into(),
+                    allowed_agents: vec!["crm-bot".into()],
+                    admin: false,
+                },
+                zeroclaw_config::authz::PermissionProfile {
+                    id: "hr".into(),
+                    allowed_agents: vec!["hr-bot".into()],
+                    admin: false,
+                },
+            ],
+        };
+        let p = PairingAuthProvider::new(authz, Arc::new(TokenBindingStore::new_ephemeral()));
+        let out = p.verify(&Credential::Bearer("tok-a".into())).await;
+        let principal = out.principal().expect("bound principal authenticates");
+        assert!(principal.may_bind("crm-bot"));
+        assert!(principal.may_bind("hr-bot"));
+        assert!(!principal.may_bind("payroll-bot"));
+    }
+
+    #[tokio::test]
+    async fn authenticated_outcome_is_empty_for_a_principal_bound_to_no_profiles() {
+        // A principal bound to no profiles (an "empty role") must resolve to
+        // an empty grant set — deny-by-default, not a silent fallback.
+        let authz = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "alice".into(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec![PairingGuard::token_hash("tok-a")],
+                profiles: vec![],
+            }],
+            profiles: vec![],
+        };
+        let p = PairingAuthProvider::new(authz, Arc::new(TokenBindingStore::new_ephemeral()));
+        let out = p.verify(&Credential::Bearer("tok-a".into())).await;
+        let principal = out.principal().expect("configured principal authenticates");
+        assert!(!principal.may_bind("crm-bot"));
+        assert!(!principal.may_bind("anything"));
+    }
+
+    #[tokio::test]
+    async fn authenticated_outcome_is_wildcard_for_an_admin_profile() {
+        // A bound `admin: true` profile grants every alias via `["*"]`,
+        // regardless of any non-admin profile's `allowed_agents`.
+        let authz = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "alice".into(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec![PairingGuard::token_hash("tok-a")],
+                profiles: vec!["ops".into()],
+            }],
+            profiles: vec![zeroclaw_config::authz::PermissionProfile {
+                id: "ops".into(),
+                allowed_agents: vec![],
+                admin: true,
+            }],
+        };
+        let p = PairingAuthProvider::new(authz, Arc::new(TokenBindingStore::new_ephemeral()));
+        let out = p.verify(&Credential::Bearer("tok-a".into())).await;
+        let principal = out.principal().expect("admin principal authenticates");
+        assert!(principal.may_bind("anything"));
     }
 }
