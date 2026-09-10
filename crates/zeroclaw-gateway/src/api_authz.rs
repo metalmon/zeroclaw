@@ -614,6 +614,137 @@ pub async fn handle_unbind_principal_profile(
     .into_response()
 }
 
+// ── Pending-principal onboarding (Task 6: unbound pairing under enforcement) ──
+
+/// Generate a short, human-scannable disambiguator for a pending-principal
+/// id: the first 8 hex characters of a fresh UUIDv4. Collisions are
+/// vanishingly unlikely (32 bits) but never treated as a uniqueness
+/// guarantee on their own — [`create_pending_principal_if_enforced`] still
+/// checks the candidate against `working.authz` and retries on the rare
+/// clash.
+fn short_pending_suffix() -> String {
+    uuid::Uuid::new_v4().to_string()[..8].to_string()
+}
+
+/// Work around the SAME `zeroclaw-macros::create_map_key` natural-key bug
+/// [`fixup_created_profile_natural_key`] documents, for
+/// `[[authz.principals]]` instead of `[[authz.profiles]]`: `PrincipalRecord`'s
+/// natural key is also `id` (never `name`/`hint`), so a freshly-created
+/// principal row needs the exact same post-creation patch. Only call this
+/// immediately after a `create_map_key` call that itself reported `Ok(true)`
+/// — see that function's doc comment for the full invariant.
+fn fixup_created_principal_natural_key(working: &mut zeroclaw_config::schema::Config, id: &str) {
+    if let Some(principal) = working.authz.principals.last_mut() {
+        if principal.id.is_empty() {
+            principal.id = id.to_string();
+        }
+    }
+}
+
+/// When an UNBOUND pairing code (no `get-paircode --new --principal <id>`
+/// tag) is redeemed while authz is enforced, the newly-issued token would
+/// otherwise name no configured principal at all: `AuthzConfig::lookup`
+/// finds nothing for it, so every subsequent request with it is a flat,
+/// unexplained `Denied` and the operator has no way to discover the
+/// stranded device.
+///
+/// Instead, this mints a PENDING principal: a fresh `[[authz.principals]]`
+/// row (id `pending-<8 hex chars>`), EMPTY `profiles` (deny-by-default —
+/// `AuthzConfig::effective_agents` on an empty `profiles` list is `[]`, the
+/// same fail-closed rule every other unbound principal already gets), and
+/// `token_hashes: [token_hash]` so the redeemed token resolves to it. It
+/// shows up in the Roles UI (Task 5's generic `authz.principals`
+/// config-entity reader) flagged PENDING, for the operator to bind a real
+/// profile — see [`handle_bind_principal_profile`].
+///
+/// No-op (returns `None`, mutates nothing) when authz is NOT enforced:
+/// pre-authz pairing keeps today's shared-operator behavior untouched —
+/// this path only ever fires once ANY principal or profile already exists.
+/// Re-checked under `state.config_write_lock` in case enforcement changed
+/// between the caller's unlocked read and this call taking the lock.
+///
+/// Persistence mirrors [`handle_create_profile`]'s `create_map_key` +
+/// `fixup_created_profile_natural_key` workaround for the SAME
+/// `zeroclaw-macros::create_map_key` natural-key bug (see that function's
+/// doc comment), then rides [`persist_and_swap`]'s `save_dirty` write so the
+/// pending principal survives a restart. `persist_and_swap` only swaps the
+/// mutation into live `state.config` after a successful disk write (reverts
+/// the file on failure), so a persistence error here leaves `state.config`
+/// exactly as it was — never a live-only, on-restart-lost principal.
+///
+/// Best-effort, like `TokenBindingStore::set`: a disk failure here is
+/// logged and swallowed rather than failing the whole pairing response —
+/// the token is ALREADY paired by the time a caller reaches this point
+/// (committed by `PairingGuard::try_pair`), so refusing pairing over a
+/// persistence hiccup here would strand the device worse than a principal
+/// that only resolves in-process until the next successful config write.
+pub(crate) async fn create_pending_principal_if_enforced(
+    state: &AppState,
+    token_hash: &str,
+) -> Option<String> {
+    if !state.config.read().authz.is_enforced() {
+        return None;
+    }
+    let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
+    let mut working = state.config.read().clone();
+    if !working.authz.is_enforced() {
+        // Enforcement was turned off by a concurrent write between the
+        // unlocked check above and taking the lock — nothing to protect.
+        return None;
+    }
+
+    let id = loop {
+        let candidate = format!("pending-{}", short_pending_suffix());
+        if working.authz.by_id(&candidate).is_none() {
+            break candidate;
+        }
+    };
+
+    if let Err(msg) = working.create_map_key("authz.principals", &id) {
+        ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
+                .with_attrs(::serde_json::json!({"error": msg, "id": id})),
+            "pending-principal onboarding: create_map_key failed; the token is paired but resolves to no principal"
+        );
+        return None;
+    }
+    fixup_created_principal_natural_key(&mut working, &id);
+
+    let hashes_json = serde_json::to_string(&[token_hash]).unwrap_or_else(|_| "[]".to_string());
+    let path = format!("authz.principals.{id}.token_hashes");
+    if let Err(e) = working.set_prop_persistent(&path, &hashes_json) {
+        ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
+                .with_attrs(::serde_json::json!({"error": format!("{e}"), "id": id})),
+            "pending-principal onboarding: writing token_hashes failed; the token is paired but resolves to no principal"
+        );
+        return None;
+    }
+
+    if let Err(e) = persist_and_swap(state, working, &_cfg_guard).await {
+        ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
+                .with_attrs(::serde_json::json!({"error": format!("{e:?}"), "id": id})),
+            "pending-principal onboarding: persisting failed; the token is paired but the pending record was not saved"
+        );
+        return None;
+    }
+
+    ::zeroclaw_log::record!(
+        INFO,
+        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+            .with_attrs(::serde_json::json!({"id": id})),
+        "unbound pairing code redeemed under enforcement; created a pending principal with no profile bound"
+    );
+    Some(id)
+}
+
 // ── Agent alias picker ───────────────────────────────────────────────
 
 #[derive(Debug, Serialize)]
@@ -1440,5 +1571,150 @@ mod tests {
         let (status, json) = response_json(response).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(json["agents"], serde_json::json!(["crm-bot"]));
+    }
+
+    // ── Pending-principal onboarding (Task 6) ──────────────────────────
+
+    #[tokio::test]
+    async fn create_pending_principal_noop_when_authz_not_enforced() {
+        let tmp = tempfile::tempdir().unwrap();
+        let state = test_state(temp_config(&tmp, AuthzConfig::default()), "operator-tok");
+        assert!(!state.config.read().authz.is_enforced());
+
+        let result = create_pending_principal_if_enforced(&state, "some-hash").await;
+        assert!(
+            result.is_none(),
+            "unenforced authz must not spin up a pending principal"
+        );
+        assert!(state.config.read().authz.principals.is_empty());
+    }
+
+    #[tokio::test]
+    async fn create_pending_principal_creates_deny_by_default_record() {
+        let tmp = tempfile::tempdir().unwrap();
+        let authz = admin_authz("bob-tok", "bob"); // pre-existing, unrelated admin
+        let state = test_state(temp_config(&tmp, authz), "operator-tok");
+
+        let created = create_pending_principal_if_enforced(&state, "fresh-token-hash")
+            .await
+            .expect("enforced authz must onboard a pending principal");
+        assert!(
+            created.starts_with("pending-"),
+            "pending id must use the documented prefix, got {created}"
+        );
+
+        let cfg = state.config.read().clone();
+        let rec = cfg
+            .authz
+            .by_id(&created)
+            .expect("the pending principal must be in live config");
+        assert!(
+            rec.profiles.is_empty(),
+            "a pending principal starts with NO profile bound"
+        );
+        assert_eq!(rec.token_hashes, vec!["fresh-token-hash".to_string()]);
+        assert!(
+            cfg.authz.effective_agents(&created).is_empty(),
+            "an empty-role principal must reach no agent (deny-by-default)"
+        );
+        // The pre-existing admin is untouched.
+        assert!(cfg.authz.is_admin("bob"));
+    }
+
+    #[tokio::test]
+    async fn create_pending_principal_persists_to_disk() {
+        let tmp = tempfile::tempdir().unwrap();
+        let authz = admin_authz("bob-tok", "bob");
+        let cfg = temp_config(&tmp, authz);
+        let config_path = cfg.config_path.clone();
+        let state = test_state(cfg, "operator-tok");
+
+        let created = create_pending_principal_if_enforced(&state, "fresh-token-hash")
+            .await
+            .expect("enforced authz must onboard a pending principal");
+
+        let on_disk = std::fs::read_to_string(&config_path).expect("config.toml must exist");
+        assert!(
+            on_disk.contains(&created),
+            "the pending principal id must be written to disk, not live-only:\n{on_disk}"
+        );
+        assert!(on_disk.contains("fresh-token-hash"));
+
+        let reloaded = zeroclaw_config::migration::migrate_to_current(&on_disk)
+            .expect("persisted config.toml must reparse cleanly");
+        assert!(
+            reloaded.authz.by_id(&created).is_some(),
+            "reloading from scratch must still resolve the pending principal"
+        );
+        assert!(reloaded.authz.effective_agents(&created).is_empty());
+    }
+
+    #[tokio::test]
+    async fn pending_principal_gains_access_once_bound_to_a_profile() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut authz = admin_authz("bob-tok", "bob");
+        authz.profiles.push(PermissionProfile {
+            id: "crm".into(),
+            allowed_agents: vec!["crm-bot".into()],
+            admin: false,
+        });
+        let state = test_state(temp_config(&tmp, authz), "operator-tok");
+
+        let created = create_pending_principal_if_enforced(&state, "fresh-token-hash")
+            .await
+            .expect("enforced authz must onboard a pending principal");
+        assert!(
+            state
+                .config
+                .read()
+                .authz
+                .effective_agents(&created)
+                .is_empty()
+        );
+
+        // The operator (bob, admin) assigns the pending principal a real role.
+        let response = handle_bind_principal_profile(
+            State(state.clone()),
+            bearer_headers("bob-tok"),
+            Path(created.clone()),
+            Json(BindProfileBody {
+                profile_id: "crm".into(),
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let cfg = state.config.read().clone();
+        assert_eq!(
+            cfg.authz.effective_agents(&created),
+            vec!["crm-bot".to_string()],
+            "once bound to a profile, the formerly-pending principal must gain its access"
+        );
+    }
+
+    #[tokio::test]
+    async fn create_pending_principal_ids_do_not_collide_across_calls() {
+        let tmp = tempfile::tempdir().unwrap();
+        let authz = admin_authz("bob-tok", "bob");
+        let state = test_state(temp_config(&tmp, authz), "operator-tok");
+
+        let first = create_pending_principal_if_enforced(&state, "hash-a")
+            .await
+            .unwrap();
+        let second = create_pending_principal_if_enforced(&state, "hash-b")
+            .await
+            .unwrap();
+        assert_ne!(first, second);
+
+        let cfg = state.config.read().clone();
+        assert_eq!(
+            cfg.authz
+                .principals
+                .iter()
+                .filter(|p| p.id == first || p.id == second)
+                .count(),
+            2,
+            "two calls must produce two distinct, independently-persisted principals"
+        );
     }
 }
