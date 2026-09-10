@@ -54,6 +54,41 @@ impl ToolArtifact {
     }
 }
 
+/// Structured metadata for a UI resource artifact (e.g. a canvas HTML page
+/// delivered via `ui://` protocol). Parsed from structured `output_data` with
+/// `ui_resource: true` marker, making it channel-neutral.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiResource {
+    /// URI of the resource (e.g. `ui://pnl/dashboard`).
+    pub uri: String,
+    /// MIME type (defaults to `text/html` if not provided).
+    pub mime: String,
+    /// Full HTML/text content of the resource.
+    pub text: String,
+}
+
+impl UiResource {
+    /// Build from structured `output_data` when a tool declares a UI resource
+    /// (`ui_resource: true` with non-empty `uri` and `text`). Returns `None` if
+    /// `ui_resource != true`, or any of `uri`/`text` empty.
+    pub fn from_ui_resource_data(data: &serde_json::Value) -> Option<Self> {
+        if data.get("ui_resource")?.as_bool()? != true {
+            return None;
+        }
+        let uri = data.get("uri")?.as_str()?.to_string();
+        let text = data.get("text")?.as_str()?.to_string();
+        if uri.is_empty() || text.is_empty() {
+            return None;
+        }
+        let mime = data
+            .get("mimeType")
+            .and_then(|v| v.as_str())
+            .unwrap_or("text/html")
+            .to_string();
+        Some(Self { uri, mime, text })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum TurnEvent {
     /// A text chunk from the LLM response (may arrive many times).
@@ -183,5 +218,32 @@ mod tool_artifact_tests {
         assert!(
             ToolArtifact::from_delivered_data(&json!({"delivered": true, "path": ""})).is_none()
         );
+    }
+}
+
+#[cfg(test)]
+mod ui_resource_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn ui_resource_parses_structured_data() {
+        let d = json!({
+            "ui_resource": true, "uri": "ui://pnl/dashboard",
+            "mimeType": "text/html", "text": "<!doctype html><title>x</title>"
+        });
+        let r = UiResource::from_ui_resource_data(&d).expect("parses");
+        assert_eq!(r.uri, "ui://pnl/dashboard");
+        assert_eq!(r.mime, "text/html");
+        assert!(r.text.starts_with("<!doctype"));
+    }
+
+    #[test]
+    fn ui_resource_rejects_non_ui_or_empty() {
+        assert!(UiResource::from_ui_resource_data(&json!({"result": 1})).is_none());
+        assert!(UiResource::from_ui_resource_data(
+            &json!({"ui_resource": true, "uri": "", "text": "x"})).is_none());
+        assert!(UiResource::from_ui_resource_data(
+            &json!({"ui_resource": false, "uri": "ui://a", "text": "x"})).is_none());
     }
 }
