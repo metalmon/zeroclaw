@@ -9,6 +9,7 @@ pub mod a2a;
 pub mod acp;
 pub mod agent_owned_state;
 pub mod api;
+pub mod api_authz;
 pub mod api_browse;
 pub mod api_config;
 pub mod api_logs;
@@ -937,6 +938,20 @@ pub fn private_router(state: AppState, advertise: Option<(String, u16)>) -> Rout
             "/api/devices/{id}/token/rotate",
             post(api_pairing::rotate_token),
         )
+        // ── F4 authz admin control plane (profile CRUD + principal binding) ──
+        .route(
+            "/api/authz/profiles",
+            get(api_authz::handle_list_profiles)
+                .post(api_authz::handle_create_profile)
+                .put(api_authz::handle_update_profile)
+                .delete(api_authz::handle_delete_profile),
+        )
+        .route(
+            "/api/authz/principals/{id}/profiles",
+            put(api_authz::handle_bind_principal_profile)
+                .delete(api_authz::handle_unbind_principal_profile),
+        )
+        .route("/api/agents", get(api_authz::handle_list_agents))
         // ── Live Canvas (A2UI) routes ──
         .route("/api/canvas", get(canvas::handle_canvas_list))
         .route(
