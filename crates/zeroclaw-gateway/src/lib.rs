@@ -4430,6 +4430,30 @@ async fn handle_admin_paircode_new(
         .map(str::trim)
         .filter(|s| !s.is_empty());
 
+    // Pre-bound code: `--principal <id>` requires `id` to already be a
+    // configured `[[authz.principals]]` row (created by an earlier unbound
+    // pairing + Roles-UI role assignment, or by the operator-bootstrap
+    // seed) — minting a code tagged for an id that doesn't exist would
+    // otherwise commit a token bound to nothing, resolving via
+    // `TokenBindingStore` to a principal `AuthzConfig::by_id` can never
+    // find, i.e. a silently stranded device. Refusing here fails loudly at
+    // mint time instead.
+    if let Some(principal_id) = principal
+        && state.config.read().authz.by_id(principal_id).is_none()
+    {
+        let body = serde_json::json!({
+            "success": false,
+            "pairing_required": true,
+            "pairing_code": null,
+            "message": format!(
+                "principal '{principal_id}' is not configured; onboard it first (redeem an \
+                 unbound pairing code, then bind it a profile in the Roles UI) before minting \
+                 a pre-bound code for it"
+            ),
+        });
+        return Ok((StatusCode::NOT_FOUND, Json(body)));
+    }
+
     let code = match principal {
         Some(principal_id) => state
             .pairing
@@ -5306,6 +5330,79 @@ path = "{trigger_path}"
 
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert_eq!(json["success"], false);
+    }
+
+    /// Task 6, mandatory behavior #1: `get-paircode --principal <id>` (the
+    /// pre-bound code path) must refuse to mint a code for an id that isn't
+    /// an existing `[[authz.principals]]` row — otherwise the mint would
+    /// commit a token bound (via `TokenBindingStore`) to a principal
+    /// `AuthzConfig::by_id` can never find, silently stranding the device.
+    #[tokio::test]
+    async fn admin_paircode_new_principal_must_already_exist() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let state = admin_paircode_state(&tmp, true, true);
+        assert!(
+            state.config.read().authz.by_id("ghost").is_none(),
+            "fixture precondition: `ghost` must not be a configured principal"
+        );
+
+        let (status, json) = admin_paircode_response_json(
+            handle_admin_paircode_new(
+                State(state),
+                test_connect_info(),
+                Query(AdminPaircodeQuery {
+                    rotate: None,
+                    principal: Some("ghost".into()),
+                }),
+            )
+            .await,
+        )
+        .await;
+
+        assert_eq!(
+            status,
+            StatusCode::NOT_FOUND,
+            "minting a pre-bound code for an unconfigured principal must error"
+        );
+        assert_eq!(json["success"], false);
+        assert_eq!(json["pairing_code"], serde_json::Value::Null);
+    }
+
+    /// Positive control for the same gate: an EXISTING principal id must
+    /// still mint a principal-tagged code as before.
+    #[tokio::test]
+    async fn admin_paircode_new_principal_existing_mints_a_tagged_code() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let state = admin_paircode_state(&tmp, true, true);
+        state
+            .config
+            .write()
+            .authz
+            .principals
+            .push(zeroclaw_config::authz::PrincipalRecord {
+                id: "alice".into(),
+                ..Default::default()
+            });
+
+        let (status, json) = admin_paircode_response_json(
+            handle_admin_paircode_new(
+                State(state),
+                test_connect_info(),
+                Query(AdminPaircodeQuery {
+                    rotate: None,
+                    principal: Some("alice".into()),
+                }),
+            )
+            .await,
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(json["success"], true);
+        assert!(
+            json["pairing_code"].as_str().is_some(),
+            "an existing principal must still mint a code: {json}"
+        );
     }
 
     #[tokio::test]

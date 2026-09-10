@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use zeroclaw_api::jsonrpc::{JSONRPC_VERSION, JsonRpcError, JsonRpcResponse, error_codes};
-use zeroclaw_api::principal::{AuthOutcome, Principal};
+use zeroclaw_api::principal::{AuthMethod, AuthOutcome, Principal, PrincipalId};
 use zeroclaw_channels::orchestrator::acp_server::{AcpServer, AcpServerConfig};
 use zeroclaw_config::authz::AuthzConfig;
 use zeroclaw_infra::acp_session_store::AcpSessionStore;
@@ -458,14 +458,61 @@ async fn run_pre_auth(
                 // `/pair` handler in `lib.rs` so a principal-tagged code
                 // works identically whether redeemed over `/pair` or over
                 // `zeroclaw/pair`.
-                if let Some(binding) = state.pairing.take_pending_binding() {
+                let tagged_binding = state.pairing.take_pending_binding();
+                if let Some(binding) = &tagged_binding {
                     let _ = state
                         .token_bindings
-                        .set(binding.token_hash, binding.principal_id);
+                        .set(binding.token_hash.clone(), binding.principal_id.clone());
                 }
 
                 let authz_enforced = state.config.read().authz.is_enforced();
-                let principal =
+
+                // Untagged code redeemed while authz is enforced: onboard a
+                // PENDING principal (empty `profiles`, this token's hash)
+                // instead of letting the device resolve to no principal at
+                // all — see `api_authz::create_pending_principal_if_enforced`.
+                let pending_id = if tagged_binding.is_none() && authz_enforced {
+                    let token_hash = zeroclaw_config::pairing::PairingGuard::token_hash(&token);
+                    let created =
+                        crate::api_authz::create_pending_principal_if_enforced(&state, &token_hash)
+                            .await;
+                    // Mirrors the tagged-code path: also register the live
+                    // runtime binding so the token resolves immediately via
+                    // `PairingAuthProvider`'s binding-store step once a
+                    // reload/restart refreshes its `AuthzConfig` snapshot to
+                    // include this brand-new principal (the snapshot is
+                    // frozen at daemon start / last reload, so it cannot see
+                    // it before then regardless of this write).
+                    if let Some(ref pending_id) = created {
+                        let _ = state.token_bindings.set(token_hash, pending_id.clone());
+                    }
+                    created
+                } else {
+                    None
+                };
+
+                let principal = if let Some(pending_id) = pending_id {
+                    // Just minted THIS call: `state.provider_registry`'s
+                    // `AuthzConfig` snapshot (frozen at daemon start / last
+                    // `/admin/reload`) cannot see a principal created after
+                    // that point, so `resolve_principal` below would
+                    // wrongly deny it. Build the (empty-grant) `Principal`
+                    // directly instead — mirrors `api_authz::require_admin`'s
+                    // bootstrap-rescue, which bypasses the same staleness
+                    // for the admin gate. The empty `allowed_aliases` here
+                    // is not a stand-in that needs later reconciling: every
+                    // privileged dispatch re-derives entitlement from LIVE
+                    // config, never from this frozen snapshot (see
+                    // `PairingAuthProvider::authenticated`'s doc comment),
+                    // so it already matches the pending principal's real
+                    // (empty) grant.
+                    Principal::new(
+                        PrincipalId::from(pending_id.clone()),
+                        pending_id,
+                        AuthMethod::Native,
+                    )
+                    .with_allowed_aliases(Vec::new())
+                } else {
                     match resolve_principal(&state.provider_registry, Some(&token), None).await {
                         Some(principal) => principal,
                         None if !authz_enforced => Principal::shared_operator(),
@@ -486,7 +533,8 @@ async fn run_pre_auth(
                         }
                             continue;
                         }
-                    };
+                    }
+                };
 
                 if !send_pre_auth_result(sender, id, serde_json::json!({ "token": token })).await {
                     return None;
@@ -1192,6 +1240,200 @@ mod tests {
         assert!(
             session_response["result"]["workspaceDir"].is_string(),
             "post-pair session/new must return a session: {session_response}"
+        );
+    }
+
+    /// A config with authz already ENFORCED at boot (one existing admin
+    /// principal/profile, unrelated to whichever device pairs next) on top
+    /// of `pairing_required_front_door_config` — the fixture for Task 6's
+    /// "unbound code redeemed under enforcement" pending-principal proof.
+    fn enforced_authz_front_door_config(
+        install_root: &std::path::Path,
+    ) -> zeroclaw_config::schema::Config {
+        use zeroclaw_config::authz::{AuthzConfig, PermissionProfile, PrincipalRecord};
+        let mut cfg = pairing_required_front_door_config(install_root);
+        cfg.authz = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "existing-admin".into(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec![],
+                profiles: vec!["ops".into()],
+            }],
+            profiles: vec![PermissionProfile {
+                id: "ops".into(),
+                allowed_agents: vec![],
+                admin: true,
+            }],
+        };
+        cfg
+    }
+
+    /// Task 6, mandatory behavior #2: redeeming an UNBOUND pairing code (no
+    /// `get-paircode --new --principal <id>` tag) over `zeroclaw/pair` while
+    /// authz is ENFORCED must not strand the device with no principal at
+    /// all. The connection pairs successfully (a token is issued, same as
+    /// any other pairing) but the resulting principal is a freshly-minted
+    /// PENDING record with no profile bound — deny-by-default — so a
+    /// privileged call on the SAME connection is rejected, and the pending
+    /// principal is durably recorded in config for the Roles UI.
+    #[tokio::test]
+    async fn acp_unbound_pairing_under_enforcement_creates_pending_principal_with_no_access() {
+        let tmp = tempfile::tempdir().unwrap();
+        let install_root = tmp.path();
+        let cfg = enforced_authz_front_door_config(install_root);
+        std::fs::create_dir_all(&cfg.data_dir).unwrap();
+        let config_path = cfg.config_path.clone();
+
+        let probe = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = probe.local_addr().unwrap().port();
+        drop(probe);
+
+        let (shutdown_tx, _shutdown_rx) = tokio::sync::watch::channel(false);
+        let (reload_tx, _reload_rx) = tokio::sync::watch::channel(false);
+        let reload_controls = zeroclaw_runtime::daemon::GatewayReloadControls {
+            shutdown_tx: shutdown_tx.clone(),
+            reload_tx,
+        };
+
+        let server = zeroclaw_spawn::spawn!(crate::run_gateway(
+            "127.0.0.1",
+            port,
+            cfg,
+            None,
+            Some(reload_controls),
+            None,
+            None,
+            None,
+            None,
+            None,
+        ));
+
+        let addr = format!("127.0.0.1:{port}");
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                if tokio::net::TcpStream::connect(&addr).await.is_ok() {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .expect("gateway should accept connections");
+
+        let code = fetch_pairing_code(&addr).await;
+
+        let url = format!("ws://{addr}/acp");
+        let (mut ws, _resp) = tokio_tungstenite::connect_async(&url)
+            .await
+            .expect("WebSocket upgrade on /acp must succeed even when unauthenticated");
+
+        // Redeem the UNTAGGED code (no `--principal`).
+        ws.send(Message::Text(
+            serde_json::json!({
+                "jsonrpc":"2.0","id":1,"method":"zeroclaw/pair",
+                "params":{"code":code}
+            })
+            .to_string()
+            .into(),
+        ))
+        .await
+        .unwrap();
+
+        let token = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                let msg = ws
+                    .next()
+                    .await
+                    .expect("socket closed before pair response")
+                    .unwrap();
+                let Message::Text(text) = msg else { continue };
+                let value: serde_json::Value = match serde_json::from_str(&text) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                if value.get("id").and_then(serde_json::Value::as_i64) == Some(1) {
+                    if let Some(err) = value.get("error") {
+                        panic!(
+                            "zeroclaw/pair with an unbound code under enforcement must still \
+                             succeed (onboarding a pending principal), not error: {err}"
+                        );
+                    }
+                    return value["result"]["token"].as_str().map(String::from);
+                }
+            }
+        })
+        .await
+        .expect("pair response should arrive before timeout")
+        .expect("an unbound pairing code under enforcement must still issue a token");
+        assert!(!token.is_empty(), "the issued token must be non-empty");
+
+        // The SAME connection is now paired but must reach NO agent: the
+        // one configured agent must be denied.
+        ws.send(Message::Text(
+            serde_json::json!({
+                "jsonrpc":"2.0","id":2,"method":"session/new",
+                "params":{"agentAlias":"test-agent"}
+            })
+            .to_string()
+            .into(),
+        ))
+        .await
+        .unwrap();
+
+        let session_response = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            loop {
+                let msg = ws
+                    .next()
+                    .await
+                    .expect("socket closed before session/new response")
+                    .unwrap();
+                let Message::Text(text) = msg else { continue };
+                let value: serde_json::Value = match serde_json::from_str(&text) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                if value.get("id").and_then(serde_json::Value::as_i64) == Some(2) {
+                    return value;
+                }
+            }
+        })
+        .await
+        .expect("session/new response should arrive before timeout");
+
+        shutdown_tx.send(true).ok();
+        server.abort();
+
+        assert!(
+            session_response.get("error").is_some(),
+            "a pending principal (empty role) must be denied session/new \
+             (deny-by-default), not granted a session: {session_response}"
+        );
+
+        // The pending principal was durably written to config, with no
+        // profile bound — this is what makes it show up in the Roles UI.
+        let on_disk = std::fs::read_to_string(&config_path).expect("config.toml must exist");
+        assert!(
+            on_disk.contains("pending-"),
+            "an unbound-code pairing under enforcement must write a pending \
+             principal to config:\n{on_disk}"
+        );
+        let reloaded = zeroclaw_config::migration::migrate_to_current(&on_disk)
+            .expect("persisted config.toml must reparse cleanly");
+        let pending = reloaded
+            .authz
+            .principals
+            .iter()
+            .find(|p| p.id.starts_with("pending-"))
+            .expect("a pending principal must be present in the reloaded config");
+        assert!(
+            pending.profiles.is_empty(),
+            "a pending principal must start with NO profile bound"
+        );
+        assert_eq!(
+            reloaded.authz.effective_agents(&pending.id),
+            Vec::<String>::new(),
+            "a pending principal must reach no agent"
         );
     }
 }

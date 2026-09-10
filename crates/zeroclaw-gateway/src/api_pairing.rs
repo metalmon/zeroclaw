@@ -480,11 +480,68 @@ pub async fn submit_pairing_enhanced(
                 )
                     .into_response();
             }
+            // A principal-tagged code (`get-paircode --new --principal <id>`)
+            // stashes a binding that must be drained into the live runtime
+            // store before it resolves — mirrors the legacy `/pair` handler
+            // and the ACP `zeroclaw/pair` path so a principal-tagged code
+            // works identically no matter which pairing entry point
+            // redeems it.
+            let principal_binding = state.pairing.take_pending_binding().inspect(|binding| {
+                match state
+                    .token_bindings
+                    .set(binding.token_hash.clone(), binding.principal_id.clone())
+                {
+                    Ok(()) => ::zeroclaw_log::record!(
+                        INFO,
+                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                            .with_attrs(::serde_json::json!({
+                                "principal_id": binding.principal_id,
+                                "token_hash": binding.token_hash,
+                            })),
+                        "device paired with a principal-tagged code; token bound to principal in the runtime binding store"
+                    ),
+                    Err(err) => ::zeroclaw_log::record!(
+                        WARN,
+                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                            .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
+                            .with_attrs(::serde_json::json!({
+                                "principal_id": binding.principal_id,
+                                "token_hash": binding.token_hash,
+                                "error": format!("{err}"),
+                            })),
+                        "device paired with a principal-tagged code but persisting the token→principal binding failed; the token is paired and the binding is active in-process, retry to persist"
+                    ),
+                }
+            });
+
+            // No tag: if authz is enforced, onboard a PENDING principal
+            // (empty `profiles`, this token's hash) instead of letting the
+            // device resolve to no principal at all — see
+            // `api_authz::create_pending_principal_if_enforced`.
+            let pending_principal = if principal_binding.is_none() {
+                let created =
+                    super::api_authz::create_pending_principal_if_enforced(&state, &token_hash)
+                        .await;
+                if let Some(ref pending_id) = created {
+                    let _ = state
+                        .token_bindings
+                        .set(token_hash.clone(), pending_id.clone());
+                }
+                created
+            } else {
+                None
+            };
+
             Json(serde_json::json!({
                 "paired": true,
                 "persisted": true,
                 "token": token,
-                "message": "Pairing successful"
+                "message": "Pairing successful",
+                "principal_binding": principal_binding.map(|binding| serde_json::json!({
+                    "principal_id": binding.principal_id,
+                    "token_hash": binding.token_hash,
+                })),
+                "pending_principal": pending_principal,
             }))
             .into_response()
         }
@@ -848,6 +905,130 @@ mod tests {
             state.pairing.tokens().is_empty(),
             "PairingGuard::paired_tokens must be empty after a failed persist; have {:?}",
             state.pairing.tokens()
+        );
+    }
+
+    /// Task 6, mandatory behavior #2: redeeming an UNBOUND pairing code (no
+    /// `get-paircode --new --principal <id>` tag) over the enhanced REST
+    /// pairing endpoint while authz is ENFORCED must onboard a PENDING
+    /// principal (empty `profiles`, this token's hash) rather than pair a
+    /// token that resolves to nothing.
+    #[tokio::test]
+    async fn submit_pairing_enhanced_untagged_code_under_enforcement_creates_pending_principal() {
+        use zeroclaw_config::authz::{AuthzConfig, PermissionProfile, PrincipalRecord};
+
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut config = Config {
+            config_path: tmp.path().join("config.toml"),
+            ..Config::default()
+        };
+        // Enforced from boot via an unrelated existing admin — the pairing
+        // device below has no tag of its own.
+        config.authz = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "existing-admin".into(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec![],
+                profiles: vec!["ops".into()],
+            }],
+            profiles: vec![PermissionProfile {
+                id: "ops".into(),
+                allowed_agents: vec![],
+                admin: true,
+            }],
+        };
+        let mut state = test_state(config);
+        state.pairing = Arc::new(PairingGuard::new(true, &[]));
+        assert!(state.config.read().authz.is_enforced());
+
+        let code = state
+            .pairing
+            .pairing_code()
+            .expect("PairingGuard::new must mint a startup code when require_pairing=true");
+
+        let (status, body) = response_json(
+            submit_pairing_enhanced(
+                State(state.clone()),
+                ConnectInfo("127.0.0.1:40002".parse().unwrap()),
+                HeaderMap::new(),
+                Json(serde_json::json!({"code": code})),
+            )
+            .await
+            .into_response(),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["paired"], serde_json::Value::Bool(true));
+        let pending_id = body["pending_principal"]
+            .as_str()
+            .expect("an unbound code redeemed under enforcement must onboard a pending principal")
+            .to_string();
+        assert!(
+            pending_id.starts_with("pending-"),
+            "pending id must use the documented prefix, got {pending_id}"
+        );
+        assert_eq!(
+            body["principal_binding"],
+            serde_json::Value::Null,
+            "an untagged code must never produce a `--principal`-tagged binding"
+        );
+
+        let cfg = state.config.read().clone();
+        let rec = cfg
+            .authz
+            .by_id(&pending_id)
+            .expect("the pending principal must be written into live config");
+        assert!(
+            rec.profiles.is_empty(),
+            "a pending principal must start with NO profile bound"
+        );
+        assert!(
+            cfg.authz.effective_agents(&pending_id).is_empty(),
+            "an empty-role principal must reach no agent (deny-by-default)"
+        );
+        // The unrelated pre-existing admin is untouched.
+        assert!(cfg.authz.is_admin("existing-admin"));
+    }
+
+    /// Task 6, mandatory behavior #2 (negative half): the SAME untagged-code
+    /// redemption, but with authz NOT enforced, must be entirely unchanged
+    /// from today's shared-operator behavior — no pending principal, no
+    /// config mutation.
+    #[tokio::test]
+    async fn submit_pairing_enhanced_untagged_code_without_enforcement_is_unchanged() {
+        let mut state = test_state(Config::default());
+        state.pairing = Arc::new(PairingGuard::new(true, &[]));
+        assert!(!state.config.read().authz.is_enforced());
+
+        let code = state
+            .pairing
+            .pairing_code()
+            .expect("PairingGuard::new must mint a startup code when require_pairing=true");
+
+        let (status, body) = response_json(
+            submit_pairing_enhanced(
+                State(state.clone()),
+                ConnectInfo("127.0.0.1:40003".parse().unwrap()),
+                HeaderMap::new(),
+                Json(serde_json::json!({"code": code})),
+            )
+            .await
+            .into_response(),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["paired"], serde_json::Value::Bool(true));
+        assert_eq!(
+            body["pending_principal"],
+            serde_json::Value::Null,
+            "unenforced authz must not onboard a pending principal"
+        );
+        assert!(
+            state.config.read().authz.principals.is_empty(),
+            "unenforced authz pairing must not write any `[[authz.principals]]` row"
         );
     }
 
