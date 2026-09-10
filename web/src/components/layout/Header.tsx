@@ -29,6 +29,7 @@ const sectionTitles: Record<string, string> = {
   logs: 'nav.logs',
   doctor: 'nav.doctor',
   pairing: 'nav.pairing',
+  roles: 'nav.roles',
   canvas: 'nav.canvas',
   'acp-console': 'nav.acp',
   quickstart: 'nav.quickstart',
