@@ -43,6 +43,15 @@ pub enum ConfigApiCode {
     /// A reference to another config entry pointed at something that
     /// doesn't exist (e.g. `agents.<x>.delegate_to` naming a missing agent).
     DanglingReference,
+    /// The caller resolved to a principal (or fell back to the paired-guard)
+    /// but is not entitled to perform this admin-gated action — F4's
+    /// `config.authz.is_admin(...)` gate rejected it. Distinct from an
+    /// authentication failure (401): the caller IS authenticated, just not
+    /// authorized for this specific control-plane surface.
+    Forbidden,
+    /// The requested create would collide with an existing entry (e.g.
+    /// `POST /api/authz/profiles` naming an `id` that already exists).
+    Conflict,
     /// Catch-all server failure not classified above. Avoid in code; log the
     /// original error and convert to a more specific code where possible.
     InternalError,
@@ -63,6 +72,8 @@ impl ConfigApiCode {
             Self::InvalidFormat => "invalid_format",
             Self::InvalidEnumVariant => "invalid_enum_variant",
             Self::DanglingReference => "dangling_reference",
+            Self::Forbidden => "forbidden",
+            Self::Conflict => "conflict",
             Self::InternalError => "internal_error",
         }
     }
@@ -80,7 +91,8 @@ impl ConfigApiCode {
             | Self::InvalidFormat
             | Self::InvalidEnumVariant
             | Self::DanglingReference => 400,
-            Self::ConfigChangedExternally => 409,
+            Self::Forbidden => 403,
+            Self::ConfigChangedExternally | Self::Conflict => 409,
             Self::ReloadFailed | Self::InternalError => 500,
         }
     }
@@ -231,6 +243,8 @@ mod tests {
         assert_eq!(ConfigApiCode::ValidationFailed.http_status(), 400);
         assert_eq!(ConfigApiCode::ConfigChangedExternally.http_status(), 409);
         assert_eq!(ConfigApiCode::ReloadFailed.http_status(), 500);
+        assert_eq!(ConfigApiCode::Forbidden.http_status(), 403);
+        assert_eq!(ConfigApiCode::Conflict.http_status(), 409);
     }
 
     #[test]

@@ -15,6 +15,7 @@ use zeroclaw_config::traits::MaskSecrets;
 use super::AppState;
 use super::ConfigWriteGuard;
 use super::api::require_auth;
+use super::api_authz::require_admin;
 use std::sync::Arc;
 
 // ── Request / response shapes ───────────────────────────────────────
@@ -295,7 +296,7 @@ fn error_response(err: ConfigApiError) -> Response {
 /// Wrap an `anyhow::Error` from `Config::set_prop` / `get_prop` into a
 /// `ConfigApiError`. Path-not-found errors get the specific code; everything
 /// else falls through to ValidationFailed.
-fn map_prop_error(err: anyhow::Error, path: &str) -> ConfigApiError {
+pub(crate) fn map_prop_error(err: anyhow::Error, path: &str) -> ConfigApiError {
     let msg = err.to_string();
     if msg.starts_with("Unknown property") {
         ConfigApiError::path_not_found(path)
@@ -391,7 +392,7 @@ fn scoped_validate(
 /// holds the guard, so re-locking here would deadlock. The `debug_assert!`
 /// below catches a caller that passed a look-alike guard from the wrong
 /// mutex instead of the one actually held.
-async fn persist_and_swap(
+pub(crate) async fn persist_and_swap(
     state: &AppState,
     mut new_config: zeroclaw_config::schema::Config,
     _guard: &ConfigWriteGuard,
@@ -457,6 +458,9 @@ pub async fn handle_api_channel_bind(
 ) -> Response {
     if let Err(e) = require_auth(&state, &headers) {
         return e.into_response();
+    }
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e;
     }
 
     // Serialize the whole read-mutate-swap section: acquired before the
@@ -697,6 +701,9 @@ pub async fn handle_prop_put(
     if let Err(e) = require_auth(&state, &headers) {
         return e.into_response();
     }
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e;
+    }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
     let mut new_config = state.config.read().clone();
@@ -796,6 +803,9 @@ pub async fn handle_prop_delete(
 ) -> Response {
     if let Err(e) = require_auth(&state, &headers) {
         return e.into_response();
+    }
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e;
     }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
@@ -1054,6 +1064,9 @@ pub async fn handle_delete_map_key(
     if let Err(e) = require_auth(&state, &headers) {
         return e.into_response();
     }
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e;
+    }
     // Acquired before this read-for-modify, threaded into the cascade
     // helpers below, and held through whichever branch's swap runs.
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
@@ -1301,6 +1314,9 @@ pub async fn handle_map_key(
 ) -> Response {
     if let Err(e) = require_auth(&state, &headers) {
         return e.into_response();
+    }
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e;
     }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
@@ -1568,6 +1584,9 @@ pub async fn handle_rename_map_key(
     if let Err(e) = require_auth(&state, &headers) {
         return e.into_response();
     }
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e;
+    }
 
     // Acquired before this read-for-modify, threaded into the cascade
     // helpers below, and held through whichever branch's swap runs.
@@ -1821,6 +1840,9 @@ pub async fn handle_refresh_context_window(
     if let Err(e) = require_auth(&state, &headers) {
         return e.into_response();
     }
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e;
+    }
 
     let path = format!("providers.models.{provider_type}.{alias}");
 
@@ -1933,6 +1955,9 @@ pub async fn handle_patch(
 ) -> Response {
     if let Err(e) = require_auth(&state, &headers) {
         return e.into_response();
+    }
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e;
     }
 
     let ops = match parse_patch_ops(body) {
@@ -2243,6 +2268,9 @@ pub async fn handle_init(
     if let Err(e) = require_auth(&state, &headers) {
         return e.into_response();
     }
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e;
+    }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
     let mut working = state.config.read().clone();
@@ -2284,6 +2312,9 @@ pub struct MigrateResponse {
 pub async fn handle_migrate(State(state): State<AppState>, headers: HeaderMap) -> Response {
     if let Err(e) = require_auth(&state, &headers) {
         return e.into_response();
+    }
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e;
     }
 
     // Held through the final swap below so two concurrent migrate calls
