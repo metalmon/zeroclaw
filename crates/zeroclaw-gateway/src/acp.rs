@@ -224,6 +224,29 @@ pub async fn resolve_principal(
     }
 }
 
+/// Build the (empty-grant) [`Principal`] for a pending principal minted by
+/// `api_authz::create_pending_principal_if_enforced` during THIS pairing
+/// call — see the `run_pre_auth` call site's comment for why this bypasses
+/// [`resolve_principal`] entirely rather than reading through the stale
+/// provider-registry snapshot.
+///
+/// SECURITY-LOAD-BEARING: `AuthMethod::Native` here is not cosmetic.
+/// [`Principal::is_authenticated`] is `false` only for [`AuthMethod::None`]
+/// and [`AuthMethod::SharedOperator`], and [`Principal::is_entitled_to_alias`]
+/// short-circuits to ALLOW ANY alias whenever `!is_authenticated()` (that's
+/// the rule that lets the legacy, no-authz-configured shared-operator reach
+/// every agent). If a future refactor changed this to `AuthMethod::None` or
+/// `AuthMethod::SharedOperator` — even for a principal with an empty
+/// `allowed_aliases`/live grant set — deny-by-default for every pending
+/// (role-less) device would silently flip to allow-everything, with no
+/// other signal that anything had changed. See this module's
+/// `pending_principal_is_authenticated_and_denied_by_default` test, which
+/// guards exactly this invariant.
+fn pending_principal(id: String) -> Principal {
+    Principal::new(PrincipalId::from(id.clone()), id, AuthMethod::Native)
+        .with_allowed_aliases(Vec::new())
+}
+
 async fn handle_socket(
     socket: WebSocket,
     state: AppState,
@@ -474,7 +497,7 @@ async fn run_pre_auth(
                 let pending_id = if tagged_binding.is_none() && authz_enforced {
                     let token_hash = zeroclaw_config::pairing::PairingGuard::token_hash(&token);
                     let created =
-                        crate::api_authz::create_pending_principal_if_enforced(&state, &token_hash)
+                        crate::api_authz::create_pending_principal_if_enforced(state, &token_hash)
                             .await;
                     // Mirrors the tagged-code path: also register the live
                     // runtime binding so the token resolves immediately via
@@ -506,12 +529,7 @@ async fn run_pre_auth(
                     // `PairingAuthProvider::authenticated`'s doc comment),
                     // so it already matches the pending principal's real
                     // (empty) grant.
-                    Principal::new(
-                        PrincipalId::from(pending_id.clone()),
-                        pending_id,
-                        AuthMethod::Native,
-                    )
-                    .with_allowed_aliases(Vec::new())
+                    pending_principal(pending_id)
                 } else {
                     match resolve_principal(&state.provider_registry, Some(&token), None).await {
                         Some(principal) => principal,
@@ -804,6 +822,38 @@ mod tests {
             Some(expected_ws.as_str()),
             "omitted-cwd session/new over the real /acp WebSocket route must \
              return the per-agent workspace, not the daemon CWD"
+        );
+    }
+
+    /// Regression guard for a load-bearing security invariant (see
+    /// `super::pending_principal`'s doc comment): the `Principal` built for
+    /// a pending device's OWN live socket must be a distinct authenticated
+    /// identity, not `AuthMethod::None`/`SharedOperator`. Those two variants
+    /// are exactly what `Principal::is_entitled_to_alias` short-circuits to
+    /// ALLOW ANY alias for — so if a future refactor ever changed
+    /// `pending_principal`'s `AuthMethod` away from something
+    /// `is_authenticated()` returns `true` for, a role-less pending device
+    /// would silently gain access to every agent instead of none.
+    #[test]
+    fn pending_principal_is_authenticated_and_denied_by_default() {
+        let principal = super::pending_principal("pending-deadbeef".to_string());
+
+        assert!(
+            principal.is_authenticated(),
+            "a pending principal's live socket MUST be a distinct authenticated \
+             identity (AuthMethod::Native or similar) — AuthMethod::None/ \
+             SharedOperator short-circuit is_entitled_to_alias to ALLOW ANY alias, \
+             which would fail this deny-by-default invariant OPEN"
+        );
+        assert!(
+            !principal.is_entitled_to_alias("any-agent", &[]),
+            "an empty-grant pending principal must be denied every alias, \
+             matching the live config's empty `profiles`"
+        );
+        assert!(
+            !principal.may_bind("any-agent"),
+            "the frozen allowed_aliases snapshot on a pending principal must \
+             also be empty"
         );
     }
 
