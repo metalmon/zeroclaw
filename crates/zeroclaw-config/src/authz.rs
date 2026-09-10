@@ -392,26 +392,27 @@ mod tests {
 
     #[test]
     fn effective_agents_unions_bound_profiles() {
-        let mut c = AuthzConfig::default();
-        c.profiles = vec![
-            PermissionProfile {
-                id: "crm".into(),
-                allowed_agents: vec!["crm-bot".into()],
-                admin: false,
-            },
-            PermissionProfile {
-                id: "hr".into(),
-                allowed_agents: vec!["hr-bot".into()],
-                admin: false,
-            },
-        ];
-        c.principals = vec![PrincipalRecord {
-            id: "u1".into(),
-            allowed_agents: vec![],
-            device_ids: vec![],
-            token_hashes: vec![],
-            profiles: vec!["crm".into(), "hr".into()],
-        }];
+        let c = AuthzConfig {
+            profiles: vec![
+                PermissionProfile {
+                    id: "crm".into(),
+                    allowed_agents: vec!["crm-bot".into()],
+                    admin: false,
+                },
+                PermissionProfile {
+                    id: "hr".into(),
+                    allowed_agents: vec!["hr-bot".into()],
+                    admin: false,
+                },
+            ],
+            principals: vec![PrincipalRecord {
+                id: "u1".into(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec![],
+                profiles: vec!["crm".into(), "hr".into()],
+            }],
+        };
         let mut got = c.effective_agents("u1");
         got.sort();
         assert_eq!(got, vec!["crm-bot".to_string(), "hr-bot".into()]);
@@ -419,33 +420,36 @@ mod tests {
 
     #[test]
     fn admin_profile_grants_all_even_when_agents_empty() {
-        let mut c = AuthzConfig::default();
-        c.profiles = vec![PermissionProfile {
-            id: "ops".into(),
-            allowed_agents: vec![],
-            admin: true,
-        }];
-        c.principals = vec![PrincipalRecord {
-            id: "a".into(),
-            allowed_agents: vec![],
-            device_ids: vec![],
-            token_hashes: vec![],
-            profiles: vec!["ops".into()],
-        }];
+        let c = AuthzConfig {
+            profiles: vec![PermissionProfile {
+                id: "ops".into(),
+                allowed_agents: vec![],
+                admin: true,
+            }],
+            principals: vec![PrincipalRecord {
+                id: "a".into(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec![],
+                profiles: vec!["ops".into()],
+            }],
+        };
         assert_eq!(c.effective_agents("a"), vec!["*".to_string()]);
         assert!(c.is_admin("a"));
     }
 
     #[test]
     fn migrate_moves_inline_agents_into_a_profile_and_clears() {
-        let mut c = AuthzConfig::default();
-        c.principals = vec![PrincipalRecord {
-            id: "legacy".into(),
-            allowed_agents: vec!["crm-bot".into()],
-            device_ids: vec![],
-            token_hashes: vec![],
+        let mut c = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "legacy".into(),
+                allowed_agents: vec!["crm-bot".into()],
+                device_ids: vec![],
+                token_hashes: vec![],
+                profiles: vec![],
+            }],
             profiles: vec![],
-        }];
+        };
         c.migrate_inline_agents();
         // inline cleared, a generated profile now referenced, behavior preserved
         assert!(c.principals[0].allowed_agents.is_empty());
