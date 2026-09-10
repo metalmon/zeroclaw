@@ -14,6 +14,7 @@ import {
   Monitor,
   Puzzle,
   Settings,
+  ShieldCheck,
   Smartphone,
   Sparkles,
   Stethoscope,
@@ -72,6 +73,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/logs', icon: Activity, labelKey: 'nav.logs' },
       { to: '/pairing', icon: Smartphone, labelKey: 'nav.pairing' },
+      { to: '/roles', icon: ShieldCheck, labelKey: 'nav.roles' },
       { to: '/doctor', icon: Stethoscope, labelKey: 'nav.doctor' },
       { to: '/canvas', icon: Monitor, labelKey: 'nav.canvas' },
       { to: '/acp-console', icon: Terminal, labelKey: 'nav.acp' },

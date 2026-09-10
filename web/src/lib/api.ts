@@ -2349,3 +2349,192 @@ export function uploadChatImage(
     { method: "POST", body: file },
   );
 }
+
+// ---------------------------------------------------------------------------
+// Authz — permission profiles + principal binding (crates/zeroclaw-gateway/
+// src/api_authz.rs). Hand-written to match that module's DTOs; there is no
+// generated OpenAPI client for these routes (same as the pairing/devices
+// endpoints above). All mutations require an ADMIN principal (bound to a
+// profile with `admin: true`) — a non-admin or unresolved caller gets a
+// plain 403 whose body is `{code:"forbidden", error:"..."}`, which does NOT
+// match the `{code, message}` shape `apiFetch` parses into `ApiError`
+// (that envelope uses `message`, not `error`), so it surfaces as an
+// `HttpError` with `status === 403`. Callers that want a friendly
+// "you need admin access" message should check `err instanceof HttpError &&
+// err.status === 403` rather than `ApiError`.
+// ---------------------------------------------------------------------------
+
+/** A named permission profile: a reusable bundle of `allowed_agents` (which
+ *  may contain `"*"` for "every agent") plus an `admin` escalation flag. */
+export interface AuthzProfile {
+  id: string;
+  allowed_agents: string[];
+  admin: boolean;
+}
+
+export interface AuthzProfilesListResponse {
+  profiles: AuthzProfile[];
+}
+
+/** `GET /api/authz/profiles` — every configured permission profile. Read-only;
+ *  gated by the normal paired-guard, not the admin gate. */
+export function listAuthzProfiles(): Promise<AuthzProfilesListResponse> {
+  return apiFetch<AuthzProfilesListResponse>("/api/authz/profiles");
+}
+
+export interface AuthzProfileBody {
+  id: string;
+  allowed_agents: string[];
+  admin: boolean;
+}
+
+/** `POST /api/authz/profiles` — create a new profile. 409 (`HttpError`,
+ *  since the profiles CRUD errors ARE the `{code, message}` `ApiError`
+ *  shape) if `id` already exists — use {@link updateAuthzProfile} instead. */
+export function createAuthzProfile(body: AuthzProfileBody): Promise<AuthzProfile> {
+  return apiFetch<AuthzProfile>("/api/authz/profiles", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/** `PUT /api/authz/profiles` — idempotent create-or-update, keyed by
+ *  `body.id`. Used for both "rename this profile's fields" and "create". */
+export function updateAuthzProfile(body: AuthzProfileBody): Promise<AuthzProfile> {
+  return apiFetch<AuthzProfile>("/api/authz/profiles", {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export interface DeleteAuthzProfileResponse {
+  id: string;
+  deleted: boolean;
+  /** Principal ids still bound to this profile's `id`. Deleting a profile
+   *  does NOT scrub these bindings (fail-closed by design on the backend —
+   *  a dangling reference grants nothing) — surfaced here so the UI can
+   *  point the operator at the principals that now need rebinding. */
+  affected_principals: string[];
+}
+
+/** `DELETE /api/authz/profiles?id=<id>` — remove a permission profile. */
+export function deleteAuthzProfile(id: string): Promise<DeleteAuthzProfileResponse> {
+  return apiFetch<DeleteAuthzProfileResponse>(
+    `/api/authz/profiles?id=${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+}
+
+export interface AuthzPrincipalProfilesResponse {
+  principal_id: string;
+  profiles: string[];
+}
+
+/** `PUT /api/authz/principals/{id}/profiles` — bind a profile to a principal.
+ *  Idempotent. 404 (`HttpError`) if the principal itself isn't configured —
+ *  principals aren't created by this endpoint (see {@link loadAuthzPrincipals}
+ *  for how they're discovered), only bound/unbound. */
+export function bindPrincipalProfile(
+  principalId: string,
+  profileId: string,
+): Promise<AuthzPrincipalProfilesResponse> {
+  return apiFetch<AuthzPrincipalProfilesResponse>(
+    `/api/authz/principals/${encodeURIComponent(principalId)}/profiles`,
+    { method: "PUT", body: JSON.stringify({ profile_id: profileId }) },
+  );
+}
+
+/** `DELETE /api/authz/principals/{id}/profiles?profile_id=<id>` — unbind a
+ *  profile from a principal. Idempotent. */
+export function unbindPrincipalProfile(
+  principalId: string,
+  profileId: string,
+): Promise<AuthzPrincipalProfilesResponse> {
+  return apiFetch<AuthzPrincipalProfilesResponse>(
+    `/api/authz/principals/${encodeURIComponent(principalId)}/profiles?profile_id=${encodeURIComponent(profileId)}`,
+    { method: "DELETE" },
+  );
+}
+
+export interface AuthzAgentsListResponse {
+  agents: string[];
+}
+
+/** `GET /api/agents` — the full configured agent-alias list, for the
+ *  authz-admin profile picker's `allowed_agents` multiselect. Unfiltered
+ *  (every configured alias) — distinct from the principal-scoped
+ *  {@link getAgentOptions} list used elsewhere in the dashboard. */
+export function getAuthzAgents(): Promise<AuthzAgentsListResponse> {
+  return apiFetch<AuthzAgentsListResponse>("/api/agents");
+}
+
+/** One `[[authz.principals]]` row, summarized for the roles admin UI. */
+export interface AuthzPrincipalSummary {
+  id: string;
+  /** Profile ids this principal is bound to. Empty = "PENDING" — the
+   *  principal exists (was paired / bootstrap-seeded) but resolves to zero
+   *  grants until an operator binds it to a role. */
+  profiles: string[];
+  /** How many bearer-token hashes this principal is pinned to. Display only. */
+  tokenHashCount: number;
+  /** How many device ids (mTLS CN) this principal is pinned to. Display only. */
+  deviceIdCount: number;
+  /** Legacy inline `allowed_agents`, pre-profile migration. Normally empty —
+   *  `AuthzConfig::migrate_inline_agents` converts these into a generated
+   *  `_migrated_<id>` profile at config-load. Surfaced only as a hint that a
+   *  principal predates the profile model. */
+  legacyAllowedAgents: string[];
+}
+
+// `listProps` returns array-valued config fields as a JSON-encoded string
+// (the macro's display_value), not a parsed array — mirrors the identical
+// helper in `lib/agents.ts` (kept local/unexported there too, so duplicated
+// rather than threading a shared import across two independent config-entity
+// readers).
+function entryAsStringArray(
+  entry: { populated?: boolean; value?: unknown } | undefined,
+): string[] {
+  if (!entry || !entry.populated) return [];
+  const raw = entry.value;
+  if (Array.isArray(raw)) return raw.map((v) => String(v));
+  if (typeof raw !== "string" || raw.length === 0) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map((v) => String(v));
+  } catch {
+    // fall through to comma/newline split for hand-typed display formats
+  }
+  return raw
+    .replace(/^\[|\]$/g, "")
+    .split(/[,\n]/)
+    .map((s) => s.trim().replace(/^"|"$/g, ""))
+    .filter((s) => s.length > 0);
+}
+
+/**
+ * Discover every configured `[[authz.principals]]` row via the generic
+ * config-entity reader (`getMapKeys` + `listProps`), the same mechanism
+ * {@link loadAgentSummaries} in `lib/agents.ts` uses for `agents.<alias>` —
+ * there is no dedicated `GET /api/authz/principals` listing endpoint (Task 3
+ * only exposes profile CRUD + bind/unbind; principals are provisioned by
+ * pairing/bootstrap, not this UI). One round-trip for the id list, one per
+ * id for its fields.
+ */
+export async function loadAuthzPrincipals(): Promise<AuthzPrincipalSummary[]> {
+  const { keys } = await getMapKeys("authz.principals");
+  if (keys.length === 0) return [];
+  return Promise.all(
+    keys.map(async (id): Promise<AuthzPrincipalSummary> => {
+      const { entries } = await listProps(`authz.principals.${id}`);
+      const lookup = (suffix: string) =>
+        entries.find((e) => e.path === `authz.principals.${id}.${suffix}`);
+      return {
+        id,
+        profiles: entryAsStringArray(lookup("profiles")),
+        tokenHashCount: entryAsStringArray(lookup("token_hashes")).length,
+        deviceIdCount: entryAsStringArray(lookup("device_ids")).length,
+        legacyAllowedAgents: entryAsStringArray(lookup("allowed_agents")),
+      };
+    }),
+  );
+}
