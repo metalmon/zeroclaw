@@ -616,13 +616,20 @@ impl AcpServer {
         // exceeds what `session/new` would admit for this principal.
         // `AliasedAgentConfig` has no per-agent display-name field today,
         // so `display_name` falls back to the alias.
+        //
+        // `live_allowed` is recomputed from THIS `config` snapshot, not read
+        // from `self.principal.allowed_aliases` — the frozen snapshot taken
+        // at connect time — so an `[[authz.profiles]]` edit changes the next
+        // `initialize` roster with no reconnect required.
+        let live_allowed = Self::live_allowed_agents(&config, &self.principal);
         let mut entitled_aliases: Vec<&String> = config
             .agents
             .iter()
             .filter(|(alias, agent)| {
                 agent.is_dispatchable()
-                    && (!self.principal.is_authenticated()
-                        || self.principal.may_bind(alias.as_str()))
+                    && self
+                        .principal
+                        .is_entitled_to_alias(alias.as_str(), &live_allowed)
             })
             .map(|(alias, _)| alias)
             .collect();
@@ -683,11 +690,37 @@ impl AcpServer {
             .map(|_| alias.to_string())
     }
 
+    /// The caller's LIVE agent-alias grant set for `principal`, recomputed
+    /// from `config` on EVERY call — never cached, and never sourced from
+    /// `principal.allowed_aliases` (the frozen snapshot taken at auth time).
+    /// This is what makes an `[[authz.profiles]]` / `authz.principals` edit
+    /// apply to an already-open ACP connection with no daemon restart.
+    ///
+    /// NO FAIL-OPEN: an authenticated principal whose record no longer
+    /// resolves via `config.authz.by_id` gets an empty grant set — even when
+    /// `config.authz.is_enforced()` has since gone back to `false` (e.g. the
+    /// operator just deleted the last configured principal). Deleting every
+    /// principal must never promote a live authenticated connection to the
+    /// shared-operator / all-agents fallback; only the trusted-local /
+    /// legacy [`Principal::shared_operator`] (`!is_authenticated`) gets that
+    /// fallback, and [`Principal::is_entitled_to_alias`] short-circuits on it
+    /// before ever consulting this set.
+    fn live_allowed_agents(config: &Config, principal: &Principal) -> Vec<String> {
+        if !principal.is_authenticated() {
+            return Vec::new();
+        }
+        if config.authz.by_id(principal.id.as_str()).is_none() {
+            return Vec::new();
+        }
+        config.authz.effective_agents(principal.id.as_str())
+    }
+
     /// Shared validation for explicit `agentAlias`, `?agent=`, config defaults,
     /// and sole-agent auto-select. This is the single authorization chokepoint
     /// for ACP session binding: after the agent is confirmed configured and
     /// dispatchable, the connection's [`Principal`] must be entitled to the
-    /// alias (`principal.may_bind`). The trusted-local / legacy
+    /// alias, gated against the LIVE grant set computed by
+    /// [`Self::live_allowed_agents`]. The trusted-local / legacy
     /// [`Principal::shared_operator`] fallback (`!is_authenticated`) may bind
     /// any configured alias, preserving today's behaviour when no authz
     /// principals are configured.
@@ -709,20 +742,26 @@ impl AcpServer {
                 message: format!("Agent `{agent_alias}` is not enabled for dispatch"),
                 data: None,
             }),
-            Some(_) => Self::authorize_principal_for_alias(principal, agent_alias),
+            Some(_) => {
+                let live_allowed = Self::live_allowed_agents(config, principal);
+                Self::authorize_principal_for_alias(principal, agent_alias, &live_allowed)
+            }
         }
     }
 
-    /// Entitlement gate + audit for a configured, dispatchable alias. A distinct
-    /// authenticated principal is bound to its `allowed_aliases`
-    /// (`may_bind` — explicit alias or `"*"`); the shared-operator fallback is
-    /// allowed unconditionally. The decision (principal id, alias, allow/deny)
-    /// is audited on every call.
+    /// Entitlement gate + audit for a configured, dispatchable alias, against
+    /// the caller-supplied LIVE grant set (`live_allowed` —
+    /// [`Self::live_allowed_agents`], recomputed from `&Config` on every
+    /// call). A distinct authenticated principal is bound to `live_allowed`
+    /// (explicit alias or `"*"`); the shared-operator fallback is allowed
+    /// unconditionally. The decision (principal id, alias, allow/deny) is
+    /// audited on every call.
     fn authorize_principal_for_alias(
         principal: &Principal,
         agent_alias: &str,
+        live_allowed: &[String],
     ) -> Result<(), RpcError> {
-        let permitted = principal.is_entitled_to_alias(agent_alias);
+        let permitted = principal.is_entitled_to_alias(agent_alias, live_allowed);
         ::zeroclaw_log::record!(
             INFO,
             ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
@@ -1155,7 +1194,10 @@ impl AcpServer {
         // already confirmed the alias is configured and dispatchable, so the
         // narrower entitlement-only gate (no redundant "unknown agent" /
         // "not dispatchable" checks) is what's missing here.
-        if let Err(e) = Self::authorize_principal_for_alias(&self.principal, &restore_alias) {
+        let live_allowed = Self::live_allowed_agents(&config, &self.principal);
+        if let Err(e) =
+            Self::authorize_principal_for_alias(&self.principal, &restore_alias, &live_allowed)
+        {
             self.loading_sessions.lock().await.remove(&session_id);
             return Err(e);
         }
@@ -1379,7 +1421,10 @@ impl AcpServer {
         // already confirmed the alias is configured and dispatchable, so the
         // narrower entitlement-only gate (no redundant "unknown agent" /
         // "not dispatchable" checks) is what's missing here.
-        if let Err(e) = Self::authorize_principal_for_alias(&self.principal, &restore_alias) {
+        let live_allowed = Self::live_allowed_agents(&config, &self.principal);
+        if let Err(e) =
+            Self::authorize_principal_for_alias(&self.principal, &restore_alias, &live_allowed)
+        {
             self.loading_sessions.lock().await.remove(&session_id);
             return Err(e);
         }
@@ -3874,15 +3919,42 @@ mod tests {
         cfg
     }
 
+    /// `crm_hr_config` plus an `[[authz.principals]]`/`[[authz.profiles]]`
+    /// entry that binds `principal_id` to a profile granting only `crm-bot`.
+    /// The chokepoint must consult THIS live config, never the `Principal`
+    /// struct's own (frozen) `allowed_aliases` — every test that used to seed
+    /// entitlement via `Principal::with_allowed_aliases` now seeds it here
+    /// instead, so it actually exercises the live-recompute path.
+    fn crm_hr_config_with_principal_bound_to_crm(
+        cwd: &std::path::Path,
+        principal_id: &str,
+    ) -> Config {
+        let mut cfg = crm_hr_config(cwd);
+        cfg.authz = zeroclaw_config::authz::AuthzConfig {
+            principals: vec![zeroclaw_config::authz::PrincipalRecord {
+                id: principal_id.to_string(),
+                profiles: vec!["crm".to_string()],
+                ..Default::default()
+            }],
+            profiles: vec![zeroclaw_config::authz::PermissionProfile {
+                id: "crm".to_string(),
+                allowed_agents: vec!["crm-bot".to_string()],
+                ..Default::default()
+            }],
+        };
+        cfg
+    }
+
     #[tokio::test]
     async fn session_new_denies_agent_not_in_allowed_aliases() {
-        use zeroclaw_api::principal::{AgentAlias, AuthMethod, Principal, PrincipalId};
+        use zeroclaw_api::principal::{AuthMethod, Principal, PrincipalId};
 
         let cwd = tempfile::tempdir().unwrap();
-        let config = crm_hr_config(cwd.path());
-        // alice is a distinct authenticated principal entitled to crm-bot only.
-        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native)
-            .with_allowed_aliases(vec![AgentAlias("crm-bot".into())]);
+        // alice is a distinct authenticated principal entitled to crm-bot only
+        // — via the LIVE config's `[[authz]]` binding, not a frozen
+        // `Principal.allowed_aliases` snapshot.
+        let config = crm_hr_config_with_principal_bound_to_crm(cwd.path(), "alice");
+        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native);
         let server = AcpServer::new(config, AcpServerConfig::default()).with_principal(principal);
 
         let ok = tokio::time::timeout(
@@ -3916,12 +3988,11 @@ mod tests {
 
     #[tokio::test]
     async fn denied_agent_reports_alias_not_entitled_reason() {
-        use zeroclaw_api::principal::{AgentAlias, AuthMethod, Principal, PrincipalId};
+        use zeroclaw_api::principal::{AuthMethod, Principal, PrincipalId};
 
         let cwd = tempfile::tempdir().unwrap();
-        let config = crm_hr_config(cwd.path());
-        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native)
-            .with_allowed_aliases(vec![AgentAlias("crm-bot".into())]);
+        let config = crm_hr_config_with_principal_bound_to_crm(cwd.path(), "alice");
+        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native);
         let server = AcpServer::new(config, AcpServerConfig::default()).with_principal(principal);
 
         let err = tokio::time::timeout(
@@ -3969,10 +4040,10 @@ mod tests {
 
     #[tokio::test]
     async fn session_restore_rejects_unentitled_principal() {
-        use zeroclaw_api::principal::{AgentAlias, AuthMethod, Principal, PrincipalId};
+        use zeroclaw_api::principal::{AuthMethod, Principal, PrincipalId};
 
         let cwd = tempfile::tempdir().unwrap();
-        let config = crm_hr_config(cwd.path());
+        let config = crm_hr_config_with_principal_bound_to_crm(cwd.path(), "alice");
 
         let store =
             Arc::new(zeroclaw_infra::acp_session_store::AcpSessionStore::new(cwd.path()).unwrap());
@@ -3992,8 +4063,7 @@ mod tests {
         // only — she must not be able to reach `hr-bot` by loading/resuming a
         // session that happens to be owned by it, even though `hr-bot` is
         // configured and dispatchable.
-        let alice = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Oidc)
-            .with_allowed_aliases(vec![AgentAlias("crm-bot".into())]);
+        let alice = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Oidc);
         let (writer_tx, _rx) = tokio::sync::mpsc::channel::<String>(64);
         let denied_server = Arc::new(
             AcpServer::new_with_writer_and_store(
@@ -4053,12 +4123,11 @@ mod tests {
 
     #[test]
     fn initialize_lists_only_entitled_agents() {
-        use zeroclaw_api::principal::{AgentAlias, AuthMethod, Principal, PrincipalId};
+        use zeroclaw_api::principal::{AuthMethod, Principal, PrincipalId};
 
         let cwd = tempfile::tempdir().unwrap();
-        let config = crm_hr_config(cwd.path());
-        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native)
-            .with_allowed_aliases(vec![AgentAlias("crm-bot".into())]);
+        let config = crm_hr_config_with_principal_bound_to_crm(cwd.path(), "alice");
+        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native);
         let server = AcpServer::new(config, AcpServerConfig::default()).with_principal(principal);
 
         let resp = server.handle_initialize(&serde_json::json!({})).unwrap();
@@ -4073,6 +4142,94 @@ mod tests {
             aliases,
             vec!["crm-bot"],
             "hr-bot is configured and dispatchable but alice is not entitled to it"
+        );
+    }
+
+    #[test]
+    fn no_fail_open_when_authenticated_principals_record_is_gone() {
+        use zeroclaw_api::principal::{AuthMethod, Principal, PrincipalId};
+
+        let cwd = tempfile::tempdir().unwrap();
+        // `crm_hr_config` carries NO `[[authz]]` config at all — `is_enforced()`
+        // is `false`, exactly the state left behind once every configured
+        // principal has been deleted.
+        let config = crm_hr_config(cwd.path());
+        assert!(
+            !config.authz.is_enforced(),
+            "precondition: no authz principals configured"
+        );
+
+        // alice is a DISTINCT authenticated principal (not the shared-operator
+        // sentinel) whose record no longer resolves via `config.authz.by_id`
+        // — e.g. she connected while bound, and the operator has since
+        // deleted the last principal. This must DENY, never fall back to
+        // "authz not enforced ⇒ allow everything".
+        let alice = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Oidc);
+        assert!(alice.is_authenticated());
+        assert!(config.authz.by_id(alice.id.as_str()).is_none());
+
+        let live_allowed = AcpServer::live_allowed_agents(&config, &alice);
+        assert!(
+            live_allowed.is_empty(),
+            "no-fail-open: an authenticated principal with no config record gets an empty grant set"
+        );
+
+        let err = AcpServer::validate_dispatchable_agent_alias(&config, "crm-bot", &alice)
+            .expect_err("authenticated principal with no config record must be denied");
+        assert_eq!(err.code, INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn config_edit_changes_the_live_decision_with_no_restart() {
+        use zeroclaw_api::principal::{AuthMethod, Principal, PrincipalId};
+
+        let cwd = tempfile::tempdir().unwrap();
+        let config = crm_hr_config_with_principal_bound_to_crm(cwd.path(), "alice");
+        let live_config = Arc::new(parking_lot::RwLock::new(config));
+        let alice = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native);
+
+        let (writer_tx, _rx) = tokio::sync::mpsc::channel::<String>(64);
+        let server = Arc::new(
+            AcpServer::new_with_live_config_and_writer(
+                Arc::clone(&live_config),
+                AcpServerConfig::default(),
+                writer_tx,
+            )
+            .with_principal(alice),
+        );
+
+        let denied = server
+            .handle_session_new(&serde_json::json!({
+                "agentAlias": "hr-bot",
+                "cwd": cwd.path().to_string_lossy(),
+                "mcpServers": []
+            }))
+            .await;
+        assert!(
+            denied.is_err(),
+            "alice is bound to the crm-only profile; hr-bot must start out denied"
+        );
+
+        // Live config edit: bind alice's profile to hr-bot too. Same running
+        // `AcpServer` instance, no rebuild/reconnect — just an in-place
+        // `RwLock` write, exactly what a config-reload/admin-API edit does.
+        {
+            let mut cfg = live_config.write();
+            cfg.authz.profiles[0]
+                .allowed_agents
+                .push("hr-bot".to_string());
+        }
+
+        let allowed = server
+            .handle_session_new(&serde_json::json!({
+                "agentAlias": "hr-bot",
+                "cwd": cwd.path().to_string_lossy(),
+                "mcpServers": []
+            }))
+            .await;
+        assert!(
+            allowed.is_ok(),
+            "the SAME server instance must reflect the config edit on the very next call: {allowed:?}"
         );
     }
 
