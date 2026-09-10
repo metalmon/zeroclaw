@@ -2825,6 +2825,25 @@ async fn handle_pair(
                 }
             });
 
+            // No tag: if authz is enforced, onboard a PENDING principal
+            // (empty `profiles`, this token's hash) instead of letting the
+            // device resolve to no principal at all — mirrors
+            // `api_pairing::submit_pairing_enhanced` and the ACP
+            // `zeroclaw/pair` path so the legacy `/pair` route isn't a
+            // dead end that leaves the device invisible to the Roles UI.
+            let pending_principal = if principal_binding.is_none() {
+                let created =
+                    api_authz::create_pending_principal_if_enforced(&state, &token_hash).await;
+                if let Some(ref pending_id) = created {
+                    let _ = state
+                        .token_bindings
+                        .set(token_hash.clone(), pending_id.clone());
+                }
+                created
+            } else {
+                None
+            };
+
             let body = serde_json::json!({
                 "paired": true,
                 "persisted": true,
@@ -2834,6 +2853,7 @@ async fn handle_pair(
                     "principal_id": binding.principal_id,
                     "token_hash": binding.token_hash,
                 })),
+                "pending_principal": pending_principal,
             });
             (StatusCode::OK, Json(body))
         }
@@ -10774,6 +10794,113 @@ path = "{trigger_path}"
             "PairingGuard::paired_tokens must be empty after a failed /pair \
              persist; have {:?}",
             state.pairing.tokens()
+        );
+    }
+
+    /// Task 6 consistency fix: the legacy `/pair` route (X-Pairing-Code
+    /// header) must not be a dead end for unbound codes redeemed while
+    /// authz is enforced — it reuses the same
+    /// `api_authz::create_pending_principal_if_enforced` helper
+    /// `submit_pairing_enhanced`/`zeroclaw/pair` already call, so a device
+    /// pairing through ANY of the three entry points ends up visible (and
+    /// assignable) in the Roles UI instead of silently resolving to nothing.
+    #[tokio::test]
+    async fn legacy_pair_untagged_code_under_enforcement_creates_pending_principal() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let state = admin_paircode_state(&tmp, true, false);
+        // Enforced from boot via an unrelated existing admin — the pairing
+        // device below has no `--principal` tag of its own.
+        state.config.write().authz = zeroclaw_config::authz::AuthzConfig {
+            principals: vec![zeroclaw_config::authz::PrincipalRecord {
+                id: "existing-admin".into(),
+                profiles: vec!["ops".into()],
+                ..Default::default()
+            }],
+            profiles: vec![zeroclaw_config::authz::PermissionProfile {
+                id: "ops".into(),
+                allowed_agents: vec![],
+                admin: true,
+            }],
+        };
+        assert!(state.config.read().authz.is_enforced());
+
+        let code = state
+            .pairing
+            .generate_new_pairing_code()
+            .expect("pairing code must be issuable when require_pairing=true");
+        let mut headers = HeaderMap::new();
+        headers.insert("X-Pairing-Code", HeaderValue::from_str(&code).unwrap());
+
+        let (status, body) = legacy_pair_response_json(
+            handle_pair(State(state.clone()), test_connect_info(), headers).await,
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["paired"], serde_json::Value::Bool(true));
+        let pending_id = body["pending_principal"]
+            .as_str()
+            .expect(
+                "an unbound code redeemed via legacy /pair under enforcement must \
+                 onboard a pending principal, not leave the device invisible",
+            )
+            .to_string();
+        assert!(
+            pending_id.starts_with("pending-"),
+            "pending id must use the documented prefix, got {pending_id}"
+        );
+        assert_eq!(
+            body["principal_binding"],
+            serde_json::Value::Null,
+            "an untagged code must never produce a `--principal`-tagged binding"
+        );
+
+        let cfg = state.config.read().clone();
+        let rec = cfg
+            .authz
+            .by_id(&pending_id)
+            .expect("the pending principal must be written into live config");
+        assert!(
+            rec.profiles.is_empty(),
+            "a pending principal must start with NO profile bound"
+        );
+        assert!(
+            cfg.authz.effective_agents(&pending_id).is_empty(),
+            "an empty-role principal must reach no agent (deny-by-default)"
+        );
+        assert!(cfg.authz.is_admin("existing-admin"));
+    }
+
+    /// Negative half: unenforced authz through the legacy route must stay
+    /// exactly as it was — no pending principal, no config mutation.
+    #[tokio::test]
+    async fn legacy_pair_untagged_code_without_enforcement_is_unchanged() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let state = admin_paircode_state(&tmp, true, false);
+        assert!(!state.config.read().authz.is_enforced());
+
+        let code = state
+            .pairing
+            .generate_new_pairing_code()
+            .expect("pairing code must be issuable when require_pairing=true");
+        let mut headers = HeaderMap::new();
+        headers.insert("X-Pairing-Code", HeaderValue::from_str(&code).unwrap());
+
+        let (status, body) = legacy_pair_response_json(
+            handle_pair(State(state.clone()), test_connect_info(), headers).await,
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["paired"], serde_json::Value::Bool(true));
+        assert_eq!(
+            body["pending_principal"],
+            serde_json::Value::Null,
+            "unenforced authz must not onboard a pending principal"
+        );
+        assert!(
+            state.config.read().authz.principals.is_empty(),
+            "unenforced authz pairing must not write any `[[authz.principals]]` row"
         );
     }
 }
