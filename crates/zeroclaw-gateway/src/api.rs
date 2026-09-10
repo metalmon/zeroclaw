@@ -2,6 +2,7 @@
 //! All `/api/*` routes require bearer token authentication (PairingGuard).
 
 use super::AppState;
+use super::api_authz::require_admin;
 use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode, header},
@@ -858,6 +859,9 @@ pub async fn handle_api_cron_settings_patch(
     Json(body): Json<serde_json::Value>,
 ) -> impl IntoResponse {
     if let Err(e) = require_auth(&state, &headers) {
+        return e.into_response();
+    }
+    if let Err(e) = require_admin(&state, &headers).await {
         return e.into_response();
     }
 

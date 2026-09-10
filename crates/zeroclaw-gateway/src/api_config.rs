@@ -460,7 +460,7 @@ pub async fn handle_api_channel_bind(
         return e.into_response();
     }
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     // Serialize the whole read-mutate-swap section: acquired before the
@@ -702,7 +702,7 @@ pub async fn handle_prop_put(
         return e.into_response();
     }
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
@@ -805,7 +805,7 @@ pub async fn handle_prop_delete(
         return e.into_response();
     }
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
@@ -1065,7 +1065,7 @@ pub async fn handle_delete_map_key(
         return e.into_response();
     }
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
     // Acquired before this read-for-modify, threaded into the cascade
     // helpers below, and held through whichever branch's swap runs.
@@ -1316,7 +1316,7 @@ pub async fn handle_map_key(
         return e.into_response();
     }
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
@@ -1585,7 +1585,7 @@ pub async fn handle_rename_map_key(
         return e.into_response();
     }
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     // Acquired before this read-for-modify, threaded into the cascade
@@ -1841,7 +1841,7 @@ pub async fn handle_refresh_context_window(
         return e.into_response();
     }
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     let path = format!("providers.models.{provider_type}.{alias}");
@@ -1957,7 +1957,7 @@ pub async fn handle_patch(
         return e.into_response();
     }
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     let ops = match parse_patch_ops(body) {
@@ -2269,7 +2269,7 @@ pub async fn handle_init(
         return e.into_response();
     }
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
@@ -2314,7 +2314,7 @@ pub async fn handle_migrate(State(state): State<AppState>, headers: HeaderMap) -
         return e.into_response();
     }
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     // Held through the final swap below so two concurrent migrate calls
