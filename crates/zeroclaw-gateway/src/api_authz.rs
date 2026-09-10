@@ -135,6 +135,25 @@ pub(crate) async fn require_admin(
 /// currently-paired device is touched. If the caller presented no bearer,
 /// or their hash already resolves to any existing principal (admin or
 /// not — see the callee's own exclusion invariant), this is a no-op.
+///
+/// Persistence: rides the SAME `save_dirty` write the caller is already
+/// about to do for the profile it's creating/updating — no separate
+/// mechanism. `seed_operator_admin_if_locked_out` mutates `working.authz`
+/// directly (`self.principals.push`/`self.profiles.push`, not through
+/// `create_map_key`), so on its own the mutation would be swapped into live
+/// `state.config` by `persist_and_swap` but never reach `config.toml`: only
+/// paths in `Config::dirty_paths` get written by `save_dirty`. When the
+/// seed reports it actually changed something, this explicitly
+/// `mark_dirty`s the exact leaf paths it touched. That alone is enough —
+/// `Config::save_dirty`'s natural-key writer (`ensure_array_of_tables_entry`)
+/// creates a brand-new `[[authz.principals]]` / `[[authz.profiles]]` row
+/// from the live in-memory element and seeds its natural-key column
+/// (`id`) automatically the first time ANY of its fields is dirty; no
+/// `create_map_key` call is needed since the element already exists in
+/// `working.authz` (pushed above). `allowed_agents` / `device_ids` are left
+/// unmarked: both are `#[serde(default)]` and stay empty for this seed, so
+/// omitting them from the written TOML round-trips identically to writing
+/// an empty array.
 fn seed_operator_admin_for_caller(
     working: &mut zeroclaw_config::schema::Config,
     headers: &HeaderMap,
@@ -143,7 +162,22 @@ fn seed_operator_admin_for_caller(
         return;
     };
     let hash = zeroclaw_config::pairing::PairingGuard::token_hash(token);
-    working.authz.seed_operator_admin_if_locked_out(&[hash]);
+    let seeded = working.authz.seed_operator_admin_if_locked_out(&[hash]);
+    if !seeded {
+        return;
+    }
+    working.mark_dirty(&format!(
+        "authz.profiles.{}.admin",
+        zeroclaw_config::authz::OPERATOR_ADMIN_PROFILE_ID
+    ));
+    working.mark_dirty(&format!(
+        "authz.principals.{}.token_hashes",
+        zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID
+    ));
+    working.mark_dirty(&format!(
+        "authz.principals.{}.profiles",
+        zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID
+    ));
 }
 
 fn forbidden_error() -> (StatusCode, Json<serde_json::Value>) {
@@ -222,6 +256,33 @@ fn validate_profile_id(id: &str) -> Result<(), ConfigApiError> {
     Ok(())
 }
 
+/// Work around a `zeroclaw-macros` `create_map_key` limitation, discovered
+/// while verifying Task 4's operator-bootstrap persistence: its insertion
+/// logic only auto-populates a freshly-created element's `name` or `hint`
+/// field from the supplied key — both hardcoded, never the struct's actual
+/// `#[natural_key = "..."]` field name. `PermissionProfile`'s natural key is
+/// `id` (neither `name` nor `hint`), so a brand-new `[[authz.profiles]]`
+/// element gets pushed with `id` left at its serde default (`""`) instead
+/// of the supplied `id`. `create_map_key` itself still reports `Ok(true)`;
+/// the corruption is silent until the very next call, when EVERY
+/// `set_prop`/`set_prop_persistent` into that element's dotted path fails
+/// with "Unknown property" — `route_vec_path` can't find an element whose
+/// `id` matches the alias, because none does.
+///
+/// Only call this immediately after a `create_map_key` call that itself
+/// reported `Ok(true)` (a new element WAS pushed): that guarantees the
+/// element `.last_mut()` refers to is the one just created, with its `id`
+/// still blank — an upsert that matched an EXISTING element (`Ok(false)`)
+/// must not go through this path, since `.last_mut()` would then likely
+/// refer to a different, unrelated element.
+fn fixup_created_profile_natural_key(working: &mut zeroclaw_config::schema::Config, id: &str) {
+    if let Some(profile) = working.authz.profiles.last_mut() {
+        if profile.id.is_empty() {
+            profile.id = id.to_string();
+        }
+    }
+}
+
 /// Write `body`'s `allowed_agents` and `admin` onto the (already-created)
 /// `authz.profiles.<id>` record via the standard `set_prop_persistent`
 /// dotted-path engine — the same field-write machinery every other
@@ -273,10 +334,17 @@ pub async fn handle_create_profile(
             .with_path(format!("authz.profiles.{}", body.id)),
         );
     }
-    if let Err(msg) = working.create_map_key("authz.profiles", &body.id) {
-        return error_response(
-            ConfigApiError::new(ConfigApiCode::InternalError, msg).with_path("authz.profiles"),
-        );
+    match working.create_map_key("authz.profiles", &body.id) {
+        Ok(created) => {
+            if created {
+                fixup_created_profile_natural_key(&mut working, &body.id);
+            }
+        }
+        Err(msg) => {
+            return error_response(
+                ConfigApiError::new(ConfigApiCode::InternalError, msg).with_path("authz.profiles"),
+            );
+        }
     }
     if let Err(e) = apply_profile_fields(&mut working, &body) {
         return error_response(e);
@@ -309,10 +377,17 @@ pub async fn handle_update_profile(
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
     let mut working = state.config.read().clone();
-    if let Err(msg) = working.create_map_key("authz.profiles", &body.id) {
-        return error_response(
-            ConfigApiError::new(ConfigApiCode::InternalError, msg).with_path("authz.profiles"),
-        );
+    match working.create_map_key("authz.profiles", &body.id) {
+        Ok(created) => {
+            if created {
+                fixup_created_profile_natural_key(&mut working, &body.id);
+            }
+        }
+        Err(msg) => {
+            return error_response(
+                ConfigApiError::new(ConfigApiCode::InternalError, msg).with_path("authz.profiles"),
+            );
+        }
     }
     if let Err(e) = apply_profile_fields(&mut working, &body) {
         return error_response(e);
@@ -919,6 +994,75 @@ mod tests {
                 .authz
                 .is_admin(zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID),
             "the well-known operator principal must be admin-bound"
+        );
+    }
+
+    #[tokio::test]
+    async fn operator_bootstrap_seed_is_persisted_to_disk_not_just_live_state() {
+        // The residual the coordinator's follow-up review flagged: the seed
+        // must ride the SAME `save_dirty` write the profile creation itself
+        // does, not merely land in live `state.config`. Otherwise a restart
+        // before any other config write drops the seed entirely --
+        // config-load only WARNS on a locked-out operator, it does not
+        // re-seed (see `AuthzConfig::bootstrap_operator_is_locked_out`) --
+        // stranding the operator again on the very next boot.
+        let tmp = tempfile::tempdir().unwrap();
+        let operator_token = "operator-tok";
+        let cfg = bootstrap_config(&tmp, operator_token);
+        let config_path = cfg.config_path.clone();
+        let state = test_state(cfg, operator_token);
+
+        let response = handle_create_profile(
+            State(state.clone()),
+            bearer_headers(operator_token),
+            Json(ProfileBody {
+                id: "ops".into(),
+                allowed_agents: vec![],
+                admin: true,
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let on_disk =
+            std::fs::read_to_string(&config_path).expect("config.toml must exist after the write");
+        assert!(
+            on_disk.contains("ops"),
+            "the operator-created profile itself must be on disk:\n{on_disk}"
+        );
+        assert!(
+            on_disk.contains(zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID),
+            "the seeded operator principal must be on disk, not live-only:\n{on_disk}"
+        );
+        assert!(
+            on_disk.contains(zeroclaw_config::authz::OPERATOR_ADMIN_PROFILE_ID),
+            "the seeded operator-admin profile must be on disk, not live-only:\n{on_disk}"
+        );
+        let operator_hash = ConfigPairingGuard::token_hash(operator_token);
+        assert!(
+            on_disk.contains(&operator_hash),
+            "the operator's own token hash must be persisted under the seeded principal:\n{on_disk}"
+        );
+
+        // Round-trip proof, simulating a restart: reload the SAME file from
+        // scratch and confirm the seeded principal resolves normally via
+        // its `token_hashes` pin -- no live rescue needed post-restart.
+        let reloaded = zeroclaw_config::migration::migrate_to_current(&on_disk)
+            .expect("persisted config.toml must reparse cleanly");
+        assert!(
+            reloaded
+                .authz
+                .is_admin(zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID),
+            "reloading the persisted file from scratch must still resolve the operator as admin"
+        );
+        assert_eq!(
+            reloaded
+                .authz
+                .lookup(&operator_hash, None)
+                .map(|p| p.id.clone()),
+            Some(zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID.to_string()),
+            "the operator's hash must resolve via normal AuthzConfig::lookup after \
+             reload, not just the live rescue"
         );
     }
 

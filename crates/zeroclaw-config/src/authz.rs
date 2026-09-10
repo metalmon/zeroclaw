@@ -251,9 +251,18 @@ impl AuthzConfig {
     /// already bound to `OPERATOR_PRINCIPAL_ID` itself is excluded by the
     /// same "already resolves to a principal" filter, so a second call with
     /// the same hash changes nothing.
-    pub fn seed_operator_admin_if_locked_out(&mut self, candidate_hashes: &[String]) {
+    ///
+    /// Returns `true` iff it actually mutated `self` (created or extended
+    /// the seed) — `false` for every no-op path. Callers that persist via
+    /// `Config::mark_dirty` + `save_dirty` (this module has no persistence
+    /// mechanism of its own — see `zeroclaw-gateway`'s
+    /// `seed_operator_admin_for_caller`) use this to only mark the affected
+    /// paths dirty when something actually changed, so an already-seeded
+    /// caller doesn't churn an unnecessary rewrite on every subsequent
+    /// config write.
+    pub fn seed_operator_admin_if_locked_out(&mut self, candidate_hashes: &[String]) -> bool {
         if !self.is_enforced() {
-            return;
+            return false;
         }
         let hashes: Vec<&str> = candidate_hashes
             .iter()
@@ -261,7 +270,7 @@ impl AuthzConfig {
             .filter(|h| !h.is_empty() && self.lookup(h, None).is_none())
             .collect();
         if hashes.is_empty() {
-            return;
+            return false;
         }
 
         match self
@@ -306,6 +315,7 @@ impl AuthzConfig {
                 profiles: vec![OPERATOR_ADMIN_PROFILE_ID.to_string()],
             }),
         }
+        true
     }
 
     /// Read-only diagnostic for callers that have NO specific caller to
