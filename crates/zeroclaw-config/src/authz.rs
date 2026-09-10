@@ -82,6 +82,27 @@ pub struct PermissionProfile {
     pub admin: bool,
 }
 
+/// Well-known id for the auto-seeded bootstrap-operator admin principal
+/// (the carried ruling: enabling authz must never lock the operator out of
+/// the very panel/API that manages roles). See
+/// [`AuthzConfig::seed_operator_admin_if_locked_out`] for the seeding logic.
+///
+/// This id alone does not make the operator's connection resolve to this
+/// principal in the narrow window between the write that first enables
+/// enforcement and the next `/admin/reload`/restart: the gateway's
+/// `PairingAuthProvider` (in `zeroclaw-runtime`) holds an `AuthzConfig`
+/// SNAPSHOT frozen at daemon start / last reload, never rebuilt on a bare
+/// config write, so a brand-new principal id is invisible to it until then.
+/// The gateway crate's `require_admin` closes that specific window with an
+/// additional bootstrap-rescue check keyed off this exact id — see its doc
+/// comment (`crates/zeroclaw-gateway/src/api_authz.rs`) for the full
+/// two-sided story.
+pub const OPERATOR_PRINCIPAL_ID: &str = "_operator";
+
+/// Well-known id for the auto-seeded, always-`admin: true` profile
+/// [`OPERATOR_PRINCIPAL_ID`] is bound to.
+pub const OPERATOR_ADMIN_PROFILE_ID: &str = "_operator_admin";
+
 impl AuthzConfig {
     /// Authz is enforced once any principal or permission profile is configured.
     pub fn is_enforced(&self) -> bool {
@@ -188,6 +209,94 @@ impl AuthzConfig {
             if !principal.profiles.contains(&profile_id) {
                 principal.profiles.push(profile_id);
             }
+        }
+    }
+
+    /// Guarantee the operator is never locked out the instant authz becomes
+    /// enforced. No-op when authz is not enforced (`is_enforced() == false`)
+    /// or `bootstrap_token_hashes` has no non-empty entries — both mean
+    /// there is nothing to protect yet. Otherwise: if none of
+    /// `bootstrap_token_hashes` already resolves (via [`Self::lookup`]) to a
+    /// principal bound to an admin profile, seeds the well-known
+    /// [`OPERATOR_ADMIN_PROFILE_ID`] profile (`admin: true`) and
+    /// [`OPERATOR_PRINCIPAL_ID`] principal (bound to it, with every
+    /// bootstrap hash added to its `token_hashes`). Both edits land in this
+    /// one call — synchronous, no yield point in between — so config is
+    /// never observed with one half seeded but not the other.
+    ///
+    /// Idempotent: safe to call on every config load and every config
+    /// write. An existing `OPERATOR_ADMIN_PROFILE_ID` / `OPERATOR_PRINCIPAL_ID`
+    /// is extended in place (missing hashes/bindings added, nothing
+    /// duplicated); an already-fully-seeded pair is left unchanged.
+    ///
+    /// Two callers, two different windows this closes — see
+    /// [`OPERATOR_PRINCIPAL_ID`]'s doc comment for why both are needed:
+    /// the config-load field-migration pipeline (covers a hand-edited
+    /// `config.toml` plus restart, or `/admin/reload`) and the gateway
+    /// crate's `persist_and_swap` (covers the live, no-restart transition —
+    /// paired there with `require_admin`'s bootstrap-rescue branch, which
+    /// additionally demands a LIVE, genuinely-paired-token check before
+    /// trusting this seed, so an attacker with an arbitrary bearer cannot
+    /// piggyback on it during that window).
+    pub fn seed_operator_admin_if_locked_out(&mut self, bootstrap_token_hashes: &[String]) {
+        if !self.is_enforced() {
+            return;
+        }
+        let hashes: Vec<&str> = bootstrap_token_hashes
+            .iter()
+            .map(String::as_str)
+            .filter(|h| !h.is_empty())
+            .collect();
+        if hashes.is_empty() {
+            return;
+        }
+        let already_admin = hashes
+            .iter()
+            .copied()
+            .any(|h| self.lookup(h, None).is_some_and(|p| self.is_admin(&p.id)));
+        if already_admin {
+            return;
+        }
+
+        match self
+            .profiles
+            .iter_mut()
+            .find(|p| p.id == OPERATOR_ADMIN_PROFILE_ID)
+        {
+            Some(existing) => existing.admin = true,
+            None => self.profiles.push(PermissionProfile {
+                id: OPERATOR_ADMIN_PROFILE_ID.to_string(),
+                allowed_agents: Vec::new(),
+                admin: true,
+            }),
+        }
+
+        match self
+            .principals
+            .iter_mut()
+            .find(|p| p.id == OPERATOR_PRINCIPAL_ID)
+        {
+            Some(existing) => {
+                if !existing
+                    .profiles
+                    .iter()
+                    .any(|id| id == OPERATOR_ADMIN_PROFILE_ID)
+                {
+                    existing.profiles.push(OPERATOR_ADMIN_PROFILE_ID.to_string());
+                }
+                for h in hashes.iter().copied() {
+                    if !existing.token_hashes.iter().any(|x| x == h) {
+                        existing.token_hashes.push(h.to_string());
+                    }
+                }
+            }
+            None => self.principals.push(PrincipalRecord {
+                id: OPERATOR_PRINCIPAL_ID.to_string(),
+                allowed_agents: Vec::new(),
+                device_ids: Vec::new(),
+                token_hashes: hashes.iter().copied().map(str::to_string).collect(),
+                profiles: vec![OPERATOR_ADMIN_PROFILE_ID.to_string()],
+            }),
         }
     }
 }
@@ -454,6 +563,169 @@ mod tests {
         // inline cleared, a generated profile now referenced, behavior preserved
         assert!(c.principals[0].allowed_agents.is_empty());
         assert_eq!(c.effective_agents("legacy"), vec!["crm-bot".to_string()]);
+    }
+
+    #[test]
+    fn seed_operator_admin_noop_when_not_enforced() {
+        let mut c = AuthzConfig::default();
+        c.seed_operator_admin_if_locked_out(&["hash1".to_string()]);
+        assert!(!c.is_enforced(), "must not itself enforce authz");
+        assert!(c.principals.is_empty());
+        assert!(c.profiles.is_empty());
+    }
+
+    #[test]
+    fn seed_operator_admin_noop_when_no_bootstrap_hashes() {
+        let mut c = cfg(); // enforced (alice + admin principals from the fixture)
+        let before = c.clone();
+        c.seed_operator_admin_if_locked_out(&[]);
+        assert_eq!(c, before, "no bootstrap hashes means nothing to protect");
+
+        c.seed_operator_admin_if_locked_out(&[String::new()]);
+        assert_eq!(
+            c, before,
+            "an empty-string hash must never count as a real bootstrap credential"
+        );
+    }
+
+    #[test]
+    fn seed_operator_admin_noop_when_bootstrap_already_admin() {
+        let mut c = admin_authz_fixture("bob-hash", "bob");
+        let before = c.clone();
+        c.seed_operator_admin_if_locked_out(&["bob-hash".to_string()]);
+        assert_eq!(
+            c, before,
+            "the bootstrap hash already resolves to an admin principal — nothing to seed"
+        );
+    }
+
+    #[test]
+    fn seed_operator_admin_creates_the_well_known_principal_when_locked_out() {
+        // Enforced (via a non-admin profile), but the bootstrap hash doesn't
+        // map to anything — exactly the lock-out this seed exists to avoid.
+        let mut c = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "alice".into(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec!["alice-hash".into()],
+                profiles: vec!["crm".into()],
+            }],
+            profiles: vec![PermissionProfile {
+                id: "crm".into(),
+                allowed_agents: vec!["crm-bot".into()],
+                admin: false,
+            }],
+        };
+        c.seed_operator_admin_if_locked_out(&["operator-hash".to_string()]);
+
+        assert!(c.is_admin(OPERATOR_PRINCIPAL_ID));
+        let op = c.by_id(OPERATOR_PRINCIPAL_ID).expect("operator seeded");
+        assert_eq!(op.token_hashes, vec!["operator-hash".to_string()]);
+        assert_eq!(op.profiles, vec![OPERATOR_ADMIN_PROFILE_ID.to_string()]);
+        let profile = c
+            .profiles
+            .iter()
+            .find(|p| p.id == OPERATOR_ADMIN_PROFILE_ID)
+            .expect("operator admin profile seeded");
+        assert!(profile.admin);
+        // The pre-existing principal/profile must survive untouched.
+        assert!(c.by_id("alice").is_some());
+        assert_eq!(c.lookup("operator-hash", None).unwrap().id, OPERATOR_PRINCIPAL_ID);
+    }
+
+    #[test]
+    fn seed_operator_admin_is_idempotent() {
+        let mut c = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "alice".into(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec!["alice-hash".into()],
+                profiles: vec![],
+            }],
+            profiles: vec![],
+        };
+        c.seed_operator_admin_if_locked_out(&["operator-hash".to_string()]);
+        let after_first = c.clone();
+        c.seed_operator_admin_if_locked_out(&["operator-hash".to_string()]);
+        assert_eq!(c, after_first, "a second identical call must change nothing");
+        assert_eq!(
+            c.principals
+                .iter()
+                .filter(|p| p.id == OPERATOR_PRINCIPAL_ID)
+                .count(),
+            1
+        );
+        assert_eq!(
+            c.by_id(OPERATOR_PRINCIPAL_ID).unwrap().token_hashes,
+            vec!["operator-hash".to_string()],
+            "the hash must not be duplicated"
+        );
+    }
+
+    #[test]
+    fn seed_operator_admin_extends_an_existing_operator_principal_with_a_new_hash() {
+        // A prior seed run (e.g. an earlier daemon boot with a different
+        // paired-token set) already created the operator principal; a new
+        // bootstrap hash must be added, not clobber the old one.
+        let mut c = AuthzConfig {
+            principals: vec![
+                PrincipalRecord {
+                    id: "alice".into(),
+                    allowed_agents: vec![],
+                    device_ids: vec![],
+                    token_hashes: vec!["alice-hash".into()],
+                    profiles: vec![],
+                },
+                PrincipalRecord {
+                    id: OPERATOR_PRINCIPAL_ID.into(),
+                    allowed_agents: vec![],
+                    device_ids: vec![],
+                    token_hashes: vec!["old-hash".into()],
+                    profiles: vec![OPERATOR_ADMIN_PROFILE_ID.into()],
+                },
+            ],
+            profiles: vec![PermissionProfile {
+                id: OPERATOR_ADMIN_PROFILE_ID.into(),
+                allowed_agents: vec![],
+                admin: true,
+            }],
+        };
+        c.seed_operator_admin_if_locked_out(&["new-hash".to_string()]);
+
+        let op = c.by_id(OPERATOR_PRINCIPAL_ID).unwrap();
+        assert_eq!(
+            op.token_hashes,
+            vec!["old-hash".to_string(), "new-hash".to_string()]
+        );
+        assert_eq!(
+            c.principals
+                .iter()
+                .filter(|p| p.id == OPERATOR_PRINCIPAL_ID)
+                .count(),
+            1,
+            "must extend in place, never duplicate the principal"
+        );
+    }
+
+    /// Fixture: a single principal `principal_id` bound to an `admin: true`
+    /// profile, pinned to `token_hash`.
+    fn admin_authz_fixture(token_hash: &str, principal_id: &str) -> AuthzConfig {
+        AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: principal_id.to_string(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec![token_hash.to_string()],
+                profiles: vec!["ops".to_string()],
+            }],
+            profiles: vec![PermissionProfile {
+                id: "ops".to_string(),
+                allowed_agents: vec![],
+                admin: true,
+            }],
+        }
     }
 
     #[test]

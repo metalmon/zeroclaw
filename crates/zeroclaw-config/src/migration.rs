@@ -240,9 +240,23 @@ pub fn migrate_to_current(input: &str) -> Result<Config> {
 /// Today this converts legacy per-principal inline `authz.principals`
 /// `allowed_agents` into a generated `authz.profiles` entry so
 /// `AuthzConfig::effective_agents` stays the single source of truth for
-/// access, without requiring an on-disk `schema_version` bump.
+/// access, without requiring an on-disk `schema_version` bump. It also runs
+/// the F4 operator-bootstrap seed (`AuthzConfig::seed_operator_admin_if_locked_out`):
+/// if this load makes authz enforced (a `[[authz.principals]]` or
+/// `[[authz.profiles]]` is present — whether hand-authored or already
+/// persisted from an earlier run) and none of the already-paired bootstrap
+/// tokens (`gateway.paired_tokens`) resolve to an admin principal, it seeds
+/// the well-known operator-admin principal/profile so the operator is never
+/// locked out of the control plane by a config edit plus restart. Purely
+/// in-memory, like `migrate_inline_agents` — neither writes `dirty_paths`
+/// nor touches disk; it's cheaply recomputed on every load from
+/// `gateway.paired_tokens`, which is itself already durably persisted.
 fn apply_field_migrations(config: &mut Config) {
     config.authz.migrate_inline_agents();
+    let bootstrap_token_hashes = config.gateway.paired_tokens.clone();
+    config
+        .authz
+        .seed_operator_admin_if_locked_out(&bootstrap_token_hashes);
 }
 
 /// Daemon load path: versioned TOML → usable `Config`, never failing.
