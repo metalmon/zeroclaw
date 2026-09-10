@@ -221,9 +221,20 @@ fn encrypt_in_place(value: &mut toml::Value, store: &crate::secrets::SecretStore
 pub fn migrate_to_current(input: &str) -> Result<Config> {
     let _attribution = ::zeroclaw_log::attribution_span!(&ConfigLoadAttribution).entered();
     let final_value = migrate_value(input)?;
-    final_value
+    let mut config: Config = final_value
         .try_into()
-        .context("migrated config failed to deserialize as current schema")
+        .context("migrated config failed to deserialize as current schema")?;
+    apply_field_migrations(&mut config);
+    Ok(config)
+}
+
+/// Behavioral (non-schema-version) migrations applied on every load path,
+/// strict and resilient alike: convert-and-clear legacy `authz.principals`
+/// inline `allowed_agents` into a generated `authz.profiles` entry so
+/// `AuthzConfig::effective_agents` is the single source of truth for
+/// access, without requiring an on-disk `schema_version` bump.
+fn apply_field_migrations(config: &mut Config) {
+    config.authz.migrate_inline_agents();
 }
 
 /// Daemon load path: versioned TOML → usable `Config`, never failing.
@@ -307,7 +318,8 @@ fn migrate_value(input: &str) -> Result<toml::Value> {
 /// Strict first; on failure prune broken channel aliases, channel types, then
 /// top-level sections (each → `Default`), so only the broken blocks are lost.
 fn deserialize_resilient(value: toml::Value) -> ResilientLoad {
-    if let Ok(config) = value.clone().try_into::<Config>() {
+    if let Ok(mut config) = value.clone().try_into::<Config>() {
+        apply_field_migrations(&mut config);
         return ResilientLoad {
             config,
             dropped: Vec::new(),
@@ -323,7 +335,7 @@ fn deserialize_resilient(value: toml::Value) -> ResilientLoad {
     prune_bad_top_level_sections(&mut salvaged, &mut dropped);
 
     let mut whole_config_lost = false;
-    let config = salvaged.try_into::<Config>().unwrap_or_else(|err| {
+    let mut config = salvaged.try_into::<Config>().unwrap_or_else(|err| {
         // Nothing in the root table is individually salvageable (e.g. a
         // non-table root). Boot on defaults so repair surfaces are reachable.
         whole_config_lost = true;
@@ -337,6 +349,7 @@ fn deserialize_resilient(value: toml::Value) -> ResilientLoad {
         );
         Config::default()
     });
+    apply_field_migrations(&mut config);
 
     let mut dropped_security: Vec<String> = Vec::new();
     let mut dropped_plain: Vec<String> = Vec::new();

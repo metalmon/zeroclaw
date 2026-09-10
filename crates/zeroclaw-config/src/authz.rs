@@ -21,6 +21,15 @@ pub struct AuthzConfig {
     #[nested]
     #[natural_key = "id"]
     pub principals: Vec<PrincipalRecord>,
+
+    /// Named permission profiles (`[[authz.profiles]]`): a reusable bundle of
+    /// `allowed_agents` (plus an `admin` escalation flag) that one or more
+    /// principals bind to by `id`. Mirrors `principals`'
+    /// per-element property routing.
+    #[serde(default, rename = "profiles")]
+    #[nested]
+    #[natural_key = "id"]
+    pub profiles: Vec<PermissionProfile>,
 }
 
 /// One fork-local principal: the bearer identity (token hash / device id)
@@ -44,12 +53,39 @@ pub struct PrincipalRecord {
     pub device_ids: Vec<String>,
     #[serde(default)]
     pub token_hashes: Vec<String>,
+    /// `[[authz.profiles]]` ids this principal is bound to. Effective access
+    /// is the union of every bound profile's `allowed_agents` (see
+    /// [`AuthzConfig::effective_agents`]); any bound `admin` profile grants
+    /// all agents regardless of the others.
+    #[serde(default)]
+    pub profiles: Vec<String>,
+}
+
+/// A reusable, named bundle of agent access (`[[authz.profiles]]`),
+/// referenced by [`PrincipalRecord::profiles`] via `id`. `#[prefix =
+/// "authz.profiles"]` mirrors `PrincipalRecord`'s `#[prefix =
+/// "authz.principals"]`: the full dotted path is the parent `authz` plus
+/// this field's own name `profiles`.
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, zeroclaw_macros::Configurable,
+)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[prefix = "authz.profiles"]
+pub struct PermissionProfile {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub allowed_agents: Vec<String>,
+    /// Grants access to every agent (`["*"]`), overriding `allowed_agents`,
+    /// for any principal bound to this profile.
+    #[serde(default)]
+    pub admin: bool,
 }
 
 impl AuthzConfig {
-    /// Authz is enforced once any principal is configured.
+    /// Authz is enforced once any principal or permission profile is configured.
     pub fn is_enforced(&self) -> bool {
-        !self.principals.is_empty()
+        !self.principals.is_empty() || !self.profiles.is_empty()
     }
 
     /// Find the principal a bearer maps to, by token-hash first then device id.
@@ -70,6 +106,89 @@ impl AuthzConfig {
     /// config). A binding whose id is absent here → fail-closed Denied.
     pub fn by_id(&self, id: &str) -> Option<&PrincipalRecord> {
         self.principals.iter().find(|p| p.id == id)
+    }
+
+    /// Find a configured profile by its `id`.
+    fn profile_by_id(&self, id: &str) -> Option<&PermissionProfile> {
+        self.profiles.iter().find(|p| p.id == id)
+    }
+
+    /// The agents `principal_id` may reach: the union of every bound
+    /// profile's `allowed_agents`. If any bound profile has `admin = true`,
+    /// short-circuits to `["*"]` (all agents) regardless of the others.
+    /// An unknown principal, or one bound to no (or only unknown) profiles,
+    /// gets an empty grant — fail-closed.
+    #[must_use]
+    pub fn effective_agents(&self, principal_id: &str) -> Vec<String> {
+        let Some(principal) = self.by_id(principal_id) else {
+            return Vec::new();
+        };
+        let bound_profiles: Vec<&PermissionProfile> = principal
+            .profiles
+            .iter()
+            .filter_map(|id| self.profile_by_id(id))
+            .collect();
+        if bound_profiles.iter().any(|p| p.admin) {
+            return vec!["*".to_string()];
+        }
+        let mut agents: Vec<String> = Vec::new();
+        for profile in bound_profiles {
+            for agent in &profile.allowed_agents {
+                if !agents.contains(agent) {
+                    agents.push(agent.clone());
+                }
+            }
+        }
+        agents
+    }
+
+    /// True when `principal_id` is bound to any profile with `admin = true`.
+    #[must_use]
+    pub fn is_admin(&self, principal_id: &str) -> bool {
+        let Some(principal) = self.by_id(principal_id) else {
+            return false;
+        };
+        principal
+            .profiles
+            .iter()
+            .filter_map(|id| self.profile_by_id(id))
+            .any(|p| p.admin)
+    }
+
+    /// Convert-and-clear migration: every principal's legacy inline
+    /// `allowed_agents` moves into a generated, per-principal profile
+    /// (`_migrated_<principal.id>`), pushed onto `profiles` and bound onto
+    /// the principal, and the inline field is cleared. Preserves
+    /// [`Self::effective_agents`] behavior for every migrated principal.
+    /// Idempotent: a principal with already-empty `allowed_agents` (e.g. a
+    /// second call, or one that only ever used `profiles`) is untouched.
+    pub fn migrate_inline_agents(&mut self) {
+        for principal in &mut self.principals {
+            if principal.allowed_agents.is_empty() {
+                continue;
+            }
+            let agents = std::mem::take(&mut principal.allowed_agents);
+            let profile_id = format!("_migrated_{}", principal.id);
+            match self.profiles.iter_mut().find(|p| p.id == profile_id) {
+                Some(existing) => {
+                    for agent in agents {
+                        if !existing.allowed_agents.contains(&agent) {
+                            existing.allowed_agents.push(agent);
+                        }
+                    }
+                }
+                None => {
+                    self.profiles.push(PermissionProfile {
+                        id: profile_id.clone(),
+                        allowed_agents: agents,
+                        admin: false,
+                    });
+                }
+            }
+            if !principal.profiles.contains(&profile_id) {
+                principal.profiles.push(profile_id);
+            }
+        }
     }
 }
 
@@ -269,6 +388,68 @@ mod tests {
         assert_eq!(c.by_id("alice").unwrap().allowed_agents, vec!["crm-bot"]);
         assert_eq!(c.by_id("admin").unwrap().allowed_agents, vec!["*"]);
         assert!(c.by_id("ghost").is_none());
+    }
+
+    #[test]
+    fn effective_agents_unions_bound_profiles() {
+        let mut c = AuthzConfig::default();
+        c.profiles = vec![
+            PermissionProfile {
+                id: "crm".into(),
+                allowed_agents: vec!["crm-bot".into()],
+                admin: false,
+            },
+            PermissionProfile {
+                id: "hr".into(),
+                allowed_agents: vec!["hr-bot".into()],
+                admin: false,
+            },
+        ];
+        c.principals = vec![PrincipalRecord {
+            id: "u1".into(),
+            allowed_agents: vec![],
+            device_ids: vec![],
+            token_hashes: vec![],
+            profiles: vec!["crm".into(), "hr".into()],
+        }];
+        let mut got = c.effective_agents("u1");
+        got.sort();
+        assert_eq!(got, vec!["crm-bot".to_string(), "hr-bot".into()]);
+    }
+
+    #[test]
+    fn admin_profile_grants_all_even_when_agents_empty() {
+        let mut c = AuthzConfig::default();
+        c.profiles = vec![PermissionProfile {
+            id: "ops".into(),
+            allowed_agents: vec![],
+            admin: true,
+        }];
+        c.principals = vec![PrincipalRecord {
+            id: "a".into(),
+            allowed_agents: vec![],
+            device_ids: vec![],
+            token_hashes: vec![],
+            profiles: vec!["ops".into()],
+        }];
+        assert_eq!(c.effective_agents("a"), vec!["*".to_string()]);
+        assert!(c.is_admin("a"));
+    }
+
+    #[test]
+    fn migrate_moves_inline_agents_into_a_profile_and_clears() {
+        let mut c = AuthzConfig::default();
+        c.principals = vec![PrincipalRecord {
+            id: "legacy".into(),
+            allowed_agents: vec!["crm-bot".into()],
+            device_ids: vec![],
+            token_hashes: vec![],
+            profiles: vec![],
+        }];
+        c.migrate_inline_agents();
+        // inline cleared, a generated profile now referenced, behavior preserved
+        assert!(c.principals[0].allowed_agents.is_empty());
+        assert_eq!(c.effective_agents("legacy"), vec!["crm-bot".to_string()]);
     }
 
     #[test]
