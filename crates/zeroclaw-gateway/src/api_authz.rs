@@ -58,6 +58,14 @@ pub(crate) async fn require_admin(
     state: &AppState,
     headers: &HeaderMap,
 ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    // Safe only because F4b's two-listener split (spec §6) keeps this whole
+    // control plane -- config-write routes plus this file's authz API --
+    // off the public listener entirely: while unconfigured, ANY paired
+    // bearer satisfies `require_auth` below, which is only tolerable
+    // because only the operator can reach this endpoint at all (private
+    // listener) before authz is configured to restrict who "paired" even
+    // means. Exposing this surface on the public listener would break that
+    // precondition.
     if !state.config.read().authz.is_enforced() {
         return require_auth(state, headers);
     }
@@ -1276,6 +1284,61 @@ mod tests {
             require_admin(&state, &bearer_headers(operator_token))
                 .await
                 .is_ok()
+        );
+    }
+
+    #[tokio::test]
+    async fn bootstrap_rescue_grants_any_live_admin_not_only_the_seeded_operator() {
+        // The rescue is a general, caller-scoped LIVE lookup -- not a check
+        // hardcoded to `_operator`. Bootstrap normally (seeding `_operator`
+        // for the operator's own token), then simulate a SECOND admin
+        // principal landing in live config afterward (e.g. a future
+        // add-principal flow, or an operator hand-edit) -- distinct id,
+        // distinct token, bound to its own admin profile, and never present
+        // in the frozen pre-enforcement snapshot `test_state` built (so the
+        // ordinary `is_admin(resolve_principal(...).id)` check can't see it
+        // either -- this can only pass through the rescue's own live
+        // hash-for-hash lookup).
+        let tmp = tempfile::tempdir().unwrap();
+        let operator_token = "operator-tok";
+        let state = test_state(bootstrap_config(&tmp, operator_token), operator_token);
+
+        let response = handle_create_profile(
+            State(state.clone()),
+            bearer_headers(operator_token),
+            Json(ProfileBody {
+                id: "ops".into(),
+                allowed_agents: vec![],
+                admin: true,
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let colleague_token = "colleague-tok";
+        {
+            let mut cfg = state.config.write();
+            cfg.authz.principals.push(PrincipalRecord {
+                id: "colleague".into(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec![ConfigPairingGuard::token_hash(colleague_token)],
+                profiles: vec!["colleague-admin".into()],
+            });
+            cfg.authz.profiles.push(PermissionProfile {
+                id: "colleague-admin".into(),
+                allowed_agents: vec![],
+                admin: true,
+            });
+        }
+
+        // Same process, no reload/restart -- `resolve_principal` still
+        // answers off the frozen, pre-enforcement snapshot and cannot see
+        // "colleague" at all, so this can only succeed via the rescue.
+        let result = require_admin(&state, &bearer_headers(colleague_token)).await;
+        assert!(
+            result.is_ok(),
+            "the rescue must grant any live admin-bound principal, not only the seeded operator"
         );
     }
 
