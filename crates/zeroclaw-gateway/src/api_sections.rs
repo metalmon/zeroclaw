@@ -16,6 +16,7 @@ use zeroclaw_runtime::rpc::types::{
 
 use super::AppState;
 use super::api::require_auth;
+use super::api_authz::require_admin;
 
 /// `GET /api/config/catalog` — list every model provider the CLI wizard knows
 /// about. The dashboard shows these in the "+ Add model provider" picker so
@@ -864,6 +865,9 @@ pub async fn handle_section_select(
     body: Option<axum::extract::Json<SectionSelectBody>>,
 ) -> Response {
     if let Err(e) = require_auth(&state, &headers) {
+        return e.into_response();
+    }
+    if let Err(e) = require_admin(&state, &headers).await {
         return e.into_response();
     }
 
@@ -1783,6 +1787,73 @@ mod tests {
             .find(|item| item.key == "cloudflare")
             .expect("cloudflare should appear in the picker");
         assert_eq!(cloudflare.badge.as_deref(), Some("active"));
+    }
+
+    #[tokio::test]
+    async fn section_select_denies_a_non_admin_paired_principal_creating_an_agent() {
+        // A paired-but-non-admin principal must not be able to create new
+        // config entries (agents, mcp servers, channels, ...) via the
+        // section picker -- F4's admin-gate on config-write, verified here
+        // against `handle_section_select`'s agent-create path specifically
+        // (the vector the review flagged: this handler swaps live config
+        // with only the paired-guard check, no admin requirement).
+        use zeroclaw_config::authz::{AuthzConfig, PermissionProfile, PrincipalRecord};
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let authz = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "alice".to_string(),
+                allowed_agents: vec![],
+                device_ids: vec![],
+                token_hashes: vec![zeroclaw_config::pairing::PairingGuard::token_hash(
+                    "alice-tok",
+                )],
+                profiles: vec!["crm".to_string()],
+            }],
+            profiles: vec![PermissionProfile {
+                id: "crm".to_string(),
+                allowed_agents: vec!["crm-bot".to_string()],
+                admin: false,
+            }],
+        };
+        let cfg = zeroclaw_config::schema::Config {
+            config_path: tmp.path().join("config.toml"),
+            authz: authz.clone(),
+            ..Default::default()
+        };
+        let mut state = section_test_state(cfg);
+        state.pairing =
+            std::sync::Arc::new(zeroclaw_runtime::security::pairing::PairingGuard::new(
+                true,
+                &["alice-tok".to_string()],
+            ));
+        state.provider_registry = crate::acp::build_provider_registry(
+            authz,
+            std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+        );
+
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            axum::http::HeaderValue::from_str("Bearer alice-tok").unwrap(),
+        );
+
+        let response = handle_section_select(
+            State(state.clone()),
+            headers,
+            axum::extract::Path(SectionItemPath {
+                section: "agents".to_string(),
+                key: "new-agent".to_string(),
+            }),
+            None,
+        )
+        .await;
+
+        assert_eq!(response.status(), axum::http::StatusCode::FORBIDDEN);
+        assert!(
+            !state.config.read().agents.contains_key("new-agent"),
+            "a rejected section-select must not create the agent"
+        );
     }
 
     #[test]

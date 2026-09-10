@@ -46,9 +46,20 @@ use super::api_config::{map_prop_error, persist_and_swap};
 /// `acp::resolve_principal` also accepts is ACP-connection-specific
 /// (`Extension<ClientDeviceId>`) and not threaded through this REST
 /// surface; see the task report for the scoping rationale.
-pub(crate) async fn require_admin(state: &AppState, headers: &HeaderMap) -> Result<(), Response> {
+/// The gate's error type deliberately mirrors [`require_auth`]'s own
+/// `Result<(), (StatusCode, Json<serde_json::Value>)>` shape instead of the
+/// full `Response` — `clippy::result_large_err` (denied in CI) flags any
+/// `Result<_, Response>` because `Response` carries a `HeaderMap` and is far
+/// past the lint's size threshold. This tuple is small (proven: it's the
+/// exact type `require_auth` already returns everywhere in the crate) and
+/// the unconfigured-authz fallback below returns it straight through with
+/// no conversion at all.
+pub(crate) async fn require_admin(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     if !state.config.read().authz.is_enforced() {
-        return require_auth(state, headers).map_err(|e| e.into_response());
+        return require_auth(state, headers);
     }
 
     let token = super::api::extract_bearer_token(headers);
@@ -61,15 +72,18 @@ pub(crate) async fn require_admin(state: &AppState, headers: &HeaderMap) -> Resu
     if is_admin {
         Ok(())
     } else {
-        Err(forbidden_response())
+        Err(forbidden_error())
     }
 }
 
-fn forbidden_response() -> Response {
-    error_response(ConfigApiError::new(
-        ConfigApiCode::Forbidden,
-        "this action requires a principal bound to an admin profile",
-    ))
+fn forbidden_error() -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::FORBIDDEN,
+        Json(serde_json::json!({
+            "code": "forbidden",
+            "error": "this action requires a principal bound to an admin profile",
+        })),
+    )
 }
 
 fn error_response(err: ConfigApiError) -> Response {
@@ -127,15 +141,13 @@ pub struct ProfileBody {
     pub admin: bool,
 }
 
-fn validate_profile_id(id: &str) -> Result<(), Response> {
+fn validate_profile_id(id: &str) -> Result<(), ConfigApiError> {
     if id.trim().is_empty() {
-        return Err(error_response(
-            ConfigApiError::new(
-                ConfigApiCode::RequiredFieldEmpty,
-                "profile `id` is required",
-            )
-            .with_path("authz.profiles"),
-        ));
+        return Err(ConfigApiError::new(
+            ConfigApiCode::RequiredFieldEmpty,
+            "profile `id` is required",
+        )
+        .with_path("authz.profiles"));
     }
     Ok(())
 }
@@ -148,18 +160,18 @@ fn validate_profile_id(id: &str) -> Result<(), Response> {
 fn apply_profile_fields(
     working: &mut zeroclaw_config::schema::Config,
     body: &ProfileBody,
-) -> Result<(), Response> {
+) -> Result<(), ConfigApiError> {
     let agents_json =
         serde_json::to_string(&body.allowed_agents).unwrap_or_else(|_| "[]".to_string());
     let agents_path = format!("authz.profiles.{}.allowed_agents", body.id);
     working
         .set_prop_persistent(&agents_path, &agents_json)
-        .map_err(|e| error_response(map_prop_error(e, &agents_path)))?;
+        .map_err(|e| map_prop_error(e, &agents_path))?;
 
     let admin_path = format!("authz.profiles.{}.admin", body.id);
     working
         .set_prop_persistent(&admin_path, if body.admin { "true" } else { "false" })
-        .map_err(|e| error_response(map_prop_error(e, &admin_path)))?;
+        .map_err(|e| map_prop_error(e, &admin_path))?;
     Ok(())
 }
 
@@ -171,10 +183,10 @@ pub async fn handle_create_profile(
     Json(body): Json<ProfileBody>,
 ) -> Response {
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
     if let Err(e) = validate_profile_id(&body.id) {
-        return e;
+        return error_response(e);
     }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
@@ -197,7 +209,7 @@ pub async fn handle_create_profile(
         );
     }
     if let Err(e) = apply_profile_fields(&mut working, &body) {
-        return e;
+        return error_response(e);
     }
     if let Err(e) = persist_and_swap(&state, working, &_cfg_guard).await {
         return error_response(e);
@@ -218,10 +230,10 @@ pub async fn handle_update_profile(
     Json(body): Json<ProfileBody>,
 ) -> Response {
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
     if let Err(e) = validate_profile_id(&body.id) {
-        return e;
+        return error_response(e);
     }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
@@ -232,7 +244,7 @@ pub async fn handle_update_profile(
         );
     }
     if let Err(e) = apply_profile_fields(&mut working, &body) {
-        return e;
+        return error_response(e);
     }
     if let Err(e) = persist_and_swap(&state, working, &_cfg_guard).await {
         return error_response(e);
@@ -277,7 +289,7 @@ pub async fn handle_delete_profile(
     Query(q): Query<ProfileIdQuery>,
 ) -> Response {
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
@@ -384,7 +396,7 @@ pub async fn handle_bind_principal_profile(
     Json(body): Json<BindProfileBody>,
 ) -> Response {
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
@@ -429,7 +441,7 @@ pub async fn handle_unbind_principal_profile(
     Query(q): Query<UnbindProfileQuery>,
 ) -> Response {
     if let Err(e) = require_admin(&state, &headers).await {
-        return e;
+        return e.into_response();
     }
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
