@@ -240,23 +240,39 @@ pub fn migrate_to_current(input: &str) -> Result<Config> {
 /// Today this converts legacy per-principal inline `authz.principals`
 /// `allowed_agents` into a generated `authz.profiles` entry so
 /// `AuthzConfig::effective_agents` stays the single source of truth for
-/// access, without requiring an on-disk `schema_version` bump. It also runs
-/// the F4 operator-bootstrap seed (`AuthzConfig::seed_operator_admin_if_locked_out`):
-/// if this load makes authz enforced (a `[[authz.principals]]` or
-/// `[[authz.profiles]]` is present — whether hand-authored or already
-/// persisted from an earlier run) and none of the already-paired bootstrap
-/// tokens (`gateway.paired_tokens`) resolve to an admin principal, it seeds
-/// the well-known operator-admin principal/profile so the operator is never
-/// locked out of the control plane by a config edit plus restart. Purely
-/// in-memory, like `migrate_inline_agents` — neither writes `dirty_paths`
-/// nor touches disk; it's cheaply recomputed on every load from
-/// `gateway.paired_tokens`, which is itself already durably persisted.
+/// access, without requiring an on-disk `schema_version` bump.
+///
+/// It also runs the F4 operator-bootstrap DIAGNOSTIC
+/// (`AuthzConfig::bootstrap_operator_is_locked_out`) — deliberately a
+/// warning, not an automatic seed. A bare config load (a hand-authored
+/// `config.toml` plus restart, or `/admin/reload`) has no caller to
+/// attribute a grant to: `gateway.paired_tokens` can hold several
+/// already-paired devices, and guessing which one is "the operator" would
+/// mean either granting admin to all of them (the exact amplification
+/// `AuthzConfig::seed_operator_admin_if_locked_out`'s caller-scoping
+/// invariant forbids) or an arbitrary single one. So this path only warns
+/// and leaves the fix to the operator, who can either hand-edit
+/// `config.toml` to bind an existing principal to an admin profile, or
+/// reconnect through the live gateway — `persist_and_swap` DOES have a
+/// specific caller to scope a seed to (see
+/// `zeroclaw-gateway::api_authz::seed_operator_admin_for_caller`).
 fn apply_field_migrations(config: &mut Config) {
     config.authz.migrate_inline_agents();
-    let bootstrap_token_hashes = config.gateway.paired_tokens.clone();
-    config
+    if config
         .authz
-        .seed_operator_admin_if_locked_out(&bootstrap_token_hashes);
+        .bootstrap_operator_is_locked_out(&config.gateway.paired_tokens)
+    {
+        ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
+            "authz is enforced but no currently-paired bootstrap token resolves to \
+             an admin principal; the operator may be locked out of the admin control \
+             plane. Bind an existing principal to an admin profile in config.toml, or \
+             reconnect through the live gateway to configure the first admin profile \
+             (which seeds an operator-admin path scoped to that connection)."
+        );
+    }
 }
 
 /// Daemon load path: versioned TOML → usable `Config`, never failing.

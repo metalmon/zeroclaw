@@ -86,35 +86,64 @@ pub(crate) async fn require_admin(
     // bearer, never a real configured principal, until the next
     // reload/restart rebuilds the registry. The ordinary `is_admin(p.id)`
     // check above can therefore never observe
-    // `AuthzConfig::seed_operator_admin_if_locked_out`'s seed (bound to
-    // `authz::OPERATOR_PRINCIPAL_ID`) in that window, no matter how it's
-    // named.
+    // `AuthzConfig::seed_operator_admin_if_locked_out`'s seed in that
+    // window, no matter what id it's under.
     //
-    // This rescue closes that window WITHOUT trusting the stale resolver or
-    // widening who can pass: it demands BOTH (a) the caller's bearer is a
-    // currently-paired token per the LIVE `PairingGuard`
-    // (`require_auth` — a completely different, non-frozen check from
-    // `resolve_principal`) AND (b) the live config's well-known operator
-    // principal is admin-bound. An attacker presenting an arbitrary
-    // never-paired bearer fails (a) and gets nothing — `resolve_principal`'s
-    // permissive stale-snapshot answer is never enough on its own. A
-    // genuinely already-paired device (exactly the set `gateway.paired_tokens`
-    // held the moment enforcement turned on — the same population the
-    // legacy shared-operator model already trusted with full access) gets
-    // an admin path until the operator reconfigures it after the next
-    // reload, when normal token-hash resolution takes over and this branch
-    // stops mattering for that credential.
-    if require_auth(state, headers).is_ok()
-        && state
-            .config
-            .read()
-            .authz
-            .is_admin(zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID)
-    {
+    // This rescue closes that window by bypassing the stale resolver
+    // entirely rather than trusting it: it hashes the CALLER'S OWN bearer
+    // and looks THAT SPECIFIC hash up directly against the LIVE config
+    // (`AuthzConfig::lookup`, not `resolve_principal`), then checks whether
+    // the principal it resolves to (if any) is admin-bound.
+    //
+    // This is deliberately NOT "is this bearer merely paired" (an earlier
+    // version used `require_auth` here, which checks paired-set membership
+    // only — ANY currently-paired device would pass, including one the
+    // operator explicitly configured as a non-admin role, letting it
+    // self-promote). A live hash-for-hash lookup is strictly narrower: it
+    // only ever succeeds for a credential some LIVE principal's
+    // `token_hashes` explicitly names, and that principal's own `is_admin`
+    // status governs the outcome like anywhere else — a non-admin
+    // principal's own token still gets denied here, exactly as it would
+    // once `resolve_principal` catches up after the next reload.
+    let caller_hash = token.map(zeroclaw_config::pairing::PairingGuard::token_hash);
+    let rescued = caller_hash.as_deref().is_some_and(|hash| {
+        let cfg = state.config.read();
+        cfg.authz
+            .lookup(hash, None)
+            .is_some_and(|rec| cfg.authz.is_admin(&rec.id))
+    });
+    if rescued {
         return Ok(());
     }
 
     Err(forbidden_error())
+}
+
+/// If this profile write is the one turning authz enforcement on (or
+/// enforcement is already on but the caller's own credential has no admin
+/// path yet), seed the operator-bootstrap admin path scoped to THIS
+/// CALLER'S OWN bearer only.
+///
+/// Deliberately narrow: it hashes only the token presented on THIS request
+/// and passes that single hash to
+/// [`zeroclaw_config::authz::AuthzConfig::seed_operator_admin_if_locked_out`]
+/// — never `gateway.paired_tokens` or any other set of credentials. The
+/// caller reaching this point has already passed [`require_admin`] (either
+/// via its pre-enforcement paired-guard fallback, or as an existing admin),
+/// so treating THIS specific credential as "the configuring operator" for
+/// bootstrap purposes is exactly the carried ruling's scope — no other
+/// currently-paired device is touched. If the caller presented no bearer,
+/// or their hash already resolves to any existing principal (admin or
+/// not — see the callee's own exclusion invariant), this is a no-op.
+fn seed_operator_admin_for_caller(
+    working: &mut zeroclaw_config::schema::Config,
+    headers: &HeaderMap,
+) {
+    let Some(token) = super::api::extract_bearer_token(headers) else {
+        return;
+    };
+    let hash = zeroclaw_config::pairing::PairingGuard::token_hash(token);
+    working.authz.seed_operator_admin_if_locked_out(&[hash]);
 }
 
 fn forbidden_error() -> (StatusCode, Json<serde_json::Value>) {
@@ -252,6 +281,7 @@ pub async fn handle_create_profile(
     if let Err(e) = apply_profile_fields(&mut working, &body) {
         return error_response(e);
     }
+    seed_operator_admin_for_caller(&mut working, &headers);
     if let Err(e) = persist_and_swap(&state, working, &_cfg_guard).await {
         return error_response(e);
     }
@@ -287,6 +317,7 @@ pub async fn handle_update_profile(
     if let Err(e) = apply_profile_fields(&mut working, &body) {
         return error_response(e);
     }
+    seed_operator_admin_for_caller(&mut working, &headers);
     if let Err(e) = persist_and_swap(&state, working, &_cfg_guard).await {
         return error_response(e);
     }
@@ -893,11 +924,13 @@ mod tests {
 
     #[tokio::test]
     async fn bootstrap_rescue_denies_a_caller_without_a_real_paired_token() {
-        // Same transition as above, but the second caller presents a bearer
-        // that was never paired. `resolve_principal` (still answering off
-        // the frozen, pre-enforcement snapshot) would happily call this
-        // `Trusted(shared_operator)` too -- the rescue must NOT let that
-        // alone grant admin; it also requires the LIVE paired-guard to agree.
+        // Same transition as above, but the second caller presents an
+        // arbitrary bearer that was never bound to anything. `resolve_principal`
+        // (still answering off the frozen, pre-enforcement snapshot) would
+        // happily call this `Trusted(shared_operator)` too -- the rescue
+        // must NOT let that alone grant admin: its own live hash-for-hash
+        // lookup against `_operator.token_hashes` finds nothing for this
+        // hash and denies.
         let tmp = tempfile::tempdir().unwrap();
         let operator_token = "operator-tok";
         let state = test_state(bootstrap_config(&tmp, operator_token), operator_token);
@@ -917,7 +950,107 @@ mod tests {
         let result = require_admin(&state, &bearer_headers("never-paired-token")).await;
         assert!(
             result.is_err(),
-            "an arbitrary never-paired bearer must not ride the bootstrap rescue to admin"
+            "an arbitrary bearer with no config binding at all must not ride the bootstrap rescue to admin"
+        );
+    }
+
+    #[tokio::test]
+    async fn bootstrap_rescue_denies_a_differently_paired_non_admin_principal() {
+        // The CRITICAL case: Bob is genuinely paired (`gateway.paired_tokens`)
+        // AND already explicitly configured as a non-admin "guest"
+        // principal -- exactly what an operator does after bootstrapping:
+        // pair a second device, bind it to a restricted role. `_operator`
+        // already exists as admin (as if an earlier bootstrap already ran).
+        // An earlier, flawed version of the rescue checked only "is this
+        // bearer paired at all" (`require_auth`), which Bob's token would
+        // have passed, letting him self-promote to admin. The fixed rescue
+        // must deny him: his OWN hash resolves to "guest", not `_operator`.
+        let tmp = tempfile::tempdir().unwrap();
+        let operator_token = "operator-tok";
+        let bob_token = "bob-tok";
+        let mut authz = non_admin_authz(bob_token, "guest");
+        authz.principals.push(PrincipalRecord {
+            id: zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID.to_string(),
+            allowed_agents: vec![],
+            device_ids: vec![],
+            token_hashes: vec![ConfigPairingGuard::token_hash(operator_token)],
+            profiles: vec![zeroclaw_config::authz::OPERATOR_ADMIN_PROFILE_ID.to_string()],
+        });
+        authz.profiles.push(PermissionProfile {
+            id: zeroclaw_config::authz::OPERATOR_ADMIN_PROFILE_ID.to_string(),
+            allowed_agents: vec![],
+            admin: true,
+        });
+        let mut cfg = temp_config(&tmp, authz);
+        cfg.gateway.paired_tokens = vec![
+            ConfigPairingGuard::token_hash(operator_token),
+            ConfigPairingGuard::token_hash(bob_token),
+        ];
+        let state = test_state(cfg, operator_token);
+
+        let result = require_admin(&state, &bearer_headers(bob_token)).await;
+        let (status, _) = result.expect_err(
+            "a paired principal explicitly bound to a non-admin role must never \
+             self-promote via the bootstrap rescue, even while an operator-admin \
+             principal already exists",
+        );
+        assert_eq!(status, StatusCode::FORBIDDEN);
+
+        // The operator's own path is unaffected.
+        assert!(
+            require_admin(&state, &bearer_headers(operator_token))
+                .await
+                .is_ok()
+        );
+    }
+
+    #[tokio::test]
+    async fn bootstrap_seed_scopes_admin_to_the_configuring_caller_only() {
+        // Two devices were paired BEFORE authz existed (legacy
+        // shared-operator state): the operator's and an unrelated second
+        // device's. Only the operator actually performs the bootstrap
+        // (creates the first profile). An earlier, flawed seed dumped ALL
+        // of `gateway.paired_tokens` into `_operator`, silently promoting
+        // the second device too. The fixed seed must bind ONLY the caller's
+        // own hash.
+        let tmp = tempfile::tempdir().unwrap();
+        let operator_token = "operator-tok";
+        let other_paired_token = "other-device-tok";
+        let mut cfg = bootstrap_config(&tmp, operator_token);
+        cfg.gateway
+            .paired_tokens
+            .push(ConfigPairingGuard::token_hash(other_paired_token));
+        let state = test_state(cfg, operator_token);
+
+        let response = handle_create_profile(
+            State(state.clone()),
+            bearer_headers(operator_token),
+            Json(ProfileBody {
+                id: "ops".into(),
+                allowed_agents: vec![],
+                admin: true,
+            }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let cfg = state.config.read().clone();
+        let op = cfg
+            .authz
+            .by_id(zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID)
+            .expect("operator principal seeded");
+        assert_eq!(
+            op.token_hashes,
+            vec![ConfigPairingGuard::token_hash(operator_token)],
+            "only the configuring caller's own hash must be seeded, never every paired token"
+        );
+
+        // The other, uninvolved paired device gets nothing.
+        assert!(
+            require_admin(&state, &bearer_headers(other_paired_token))
+                .await
+                .is_err(),
+            "a merely-paired device that never configured anything must not become admin"
         );
     }
 
