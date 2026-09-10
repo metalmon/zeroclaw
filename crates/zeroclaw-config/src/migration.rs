@@ -228,10 +228,18 @@ pub fn migrate_to_current(input: &str) -> Result<Config> {
     Ok(config)
 }
 
-/// Behavioral (non-schema-version) migrations applied on every load path,
-/// strict and resilient alike: convert-and-clear legacy `authz.principals`
-/// inline `allowed_agents` into a generated `authz.profiles` entry so
-/// `AuthzConfig::effective_agents` is the single source of truth for
+/// The single aggregation point for behavioral (non-schema-version) field
+/// migrations: called from every config-producing exit (the strict
+/// `migrate_to_current` path and both `deserialize_resilient` exits —
+/// the clean-parse fast path and the post-salvage path), so a migration
+/// added here reaches every loader regardless of which one runs. This is
+/// deliberately a thin wrapper rather than inlined at each call site: more
+/// field migrations are coming (for example the F4c `groups` config),
+/// and they belong here, not duplicated across the three exits.
+///
+/// Today this converts legacy per-principal inline `authz.principals`
+/// `allowed_agents` into a generated `authz.profiles` entry so
+/// `AuthzConfig::effective_agents` stays the single source of truth for
 /// access, without requiring an on-disk `schema_version` bump.
 fn apply_field_migrations(config: &mut Config) {
     config.authz.migrate_inline_agents();
