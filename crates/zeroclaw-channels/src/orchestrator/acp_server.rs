@@ -4179,6 +4179,37 @@ mod tests {
         assert_eq!(err.code, INVALID_PARAMS);
     }
 
+    #[test]
+    fn roster_filter_is_fail_closed_when_principal_record_is_gone() {
+        use zeroclaw_api::principal::{AuthMethod, Principal, PrincipalId};
+
+        let cwd = tempfile::tempdir().unwrap();
+        // Same no-fail-open setup as
+        // `no_fail_open_when_authenticated_principals_record_is_gone`, but
+        // exercised through the OTHER `live_allowed_agents` consumer: the
+        // `initialize` roster filter, not `validate_dispatchable_agent_alias`.
+        let config = crm_hr_config(cwd.path());
+        assert!(
+            !config.authz.is_enforced(),
+            "precondition: no authz principals configured"
+        );
+
+        let alice = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Oidc);
+        assert!(alice.is_authenticated());
+        assert!(config.authz.by_id(alice.id.as_str()).is_none());
+
+        let server = AcpServer::new(config, AcpServerConfig::default()).with_principal(alice);
+        let resp = server.handle_initialize(&serde_json::json!({})).unwrap();
+        let agents = resp["_meta"]["zeroclaw"]["agents"]
+            .as_array()
+            .expect("agents array present");
+        assert!(
+            agents.is_empty(),
+            "no-fail-open: an authenticated principal with no config record must see an \
+             empty roster, not every configured agent; got: {agents:?}"
+        );
+    }
+
     #[tokio::test]
     async fn config_edit_changes_the_live_decision_with_no_restart() {
         use zeroclaw_api::principal::{AuthMethod, Principal, PrincipalId};
