@@ -402,22 +402,15 @@ pub(crate) async fn persist_and_swap(
         "persist_and_swap caller must hold state.config_write_lock"
     );
 
-    // F4 operator-bootstrap seed: this is THE single chokepoint every
-    // config-mutating REST route (this crate's own generic PATCH/PUT/map-key
-    // surface AND `api_authz.rs`'s profile/principal routes) funnels through,
-    // so it's also the one place that can catch authz enforcement turning on
-    // live, no matter which specific handler's edit did it, and close the
-    // lock-out window in the SAME process without waiting for a restart. See
-    // `AuthzConfig::seed_operator_admin_if_locked_out` for the seed itself
-    // and `api_authz::require_admin`'s bootstrap-rescue branch for the other
-    // half this pairs with (a live, genuinely-paired-token check gates use
-    // of this seed until the next `/admin/reload`/restart rebuilds
-    // `provider_registry` and normal token-hash resolution takes over).
-    let bootstrap_token_hashes = new_config.gateway.paired_tokens.clone();
-    new_config
-        .authz
-        .seed_operator_admin_if_locked_out(&bootstrap_token_hashes);
-
+    // Deliberately NOT a generic F4 operator-bootstrap seed hook: an earlier
+    // version seeded here using `new_config.gateway.paired_tokens` (every
+    // currently-paired device), which promoted ALL of them to admin the
+    // instant authz turned on — not just whichever caller actually performed
+    // the write. `persist_and_swap` has no caller identity to scope a seed
+    // to (it's shared by every config-mutating route, most of which have
+    // nothing to do with authz), so seeding is done by the specific
+    // authz-mutating handlers that know their own caller — see
+    // `api_authz::seed_operator_admin_for_caller`.
     let config_path = new_config.config_path.clone();
 
     // Snapshot pre-write disk state (used for revert on save failure). When
