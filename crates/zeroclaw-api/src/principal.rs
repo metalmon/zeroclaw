@@ -89,9 +89,12 @@ pub struct Principal {
     /// Session expiry, UNIX seconds; `0` = no expiry.
     #[serde(default)]
     pub expires_at: u64,
-    /// Agent aliases this principal MAY bind at `session/new`. Empty + no roles ⇒
-    /// the [`AuthMethod::SharedOperator`] fallback ("any configured alias",
-    /// today's behaviour).
+    /// Snapshot of the agent aliases this principal was granted at auth time
+    /// (best-effort/audit value; see [`Principal::may_bind`]). NOT the live
+    /// dispatch gate: every privileged chokepoint recomputes the caller's
+    /// actual grant set fresh from `&Config` on each call
+    /// ([`Principal::is_entitled_to_alias`]) so a config edit applies with no
+    /// reconnect, instead of trusting this frozen field.
     #[serde(default)]
     pub allowed_aliases: Vec<AgentAlias>,
 }
@@ -168,8 +171,12 @@ impl Principal {
         self
     }
 
-    /// Whether this principal may bind the given agent alias.
-    /// `"*"` in `allowed_aliases` grants every alias (the operator/admin case).
+    /// Whether the given alias is in this principal's frozen `allowed_aliases`
+    /// snapshot (taken at auth time). `"*"` grants every alias. This is NOT
+    /// the live dispatch gate — see [`Principal::is_entitled_to_alias`], which
+    /// takes a caller-supplied live grant set instead of reading this
+    /// snapshot. `may_bind` remains useful for auth-provider tests and as a
+    /// best-effort/audit value on the snapshot itself.
     #[must_use]
     pub fn may_bind(&self, alias: &str) -> bool {
         self.allowed_aliases
@@ -189,18 +196,25 @@ impl Principal {
     }
 
     /// The fork-local entitlement predicate: `true` if this principal may bind
-    /// or dispatch `alias`. The trusted-local / legacy
-    /// [`Principal::shared_operator`] (`!is_authenticated`) may reach any
-    /// configured alias, preserving today's behaviour when no authz principals
-    /// are configured; a *distinct* authenticated principal is limited to its
-    /// `allowed_aliases` ([`Principal::may_bind`] — explicit alias or `"*"`).
-    /// This is THE shared gate for every dispatch chokepoint (ACP bind today;
-    /// REST/A2A once they resolve an authenticated principal). Do not substitute
-    /// a bare [`Principal::may_bind`]: `shared_operator` carries no
-    /// `allowed_aliases`, so that would deny the trusted-local path.
+    /// or dispatch `alias`, given `live_allowed` — the caller's LIVE grant set.
+    /// Callers must recompute `live_allowed` from `&Config`
+    /// (`AuthzConfig::effective_agents`) on EVERY privileged op, never read it
+    /// once and cache it: this is what lets an `[[authz.profiles]]` /
+    /// `authz.principals` edit take effect on an already-open connection with
+    /// no daemon restart. Do NOT pass `self.allowed_aliases` here — that is
+    /// the frozen snapshot taken at auth time and is no longer consulted by
+    /// this gate.
+    ///
+    /// The trusted-local / legacy [`Principal::shared_operator`]
+    /// (`!is_authenticated`) may reach any configured alias regardless of
+    /// `live_allowed`, preserving today's behaviour when no authz principals
+    /// are configured; a *distinct* authenticated principal is limited to
+    /// `live_allowed` (explicit alias or `"*"`). This is THE shared gate for
+    /// every dispatch chokepoint (ACP bind today; REST/A2A once they resolve
+    /// an authenticated principal).
     #[must_use]
-    pub fn is_entitled_to_alias(&self, alias: &str) -> bool {
-        !self.is_authenticated() || self.may_bind(alias)
+    pub fn is_entitled_to_alias(&self, alias: &str, live_allowed: &[String]) -> bool {
+        !self.is_authenticated() || live_allowed.iter().any(|a| a == "*" || a == alias)
     }
 }
 
@@ -209,19 +223,23 @@ impl Principal {
 /// `GET /api/config/agent-options` (dashboard). Applies the same gate
 /// predicate as the ACP bind-time check
 /// (`crates/zeroclaw-channels/src/orchestrator/acp_server.rs`): an
-/// authenticated principal is shown only its explicitly granted aliases via
-/// [`Principal::may_bind`]; an unauthenticated/trusted principal — today's
-/// [`Principal::shared_operator`] on both of these surfaces, since neither
-/// resolves an authenticated principal yet — sees every alias. Do not
-/// replace the `!is_authenticated() || may_bind(...)` gate with a bare
-/// `may_bind` call: `shared_operator` carries no `allowed_aliases`, so that
-/// would return an empty list for the trusted-local path instead of the
-/// full one.
+/// authenticated principal is shown only the aliases in `live_allowed`
+/// (recomputed by the caller from live `&Config`, never cached); an
+/// unauthenticated/trusted principal — today's [`Principal::shared_operator`]
+/// on both of these surfaces, since neither resolves an authenticated
+/// principal yet — sees every alias regardless of `live_allowed`. Do not
+/// substitute a bare `live_allowed.contains(...)` check: `shared_operator`
+/// must short-circuit on `!is_authenticated()` or the trusted-local path
+/// would see an empty list.
 #[must_use]
-pub fn filter_agents_for_principal<'a>(all: &'a [&'a str], principal: &Principal) -> Vec<&'a str> {
+pub fn filter_agents_for_principal<'a>(
+    all: &'a [&'a str],
+    principal: &Principal,
+    live_allowed: &[String],
+) -> Vec<&'a str> {
     all.iter()
         .copied()
-        .filter(|alias| principal.is_entitled_to_alias(alias))
+        .filter(|alias| principal.is_entitled_to_alias(alias, live_allowed))
         .collect()
 }
 
@@ -306,13 +324,14 @@ mod tests {
 
     #[test]
     fn is_entitled_to_alias_gate() {
-        // Trusted-local / legacy: no allowed_aliases, yet reaches any alias.
+        // Trusted-local / legacy: reaches any alias regardless of
+        // `live_allowed` — even an empty one.
         let shared = Principal::shared_operator();
-        assert!(shared.is_entitled_to_alias("anything"));
-        assert!(shared.is_entitled_to_alias("crm-bot"));
+        assert!(shared.is_entitled_to_alias("anything", &[]));
+        assert!(shared.is_entitled_to_alias("crm-bot", &[]));
 
-        // Distinct authenticated principal: limited to its allowed_aliases.
-        let mut alice = Principal {
+        // Distinct authenticated principal: limited to the live grant set.
+        let alice = Principal {
             id: PrincipalId::from("alice"),
             user_id: "alice".to_owned(),
             roles: vec![],
@@ -322,12 +341,25 @@ mod tests {
             expires_at: 0,
             allowed_aliases: vec![AgentAlias("crm-bot".to_owned())],
         };
-        assert!(alice.is_entitled_to_alias("crm-bot"));
-        assert!(!alice.is_entitled_to_alias("payroll-bot"));
+        assert!(alice.is_entitled_to_alias("crm-bot", &["crm-bot".to_owned()]));
+        assert!(!alice.is_entitled_to_alias("payroll-bot", &["crm-bot".to_owned()]));
 
-        // Wildcard grants every alias.
-        alice.allowed_aliases = vec![AgentAlias("*".to_owned())];
-        assert!(alice.is_entitled_to_alias("payroll-bot"));
+        // Empty live set denies even an explicit configured alias — the
+        // frozen `allowed_aliases` snapshot above is not consulted.
+        assert!(!alice.is_entitled_to_alias("crm-bot", &[]));
+
+        // Wildcard in the live set grants every alias.
+        assert!(alice.is_entitled_to_alias("payroll-bot", &["*".to_owned()]));
+    }
+
+    #[test]
+    fn is_entitled_to_alias_ignores_frozen_snapshot() {
+        // The frozen `allowed_aliases` snapshot (taken at auth time) must
+        // never be consulted — only the caller-supplied live set decides.
+        let alice = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Oidc)
+            .with_allowed_aliases(vec![AgentAlias("stale-bot".into())]);
+        assert!(!alice.is_entitled_to_alias("stale-bot", &[]));
+        assert!(alice.is_entitled_to_alias("fresh-bot", &["fresh-bot".to_owned()]));
     }
 
     #[test]
@@ -402,10 +434,32 @@ mod tests {
 
     #[test]
     fn agents_list_filters_by_principal() {
-        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native)
-            .with_allowed_aliases(vec![AgentAlias("crm-bot".into())]);
-        let listed = filter_agents_for_principal(&["crm-bot", "hr-bot"], &principal);
+        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native);
+        let listed = filter_agents_for_principal(
+            &["crm-bot", "hr-bot"],
+            &principal,
+            &["crm-bot".to_owned()],
+        );
         assert_eq!(listed, vec!["crm-bot"]);
+    }
+
+    #[test]
+    fn agents_list_is_empty_for_a_role_with_no_agents() {
+        // A bound-but-empty role (no profiles, or profiles with no
+        // allowed_agents) must yield nothing — deny-by-default, not a
+        // silent fallback to "show everything".
+        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native);
+        let listed = filter_agents_for_principal(&["crm-bot", "hr-bot"], &principal, &[]);
+        assert!(listed.is_empty());
+    }
+
+    #[test]
+    fn agents_list_shows_everything_for_wildcard_live_allowed() {
+        // An admin-bound principal's live set is `["*"]` — every alias.
+        let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native);
+        let listed =
+            filter_agents_for_principal(&["crm-bot", "hr-bot"], &principal, &["*".to_owned()]);
+        assert_eq!(listed, vec!["crm-bot", "hr-bot"]);
     }
 
     #[test]
@@ -414,7 +468,7 @@ mod tests {
         // The gate must fall back to "show everything" here, not filter to
         // empty — this bug has bitten this feature twice before.
         let principal = Principal::shared_operator();
-        let listed = filter_agents_for_principal(&["crm-bot", "hr-bot"], &principal);
+        let listed = filter_agents_for_principal(&["crm-bot", "hr-bot"], &principal, &[]);
         assert_eq!(listed, vec!["crm-bot", "hr-bot"]);
     }
 
