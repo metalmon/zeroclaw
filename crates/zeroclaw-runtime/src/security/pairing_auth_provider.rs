@@ -123,7 +123,9 @@ mod tests {
                 allowed_agents: vec![alias.into()],
                 device_ids: vec![],
                 token_hashes: vec![PairingGuard::token_hash(tok)],
+                profiles: vec![],
             }],
+            profiles: vec![],
         };
         PairingAuthProvider::new(authz, Arc::new(TokenBindingStore::new_ephemeral()))
     }
@@ -161,7 +163,13 @@ mod tests {
         store
             .set(PairingGuard::token_hash(tok), bound_id.into())
             .unwrap();
-        PairingAuthProvider::new(AuthzConfig { principals }, Arc::new(store))
+        PairingAuthProvider::new(
+            AuthzConfig {
+                principals,
+                profiles: vec![],
+            },
+            Arc::new(store),
+        )
     }
 
     #[tokio::test]
@@ -174,6 +182,7 @@ mod tests {
             allowed_agents: vec!["crm-bot".into()],
             device_ids: vec![],
             token_hashes: vec![],
+            profiles: vec![],
         };
         let p = provider_with_binding(vec![alice], "tok-b", "alice");
         let out = p.verify(&Credential::Bearer("tok-b".into())).await;
@@ -191,6 +200,7 @@ mod tests {
             allowed_agents: vec!["crm-bot".into()],
             device_ids: vec![],
             token_hashes: vec![],
+            profiles: vec![],
         };
         let p = provider_with_binding(vec![alice], "tok-c", "ghost");
         let out = p.verify(&Credential::Bearer("tok-c".into())).await;
@@ -267,7 +277,9 @@ mod tests {
                 allowed_agents: vec![alias.into()],
                 device_ids: vec![device_id.into()],
                 token_hashes: vec![],
+                profiles: vec![],
             }],
+            profiles: vec![],
         };
         PairingAuthProvider::new(authz, Arc::new(TokenBindingStore::new_ephemeral()))
     }

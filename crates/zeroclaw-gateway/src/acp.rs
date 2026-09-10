@@ -770,7 +770,9 @@ mod tests {
                 allowed_agents: vec!["crm-bot".into()],
                 device_ids: vec![],
                 token_hashes: vec![PairingGuard::token_hash("good")],
+                profiles: vec![],
             }],
+            profiles: vec![],
         };
         let registry = super::build_provider_registry(
             authz,
@@ -801,7 +803,9 @@ mod tests {
                 allowed_agents: vec!["crm-bot".into()],
                 device_ids: vec!["dev-abc".into()],
                 token_hashes: vec![],
+                profiles: vec![],
             }],
+            profiles: vec![],
         };
         let registry = super::build_provider_registry(
             authz,
@@ -903,7 +907,9 @@ mod tests {
                     allowed_agents: vec!["crm-bot".into()],
                     device_ids: vec!["dev-abc".into()],
                     token_hashes: vec![],
+                    profiles: vec![],
                 }],
+                profiles: vec![],
             },
             std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
         );
