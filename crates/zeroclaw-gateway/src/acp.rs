@@ -764,7 +764,7 @@ mod tests {
         use zeroclaw_config::authz::{AuthzConfig, PrincipalRecord};
         use zeroclaw_config::pairing::PairingGuard;
 
-        let authz = AuthzConfig {
+        let mut authz = AuthzConfig {
             principals: vec![PrincipalRecord {
                 id: "alice".into(),
                 allowed_agents: vec!["crm-bot".into()],
@@ -774,6 +774,12 @@ mod tests {
             }],
             profiles: vec![],
         };
+        // `PairingAuthProvider::authenticated()` sources `allowed_aliases`
+        // from `AuthzConfig::effective_agents`, which reads bound `profiles`
+        // only — mirror the field migration the real config loader applies
+        // (`apply_field_migrations`) so this fixture's legacy inline
+        // `allowed_agents` resolves the same way.
+        authz.migrate_inline_agents();
         let registry = super::build_provider_registry(
             authz,
             std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
@@ -797,7 +803,7 @@ mod tests {
     async fn resolve_principal_binds_by_device_id_with_no_token() {
         use zeroclaw_config::authz::{AuthzConfig, PrincipalRecord};
 
-        let authz = AuthzConfig {
+        let mut authz = AuthzConfig {
             principals: vec![PrincipalRecord {
                 id: "alice".into(),
                 allowed_agents: vec!["crm-bot".into()],
@@ -807,6 +813,8 @@ mod tests {
             }],
             profiles: vec![],
         };
+        // See the migration note in `resolve_denies_unmapped_when_enforced`.
+        authz.migrate_inline_agents();
         let registry = super::build_provider_registry(
             authz,
             std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
@@ -900,17 +908,20 @@ mod tests {
     async fn device_id_gate_composition_matches_reviewed_rule() {
         use zeroclaw_config::authz::{AuthzConfig, PrincipalRecord};
 
-        let enforced_registry = super::build_provider_registry(
-            AuthzConfig {
-                principals: vec![PrincipalRecord {
-                    id: "alice".into(),
-                    allowed_agents: vec!["crm-bot".into()],
-                    device_ids: vec!["dev-abc".into()],
-                    token_hashes: vec![],
-                    profiles: vec![],
-                }],
+        let mut enforced_authz = AuthzConfig {
+            principals: vec![PrincipalRecord {
+                id: "alice".into(),
+                allowed_agents: vec!["crm-bot".into()],
+                device_ids: vec!["dev-abc".into()],
+                token_hashes: vec![],
                 profiles: vec![],
-            },
+            }],
+            profiles: vec![],
+        };
+        // See the migration note in `resolve_denies_unmapped_when_enforced`.
+        enforced_authz.migrate_inline_agents();
+        let enforced_registry = super::build_provider_registry(
+            enforced_authz,
             std::sync::Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
         );
 

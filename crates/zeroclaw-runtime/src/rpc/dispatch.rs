@@ -3916,11 +3916,14 @@ impl RpcDispatcher {
         // F4a does not resolve an authenticated `Principal` on this local RPC
         // socket (trusted/operator surface) — pass the shared-operator
         // sentinel so the filter is a no-op today and ready for F4b, when a
-        // real per-connection principal starts flowing here.
+        // real per-connection principal starts flowing here. The
+        // shared-operator sentinel short-circuits `is_entitled_to_alias`
+        // before ever consulting `live_allowed`, so an empty slice here is
+        // fine — it is never the deciding value.
         let principal = zeroclaw_api::principal::Principal::shared_operator();
         let all_aliases: Vec<&str> = config.agents.keys().map(String::as_str).collect();
         let visible: std::collections::HashSet<&str> =
-            zeroclaw_api::principal::filter_agents_for_principal(&all_aliases, &principal)
+            zeroclaw_api::principal::filter_agents_for_principal(&all_aliases, &principal, &[])
                 .into_iter()
                 .collect();
         let agents: Vec<AgentEntry> = config
