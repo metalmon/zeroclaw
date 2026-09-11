@@ -492,9 +492,9 @@ impl Tool for CanvasTool {
                     });
                 }
 
-                let store = args.get("store").and_then(|v| v.as_bool()).unwrap_or(true);
+                let persist = args.get("store").and_then(|v| v.as_bool()).unwrap_or(true);
 
-                let frame_id = if store {
+                let frame_id = if persist {
                     match self.store.render(canvas_id, content_type, content) {
                         Some(frame) => Some(frame.frame_id),
                         None => {
