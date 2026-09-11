@@ -1386,7 +1386,7 @@ export const ru: Record<string, string> = {
   'acp_error.invalid_pair_code': 'Неверный код сопряжения',
   'acp_error.pending_principal': 'Доступ пока не предоставлен',
   'acp_error.paired_not_entitled': 'Сопряжение выполнено, но право доступа не предоставлено',
-  'acp_error.agent_not_permitted': 'Агент недоступен для этого субъекта',
+  'acp_error.agent_not_permitted': 'У субъекта нет права доступа к этому агенту',
 
   'error.path_not_found': 'Путь настройки не найден',
   'error.validation_failed': 'Ошибка проверки',
