@@ -13848,6 +13848,19 @@ const DYNAMIC_KEY_SECTIONS: { prefix: string; keySegmentIndex: number }[] = [
   { prefix: "agents.", keySegmentIndex: 1 },
   { prefix: "authz.principals.", keySegmentIndex: 2 },
   { prefix: "authz.profiles.", keySegmentIndex: 2 },
+  { prefix: "runtime_profiles.", keySegmentIndex: 1 },
+  { prefix: "risk_profiles.", keySegmentIndex: 1 },
+  // `providers.models.<type>.<alias>.<field>` carries TWO instance
+  // segments: `<type>` is the model_provider family (ollama, anthropic, ...
+  // a fixed struct-field name per `ModelProviders`, but still not a single
+  // reusable catalog key on its own) and `<alias>` is the operator-chosen
+  // profile name. Both entries apply to the same path (the loop below sets
+  // each listed index independently), collapsing it to
+  // `providers.models.*.*.<field>` — one catalog entry covers every
+  // provider family and alias, matching the near-identical field set/help
+  // text shared across all `*ModelProviderConfig` structs.
+  { prefix: "providers.models.", keySegmentIndex: 2 },
+  { prefix: "providers.models.", keySegmentIndex: 3 },
 ];
 
 export function normalizeConfigFieldPath(path: string): string {

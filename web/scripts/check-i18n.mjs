@@ -121,6 +121,10 @@ const DYNAMIC_KEY_SECTIONS = [
   { prefix: "agents.", keySegmentIndex: 1 },
   { prefix: "authz.principals.", keySegmentIndex: 2 },
   { prefix: "authz.profiles.", keySegmentIndex: 2 },
+  { prefix: "runtime_profiles.", keySegmentIndex: 1 },
+  { prefix: "risk_profiles.", keySegmentIndex: 1 },
+  { prefix: "providers.models.", keySegmentIndex: 2 },
+  { prefix: "providers.models.", keySegmentIndex: 3 },
 ];
 
 export function normalizeConfigFieldPath(path) {
