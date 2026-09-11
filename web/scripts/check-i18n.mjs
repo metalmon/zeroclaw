@@ -19,6 +19,7 @@ const repoRoot = resolve(__dirname, "..");
 const I18N_PATH = resolve(repoRoot, "src/lib/i18n.ts");
 const RU_PATH = resolve(repoRoot, "src/locales/ru.ts");
 const NAMESPACES_PATH = resolve(repoRoot, "scripts/translated-namespaces.txt");
+const SCHEMA_PATHS_PATH = resolve(repoRoot, "scripts/schema-paths.json");
 
 const SPLIT_SUFFIXES = ["_prefix", "_suffix"];
 const PLACEHOLDER_RE = /\{[^{}]*\}/g;
@@ -96,6 +97,110 @@ export function loadAllowlist(path = NAMESPACES_PATH) {
     .map((line) => line.trim())
     .filter((line) => line.length > 0 && !line.startsWith("#"));
 }
+
+export function loadSchemaPaths(path = SCHEMA_PATHS_PATH) {
+  if (!existsSync(path)) return [];
+  return JSON.parse(readFileSync(path, "utf8"));
+}
+
+// ---------------------------------------------------------------------------
+// Config field catalog vs. schema fixture ("schema-audit")
+// ---------------------------------------------------------------------------
+//
+// `config.field.<normpath>.label` / `.desc` catalog entries (src/locales/*.ts)
+// are keyed by the NORMALIZED schema path: a map/list instance key (agent
+// alias, principal id, role id, ...) collapses to `*` so one entry covers
+// every runtime instance of that map — see `fieldLabel`/`fieldDesc` in
+// src/lib/i18n.ts. This mirrors `normalizeConfigFieldPath` from that file;
+// it is re-implemented here rather than imported because i18n.ts transitively
+// touches `window` at module scope (same reason check-i18n.test.mjs
+// re-implements plural() instead of importing it — see that file's comment).
+// Keep DYNAMIC_KEY_SECTIONS in sync with lib/i18n.ts by hand when either
+// changes.
+const DYNAMIC_KEY_SECTIONS = [
+  { prefix: "agents.", keySegmentIndex: 1 },
+  { prefix: "authz.principals.", keySegmentIndex: 2 },
+  { prefix: "authz.profiles.", keySegmentIndex: 2 },
+];
+
+export function normalizeConfigFieldPath(path) {
+  const segments = path.split(".");
+  for (const { prefix, keySegmentIndex } of DYNAMIC_KEY_SECTIONS) {
+    if (path.startsWith(prefix) && segments.length > keySegmentIndex) {
+      segments[keySegmentIndex] = "*";
+    }
+  }
+  return segments.join(".");
+}
+
+const FIELD_KEY_RE = /^config\.field\.(.+)\.(label|desc)$/;
+
+/**
+ * Extract the set of normalized schema paths a `config.field.*` catalog
+ * (en ∪ ru, or any locale) declares entries for.
+ */
+export function fieldCatalogPaths(...catalogs) {
+  const paths = new Set();
+  for (const catalog of catalogs) {
+    for (const key of Object.keys(catalog)) {
+      const m = FIELD_KEY_RE.exec(key);
+      if (m) paths.add(m[1]);
+    }
+  }
+  return paths;
+}
+
+/**
+ * WARN (never fails the build) on `config.field.*` catalog entries whose
+ * normalized path does not correspond to any path in the live schema
+ * fixture (schema-paths.json) — i.e. a typo, or a field the upstream Rust
+ * schema has since renamed/removed (schema drift). `schemaPaths` are the
+ * RAW (runtime-instance) paths from the fixture; they're normalized here
+ * with the same function the catalog keys are supposed to follow.
+ */
+export function checkFieldCatalogOrphans(catalogPaths, schemaPaths) {
+  const known = new Set(schemaPaths.map(normalizeConfigFieldPath));
+  const warnings = [];
+  for (const path of catalogPaths) {
+    if (!known.has(path)) {
+      warnings.push(`orphan: "config.field.${path}" has no matching schema path (typo or schema drift?)`);
+    }
+  }
+  return warnings;
+}
+
+/**
+ * WARN (never fails the build) with a per-prefix count of normalized schema
+ * paths under a "high-traffic" prefix that have no `config.field.*.label`
+ * entry yet. Purely a backlog-visibility signal — translation of the config
+ * schema is deliberately partial (see the catalog's own header comment), so
+ * this never gates the build; it just makes the remaining gap under the
+ * prefixes we've decided matter most visible instead of silent.
+ */
+export function checkHighTrafficFieldCoverage(catalogPaths, schemaPaths, prefixes) {
+  const normalizedSchema = [...new Set(schemaPaths.map(normalizeConfigFieldPath))];
+  const warnings = [];
+  for (const prefix of prefixes) {
+    const underPrefix = normalizedSchema.filter((p) => p.startsWith(prefix));
+    const missing = underPrefix.filter((p) => !catalogPaths.has(p));
+    if (missing.length > 0) {
+      warnings.push(
+        `high-traffic gap: ${missing.length}/${underPrefix.length} field(s) under "${prefix}" have no config.field.*.label (e.g. "${missing[0]}")`,
+      );
+    }
+  }
+  return warnings;
+}
+
+// High-traffic prefixes per the RU panel plan's field-catalog fill scope —
+// kept here (not derived) so this stays a deliberate, reviewable list, same
+// spirit as translated-namespaces.txt.
+export const HIGH_TRAFFIC_FIELD_PREFIXES = [
+  "gateway.",
+  "authz.principals.*.",
+  "authz.profiles.*.",
+  "agents.*.",
+];
 
 // ---------------------------------------------------------------------------
 // Checks — each returns { failures: string[], infos: string[] }
@@ -277,6 +382,27 @@ async function main() {
     console.log(`\nINFO (${infos.length}) — untranslated keys outside the allowlist, not blocking:`);
     for (const info of infos.slice(0, 50)) console.log(`  - ${info}`);
     if (infos.length > 50) console.log(`  ... and ${infos.length - 50} more`);
+  }
+
+  // Schema-audit: config.field.* catalog vs. the live schema fixture. WARN
+  // only — never gates the build (see checkFieldCatalogOrphans /
+  // checkHighTrafficFieldCoverage doc comments).
+  const schemaPaths = loadSchemaPaths();
+  if (schemaPaths.length > 0) {
+    const catalogPaths = fieldCatalogPaths(en, ru);
+    const orphanWarnings = checkFieldCatalogOrphans(catalogPaths, schemaPaths);
+    const coverageWarnings = checkHighTrafficFieldCoverage(
+      catalogPaths,
+      schemaPaths,
+      HIGH_TRAFFIC_FIELD_PREFIXES,
+    );
+    const schemaWarnings = [...orphanWarnings, ...coverageWarnings];
+    if (schemaWarnings.length > 0) {
+      console.log(`\nWARN (${schemaWarnings.length}) — config.field.* schema-audit (schema-paths.json), not blocking:`);
+      for (const w of schemaWarnings) console.log(`  - ${w}`);
+    }
+  } else {
+    console.log("\n(schema-audit skipped: scripts/schema-paths.json not found)");
   }
 
   if (failures.length > 0) {

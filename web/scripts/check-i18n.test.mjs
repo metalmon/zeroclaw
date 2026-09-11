@@ -13,6 +13,12 @@ import {
   runChecks,
   loadEnCatalog,
   loadRuCatalog,
+  loadSchemaPaths,
+  normalizeConfigFieldPath,
+  fieldCatalogPaths,
+  checkFieldCatalogOrphans,
+  checkHighTrafficFieldCoverage,
+  HIGH_TRAFFIC_FIELD_PREFIXES,
 } from "./check-i18n.mjs";
 
 // ---------------------------------------------------------------------------
@@ -363,4 +369,96 @@ test("plural() falls back to the en form for a locale with no ru-specific catalo
   const catalogs = { en, fr: {} };
   assert.equal(pluralLookup(1, "runs.count", "fr", catalogs), "1 run");
   assert.equal(pluralLookup(3, "runs.count", "fr", catalogs), "3 runs");
+});
+
+// ---------------------------------------------------------------------------
+// g) config.field.* schema-audit (normalizeConfigFieldPath + orphan/coverage)
+// ---------------------------------------------------------------------------
+
+test("normalizeConfigFieldPath collapses a known map's instance key to *", () => {
+  assert.equal(
+    normalizeConfigFieldPath("agents.crm-bot.model_provider"),
+    "agents.*.model_provider",
+  );
+  assert.equal(
+    normalizeConfigFieldPath("authz.principals.alice.allowed_agents"),
+    "authz.principals.*.allowed_agents",
+  );
+  assert.equal(
+    normalizeConfigFieldPath("authz.profiles.crm-view.admin"),
+    "authz.profiles.*.admin",
+  );
+});
+
+test("normalizeConfigFieldPath leaves a fixed (non-map) path untouched", () => {
+  assert.equal(normalizeConfigFieldPath("gateway.tls.client_auth.enabled"), "gateway.tls.client_auth.enabled");
+  assert.equal(normalizeConfigFieldPath("locale"), "locale");
+});
+
+test("normalizeConfigFieldPath leaves an unlisted dynamic section untouched", () => {
+  // mcp.servers.<alias>.* is a map too, but it isn't in DYNAMIC_KEY_SECTIONS
+  // (no catalog entries reference it yet) — normalization must not guess.
+  assert.equal(
+    normalizeConfigFieldPath("mcp.servers.my-server.command"),
+    "mcp.servers.my-server.command",
+  );
+});
+
+test("fieldCatalogPaths extracts normalized paths from label/desc key pairs, deduped", () => {
+  const en = { "config.field.gateway.port.label": "Port" };
+  const ru = {
+    "config.field.gateway.port.label": "Порт",
+    "config.field.gateway.port.desc": "TCP-порт",
+    "not.a.field.key": "irrelevant",
+  };
+  assert.deepEqual([...fieldCatalogPaths(en, ru)].sort(), ["gateway.port"]);
+});
+
+test("checkFieldCatalogOrphans warns on a catalog path with no matching schema path", () => {
+  const catalogPaths = new Set(["gateway.port", "gateway.typo_field"]);
+  const schemaPaths = ["gateway.port", "gateway.host"];
+  const warnings = checkFieldCatalogOrphans(catalogPaths, schemaPaths);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /gateway\.typo_field/);
+});
+
+test("checkFieldCatalogOrphans passes when every catalog path resolves against a normalized schema path", () => {
+  const catalogPaths = new Set(["agents.*.model_provider"]);
+  const schemaPaths = ["agents.crm-bot.model_provider", "agents.payroll-bot.model_provider"];
+  assert.deepEqual(checkFieldCatalogOrphans(catalogPaths, schemaPaths), []);
+});
+
+test("checkHighTrafficFieldCoverage reports a per-prefix backlog count, never fails", () => {
+  const catalogPaths = new Set(["agents.*.enabled"]);
+  const schemaPaths = [
+    "agents.crm-bot.enabled",
+    "agents.crm-bot.model_provider",
+    "agents.payroll-bot.enabled",
+    "agents.payroll-bot.model_provider",
+  ];
+  const warnings = checkHighTrafficFieldCoverage(catalogPaths, schemaPaths, ["agents.*."]);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /1\/2 field\(s\) under "agents\.\*\."/);
+});
+
+test("checkHighTrafficFieldCoverage reports nothing for a fully-covered prefix", () => {
+  const catalogPaths = new Set(["gateway.port", "gateway.host"]);
+  const schemaPaths = ["gateway.port", "gateway.host"];
+  assert.deepEqual(checkHighTrafficFieldCoverage(catalogPaths, schemaPaths, ["gateway."]), []);
+});
+
+test("the committed config.field.* catalog has no orphans against the live schema fixture", async () => {
+  const en = loadEnCatalog();
+  const ru = await loadRuCatalog();
+  const schemaPaths = loadSchemaPaths();
+  // Fixture may be absent in some checkouts (it's a committed dashboard dev
+  // fixture, not generated at test time) — skip rather than false-fail.
+  if (schemaPaths.length === 0) return;
+  const catalogPaths = fieldCatalogPaths(en, ru);
+  const warnings = checkFieldCatalogOrphans(catalogPaths, schemaPaths);
+  assert.deepEqual(warnings, []);
+});
+
+test("HIGH_TRAFFIC_FIELD_PREFIXES is a non-empty, deliberate list", () => {
+  assert.ok(HIGH_TRAFFIC_FIELD_PREFIXES.length > 0);
 });

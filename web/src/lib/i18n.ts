@@ -13790,6 +13790,63 @@ export function tLocale(key: string, locale: Locale): string {
 }
 
 // ---------------------------------------------------------------------------
+// Config field label/description catalog
+// ---------------------------------------------------------------------------
+
+/**
+ * Config field paths returned by the daemon (`GET /api/config/list`) are
+ * RUNTIME instances — a map/list key segment is the operator's own alias
+ * (`agents.crm-bot.model_provider`, `authz.principals.alice.allowed_agents`),
+ * not a schema field name. A hand-authored label/description catalog is
+ * keyed by the SCHEMA shape instead, so every instance of a map shares one
+ * entry: collapse the alias segment to `*` (`agents.*.model_provider`).
+ *
+ * Deliberately narrow: only the map/list sections that currently have
+ * catalog entries are listed. Extend this list alongside new
+ * `config.field.*` entries for a section — an unlisted dynamic section
+ * simply won't find a catalog key (EN fallback), the same as any other
+ * un-authored field.
+ */
+const DYNAMIC_KEY_SECTIONS: { prefix: string; keySegmentIndex: number }[] = [
+  { prefix: "agents.", keySegmentIndex: 1 },
+  { prefix: "authz.principals.", keySegmentIndex: 2 },
+  { prefix: "authz.profiles.", keySegmentIndex: 2 },
+];
+
+export function normalizeConfigFieldPath(path: string): string {
+  const segments = path.split(".");
+  for (const { prefix, keySegmentIndex } of DYNAMIC_KEY_SECTIONS) {
+    if (path.startsWith(prefix) && segments.length > keySegmentIndex) {
+      segments[keySegmentIndex] = "*";
+    }
+  }
+  return segments.join(".");
+}
+
+/**
+ * Look up a hand-authored RU (or other locale) label for a config field,
+ * keyed by its normalized schema path (`config.field.<normpath>.label`).
+ * Falls back to `fallback` (today: the schema-agnostic humanized leaf) when
+ * no catalog entry exists — so an un-authored field renders exactly as it
+ * did before this catalog existed.
+ */
+export function fieldLabel(path: string, fallback: string): string {
+  const key = `config.field.${normalizeConfigFieldPath(path)}.label`;
+  return translations[currentLocale]?.[key] ?? fallback;
+}
+
+/**
+ * Look up a hand-authored RU (or other locale) description for a config
+ * field, keyed by its normalized schema path (`config.field.<normpath>.desc`).
+ * Falls back to `fallback` (today: the Rust `///` doc comment resolved via
+ * `descriptionForPath`) when no catalog entry exists.
+ */
+export function fieldDesc(path: string, fallback: string | null): string | null {
+  const key = `config.field.${normalizeConfigFieldPath(path)}.desc`;
+  return translations[currentLocale]?.[key] ?? fallback;
+}
+
+// ---------------------------------------------------------------------------
 // Pluralization
 // ---------------------------------------------------------------------------
 

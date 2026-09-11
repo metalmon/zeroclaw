@@ -48,7 +48,7 @@ import ToolPermissionGrid, {
 import { profileLevelFromDraft } from "@/components/ToolPermissionGrid.logic";
 import { Badge, Button, ComboBox, Select } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
-import { plural, t } from "@/lib/i18n";
+import { fieldDesc, fieldLabel, plural, t } from "@/lib/i18n";
 import {
   ApiError,
   descriptionForPath,
@@ -1495,7 +1495,7 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
                 onUndoTombstone={() => configDraft.unstageTombstone(f.path)}
                 error={fieldErrors[f.path]}
                 onDelete={showDelete ? () => handleDelete(f.path) : undefined}
-                description={descriptionForPath(schema, f.path)}
+                description={fieldDesc(f.path, descriptionForPath(schema, f.path))}
                 elementProps={
                   f.kind === "object-array"
                     ? objectArrayElementProps(schema, f.path)
@@ -1894,7 +1894,7 @@ function FieldRow({
             htmlFor={entry.path}
             title={`${entry.path}${entry.type_hint ? ` — ${entry.type_hint}` : ""}`}
           >
-            {humanizeFieldLabel(entry.path)}
+            {fieldLabel(entry.path, humanizeFieldLabel(entry.path))}
             {requirement && (
               <Badge
                 tone={requirementBadgeTone(requirement.tone)}
