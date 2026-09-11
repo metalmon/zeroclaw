@@ -3102,9 +3102,9 @@ Allowlist Telegram username (without '@') or numeric user ID.",
         reason: VoiceDropReason,
     ) {
         let notice = reason.notice();
-        let attempt = self.send_text_chunks(&notice, chat_id, thread_id);
+        let attempt = self.send_text_chunks(&notice, chat_id, thread_id, 0);
         match tokio::time::timeout(self.voice_drop_notice_timeout, attempt).await {
-            Ok(Ok(())) => {}
+            Ok(Ok(_)) => {}
             Ok(Err(e)) => {
                 ::zeroclaw_log::record!(
                     WARN,
