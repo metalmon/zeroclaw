@@ -51,7 +51,7 @@ export const ru: Record<string, string> = {
   'nav.tools': 'Инструменты',
   'nav.sops': 'СОП',
   'nav.runs': 'Запуски',
-  'nav.cron': 'Запланированные задачи',
+  'nav.cron': 'Расписание',
   'nav.integrations': 'Интеграции',
   'nav.skills': 'Навыки',
   'nav.memory': 'Память',
