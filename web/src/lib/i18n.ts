@@ -464,6 +464,10 @@ const translations: Record<Locale, Record<string, string>> = {
   },
 
   en: {
+    // Product identity — single-source key for the product name so a future
+    // rebrand changes exactly one value (stays "ZeroClaw" in every locale
+    // until then; it's a proper noun, not translated prose).
+    'product.name': "ZeroClaw",
     // ── i18n sweep: keys added by the conversion workflow ──
     // Self-review follow-ups: singular forms for Doctor severity pills + the
     // relative-time suffixes used by lib/format.ts formatRelative.

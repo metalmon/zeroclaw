@@ -1,4 +1,8 @@
 export const ru: Record<string, string> = {
+  // Product identity — single-source key for the product name so a future
+  // rebrand changes exactly one value (stays "ZeroClaw" in every locale
+  // until then; it's a proper noun, not translated prose).
+  'product.name': "ZeroClaw",
   'sidebar.update_available': "Доступно обновление",
   'upgrade.title': "Обновить",
   'upgrade.current': "Текущая",

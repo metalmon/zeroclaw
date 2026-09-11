@@ -229,14 +229,14 @@ function PairingDialog({
         <div className="text-center mb-8">
           <img
             src={`${basePath}/_app/logo.png`}
-            alt="ZeroClaw"
+            alt={t('product.name')}
             className="h-20 w-20 rounded-2xl object-cover mx-auto mb-4 animate-float"
             onError={(e) => {
               e.currentTarget.style.display = "none";
             }}
           />
           <h1 className="text-2xl font-bold mb-2 text-gradient-blue">
-            ZeroClaw
+            {t('product.name')}
           </h1>
           <p className="text-sm" style={{ color: "var(--pc-text-muted)" }}>
             {codeLoading

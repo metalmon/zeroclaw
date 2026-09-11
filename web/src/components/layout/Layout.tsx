@@ -51,7 +51,8 @@ export default function Layout() {
       const key = TITLE_KEYS[first];
       name = key ? t(key) : null;
     }
-    document.title = name ? `${name} — ZeroClaw` : 'ZeroClaw';
+    const productName = t('product.name');
+    document.title = name ? `${name} — ${productName}` : productName;
   }, [pathname]);
 
   return (
