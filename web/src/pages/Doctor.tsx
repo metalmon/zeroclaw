@@ -14,7 +14,7 @@ import { runDoctor } from '@/lib/api';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
 import ReloadDaemonButton from '@/components/sections/ReloadDaemonButton';
 import DoctorFixModal from '@/components/DoctorFixModal';
-import { t } from '@/lib/i18n';
+import { plural, t } from '@/lib/i18n';
 
 type Severity = DiagResult['severity'];
 
@@ -264,14 +264,14 @@ export default function Doctor() {
             <SeverityFilterToggle
               active={!hidden.has('warn')}
               count={warnCount}
-              label={warnCount !== 1 ? t('doctor.severity_warnings') : t('doctor.severity_warning')}
+              label={plural(warnCount, 'doctor.severity_warning')}
               icon={<AlertTriangle className="h-5 w-5 text-status-warning" />}
               onToggle={() => toggleSeverity('warn')}
             />
             <SeverityFilterToggle
               active={!hidden.has('error')}
               count={errorCount}
-              label={errorCount !== 1 ? t('doctor.severity_errors') : t('doctor.severity_error')}
+              label={plural(errorCount, 'doctor.severity_error')}
               icon={<XCircle className="h-5 w-5 text-status-error" />}
               onToggle={() => toggleSeverity('error')}
             />
