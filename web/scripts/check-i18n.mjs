@@ -167,6 +167,7 @@ export function checkSplitKeyOrphans(en, ru) {
 
 const LETTER_RE = /\p{L}/gu;
 const ASCII_LETTER_RE = /[A-Za-z]/;
+const URL_RE = /https?:\/\/\S+/gi;
 
 /** True when `value` looks like it was left in English (or otherwise untranslated). */
 export function looksLikeEnglishLeak(value) {
@@ -174,8 +175,15 @@ export function looksLikeEnglishLeak(value) {
   const trimmed = value.trim();
   if (trimmed.length === 0) return false;
   if (!/\s/.test(trimmed)) return false; // single token (URL, %s, {token}, abbreviation) — allow
-  const letters = trimmed.match(LETTER_RE) ?? [];
-  if (letters.length < MIN_LEAK_LETTERS) return false; // too short/symbolic to judge
+
+  // Placeholders and bare URLs aren't translatable content — strip them before
+  // judging whether what's left still reads as English (otherwise a
+  // format-only value like "{count} / {total}" is flagged purely on the
+  // ASCII letters inside its own placeholder names).
+  const stripped = trimmed.replace(PLACEHOLDER_RE, " ").replace(URL_RE, " ");
+
+  const letters = stripped.match(LETTER_RE) ?? [];
+  if (letters.length < MIN_LEAK_LETTERS) return false; // too short/symbolic to judge, or nothing left
   const asciiLetters = letters.filter((c) => ASCII_LETTER_RE.test(c));
   return asciiLetters.length / letters.length >= LEAK_ASCII_RATIO;
 }

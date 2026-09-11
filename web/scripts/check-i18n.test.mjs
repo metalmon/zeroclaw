@@ -142,6 +142,31 @@ test("looksLikeEnglishLeak allows single-token values (URLs, %s, short codes)", 
   assert.equal(looksLikeEnglishLeak("OLED"), false);
 });
 
+test("looksLikeEnglishLeak ignores ASCII letters inside {placeholder} tokens", () => {
+  // format-only value: the only letters are placeholder names ("count",
+  // "total"), which are not translatable content and must not trip the
+  // ASCII-ratio test on their own.
+  assert.equal(looksLikeEnglishLeak("{count} / {total}"), false);
+});
+
+test("looksLikeEnglishLeak treats a URL-only value as not a leak", () => {
+  assert.equal(looksLikeEnglishLeak("https://example.com/docs"), false);
+});
+
+test("looksLikeEnglishLeak ignores ASCII letters inside a bare URL alongside symbols", () => {
+  // no real translatable words here, just a symbol and a URL — the URL's
+  // ASCII letters must not be counted against the ratio.
+  assert.equal(looksLikeEnglishLeak("→ https://example.com/docs"), false);
+});
+
+test("looksLikeEnglishLeak still flags a real English sentence", () => {
+  assert.equal(looksLikeEnglishLeak("Save the configuration"), true);
+});
+
+test("looksLikeEnglishLeak still allows a proper Russian value", () => {
+  assert.equal(looksLikeEnglishLeak("Сохранить конфигурацию"), false);
+});
+
 test("looksLikeEnglishLeak allows short/symbolic values", () => {
   assert.equal(looksLikeEnglishLeak("OK"), false);
   assert.equal(looksLikeEnglishLeak("v2.1"), false);
