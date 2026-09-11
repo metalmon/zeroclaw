@@ -162,7 +162,15 @@ pub(crate) async fn require_admin(
 /// unmarked: both are `#[serde(default)]` and stay empty for this seed, so
 /// omitting them from the written TOML round-trips identically to writing
 /// an empty array.
-fn seed_operator_admin_for_caller(
+///
+/// `pub(crate)` (not private): the generic config map-key/prop surface in
+/// `api_config.rs` (`handle_map_key`, `handle_prop_put`, `handle_patch`) can
+/// ALSO create/modify `authz.principals`/`authz.profiles` rows — it is
+/// admin-gated the same way this module's dedicated handlers are, and calls
+/// this exact same helper (after checking the write actually targets
+/// `authz.*`) so enabling authz through that path seeds the operator
+/// identically and never re-locks them out on the next restart/reload.
+pub(crate) fn seed_operator_admin_for_caller(
     working: &mut zeroclaw_config::schema::Config,
     headers: &HeaderMap,
 ) {
