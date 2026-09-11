@@ -1467,6 +1467,40 @@ const translations: Record<Locale, Record<string, string>> = {
     'acp.error.prompt_failed': 'ACP prompt failed',
     'acp.error.websocket': 'ACP WebSocket error',
 
+    // Stable `data.reason` codes carried on ACP JSON-RPC entitlement/pairing
+    // error frames (see the zeroclaw-channels `write_error_with_data` and
+    // zeroclaw-gateway `send_pre_auth_error_with_reason` helpers). The panel
+    // shows this localized headline, then appends the raw server `message`
+    // as detail (see `lib/serverError.ts`). `not_entitled` and
+    // `pending_principal` have no emitting call site yet (the matching
+    // denial paths return a plain HTTP 401, or are a success-path onboarding
+    // step, not a JSON-RPC error frame); kept ready for when they do.
+    'acp_error.pair_first': 'Pairing required',
+    'acp_error.not_entitled': 'Not entitled',
+    'acp_error.invalid_pair_code': 'Invalid pairing code',
+    'acp_error.pending_principal': 'Access not yet granted',
+    'acp_error.paired_not_entitled': 'Paired, but not entitled',
+    'acp_error.agent_not_permitted': 'Agent not permitted',
+
+    // Stable `ConfigApiCode` variants (crates/zeroclaw-config/src/api_error.rs)
+    // carried on a REST `ApiError.envelope.code`. Same localized-headline +
+    // English-detail pattern as `acp_error.*` above.
+    'error.path_not_found': 'Config path not found',
+    'error.validation_failed': 'Validation failed',
+    'error.config_changed_externally': 'Config changed outside the panel',
+    'error.reload_failed': 'Reload failed',
+    'error.op_not_supported': 'Unsupported operation',
+    'error.secret_test_forbidden': 'Operation not allowed on a secret field',
+    'error.value_type_mismatch': 'Invalid value type',
+    'error.required_field_empty': 'Required field is empty',
+    'error.invalid_numeric_range': 'Value out of range',
+    'error.invalid_format': 'Invalid format',
+    'error.invalid_enum_variant': 'Unknown value',
+    'error.dangling_reference': 'Reference not found',
+    'error.forbidden': 'Not authorized for this action',
+    'error.conflict': 'Already exists',
+    'error.internal_error': 'Internal server error',
+
     // Dashboard
     'dashboard.title': 'Dashboard',
     'dashboard.provider': 'Provider',

@@ -32,6 +32,37 @@ export interface AcpResponse<T = unknown> {
 
 export type AcpFrame = AcpRequest | AcpNotification | AcpResponse;
 
+/**
+ * Thrown when an ACP `request()` call resolves to a JSON-RPC `error` frame.
+ * Carries the numeric `code` and, when the server tagged the frame with a
+ * stable `data.reason` (see zeroclaw-channels' `write_error_with_data` and
+ * zeroclaw-gateway's `send_pre_auth_error_with_reason`), the `reason`
+ * string — so a caller can show a localized headline (see
+ * `lib/serverError.ts`) without parsing `message`, which stays exactly as
+ * the server sent it (the English / fallback detail).
+ */
+export class AcpJsonRpcError extends Error {
+  readonly code: number;
+  readonly reason?: string;
+  readonly data?: unknown;
+
+  constructor(error: JsonRpcError) {
+    super(error.message);
+    this.name = 'AcpJsonRpcError';
+    this.code = error.code;
+    this.data = error.data;
+    this.reason = extractReason(error.data);
+  }
+}
+
+function extractReason(data: unknown): string | undefined {
+  if (data && typeof data === 'object' && 'reason' in data) {
+    const reason = (data as Record<string, unknown>).reason;
+    if (typeof reason === 'string') return reason;
+  }
+  return undefined;
+}
+
 export type AcpConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 export interface AcpInitializeResult {
@@ -242,7 +273,7 @@ export class AcpWebSocketClient {
     this.pending.delete(frame.id);
 
     if (frame.error) {
-      pending.reject(new Error(frame.error.message));
+      pending.reject(new AcpJsonRpcError(frame.error));
     } else {
       pending.resolve(frame.result);
     }

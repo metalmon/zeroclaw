@@ -54,6 +54,7 @@ import CostRatesEditor, {
 } from "../components/sections/CostRatesEditor";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import { t, plural } from "@/lib/i18n";
+import { formatServerError } from "@/lib/serverError";
 
 // Display order for the curated sidebar groups. Each `SectionInfo.group`
 // from the gateway lands in one of these buckets (anything else falls
@@ -132,13 +133,11 @@ export default function Config() {
       })
       .catch((e) => {
         if (cancelled) return;
-        if (e instanceof ApiError) {
-          setError(`[${e.envelope.code}] ${e.envelope.message}`);
-        } else {
-          setError(
-            `${t("config.load_sections_error")}${e instanceof Error ? e.message : String(e)}`,
-          );
-        }
+        setError(
+          e instanceof ApiError
+            ? formatServerError(e, e.envelope.message)
+            : `${t("config.load_sections_error")}${e instanceof Error ? e.message : String(e)}`,
+        );
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -197,11 +196,7 @@ export default function Config() {
         `/config/${encodeURIComponent(sectionKey)}/${encodeURIComponent(typeKey)}/${encodeURIComponent(alias)}`,
       );
     } catch (e) {
-      if (e instanceof ApiError) {
-        setError(`[${e.envelope.code}] ${e.envelope.message}`);
-      } else {
-        setError(e instanceof Error ? e.message : String(e));
-      }
+      setError(formatServerError(e, String(e)));
     }
   };
 
@@ -832,13 +827,7 @@ function AliasListView({
     try {
       await onSelectAlias(trimmed);
     } catch (e) {
-      setAliasError(
-        e instanceof ApiError
-          ? e.envelope.message
-          : e instanceof Error
-            ? e.message
-            : String(e),
-      );
+      setAliasError(formatServerError(e, String(e)));
     }
   };
 
@@ -887,13 +876,7 @@ function AliasListView({
               mapPath={mapPath}
               onSelect={() =>
                 onSelectAlias(alias).catch((e) => {
-                  setError(
-                    e instanceof ApiError
-                      ? `[${e.envelope.code}] ${e.envelope.message}`
-                      : e instanceof Error
-                        ? e.message
-                        : String(e),
-                  );
+                  setError(formatServerError(e, String(e)));
                 })
               }
               onDeleted={() => {
@@ -1330,12 +1313,7 @@ function AliasRow({
   const [plan, setPlan] = useState<DeletePlan | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const toErr = (err: unknown) =>
-    err instanceof ApiError
-      ? `[${err.envelope.code}] ${err.envelope.message}`
-      : err instanceof Error
-        ? err.message
-        : String(err);
+  const toErr = (err: unknown) => formatServerError(err, String(err));
 
   const startRename = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1626,13 +1604,11 @@ function ConfiguredOnlyPicker({
         })
         .catch((e) => {
           if (cancelled) return;
-          if (e instanceof ApiError) {
-            setError(`[${e.envelope.code}] ${e.envelope.message}`);
-          } else {
-            setError(
-              `${t("config.load_items_error")}${e instanceof Error ? e.message : String(e)}`,
-            );
-          }
+          setError(
+            e instanceof ApiError
+              ? formatServerError(e, e.envelope.message)
+              : `${t("config.load_items_error")}${e instanceof Error ? e.message : String(e)}`,
+          );
         })
         .finally(() => !cancelled && setLoading(false)),
     );

@@ -20,6 +20,8 @@ agents_list.
 agent.
 agentchat.
 acp.
+acp_error.
+error.
 workspace.
 add_entity.
 agentcard.
