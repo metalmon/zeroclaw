@@ -204,6 +204,7 @@ pub(crate) async fn emit_tool_result(
                 .output_data
                 .as_ref()
                 .and_then(ToolArtifact::from_delivered_data),
+            ui_resource: None,
         })
         .await;
 }
