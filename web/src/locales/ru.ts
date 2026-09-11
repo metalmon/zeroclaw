@@ -1117,13 +1117,13 @@ export const ru: Record<string, string> = {
   'config.field.gateway.webhook_rate_limit_per_minute.label': 'Лимит вебхуков в минуту',
   'config.field.gateway.webhook_rate_limit_per_minute.desc': 'Максимальное число входящих вебхуков в минуту с одного источника.',
   'config.field.gateway.webhook_secret.label': 'Секрет вебхука',
-  'config.field.gateway.webhook_secret.desc': 'Общий секрет для проверки подписи входящих вебхуков.',
+  'config.field.gateway.webhook_secret.desc': 'Общий секрет для проверки заголовка `X-Webhook-Secret` входящих вебхуков (точное совпадение значения, не HMAC-подпись).',
   'config.field.gateway.websocket_ping_interval_secs.label': 'Интервал ping для WebSocket (сек)',
   'config.field.gateway.websocket_ping_interval_secs.desc': 'Как часто шлюз отправляет ping-кадры для поддержания WebSocket-соединений.',
 
   // authz.* schema fields (principal / role), normalized: instance id -> *
   'config.field.authz.principals.*.allowed_agents.label': 'Разрешенные агенты',
-  'config.field.authz.principals.*.allowed_agents.desc': 'Агенты, к которым у этого субъекта есть доступ.',
+  'config.field.authz.principals.*.allowed_agents.desc': 'Устаревшее поле миграции. Реальный доступ определяется назначенными ролями (profiles); при загрузке значение переносится в отдельную роль и очищается.',
   'config.field.authz.principals.*.device_ids.label': 'Идентификаторы устройств',
   'config.field.authz.principals.*.device_ids.desc': 'Устройства (например, по CN сертификата mTLS), привязанные к этому субъекту.',
   'config.field.authz.principals.*.profiles.label': 'Роли',
