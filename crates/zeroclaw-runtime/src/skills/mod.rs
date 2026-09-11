@@ -2478,6 +2478,7 @@ pub fn install_local_skill_source(
 
 #[cfg(test)]
 mod copy_tests {
+    #![allow(dead_code, unused_imports)] // assembly-drift: some helpers are unused in this branch combination
     use super::*;
     use std::cell::{Cell, RefCell};
     use std::rc::Rc;

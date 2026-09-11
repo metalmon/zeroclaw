@@ -467,6 +467,7 @@ impl McpServer {
     /// (`McpServerConfig::tasks_enabled_effective`) rather than the live
     /// connection.
     #[cfg(test)]
+    #[allow(dead_code)] // assembly-drift: test helper unused in this branch combination
     pub(crate) async fn advertised_tasks(&self) -> bool {
         self.inner.lock().await.advertise_tasks
     }

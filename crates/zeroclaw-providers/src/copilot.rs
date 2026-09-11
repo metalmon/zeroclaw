@@ -732,6 +732,7 @@ fn admit_cache_dir(path: &Path) -> io::Result<Arc<Dir>> {
         }
         Ok(_) => {}
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            #[allow(unused_mut)] // `builder` is mutated only under #[cfg(unix)] below
             let mut builder = cap_std::fs::DirBuilder::new();
             #[cfg(unix)]
             {

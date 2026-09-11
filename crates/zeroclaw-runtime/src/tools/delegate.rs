@@ -3654,6 +3654,7 @@ impl Observer for NoopObserver {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code, unused_imports)] // assembly-drift: some helpers unused in this branch combination
     use super::*;
     use crate::control_plane::{
         ControlPlaneHandle, SqliteTaskStore, TaskKind, TaskRecord, TaskRegistry, TaskStatus,
