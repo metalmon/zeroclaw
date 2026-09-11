@@ -5,20 +5,28 @@
 // closes that gap for the highest-value, lowest-noise attribute set.
 //
 // Scope (see report for the reasoning):
-//   HARD-FAIL — string-literal values on `placeholder=`, `title=`, and
+//   HARD-FAIL — plain string-literal values on `placeholder=`, `title=`, and
 //   `aria-label=` JSX attributes that read as English prose. These are
 //   small in number, easy to eyeball, and every prior regression this repo
 //   has hit (App.tsx, SkillsBundleEditor.tsx, Config.tsx) was one of these
-//   three. A literal wrapped in `{t(...)}` / `{tLocale(...)}` / `{plural(...)}`
-//   / a template literal / a bare variable reference is not a plain string
-//   literal and is out of scope for this check (it either already routes
-//   through the catalog, or is a dynamic value the checker can't judge).
+//   three. A value wrapped in `{t(...)}` / `{tLocale(...)}` / `{plural(...)}`
+//   / a bare variable reference is not a plain string literal and is out of
+//   scope for this check (it either already routes through the catalog, or
+//   is a dynamic value the checker can't judge).
 //
-//   WARN-ONLY — bare JSX text nodes (e.g. `<label>Name</label>`). The repo
-//   has a large pre-existing backlog of these (see BARE_TEXT_BACKLOG_HINT
-//   below, and the task-5 report for the counted snapshot); hard-failing on
-//   them today would block CI on unrelated pages. This check reports a
-//   count so the backlog is visible without gating the build on it.
+//   WARN-ONLY (two categories, neither gates the build):
+//     1. Bare JSX text nodes (e.g. `<label>Name</label>`). The repo has a
+//        large pre-existing backlog of these; hard-failing on them today
+//        would block CI on unrelated pages. Reported as a count so the
+//        backlog is visible without gating the build on it.
+//     2. Template-literal attribute values whose *static* text segments
+//        (the parts outside `${...}`) read as English, e.g.
+//        `aria-label={`Remove tag ${tag}`}`. These are real untranslated
+//        a11y prose (found in SkillsBundleEditor.tsx) that the HARD-FAIL
+//        regex is blind to because it only matches plain quoted literals —
+//        but fixing them requires `t(key, {vars})`-style interpolation
+//        support that doesn't exist yet, so they're flagged, not failed,
+//        until that lands.
 //
 // Run standalone: `node scripts/check-no-literal-english.mjs`.
 
@@ -115,7 +123,79 @@ export function findAttrViolations(source, filePath) {
 }
 
 // ---------------------------------------------------------------------------
-// b) warn-only: bare JSX text nodes
+// b) warn-only: template-literal attribute values with static English text
+// ---------------------------------------------------------------------------
+
+// Matches `attr={`...`}` — a template literal directly assigned to one of
+// the target attributes. Interpolations (`${...}`) are assumed non-nesting
+// (no `{`/`}` inside the expression) which holds for every site seen in
+// this codebase (`${tag}`, `${index + 1}`, ...); a nested-brace expression
+// would truncate the match early rather than false-positive.
+const TEMPLATE_ATTR_RE =
+  /\b(placeholder|title|aria-label)\s*=\s*\{\s*`((?:[^`\\]|\\.)*)`\s*\}/g;
+
+const INTERPOLATION_RE = /\$\{[^}]*\}/g;
+
+/** Strip `${...}` interpolations out of a template-literal body, leaving
+ * only the static text segments (joined with a space). */
+export function staticTextFromTemplate(templateBody) {
+  return templateBody.replace(INTERPOLATION_RE, " ");
+}
+
+const DOTTED_TOKEN_RE = /\./;
+
+/**
+ * True when the static text left over from a template literal contains an
+ * actual English word — as opposed to a config-path fragment such as
+ * `agents.` or `event.action =` (common in this codebase for "open this
+ * config path" tooltip titles, e.g. `` `${t(...)}agents.${alias}` ``).
+ *
+ * Whitespace-delimited tokens that contain a `.` are treated as identifier
+ * chains, not prose, and skipped — real prose in this codebase always
+ * separates its words with plain whitespace (`"Remove tag"`, `"Option N
+ * name"`), so a token needs to be dot-free before its letters count as a
+ * word. This keeps the check narrow: it doesn't relitigate the shared
+ * `isLiteralEnglishText` used by the hard-fail and bare-text checks (which
+ * have their own committed test coverage) — it's local to this warn-only
+ * category, whose false-positive cost is only extra noise in a report, not
+ * a broken build.
+ */
+export function hasStaticProseWords(text) {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return false;
+  for (const token of trimmed.split(/\s+/)) {
+    if (DOTTED_TOKEN_RE.test(token)) continue;
+    const words = token.match(ALPHA_WORD_RE) ?? [];
+    if (words.some((w) => !CSS_UNIT_WORD_RE.test(w))) return true;
+  }
+  return false;
+}
+
+export function findTemplateLiteralWarnings(source, filePath) {
+  const warnings = [];
+  const lines = source.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    TEMPLATE_ATTR_RE.lastIndex = 0;
+    let match;
+    while ((match = TEMPLATE_ATTR_RE.exec(line)) !== null) {
+      const attr = match[1];
+      const body = match[2];
+      const staticText = staticTextFromTemplate(body);
+      if (!hasStaticProseWords(staticText)) continue;
+      warnings.push({
+        file: filePath,
+        line: i + 1,
+        attr,
+        value: body,
+      });
+    }
+  }
+  return warnings;
+}
+
+// ---------------------------------------------------------------------------
+// c) warn-only: bare JSX text nodes
 // ---------------------------------------------------------------------------
 
 // Approximate bare-text-node detector: a `>...<` span with no nested tags
@@ -143,18 +223,28 @@ export function countBareTextWarnings(source) {
 function main() {
   const files = listSourceFiles();
   const allViolations = [];
+  const templateWarnings = [];
   let bareTextWarnings = 0;
 
   for (const file of files) {
     const source = readFileSync(file, "utf8");
     const rel = relative(repoRoot, file).split("\\").join("/");
     allViolations.push(...findAttrViolations(source, rel));
+    templateWarnings.push(...findTemplateLiteralWarnings(source, rel));
     bareTextWarnings += countBareTextWarnings(source);
   }
 
   console.log(
     `no-literal-english check: scanned ${files.length} .tsx file(s) under src/`,
   );
+
+  console.log(
+    `\nWARN — template-literal placeholder/title/aria-label values with static English text: ` +
+      `${templateWarnings.length} (needs t(key, {vars}) interpolation, deferred; see task-5 report)`,
+  );
+  for (const w of templateWarnings) {
+    console.log(`  - ${w.file}:${w.line} ${w.attr}={\`${w.value}\`}`);
+  }
 
   console.log(
     `\nWARN — bare JSX text nodes that look like hardcoded English: ${bareTextWarnings} ` +

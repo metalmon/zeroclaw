@@ -489,7 +489,7 @@ export const ru: Record<string, string> = {
   'skills_bundle.choice_value_placeholder': 'значение',
 
   // Config
-  'config.global_channel_settings_title': 'Общие настройки канала',
+  'config.global_channel_settings_title': 'Общие настройки каналов',
 
   // SOPs
   'sops.condition_field_placeholder': 'path.to.field',

@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   isLiteralEnglishText,
   findAttrViolations,
+  findTemplateLiteralWarnings,
+  hasStaticProseWords,
   countBareTextWarnings,
 } from "./check-no-literal-english.mjs";
 
@@ -80,6 +82,44 @@ test("findAttrViolations ignores unrelated attributes", () => {
   const source = ['<div className="flex items-center gap-2" data-testid="thing" />'].join("\n");
   const violations = findAttrViolations(source, "fixture.tsx");
   assert.deepEqual(violations, []);
+});
+
+// ---------------------------------------------------------------------------
+// findTemplateLiteralWarnings / hasStaticProseWords — the second warn-only
+// category (template-literal placeholder/title/aria-label values)
+// ---------------------------------------------------------------------------
+
+test("findTemplateLiteralWarnings WARNS on a template literal with static English text", () => {
+  const source = ["<button aria-label={`Remove tag ${x}`} />"].join("\n");
+  const warnings = findTemplateLiteralWarnings(source, "fixture.tsx");
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].attr, "aria-label");
+  assert.equal(warnings[0].line, 1);
+});
+
+test("findTemplateLiteralWarnings does not flag a template literal with no static words", () => {
+  const source = ["<button aria-label={`${count}`} />"].join("\n");
+  const warnings = findTemplateLiteralWarnings(source, "fixture.tsx");
+  assert.deepEqual(warnings, []);
+});
+
+test("findTemplateLiteralWarnings ignores config-path-shaped static text", () => {
+  // "open this config path" tooltips (`agents.${alias}`) are dotted
+  // identifier fragments, not prose — must not join the a11y backlog.
+  const source = [
+    "<div title={`${t('agent.open_config_prefix')}agents.${alias}${t('agent.open_config_suffix')}`} />",
+  ].join("\n");
+  const warnings = findTemplateLiteralWarnings(source, "fixture.tsx");
+  assert.deepEqual(warnings, []);
+});
+
+test("hasStaticProseWords: dotted tokens don't count as words", () => {
+  assert.equal(hasStaticProseWords("agents."), false);
+  assert.equal(hasStaticProseWords("event.action ="), false);
+});
+
+test("hasStaticProseWords: whitespace-separated English words do count", () => {
+  assert.equal(hasStaticProseWords("Move option   up"), true);
 });
 
 // ---------------------------------------------------------------------------
