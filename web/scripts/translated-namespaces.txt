@@ -6,3 +6,7 @@ dash.
 config.
 roles.
 pairing.
+cron.
+doctor.
+integrations.
+logs.

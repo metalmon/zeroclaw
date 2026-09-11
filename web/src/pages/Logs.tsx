@@ -528,7 +528,7 @@ export default function Logs() {
                 type="button"
                 onClick={() => setFieldEq(key, '')}
                 className="text-pc-text-faint hover:text-pc-text transition-colors"
-                aria-label={`${t('logs.remove_filter_prefix')}${key}${t('logs.remove_filter_suffix')}`}
+                aria-label={t('logs.remove_filter', { value: key })}
               >
                 <X className="h-3 w-3" />
               </button>
