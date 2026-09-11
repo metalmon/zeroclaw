@@ -3,3 +3,4 @@ common.
 sidebar.
 dashboard.
 dash.
+config.
