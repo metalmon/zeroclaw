@@ -163,7 +163,7 @@ import EntityLink from "@/components/EntityLink";
 import EntityEnabledToggle from "@/components/EntityEnabledToggle";
 import { useSSE } from "@/hooks/useSSE";
 import { usePolling } from "@/hooks/usePolling";
-import { t, fmtDate, fmtNumber, fmtRelative } from "@/lib/i18n";
+import { t, fmtDate, fmtNumber, fmtRelative, plural } from "@/lib/i18n";
 import { StatCard, PageHeader, ConfirmDialog } from "@/components/ui";
 
 type TabId =
@@ -664,7 +664,7 @@ function OverviewTab({
                     id={name}
                     className="flex items-center justify-between py-2.5 px-3 rounded-xl transition-all hover:opacity-90"
                     style={{ background: "var(--pc-bg-elevated)" }}
-                    title={`${t("dashboard.open_config_prefix")}channels.${name}${t("dashboard.open_config_suffix")}`}
+                    title={t("dashboard.open_config_title", { path: `channels.${name}` })}
                   >
                     <span
                       className="text-sm font-mono font-medium"
@@ -1261,7 +1261,7 @@ function SessionsTab() {
                         background: "rgba(var(--pc-accent-rgb), 0.10)",
                         color: "var(--pc-accent-light)",
                       }}
-                      title={`${t("dashboard.open_config_prefix")}agents.${session.agent_alias}${t("dashboard.open_config_suffix")}`}
+                      title={t("dashboard.open_config_title", { path: `agents.${session.agent_alias}` })}
                     >
                       {session.agent_alias}
                     </EntityLink>
@@ -1275,7 +1275,7 @@ function SessionsTab() {
                         background: "rgba(167, 139, 250, 0.10)",
                         color: "#a78bfa",
                       }}
-                      title={`${t("dashboard.open_config_prefix")}channels.${session.channel_id}${t("dashboard.open_config_suffix")}`}
+                      title={t("dashboard.open_config_title", { path: `channels.${session.channel_id}` })}
                     >
                       {session.channel_id}
                     </EntityLink>
@@ -1466,7 +1466,7 @@ function SessionsTab() {
         open={pendingDelete !== null}
         danger
         title={t("common.delete")}
-        message={`${t("dashboard.confirm_delete_session_prefix")} ${pendingDelete?.session_id ?? ""}${t("dashboard.confirm_delete_suffix")}`}
+        message={t("dashboard.confirm_delete_session", { id: pendingDelete?.session_id ?? "" })}
         confirmLabel={t("common.delete")}
         onConfirm={() => {
           // Close the dialog first (capturing the target): a confirm clicked
@@ -1602,7 +1602,7 @@ function ChannelsTab() {
                   kind="channel"
                   id={channel.name}
                   className="text-sm font-semibold font-mono break-all hover:underline"
-                  title={`${t("dashboard.open_config_prefix")}channels.${channel.name}${t("dashboard.open_config_suffix")}`}
+                  title={t("dashboard.open_config_title", { path: `channels.${channel.name}` })}
                 >
                   <span style={{ color: "var(--pc-text-primary)" }}>
                     {channel.name}
@@ -1619,7 +1619,7 @@ function ChannelsTab() {
                         kind="agent"
                         id={channel.owning_agent}
                         className="hover:underline font-mono"
-                        title={`${t("dashboard.open_config_prefix")}agents.${channel.owning_agent}${t("dashboard.open_config_suffix")}`}
+                        title={t("dashboard.open_config_title", { path: `agents.${channel.owning_agent}` })}
                       >
                         {channel.owning_agent}
                       </EntityLink>
@@ -2546,7 +2546,7 @@ function MemoriesTab() {
                         background: "rgba(var(--pc-accent-rgb), 0.10)",
                         color: "var(--pc-accent-light)",
                       }}
-                      title={`${t("dashboard.open_config_prefix")}agents.${entry.agent_alias}${t("dashboard.open_config_suffix")}`}
+                      title={t("dashboard.open_config_title", { path: `agents.${entry.agent_alias}` })}
                     >
                       {entry.agent_alias}
                     </EntityLink>
@@ -2729,7 +2729,7 @@ function MemoriesTab() {
         open={pendingDelete !== null}
         danger
         title={t("common.delete")}
-        message={`${t("dashboard.mem.confirm_delete_prefix")} ${pendingDelete?.key ?? ""}${t("dashboard.confirm_delete_suffix")}`}
+        message={t("dashboard.mem.confirm_delete", { key: pendingDelete?.key ?? "" })}
         confirmLabel={t("common.delete")}
         onConfirm={() => {
           // Close the dialog first (capturing the target): a confirm clicked
@@ -3072,10 +3072,7 @@ function AgentsSection() {
               to="/agents"
               className="flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium border-t border-pc-border text-pc-text-muted transition-colors hover:bg-[var(--pc-hover)] hover:text-pc-text"
             >
-              {t("dash.view_all")} · {hiddenCount}{" "}
-              {hiddenCount === 1
-                ? t("dashboard.more_agent")
-                : t("dashboard.more_agents")}
+              {t("dash.view_all")} · {plural(hiddenCount, "dashboard.more_agents_count")}
               <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           )}
