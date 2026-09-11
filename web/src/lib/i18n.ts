@@ -472,7 +472,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Self-review follow-ups: singular forms for Doctor severity pills + the
     // relative-time suffixes used by lib/format.ts formatRelative.
     // Count is rendered separately by SeverityFilterToggle ({count} {label}),
-    // so these forms are bare nouns — no {n} — like reload_banner.path.
+    // so these forms are bare nouns — no {n}.
     'doctor.severity_warning_one': "warning",
     'doctor.severity_warning_other': "warnings",
     'doctor.severity_error_one': "error",
@@ -894,10 +894,13 @@ const translations: Record<Locale, Record<string, string>> = {
     'quickstart.use_template_title': "Stage the default template content for this file",
     'reload_banner.and_more_prefix': "…and ",
     'reload_banner.and_more_suffix': " more",
-    'reload_banner.differ_suffix': "differ from on-disk",
     'reload_banner.dismiss': "Dismiss",
-    'reload_banner.path_one': "path",
-    'reload_banner.path_other': "paths",
+    // Single family carries noun+verb agreement together ({n} embedded) —
+    // splitting the noun (plural) from a fixed verb suffix breaks
+    // agreement in languages where the verb also inflects by count (ru
+    // one/few/many all take different verb forms, not just the noun).
+    'reload_banner.drift_summary_one': "{n} path differs from on-disk",
+    'reload_banner.drift_summary_other': "{n} paths differ from on-disk",
     'reload_banner.pending_and_drift': "Config changed this session and on-disk drift detected",
     'reload_banner.pending_only': "Config changed — reload daemon to apply",
     'reload_banner.quickstart_saved': "Changes saved. Continue setup.",

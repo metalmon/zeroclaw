@@ -95,7 +95,7 @@ export default function ReloadBanner() {
             ? t('reload_banner.pending_and_drift')
             : pendingReload
               ? t('reload_banner.pending_only')
-              : `${driftedCount} ${plural(driftedCount, 'reload_banner.path')} ${t('reload_banner.differ_suffix')}`}
+              : plural(driftedCount, 'reload_banner.drift_summary')}
         </p>
         {driftedCount > 0 && (
           <ul className="text-xs mt-1 flex flex-col gap-0.5 text-pc-text-muted">
