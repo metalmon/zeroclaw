@@ -204,7 +204,10 @@ pub(crate) async fn emit_tool_result(
                 .output_data
                 .as_ref()
                 .and_then(ToolArtifact::from_delivered_data),
-            ui_resource: None,
+            ui_resource: outcome
+                .output_data
+                .as_ref()
+                .and_then(zeroclaw_api::agent::UiResource::from_ui_resource_data),
         })
         .await;
 }
@@ -360,6 +363,37 @@ mod tests {
                 saw_result = true;
                 assert!(output.contains("[REDACTED]"));
                 assert!(!output.contains("abcd1234efgh5678"));
+            }
+        }
+        assert!(saw_result, "a ToolResult event must be emitted");
+    }
+
+    #[tokio::test]
+    async fn tool_result_carries_ui_resource_from_output_data() {
+        let outcome = ToolExecutionOutcome {
+            output: "ok".into(),
+            success: true,
+            error_reason: None,
+            duration: Duration::ZERO,
+            receipt: None,
+            output_data: Some(serde_json::json!({
+                "ui_resource": true,
+                "uri": "ui://pnl/dashboard",
+                "mimeType": "text/html",
+                "text": "<!doctype html><title>d</title>"
+            })),
+        };
+        let (tx, mut rx) = tokio::sync::mpsc::channel(8);
+        emit_tool_call_pair(&tx, &parsed_call(Some("c-ui")), &outcome).await;
+        drop(tx);
+        let mut saw_result = false;
+        while let Some(ev) = rx.recv().await {
+            if let TurnEvent::ToolResult { ui_resource, .. } = ev {
+                saw_result = true;
+                assert!(
+                    ui_resource.is_some(),
+                    "ui_resource output_data must populate the ToolResult field"
+                );
             }
         }
         assert!(saw_result, "a ToolResult event must be emitted");
