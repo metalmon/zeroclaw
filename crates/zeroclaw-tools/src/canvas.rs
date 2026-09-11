@@ -113,6 +113,14 @@ impl CanvasStore {
         store.get(canvas_id).and_then(|entry| entry.current.clone())
     }
 
+    /// Get the current (most recent) frame for a canvas.
+    ///
+    /// Alias of [`CanvasStore::snapshot`], used by isolation checks that read
+    /// back whether a render was actually persisted to the shared store.
+    pub fn current(&self, canvas_id: &str) -> Option<CanvasFrame> {
+        self.snapshot(canvas_id)
+    }
+
     /// Get the frame history for a canvas.
     pub fn history(&self, canvas_id: &str) -> Vec<CanvasFrame> {
         let store = self.inner.read();
@@ -216,6 +224,12 @@ impl Tool for CanvasTool {
                     "type": "string",
                     "description": "Content to render (for render action)."
                 },
+                "store": {
+                    "type": "boolean",
+                    "description": "For render action (default true): false = emit as an ACP \
+                        ui:// artifact only, do not persist to the shared canvas store \
+                        (session-isolated)."
+                },
                 "expression": {
                     "type": "string",
                     "description": "JavaScript expression to evaluate (for eval action). \
@@ -275,25 +289,57 @@ impl Tool for CanvasTool {
                     });
                 }
 
-                match self.store.render(canvas_id, content_type, content) {
-                    Some(frame) => Ok(ToolResult {
+                let store = args.get("store").and_then(|v| v.as_bool()).unwrap_or(true);
+
+                let frame_id = if store {
+                    match self.store.render(canvas_id, content_type, content) {
+                        Some(frame) => Some(frame.frame_id),
+                        None => {
+                            return Ok(ToolResult {
+                                success: false,
+                                output: ToolOutput::default(),
+                                error: Some(format!(
+                                    "Maximum canvas count ({}) reached. Clear unused canvases \
+                                     first.",
+                                    MAX_CANVAS_COUNT
+                                )),
+                            });
+                        }
+                    }
+                } else {
+                    None
+                };
+
+                if content_type == "html" {
+                    let summary =
+                        format!("Rendered ui://pnl/{canvas_id} ({} bytes).", content.len());
+                    let data = json!({
+                        "ui_resource": true,
+                        "uri": format!("ui://pnl/{canvas_id}"),
+                        "mimeType": "text/html",
+                        "text": content,
+                    });
+                    return Ok(ToolResult {
                         success: true,
-                        output: format!(
-                            "Rendered {} content to canvas '{}' (frame: {})",
-                            content_type, canvas_id, frame.frame_id
-                        )
-                        .into(),
+                        output: ToolOutput::json_with_text(data, summary),
                         error: None,
-                    }),
-                    None => Ok(ToolResult {
-                        success: false,
-                        output: ToolOutput::default(),
-                        error: Some(format!(
-                            "Maximum canvas count ({}) reached. Clear unused canvases first.",
-                            MAX_CANVAS_COUNT
-                        )),
-                    }),
+                    });
                 }
+
+                Ok(ToolResult {
+                    success: true,
+                    output: format!(
+                        "Rendered {} content to canvas '{}'{}",
+                        content_type,
+                        canvas_id,
+                        match &frame_id {
+                            Some(id) => format!(" (frame: {id})"),
+                            None => " (not persisted; store=false)".to_string(),
+                        }
+                    )
+                    .into(),
+                    error: None,
+                })
             }
 
             "snapshot" => match self.store.snapshot(canvas_id) {
@@ -498,7 +544,7 @@ mod tests {
             .await
             .unwrap();
         assert!(result.success);
-        assert!(result.output.contains("Rendered html content"));
+        assert!(result.output.contains("ui://pnl/test"));
 
         let snapshot = store.snapshot("test").unwrap();
         assert_eq!(snapshot.content, "<h1>Hello World</h1>");
@@ -641,6 +687,42 @@ mod tests {
         assert!(store.render("one_too_many", "html", "content").is_none());
         // But rendering to an existing canvas should still work
         assert!(store.render("canvas_0", "html", "updated").is_some());
+    }
+
+    #[tokio::test]
+    async fn render_html_returns_ui_resource_output_data() {
+        let store = CanvasStore::new();
+        let tool = CanvasTool::new(store.clone());
+        let out = tool
+            .execute(serde_json::json!({
+                "action": "render", "canvas_id": "dashboard",
+                "content_type": "html", "content": "<!doctype html><title>d</title>"
+            }))
+            .await
+            .unwrap();
+        let data = out.output.into_data().expect("has data");
+        assert_eq!(data["ui_resource"], serde_json::json!(true));
+        assert_eq!(data["uri"], serde_json::json!("ui://pnl/dashboard"));
+        assert_eq!(data["mimeType"], serde_json::json!("text/html"));
+        assert!(data["text"].as_str().unwrap().starts_with("<!doctype"));
+    }
+
+    #[tokio::test]
+    async fn render_with_store_false_does_not_persist() {
+        let store = CanvasStore::new();
+        let tool = CanvasTool::new(store.clone());
+        let _ = tool
+            .execute(serde_json::json!({
+                "action": "render", "canvas_id": "dashboard", "store": false,
+                "content_type": "html", "content": "<!doctype html><title>secret</title>"
+            }))
+            .await
+            .unwrap();
+        // nothing persisted → snapshot/current for this id is empty (isolation §5a)
+        assert!(
+            store.current("dashboard").is_none(),
+            "ACP render must not write shared store"
+        );
     }
 
     #[tokio::test]
