@@ -126,6 +126,21 @@ $fixups = @(
         From = "tools_registry: Arc::new(vec![Box::new(MockPriceTool)])"
         To   = "tools_registry: Arc::new(zeroclaw_runtime::tools::scoped::ScopedToolRegistry::from_raw_for_test(vec![Box::new(MockPriceTool)]))"
     }
+    # TEMPORARY (#8561 x #10620): #8561 gave send_text_chunks a skip_chunks arg and
+    # a usize return; upstream #10620's notify_voice_drop still calls it 3-arg and
+    # matches Ok(Ok(())). Reconcile the assembled main so it compiles. Both patterns
+    # occur exactly once in the assembled telegram.rs. REMOVE when #8561 is refreshed
+    # against master (fix the caller on its own branch).
+    @{
+        File = "crates/zeroclaw-channels/src/telegram.rs"
+        From = "self.send_text_chunks(&notice, chat_id, thread_id);"
+        To   = "self.send_text_chunks(&notice, chat_id, thread_id, 0);"
+    }
+    @{
+        File = "crates/zeroclaw-channels/src/telegram.rs"
+        From = "Ok(Ok(())) => {}"
+        To   = "Ok(Ok(_)) => {}"
+    }
 )
 $patched = $false
 foreach ($fx in $fixups) {
