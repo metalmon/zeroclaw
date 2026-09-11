@@ -288,10 +288,7 @@ fn read_content_file_bounded(
 /// verify it is a regular file within `MAX_CONTENT_SIZE`, and return its
 /// bytes. Every check and the read use that one opened handle, so nothing
 /// swapped in at the pathname between check and read can redirect the bytes.
-fn read_content_from_dir(
-    dir: &cap_std::fs::Dir,
-    rel: &std::path::Path,
-) -> Result<Vec<u8>, String> {
+fn read_content_from_dir(dir: &cap_std::fs::Dir, rel: &std::path::Path) -> Result<Vec<u8>, String> {
     use std::io::Read;
 
     let file = dir
@@ -444,10 +441,8 @@ impl Tool for CanvasTool {
                         // if a component were swapped to an escaping symlink
                         // between `resolve_content_file`'s check and this read.
                         // The 256 KiB cap is enforced here, before UTF-8 decode.
-                        let bytes = match read_content_file_bounded(
-                            self.security.as_deref(),
-                            &path,
-                        ) {
+                        let bytes = match read_content_file_bounded(self.security.as_deref(), &path)
+                        {
                             Ok(b) => b,
                             Err(e) => {
                                 return Ok(ToolResult {
@@ -1010,10 +1005,7 @@ mod tests {
                 "content": "<x>", "content_file": "y.html"
             }))
             .await;
-        assert!(
-            err.is_err() || !err.unwrap().success,
-            "mutually exclusive"
-        );
+        assert!(err.is_err() || !err.unwrap().success, "mutually exclusive");
     }
 
     #[tokio::test]

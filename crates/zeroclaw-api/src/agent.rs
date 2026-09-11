@@ -244,9 +244,17 @@ mod ui_resource_tests {
     #[test]
     fn ui_resource_rejects_non_ui_or_empty() {
         assert!(UiResource::from_ui_resource_data(&json!({"result": 1})).is_none());
-        assert!(UiResource::from_ui_resource_data(
-            &json!({"ui_resource": true, "uri": "", "text": "x"})).is_none());
-        assert!(UiResource::from_ui_resource_data(
-            &json!({"ui_resource": false, "uri": "ui://a", "text": "x"})).is_none());
+        assert!(
+            UiResource::from_ui_resource_data(
+                &json!({"ui_resource": true, "uri": "", "text": "x"})
+            )
+            .is_none()
+        );
+        assert!(
+            UiResource::from_ui_resource_data(
+                &json!({"ui_resource": false, "uri": "ui://a", "text": "x"})
+            )
+            .is_none()
+        );
     }
 }

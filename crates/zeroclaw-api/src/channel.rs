@@ -696,7 +696,6 @@ impl fmt::Display for FinalizePartialDelivery {
 
 impl std::error::Error for FinalizePartialDelivery {}
 
-
 /// Core channel trait — implement for any messaging platform.
 ///
 /// Every `Channel` is `Attributable`: the orchestrator's spawn site opens
