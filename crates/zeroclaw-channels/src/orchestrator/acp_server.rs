@@ -11,6 +11,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{Mutex, mpsc};
 use uuid::Uuid;
 use zeroclaw_api::agent::ToolArtifact;
+use zeroclaw_api::agent::UiResource;
 use zeroclaw_api::elicitation::ElicitationCapabilities;
 pub use zeroclaw_api::jsonrpc::RpcOutbound;
 use zeroclaw_api::jsonrpc::error_codes::*;
@@ -2363,6 +2364,33 @@ fn deliver_file_tool_result_content(
     ]))
 }
 
+/// Build ACP `tool_call_update.content` for a `ui_resource` artifact (e.g. a
+/// canvas HTML page delivered via `ui://`), mirroring the nesting shape of
+/// [`deliver_file_tool_result_content`] but emitting the resource inline as
+/// `text` (never `blob`) since the payload is markup/text, not binary.
+fn ui_resource_tool_result_content(summary: &str, ui: &UiResource) -> Value {
+    serde_json::json!([
+        {
+            "type": "content",
+            "content": {
+                "type": "text",
+                "text": summary
+            }
+        },
+        {
+            "type": "content",
+            "content": {
+                "type": "resource",
+                "resource": {
+                    "uri": ui.uri,
+                    "mimeType": ui.mime,
+                    "text": ui.text
+                }
+            }
+        }
+    ])
+}
+
 fn map_tool_kind(name: &str) -> &'static str {
     match name {
         "ask_user" | "calculator" | "claude_code" | "claude_code_runner" | "codex_cli"
@@ -2462,6 +2490,7 @@ fn notification_for_turn_event(session_id: &str, event: &TurnEvent) -> Option<Js
             name,
             output,
             artifact,
+            ui_resource,
             ..
         } => {
             let embedded = deliver_file_tool_result_content(name, output, artifact.as_ref());
@@ -2470,25 +2499,43 @@ fn notification_for_turn_event(session_id: &str, event: &TurnEvent) -> Option<Js
             // silently completed update with the attachment missing.
             let delivery_failed =
                 name == "deliver_file" && artifact.is_some() && embedded.is_none();
-            let content = embedded.unwrap_or_else(|| {
-                serde_json::json!([{
-                    "type": "content",
-                    "content": {
-                        "type": "text",
-                        "text": output
-                    }
-                }])
-            });
+            // `ui_resource` is name-agnostic: any tool result may carry one, and
+            // its presence (not the tool name) drives selection. It only applies
+            // when `deliver_file`'s own embedding didn't already claim the slot.
+            let ui_resource_used = embedded.is_none() && ui_resource.is_some();
+            let content = embedded
+                .or_else(|| {
+                    ui_resource
+                        .as_ref()
+                        .map(|ui| ui_resource_tool_result_content(output, ui))
+                })
+                .unwrap_or_else(|| {
+                    serde_json::json!([{
+                        "type": "content",
+                        "content": {
+                            "type": "text",
+                            "text": output
+                        }
+                    }])
+                });
             // `deliver_file` carries a caller-supplied chat label in its typed
             // artifact; surface it as the standard ACP `title` so the client can
-            // render a human-readable name for the delivered file. Falls back to
+            // render a human-readable name for the delivered file. A `ui_resource`
+            // result is titled `canvas` so clients can recognize/render it
+            // consistently regardless of which tool produced it. Falls back to
             // the tool name (which is what every other tool uses).
             let title = artifact
                 .as_ref()
                 .filter(|_| name == "deliver_file")
                 .map(|a| a.title.clone())
                 .filter(|t| !t.is_empty())
-                .unwrap_or_else(|| name.to_string());
+                .unwrap_or_else(|| {
+                    if ui_resource_used {
+                        "canvas".to_string()
+                    } else {
+                        name.to_string()
+                    }
+                });
             let status = if delivery_failed {
                 "failed"
             } else {
@@ -2737,6 +2784,27 @@ mod tests {
         };
 
         assert!(notification_for_turn_event("session", &event).is_none());
+    }
+
+    #[test]
+    fn ui_resource_content_matches_wire_contract() {
+        let ui = UiResource {
+            uri: "ui://pnl/dashboard".into(),
+            mime: "text/html".into(),
+            text: "<!doctype html><title>d</title>".into(),
+        };
+        let v = ui_resource_tool_result_content("summary text", &ui);
+        let arr = v.as_array().unwrap();
+        // [0] short-summary text block
+        assert_eq!(arr[0]["content"]["type"], serde_json::json!("text"));
+        assert_eq!(arr[0]["content"]["text"], serde_json::json!("summary text"));
+        // [1] resource block with text (never blob)
+        let res = &arr[1]["content"]["resource"];
+        assert_eq!(arr[1]["content"]["type"], serde_json::json!("resource"));
+        assert_eq!(res["uri"], serde_json::json!("ui://pnl/dashboard"));
+        assert_eq!(res["mimeType"], serde_json::json!("text/html"));
+        assert!(res["text"].as_str().unwrap().starts_with("<!doctype"));
+        assert!(res.get("blob").is_none(), "must be text, never blob");
     }
 
     struct EmptyTerminalProvider;
