@@ -1142,7 +1142,7 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
 
       try {
         const resp = await patchConfig(ops);
-        setSavedAt(`${t("fieldform.saved_prefix")}${resp.results.length}${t("fieldform.saved_suffix")}`);
+        setSavedAt(plural(resp.results.length, "fieldform.saved_count"));
         if (scopeActionsToIncludedPaths && includePath) {
           configDraft.discardPaths(actionablePaths);
         } else {
@@ -1432,7 +1432,7 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
             type="text"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder={`${t("fieldform.filter_prefix")}${visibleEntries.length}${t("fieldform.filter_suffix")}`}
+            placeholder={plural(visibleEntries.length, "fieldform.filter_count")}
             className="input-electric w-full px-3 py-2 text-sm"
             aria-label={t("fieldform.filter_aria")}
           />
