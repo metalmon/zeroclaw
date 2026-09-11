@@ -61,6 +61,17 @@ test('fmtDate/fmtTime/fmtNumber fall back gracefully on invalid input instead of
   assert.equal(fmtNumber(Number.NaN), 'NaN');
 });
 
+test('t() interpolates {name} tokens from vars, leaving unknown tokens as-is', async () => {
+  const { t, setLocale } = await loadI18n();
+  setLocale('en');
+  // 'nav.cmdk.more' resolves (in en) to "+{value} more — keep typing".
+  assert.equal(t('nav.cmdk.more', { value: 3 }), '+3 more — keep typing');
+  // No vars -> unchanged (backward-compatible) behavior: token left raw.
+  assert.equal(t('nav.cmdk.more'), '+{value} more — keep typing');
+  // Unknown token in the string is left untouched when not present in vars.
+  assert.equal(t('nav.cmdk.more', { other: 'x' }), '+{value} more — keep typing');
+});
+
 test('setLocale updates document.documentElement.lang when a document is present', async () => {
   const { setLocale } = await loadI18n();
   const fakeDocumentElement = { lang: '' };

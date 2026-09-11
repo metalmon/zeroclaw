@@ -416,7 +416,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
           )}
           {extraCount > 0 && (
             <div className="px-3 py-2 text-center text-[11px] text-pc-text-faint">
-              {t('nav.cmdk.more_prefix')}{extraCount} {t('nav.cmdk.more_suffix')}
+              {t('nav.cmdk.more', { value: extraCount })}
             </div>
           )}
         </div>

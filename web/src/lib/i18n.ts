@@ -1369,8 +1369,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'nav.cmdk.header.sections': 'Config sections',
     'nav.cmdk.header.entries': 'Config entries',
     'nav.cmdk.loading_settings': 'loading settings…',
-    'nav.cmdk.more_prefix': '+',
-    'nav.cmdk.more_suffix': 'more — keep typing',
+    'nav.cmdk.more': '+{value} more — keep typing',
 
     // Dashboard
     'dash.title': 'Dashboard',
@@ -13744,9 +13743,20 @@ export function setLocale(locale: Locale): void {
 /**
  * Translate a key using the current locale. Returns the key itself if no
  * translation is found.
+ *
+ * When `vars` is given, every `{name}` token in the resolved string is
+ * replaced with the corresponding value from `vars` (coerced to a string).
+ * Tokens with no matching entry in `vars` are left as-is. Omitting `vars`
+ * keeps the previous no-interpolation behavior unchanged. `plural()` handles
+ * its own `{n}` substitution independently and does not call `t()`, so the
+ * two never double-substitute the same token.
  */
-export function t(key: string): string {
-  return translations[currentLocale]?.[key] ?? translations.en[key] ?? key;
+export function t(key: string, vars?: Record<string, string | number>): string {
+  const value = translations[currentLocale]?.[key] ?? translations.en[key] ?? key;
+  if (!vars) return value;
+  return value.replace(/\{(\w+)\}/g, (match, name: string) =>
+    Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : match,
+  );
 }
 
 /**
