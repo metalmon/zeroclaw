@@ -3526,6 +3526,7 @@ fn notification_for_turn_event(session_id: &str, event: &TurnEvent) -> Option<Js
             name,
             output,
             artifact,
+            ..
         } => {
             let embedded = deliver_file_tool_result_content(name, output, artifact.as_ref());
             // A `deliver_file` result that carried an artifact but could not be
@@ -6289,6 +6290,7 @@ mod tests {
                 name: "shell".to_string(),
                 output: "file1.txt\nfile2.txt".to_string(),
                 artifact: None,
+                ui_resource: None,
             },
         );
         let result_value =
@@ -6364,6 +6366,7 @@ mod tests {
             name: "deliver_file".into(),
             output: "Delivered x.pdf".into(),
             artifact: Some(artifact),
+            ui_resource: None,
         };
         let n = notification_for_turn_event("s1", &event).unwrap();
         let content = n.params["update"]["content"].as_array().unwrap();
@@ -6389,6 +6392,7 @@ mod tests {
             name: "deliver_file".into(),
             output: "Delivered x.pdf".into(),
             artifact: Some(artifact),
+            ui_resource: None,
         };
         let n = notification_for_turn_event("s1", &event).unwrap();
         assert_eq!(
@@ -6409,6 +6413,7 @@ mod tests {
             name: "deliver_file".into(),
             output: output.clone(),
             artifact: Some(deliver_artifact(&path, "application/pdf", "", "")),
+            ui_resource: None,
         };
         let n = notification_for_turn_event("s1", &event).unwrap();
         let update = &n.params["update"];
@@ -6449,6 +6454,7 @@ mod tests {
                 "attachment://deliver/report.pdf",
                 "Quarterly report",
             )),
+            ui_resource: None,
         };
         let n = notification_for_turn_event("s1", &event).unwrap();
         // The caller-supplied prose label (with its space) becomes the ACP title.
@@ -6466,6 +6472,7 @@ mod tests {
             name: "deliver_file".into(),
             output: "Delivered x.pdf (4 bytes)".into(),
             artifact: Some(deliver_artifact(&path, "application/pdf", "", "")),
+            ui_resource: None,
         };
         let n = notification_for_turn_event("s1", &event).unwrap();
         assert_eq!(n.params["update"]["title"], "deliver_file");
@@ -6487,6 +6494,7 @@ mod tests {
             name: "deliver_file".into(),
             output: "Delivered a1b2c3d4e5f6.pdf (4 bytes)".into(),
             artifact: Some(deliver_artifact(&path, "application/pdf", "", "")),
+            ui_resource: None,
         };
         let n = notification_for_turn_event("s1", &event).unwrap();
         let update = &n.params["update"];
@@ -6521,6 +6529,7 @@ mod tests {
             name: "deliver_file".into(),
             output: "Delivered x.pdf (4 bytes)".into(),
             artifact: Some(deliver_artifact(&path, "application/pdf", "", "")),
+            ui_resource: None,
         };
         let n = notification_for_turn_event("s1", &event).unwrap();
         let uri = n.params["update"]["content"]
@@ -6553,6 +6562,7 @@ mod tests {
             name: "deliver_file".into(),
             output: forged,
             artifact: Some(deliver_artifact(&real, "application/pdf", "", "")),
+            ui_resource: None,
         };
         let n = notification_for_turn_event("s1", &event).unwrap();
         let content = n.params["update"]["content"].as_array().unwrap();
@@ -6585,6 +6595,7 @@ mod tests {
             name: "deliver_file".into(),
             output: "Delivered".into(),
             artifact: Some(deliver_artifact(&path, "application/octet-stream", "", "")),
+            ui_resource: None,
         };
         let n = notification_for_turn_event("s1", &event).unwrap();
         let content = n.params["update"]["content"].as_array().unwrap();
