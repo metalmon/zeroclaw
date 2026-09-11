@@ -554,6 +554,46 @@ mod tests {
         assert!(c.by_id("ghost").is_none());
     }
 
+    /// Regression for the `Configurable` derive's `create_map_key` element
+    /// seeding: a `#[natural_key = "id"]` Vec section (`authz.principals` /
+    /// `authz.profiles`) must write the supplied key into the element's ACTUAL
+    /// `id` field — not the historically hardcoded `name`/`hint`, which these
+    /// structs don't even have. A blank `id` silently corrupts the row: every
+    /// later `set_prop("authz.<sec>.<id>.<field>")` fails to resolve because no
+    /// element's `id` matches the alias. Guards the fix that replaced the
+    /// gateway's `fixup_created_*_natural_key` post-creation patches.
+    #[test]
+    fn create_map_key_seeds_id_natural_key_and_round_trips() {
+        let mut c = AuthzConfig::default();
+
+        let created = c
+            .create_map_key("authz.principals", "alice")
+            .expect("authz.principals must accept a new element");
+        assert!(created, "a brand-new key must report Ok(true)");
+        assert_eq!(c.principals.len(), 1);
+        assert_eq!(
+            c.principals[0].id, "alice",
+            "the created principal's `id` natural key must be seeded from the map key"
+        );
+
+        let created = c
+            .create_map_key("authz.profiles", "crm")
+            .expect("authz.profiles must accept a new element");
+        assert!(created);
+        assert_eq!(c.profiles.len(), 1);
+        assert_eq!(
+            c.profiles[0].id, "crm",
+            "the created profile's `id` natural key must be seeded from the map key"
+        );
+
+        // The seeded id must route: a follow-up field write on the created
+        // element's dotted path resolves (the exact sequence the api_authz
+        // handlers run right after create_map_key). A blank id would 404 here.
+        c.set_prop("authz.profiles.crm.admin", "true")
+            .expect("set_prop on the created profile must resolve via its seeded id");
+        assert!(c.profiles[0].admin);
+    }
+
     #[test]
     fn effective_agents_unions_bound_profiles() {
         let c = AuthzConfig {
