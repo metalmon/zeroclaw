@@ -53,7 +53,7 @@ import CostRatesEditor, {
   type CostRatesCategory,
 } from "../components/sections/CostRatesEditor";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
-import { t } from "@/lib/i18n";
+import { t, plural } from "@/lib/i18n";
 
 // Display order for the curated sidebar groups. Each `SectionInfo.group`
 // from the gateway lands in one of these buckets (anything else falls
@@ -528,12 +528,12 @@ export default function Config() {
           tabs={[
             {
               key: "types",
-              label: "Channel types",
+              label: t("config.channels.tab_types"),
               render: () => sectionOverview,
             },
             {
               key: "global",
-              label: "Global settings",
+              label: t("config.channels.tab_global"),
               render: () => (
                 <FieldForm
                   key={`${reloadKey}-channels-global`}
@@ -548,7 +548,7 @@ export default function Config() {
             },
             {
               key: "bind",
-              label: "Bind identity",
+              label: t("config.channels.tab_bind"),
               render: () => (
                 <BindChannelForm
                   key={`${reloadKey}-channels-bind`}
@@ -904,7 +904,9 @@ function AliasListView({
                 setAliases((prev) => prev.map((a) => (a === alias ? to : a)));
                 if (warnings.length > 0) {
                   setError(
-                    `${t("config.rename_warnings_prefix")} ${warnings.join("; ")}`,
+                    t("config.rename_warnings_prefix", {
+                      value: warnings.join("; "),
+                    }),
                   );
                 }
               }}
@@ -1431,7 +1433,8 @@ function AliasRow({
             )}
             {plan.live_acp_sessions ? (
               <div className={plan.blockers.length > 0 ? "mt-1" : ""}>
-                {plan.live_acp_sessions} {t("config.delete_live_acp")}
+                {plan.live_acp_sessions}{" "}
+                {plural(plan.live_acp_sessions, "config.delete_live_acp")}
               </div>
             ) : null}
           </div>
