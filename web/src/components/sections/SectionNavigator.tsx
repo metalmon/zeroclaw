@@ -28,7 +28,7 @@ import {
   type SectionInfo,
 } from "../../lib/api";
 import { fuzzyFilter } from "../../lib/fuzzy";
-import { t } from "@/lib/i18n";
+import { sectionGroupLabel, sectionLabel, t } from "@/lib/i18n";
 import { badgeIsGood } from "./SectionPicker";
 
 // One selectable entity under a section. `url` is the entity's existing
@@ -426,9 +426,9 @@ export default function SectionNavigator({
                           : "text-pc-text-secondary hover:bg-pc-elevated/60 hover:text-pc-text",
                       ].join(" ")}
                     >
-                      <span className="truncate">{h.section.label}</span>
+                      <span className="truncate">{sectionLabel(h.section.key, h.section.label)}</span>
                       <span className="text-[10px] uppercase tracking-wider text-pc-text-faint flex-shrink-0">
-                        {h.section.group}
+                        {sectionGroupLabel(h.section.group)}
                       </span>
                     </button>
                   );
@@ -450,11 +450,11 @@ export default function SectionNavigator({
                         ? "bg-pc-accent/10 text-pc-accent font-medium"
                         : "text-pc-text-secondary hover:bg-pc-elevated/60 hover:text-pc-text",
                     ].join(" ")}
-                    title={`${h.section.label} · ${h.entity.label}`}
+                    title={`${sectionLabel(h.section.key, h.section.label)} · ${h.entity.label}`}
                   >
                     <span className="truncate">{h.entity.label}</span>
                     <span className="text-[10px] text-pc-text-faint flex-shrink-0 truncate max-w-[40%]">
-                      {h.section.label}
+                      {sectionLabel(h.section.key, h.section.label)}
                     </span>
                   </button>
                 );
@@ -468,9 +468,9 @@ export default function SectionNavigator({
         ) : (
           // Grouped collapsible mode.
           grouped.map(({ groupName, items }) => (
-            <div key={groupName} role="group" aria-label={groupName} className="mb-1">
+            <div key={groupName} role="group" aria-label={sectionGroupLabel(groupName)} className="mb-1">
               <div className="px-3 pt-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-pc-text-faint">
-                {groupName}
+                {sectionGroupLabel(groupName)}
               </div>
               {items.map((s) => {
                 const active = s.key === activeSectionKey;
@@ -537,14 +537,14 @@ export default function SectionNavigator({
                             : "text-pc-text-secondary group-hover:text-pc-text",
                         ].join(" ")}
                       >
-                        <span className="truncate">{s.label}</span>
+                        <span className="truncate">{sectionLabel(s.key, s.label)}</span>
                       </button>
                       {hasKids && (
                         <button
                           type="button"
                           onClick={() => onAddToSection(s)}
-                          title={`${t('section_nav.add_to_prefix')}${s.label}`}
-                          aria-label={`${t('section_nav.add_to_prefix')}${s.label}`}
+                          title={`${t('section_nav.add_to_prefix')}${sectionLabel(s.key, s.label)}`}
+                          aria-label={`${t('section_nav.add_to_prefix')}${sectionLabel(s.key, s.label)}`}
                           // Always visible on touch (no hover); hover-reveal on
                           // desktop only. Was opacity-0 unconditionally, so the
                           // add affordance never appeared on mobile.

@@ -18,6 +18,7 @@
 
 import { getMapKeys, getSectionPicker, getSections, type SectionInfo } from "./api";
 import { badgeIsGood } from "../components/sections/SectionPicker";
+import { sectionGroupLabel, sectionLabel } from "./i18n";
 
 /** A flat, jump-to-able config search target. */
 export interface ConfigSearchItem {
@@ -39,8 +40,8 @@ function sectionHasChildren(s: SectionInfo): boolean {
 // Build the section-level item every section contributes (its own jump target).
 function sectionItem(s: SectionInfo): ConfigSearchItem {
   return {
-    label: s.label,
-    sublabel: s.group,
+    label: sectionLabel(s.key, s.label),
+    sublabel: sectionGroupLabel(s.group),
     url: `/config/${encodeURIComponent(s.key)}`,
     group: "Config section",
   };
@@ -59,7 +60,7 @@ async function loadEntities(section: SectionInfo): Promise<ConfigSearchItem[]> {
       const { keys } = await getMapKeys(section.key);
       return keys.map((alias) => ({
         label: alias,
-        sublabel: section.label,
+        sublabel: sectionLabel(section.key, section.label),
         url: `/config/${encodeURIComponent(section.key)}/${encodeURIComponent(alias)}`,
         group: "Config entry" as const,
       }));
@@ -89,7 +90,7 @@ async function loadEntities(section: SectionInfo): Promise<ConfigSearchItem[]> {
       for (const alias of keys) {
         out.push({
           label: `${type} / ${alias}`,
-          sublabel: section.label,
+          sublabel: sectionLabel(section.key, section.label),
           url: `/config/${encodeURIComponent(section.key)}/${encodeURIComponent(type)}/${encodeURIComponent(alias)}`,
           group: "Config entry",
         });

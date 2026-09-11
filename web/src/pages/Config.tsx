@@ -53,7 +53,7 @@ import CostRatesEditor, {
   type CostRatesCategory,
 } from "../components/sections/CostRatesEditor";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
-import { t, plural } from "@/lib/i18n";
+import { t, plural, sectionDesc, sectionLabel } from "@/lib/i18n";
 import { formatServerError } from "@/lib/serverError";
 
 // Display order for the curated sidebar groups. Each `SectionInfo.group`
@@ -240,7 +240,7 @@ export default function Config() {
         <WireTabForm
           key={`${reloadKey}-${activeSection.key}`}
           prefix={activeSection.key}
-          title={activeSection.label}
+          title={sectionLabel(activeSection.key, activeSection.label)}
           reloadKey={reloadKey}
           onSaved={fetchDrift}
           drift={drifted}
@@ -361,7 +361,7 @@ export default function Config() {
               className="self-start"
             >
               <ArrowLeft className="h-4 w-4" />
-              {t("config.back_to")}{activeSection.label}
+              {t("config.back_to")}{sectionLabel(activeSection.key, activeSection.label)}
             </Button>
             {isAgent && (
               <Link to={`/agent/${encodeURIComponent(typeParam)}`}>
@@ -391,7 +391,7 @@ export default function Config() {
         <AliasListView
           sectionKey={activeSection.key}
           typeKey={typeParam}
-          sectionHelp={activeSection.help}
+          sectionHelp={sectionDesc(activeSection.key, activeSection.help)}
           onSelectAlias={async (alias) => {
             await selectSectionItem(activeSection.key, typeParam, alias);
             navigate(
@@ -442,7 +442,7 @@ export default function Config() {
             className="self-start"
           >
             <ArrowLeft className="h-4 w-4" />
-            {t("config.back_to")}{activeSection.label}
+            {t("config.back_to")}{sectionLabel(activeSection.key, activeSection.label)}
           </Button>
           <FieldForm
             key={`${reloadKey}-${typeParam}`}
@@ -462,7 +462,7 @@ export default function Config() {
       return (
         <AliasListView
           sectionKey={activeSection.key}
-          sectionHelp={activeSection.help}
+          sectionHelp={sectionDesc(activeSection.key, activeSection.help)}
           onSelectAlias={async (alias) => {
             await selectSectionItem(activeSection.key, alias);
             navigate(
@@ -564,7 +564,7 @@ export default function Config() {
   const crumbs: Array<{ label: string; url?: string }> = [
     { label: t("config.breadcrumb"), url: "/config" },
     {
-      label: activeSection?.label ?? "",
+      label: activeSection ? sectionLabel(activeSection.key, activeSection.label) : "",
       url: activeSection
         ? `/config/${encodeURIComponent(activeSection.key)}`
         : undefined,
@@ -664,7 +664,7 @@ export default function Config() {
                 keeps its own confirm modal — only the surrounding chrome is
                 restyled. */}
             <PageHeader
-              title={activeSection.label}
+              title={sectionLabel(activeSection.key, activeSection.label)}
               description={
                 <span className="flex items-center gap-1.5 flex-wrap text-pc-text-muted">
                   {crumbs.map((crumb, i) => (
@@ -1513,13 +1513,13 @@ function SectionOverview({
       <div className="flex flex-col gap-4">
         <SectionPicker
           sectionKey={section.key}
-          help={section.help}
+          help={sectionDesc(section.key, section.help)}
           onPick={(item) => onPickType(item.key)}
         />
         <FieldForm
           key={`${section.key}-fields`}
           prefix={section.key}
-          title={`${section.label}${t("config.settings_suffix")}`}
+          title={`${sectionLabel(section.key, section.label)}${t("config.settings_suffix")}`}
           includePath={excludePicker}
         />
       </div>
@@ -1536,11 +1536,11 @@ function SectionOverview({
           className="self-start"
         >
           <ArrowLeft className="h-4 w-4" />
-          {t("config.back_to")}{section.label}
+          {t("config.back_to")}{sectionLabel(section.key, section.label)}
         </Button>
         <SectionPicker
           sectionKey={section.key}
-          help={section.help}
+          help={sectionDesc(section.key, section.help)}
           onPick={(item) => {
             setShowPicker(false);
             onPickType(item.key);
@@ -1554,7 +1554,7 @@ function SectionOverview({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-pc-text-secondary">{section.help}</p>
+        <p className="text-sm text-pc-text-secondary">{sectionDesc(section.key, section.help)}</p>
         <Button
           variant="primary"
           size="md"
@@ -1642,7 +1642,7 @@ function ConfiguredOnlyPicker({
   if (items.length === 0) {
     return (
       <Card className="p-8 text-center text-sm text-pc-text-muted">
-        {t("config.nothing_configured_pre")} <strong>{section.label}</strong>{" "}
+        {t("config.nothing_configured_pre")} <strong>{sectionLabel(section.key, section.label)}</strong>{" "}
         {t("config.nothing_configured_mid")}{" "}
         <strong>{t("config.add_with_plus")}</strong>{" "}
         {t("config.nothing_configured_post")}

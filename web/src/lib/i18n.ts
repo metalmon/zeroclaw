@@ -13884,6 +13884,51 @@ export function fieldDesc(path: string, fallback: string | null): string | null 
 }
 
 // ---------------------------------------------------------------------------
+// Config SECTION label/description catalog
+// ---------------------------------------------------------------------------
+//
+// Distinct from the field catalog above: this covers the section itself —
+// the left config sub-nav entry, its group heading, the section page
+// heading, the breadcrumb segment, and the section's intro blurb (Rust
+// `SectionInfo.label` / `.help`, `SectionGroup::label()`). Same pattern:
+// hand-authored catalog keyed by the section's stable wire id
+// (`SectionInfo.key`, e.g. "providers.models", "agents"), EN fallback to
+// whatever the gateway already sent when no catalog entry exists.
+
+/**
+ * Look up a hand-authored label for a config SECTION (nav entry / page
+ * heading / breadcrumb segment), keyed by its wire id. Falls back to the
+ * gateway-humanized label when no catalog entry exists.
+ */
+export function sectionLabel(id: string, fallback: string): string {
+  const key = `config.section.${id}.label`;
+  return translations[currentLocale]?.[key] ?? fallback;
+}
+
+/**
+ * Look up a hand-authored intro description for a config SECTION (shown
+ * above its picker/field list), keyed by its wire id. Falls back to the
+ * gateway's `SectionInfo.help` (verbatim from the TUI) when no catalog
+ * entry exists.
+ */
+export function sectionDesc(id: string, fallback: string): string {
+  const key = `config.section.${id}.desc`;
+  return translations[currentLocale]?.[key] ?? fallback;
+}
+
+/**
+ * Look up a hand-authored label for a config section GROUP heading
+ * (Foundation / Agent / Tools / ...), keyed by a snake_case id derived
+ * from the group's EN label (e.g. "Multi-agent" -> "multi_agent"). Falls
+ * back to the EN label itself when no catalog entry exists.
+ */
+export function sectionGroupLabel(groupLabel: string): string {
+  const id = groupLabel.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const key = `config.section_group.${id}`;
+  return translations[currentLocale]?.[key] ?? groupLabel;
+}
+
+// ---------------------------------------------------------------------------
 // Pluralization
 // ---------------------------------------------------------------------------
 
