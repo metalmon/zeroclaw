@@ -2532,7 +2532,7 @@ fn contains_quoted_redirect_char(command: &str) -> bool {
 /// Reading the verb as `args.first()` then returns the global option instead of
 /// the subcommand, which misclassifies write-git as Low and lets it skip the
 /// medium-risk approval gate.
-fn git_subcommand(args: &[String]) -> Option<&str> {
+fn git_verb_index(args: &[String]) -> Option<usize> {
     // Options that consume the NEXT token as a value (space-separated form).
     // `-C` folds to `-c` under the case-insensitive check below; both take
     // a value, so either way the value token is skipped.
@@ -2549,7 +2549,7 @@ fn git_subcommand(args: &[String]) -> Option<&str> {
     while i < args.len() {
         let a = args[i].as_str();
         if !a.starts_with('-') {
-            return Some(a); // first non-option token is the subcommand
+            return Some(i); // first non-option token is the subcommand
         }
         if a.contains('=') {
             i += 1; // `--opt=value` / `-C=...` glued form consumes nothing extra
@@ -2570,13 +2570,13 @@ fn git_subcommand(args: &[String]) -> Option<&str> {
 /// `shlex` models quoting but not redirections, so `git -C /repo 2>/dev/null
 /// commit` tokenizes to `[git, -C, /repo, 2>/dev/null, commit]`. The shell removes
 /// `2>/dev/null` from the argv before exec, but leaving it in place makes
-/// `git_subcommand` skip `-C` and its value and then read the redirection token —
+/// `git_verb_index` skip `-C` and its value and then read the redirection token —
 /// the first thing that does not start with `-` — as the subcommand, missing the
 /// real `commit`. Removing redirections (a leading fd-number prefix with its
 /// target, the `> file` two-token form, and fd merges like `2>&1`) makes the
 /// classifier's argv match the shell's. A real word glued ahead of a redirect
 /// (`commit>log`) keeps its prefix so the verb still resolves; a bare fd number
-/// does not. Tokens are lower-cased to match `git_subcommand`.
+/// does not. Tokens are lower-cased to match `git_verb_index`.
 fn git_effective_args(tokens: Vec<String>) -> Vec<String> {
     fn prefix_arg(prefix: &str) -> Option<String> {
         let prefix = prefix.trim();
@@ -2655,20 +2655,34 @@ fn git_segment_is_write(segment: &str) -> bool {
     // a state-changing operation could skip the approval gate just by being
     // absent from that list. The classifier now models the read-only class and
     // treats everything else as a write, closing that omission class.
-    match git_subcommand(&args) {
-        Some(verb) => !is_git_read_only_verb(verb),
-        None => true,
-    }
+    let Some(i) = git_verb_index(&args) else {
+        return true; // no resolvable verb → conservative write
+    };
+    let verb = args[i].as_str();
+    // A read-only verb still fails closed to a write when an argument makes it
+    // write a file, mutate the repo, or exec a program from the command line
+    // alone (e.g. `diff --output=f`, `fsck --lost-found`, `grep -O`).
+    !is_git_read_only_verb(verb) || git_read_verb_has_mutating_arg(verb, &args[i + 1..])
 }
 
-/// Git subcommands that cannot mutate the repository, index, working tree, or
-/// config regardless of their arguments — the read-only allowlist the
-/// fail-closed write classifier ([`git_segment_is_write`]) trusts to stay Low.
+/// Git subcommands whose *default* behavior only reads — the read-only allowlist
+/// the fail-closed write classifier ([`git_segment_is_write`]) trusts to stay
+/// Low. Membership here is not sufficient on its own: a verb on this list can
+/// still write a file, mutate the repository, or exec another program through
+/// specific options (`git diff --output=<file>`, `git fsck --lost-found`,
+/// `git grep -O`/`--open-files-in-pager`), so [`git_segment_is_write`] re-checks
+/// the resolved verb's arguments with [`git_read_verb_has_mutating_arg`] and
+/// fails closed to a write when one of those options is present.
+///
 /// Verbs whose read/write behavior depends on their arguments (`config`,
 /// `remote`, `branch`, `tag`, `stash`, `reflog`, `symbolic-ref`, `notes`,
 /// `worktree`, `submodule`, `bisect`, `fetch`, `pull`, …) are deliberately
-/// EXCLUDED so their mutating forms reach the medium-risk approval gate; the
-/// conservative direction is to gate a read, never to admit a write.
+/// EXCLUDED so their mutating forms reach the medium-risk approval gate. So are
+/// verbs whose very purpose is to execute or contact something outside the
+/// working tree — `help` (execs a man/info reader or a web browser) and
+/// `ls-remote` (contacts a remote and can exec a local program via
+/// `--upload-pack=<path>` or an `ext::<cmd>` URL). The conservative direction is
+/// to gate a read, never to admit a write or an exec.
 fn is_git_read_only_verb(verb: &str) -> bool {
     matches!(
         verb,
@@ -2684,7 +2698,6 @@ fn is_git_read_only_verb(verb: &str) -> bool {
             | "rev-list"
             | "ls-files"
             | "ls-tree"
-            | "ls-remote"
             | "cat-file"
             | "describe"
             | "blame"
@@ -2704,10 +2717,64 @@ fn is_git_read_only_verb(verb: &str) -> bool {
             | "check-ignore"
             | "check-attr"
             | "check-ref-format"
-            | "help"
             | "version"
             | "var"
     )
+}
+
+/// A read-only git verb (see [`is_git_read_only_verb`]) can still write a file,
+/// mutate the repository, or exec another program when given certain options.
+/// These effects come from the command line ALONE — no repository `.gitconfig`
+/// or `.gitattributes` driver is required — so the classifier must fail closed
+/// to a write (Medium) when one appears, or the operation would run unapproved
+/// as a Low read. Config-dependent execution (`--textconv`/`--filters` driver,
+/// `--ext-diff` external diff) needs a pre-existing repo driver and is a
+/// broader shell/config-hardening concern handled separately, not modeled here.
+///
+/// `verb_args` are the post-verb tokens, already `shlex`-split and lower-cased by
+/// [`git_effective_args`], so options are matched in their lower-cased form (the
+/// grep short option `-O` arrives as `-o`). The grep short option is matched
+/// anywhere in a single-dash flag run so a clustered `-nO` (→ `-no`) cannot hide
+/// it. Long options are matched by PREFIX, not exact name: git's parse-options
+/// accepts any unambiguous abbreviation, so `--open-files-in-pager` can be
+/// written `--open`/`--op` and `--lost-found` as `--lost`/`--l`. Matching the
+/// canonical option against any `--`-prefix (fail closed / over-match) closes
+/// those abbreviations; a longer, distinct option such as the read-only
+/// `--output-indicator-*` is not a prefix of `--output`, so it stays Low.
+fn git_read_verb_has_mutating_arg(verb: &str, verb_args: &[String]) -> bool {
+    // Letters in a single-dash short-option run: "-nO" → "no" (already
+    // lower-cased). Empty for long options ("--x") and non-option tokens.
+    fn short_run(token: &str) -> &str {
+        if token.starts_with("--") || !token.starts_with('-') {
+            return "";
+        }
+        let body = &token[1..];
+        body.split('=').next().unwrap_or(body)
+    }
+    // `name` (a `--…` option, `=value` already stripped) is an abbreviation of
+    // `canonical` when it is at least `--` plus one letter and `canonical` starts
+    // with it. Over-gating an ambiguous or benign abbreviation to Medium is the
+    // safe direction; under-gating an exec/write is the bug.
+    fn is_abbrev(name: &str, canonical: &str) -> bool {
+        name.len() >= 3 && canonical.starts_with(name)
+    }
+    verb_args.iter().any(|token| {
+        let name = token.split('=').next().unwrap_or(token);
+        match verb {
+            // `--output=<file>` writes the diff to a file instead of stdout.
+            // (`-O<orderfile>` is a *read* on these verbs — an order file — and
+            // is intentionally NOT matched here.)
+            "diff" | "diff-tree" | "diff-files" | "diff-index" | "show" | "log" | "whatchanged" => {
+                is_abbrev(name, "--output")
+            }
+            // `--lost-found` writes dangling objects under `.git/lost-found/`.
+            "fsck" => is_abbrev(name, "--lost-found"),
+            // `-O[<pager>]` / `--open-files-in-pager[=<pager>]` execs a pager —
+            // arbitrary nested execution outside the `git` allowlist.
+            "grep" => is_abbrev(name, "--open-files-in-pager") || short_run(token).contains('o'),
+            _ => false,
+        }
+    })
 }
 
 fn generic_segment_risk(
@@ -3368,6 +3435,15 @@ impl SecurityPolicy {
                             || arg.starts_with("config.")
                             || arg == "alias"
                             || arg.starts_with("alias.")
+                            // `--config-env=<name>=<envvar>` injects a config
+                            // override from the environment and `--exec-path=<dir>`
+                            // prepends <dir> to the PATH used to locate `git-*`
+                            // helper programs — the same command-line config/exec
+                            // injection channel as `-c`, blocked for the same
+                            // reason. (Bare `--exec-path` only prints the path.)
+                            || arg == "--config-env"
+                            || arg.starts_with("--config-env=")
+                            || arg.starts_with("--exec-path=")
                     })
             }
             "python" | "python3" => !args
@@ -5225,13 +5301,13 @@ mod tests {
     }
 
     #[test]
-    fn git_subcommand_skips_global_options() {
+    fn git_verb_index_skips_global_options() {
         let v = |s: &str| {
             let args: Vec<String> = s
                 .split_whitespace()
                 .map(|w| w.to_ascii_lowercase())
                 .collect();
-            git_subcommand(&args).map(str::to_string)
+            git_verb_index(&args).map(|i| args[i].clone())
         };
         assert_eq!(v("commit -m x").as_deref(), Some("commit"));
         assert_eq!(v("-C /repo commit").as_deref(), Some("commit"));
@@ -5381,6 +5457,102 @@ mod tests {
                 "read-git with a redirect must remain Low: {read}"
             );
         }
+    }
+
+    #[test]
+    fn argument_write_or_exec_read_git_is_gated_at_the_enforcement_boundary() {
+        // A verb on the read-only allowlist can still write a file, mutate the
+        // repo, or exec a program via specific options — the classifier must
+        // fail closed to Medium for those, from the command line alone. Drive
+        // the real approval decision through `validate_command_execution`.
+        let p = SecurityPolicy {
+            allowed_commands: vec!["git".into()],
+            autonomy: AutonomyLevel::Supervised,
+            require_approval_for_medium_risk: true,
+            ..SecurityPolicy::default()
+        };
+
+        for gated in [
+            "git diff --output=/tmp/out",            // writes a file (glued)
+            "git diff --output /tmp/out",            // writes a file (separated)
+            "git -C /repo log --output=/tmp/out",    // write option past a global option
+            "git show --output=/tmp/out",            // diff option inherited by show
+            "git whatchanged --output=/tmp/out",     // and by whatchanged
+            "git fsck --lost-found",                 // writes .git/lost-found/
+            "git grep --open-files-in-pager=sh foo", // execs a pager (long form)
+            "git grep --open=sh foo",                // git long-option abbreviation → exec
+            "git grep --op=sh foo",                  // shortest unambiguous abbreviation
+            "git grep -Ovim foo",                    // execs a pager (glued short)
+            "git grep -O foo",                       // default pager (separated short)
+            "git grep -nO foo",                      // hidden in a short-option cluster
+            "git fsck --lost",                       // abbreviation of --lost-found → write
+            "git fsck --l",                          // shortest unambiguous abbreviation
+            "git help log",                          // execs a man/info reader or browser
+            "git ls-remote origin",                  // contacts a remote / can exec
+        ] {
+            assert!(
+                p.validate_command_execution(gated, false).is_err(),
+                "unapproved write/exec read-git must be rejected: {gated}"
+            );
+            assert_eq!(
+                p.validate_command_execution(gated, true),
+                Ok(CommandRiskLevel::Medium),
+                "approved write/exec read-git must classify Medium: {gated}"
+            );
+        }
+
+        // Ordinary reads — including options whose NAME merely shares a prefix
+        // with a gated one, and grep's benign short options — stay Low.
+        for read in [
+            "git diff",
+            "git diff --stat",
+            "git diff --output-indicator-new=+ HEAD", // NOT a prefix of --output: stays Low
+            "git diff -O/tmp/order HEAD",             // diff `-O` is an orderfile read
+            "git log --oneline -5",
+            "git show HEAD",
+            "git fsck",
+            "git grep foo",
+            "git grep -n foo",
+            "git grep -w foo", // grep -w is --word-regexp, not the pager option
+            "git grep -e a --or -e b", // grep --or is not a prefix of --open-files-in-pager
+        ] {
+            assert_eq!(
+                p.validate_command_execution(read, false),
+                Ok(CommandRiskLevel::Low),
+                "ordinary read-git must remain Low: {read}"
+            );
+        }
+
+        // Same guard covers the Windows `cmd.exe` dialect (the classifier is
+        // dialect-agnostic); the write option must not slip under the gate there.
+        assert!(
+            p.validate_command_execution_for_shell(
+                "git diff --output=out",
+                false,
+                ShellDialect::WindowsCmd,
+            )
+            .is_err(),
+            "unapproved write read-git must be rejected under WindowsCmd too"
+        );
+    }
+
+    #[test]
+    fn git_config_and_exec_path_injection_blocked() {
+        // `--config-env` and `--exec-path=` are the command-line config/exec
+        // injection siblings of the already-blocked `-c`, so the allowlist gate
+        // must reject them outright — never reaching risk classification.
+        let p = default_policy();
+        assert!(
+            !p.is_command_allowed("git --config-env=core.pager=EVIL_VAR log"),
+            "git --config-env injects a config override and must be blocked"
+        );
+        assert!(
+            !p.is_command_allowed("git --exec-path=/tmp/evil status"),
+            "git --exec-path=<dir> redirects helper-program lookup and must be blocked"
+        );
+        // The bare query form and ordinary reads stay allowed.
+        assert!(p.is_command_allowed("git --exec-path"));
+        assert!(p.is_command_allowed("git -C /repo status"));
     }
 
     #[test]
