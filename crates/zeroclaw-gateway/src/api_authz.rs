@@ -264,33 +264,6 @@ fn validate_profile_id(id: &str) -> Result<(), ConfigApiError> {
     Ok(())
 }
 
-/// Work around a `zeroclaw-macros` `create_map_key` limitation, discovered
-/// while verifying Task 4's operator-bootstrap persistence: its insertion
-/// logic only auto-populates a freshly-created element's `name` or `hint`
-/// field from the supplied key — both hardcoded, never the struct's actual
-/// `#[natural_key = "..."]` field name. `PermissionProfile`'s natural key is
-/// `id` (neither `name` nor `hint`), so a brand-new `[[authz.profiles]]`
-/// element gets pushed with `id` left at its serde default (`""`) instead
-/// of the supplied `id`. `create_map_key` itself still reports `Ok(true)`;
-/// the corruption is silent until the very next call, when EVERY
-/// `set_prop`/`set_prop_persistent` into that element's dotted path fails
-/// with "Unknown property" — `route_vec_path` can't find an element whose
-/// `id` matches the alias, because none does.
-///
-/// Only call this immediately after a `create_map_key` call that itself
-/// reported `Ok(true)` (a new element WAS pushed): that guarantees the
-/// element `.last_mut()` refers to is the one just created, with its `id`
-/// still blank — an upsert that matched an EXISTING element (`Ok(false)`)
-/// must not go through this path, since `.last_mut()` would then likely
-/// refer to a different, unrelated element.
-fn fixup_created_profile_natural_key(working: &mut zeroclaw_config::schema::Config, id: &str) {
-    if let Some(profile) = working.authz.profiles.last_mut() {
-        if profile.id.is_empty() {
-            profile.id = id.to_string();
-        }
-    }
-}
-
 /// Write `body`'s `allowed_agents` and `admin` onto the (already-created)
 /// `authz.profiles.<id>` record via the standard `set_prop_persistent`
 /// dotted-path engine — the same field-write machinery every other
@@ -342,17 +315,10 @@ pub async fn handle_create_profile(
             .with_path(format!("authz.profiles.{}", body.id)),
         );
     }
-    match working.create_map_key("authz.profiles", &body.id) {
-        Ok(created) => {
-            if created {
-                fixup_created_profile_natural_key(&mut working, &body.id);
-            }
-        }
-        Err(msg) => {
-            return error_response(
-                ConfigApiError::new(ConfigApiCode::InternalError, msg).with_path("authz.profiles"),
-            );
-        }
+    if let Err(msg) = working.create_map_key("authz.profiles", &body.id) {
+        return error_response(
+            ConfigApiError::new(ConfigApiCode::InternalError, msg).with_path("authz.profiles"),
+        );
     }
     if let Err(e) = apply_profile_fields(&mut working, &body) {
         return error_response(e);
@@ -385,17 +351,10 @@ pub async fn handle_update_profile(
 
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
     let mut working = state.config.read().clone();
-    match working.create_map_key("authz.profiles", &body.id) {
-        Ok(created) => {
-            if created {
-                fixup_created_profile_natural_key(&mut working, &body.id);
-            }
-        }
-        Err(msg) => {
-            return error_response(
-                ConfigApiError::new(ConfigApiCode::InternalError, msg).with_path("authz.profiles"),
-            );
-        }
+    if let Err(msg) = working.create_map_key("authz.profiles", &body.id) {
+        return error_response(
+            ConfigApiError::new(ConfigApiCode::InternalError, msg).with_path("authz.profiles"),
+        );
     }
     if let Err(e) = apply_profile_fields(&mut working, &body) {
         return error_response(e);
@@ -634,21 +593,6 @@ fn short_pending_suffix() -> String {
     uuid::Uuid::new_v4().to_string()[..8].to_string()
 }
 
-/// Work around the SAME `zeroclaw-macros::create_map_key` natural-key bug
-/// [`fixup_created_profile_natural_key`] documents, for
-/// `[[authz.principals]]` instead of `[[authz.profiles]]`: `PrincipalRecord`'s
-/// natural key is also `id` (never `name`/`hint`), so a freshly-created
-/// principal row needs the exact same post-creation patch. Only call this
-/// immediately after a `create_map_key` call that itself reported `Ok(true)`
-/// — see that function's doc comment for the full invariant.
-fn fixup_created_principal_natural_key(working: &mut zeroclaw_config::schema::Config, id: &str) {
-    if let Some(principal) = working.authz.principals.last_mut() {
-        if principal.id.is_empty() {
-            principal.id = id.to_string();
-        }
-    }
-}
-
 /// When an UNBOUND pairing code (no `get-paircode --new --principal <id>`
 /// tag) is redeemed while authz is enforced, the newly-issued token would
 /// otherwise name no configured principal at all: `AuthzConfig::lookup`
@@ -671,10 +615,9 @@ fn fixup_created_principal_natural_key(working: &mut zeroclaw_config::schema::Co
 /// Re-checked under `state.config_write_lock` in case enforcement changed
 /// between the caller's unlocked read and this call taking the lock.
 ///
-/// Persistence mirrors [`handle_create_profile`]'s `create_map_key` +
-/// `fixup_created_profile_natural_key` workaround for the SAME
-/// `zeroclaw-macros::create_map_key` natural-key bug (see that function's
-/// doc comment), then rides [`persist_and_swap`]'s `save_dirty` write so the
+/// Persistence mirrors [`handle_create_profile`]'s `create_map_key` write
+/// (the derive populates the new row's `id` natural key from the supplied
+/// alias), then rides [`persist_and_swap`]'s `save_dirty` write so the
 /// pending principal survives a restart. `persist_and_swap` only swaps the
 /// mutation into live `state.config` after a successful disk write (reverts
 /// the file on failure), so a persistence error here leaves `state.config`
@@ -718,7 +661,6 @@ pub(crate) async fn create_pending_principal_if_enforced(
         );
         return None;
     }
-    fixup_created_principal_natural_key(&mut working, &id);
 
     let hashes_json = serde_json::to_string(&[token_hash]).unwrap_or_else(|_| "[]".to_string());
     let path = format!("authz.principals.{id}.token_hashes");

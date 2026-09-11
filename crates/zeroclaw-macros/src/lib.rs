@@ -1318,6 +1318,32 @@ pub fn derive_configurable(input: TokenStream) -> TokenStream {
                 } else {
                     quote! {}
                 };
+                // Populate the freshly-created element's natural key from the
+                // supplied `map_key`. When the section declares
+                // `#[natural_key = "<field>"]`, write into that exact field
+                // (generic — `id`, `name`, `hint`, anything), mirroring the
+                // field literal the dup-check / get_map_keys arms already use.
+                // Sections WITHOUT an explicit `#[natural_key]` keep the
+                // historical behavior of seeding both `name` and `hint` (each
+                // a silent no-op when the inner struct lacks that field).
+                let create_key_write = match &natural_key_field {
+                    Some(nk_field) => {
+                        let nk_field_lit = nk_field.clone();
+                        quote! {
+                            let _ = self.#field_ident[new_idx].set_prop(
+                                &format!("{inner_prefix}.{}", #nk_field_lit), map_key,
+                            );
+                        }
+                    }
+                    None => quote! {
+                        let _ = self.#field_ident[new_idx].set_prop(
+                            &format!("{inner_prefix}.name"), map_key,
+                        );
+                        let _ = self.#field_ident[new_idx].set_prop(
+                            &format!("{inner_prefix}.hint"), map_key,
+                        );
+                    },
+                };
                 create_map_key_arms.push(quote! {
                     {
                         let prefix = Self::configurable_prefix();
@@ -1337,12 +1363,7 @@ pub fn derive_configurable(input: TokenStream) -> TokenStream {
                             self.#field_ident.push(value);
                             let new_idx = self.#field_ident.len() - 1;
                             let inner_prefix = <#vec_inner_ty>::configurable_prefix();
-                            let _ = self.#field_ident[new_idx].set_prop(
-                                &format!("{inner_prefix}.name"), map_key,
-                            );
-                            let _ = self.#field_ident[new_idx].set_prop(
-                                &format!("{inner_prefix}.hint"), map_key,
-                            );
+                            #create_key_write
                             return Ok(true);
                         }
                     }
