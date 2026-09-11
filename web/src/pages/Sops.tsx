@@ -7,7 +7,7 @@ import MarkdownEditor from '@/components/MarkdownEditor';
 import ToolPicker from '@/components/ToolPicker';
 import { PlannedCallsEditor } from '@/components/SopCalls';
 import SopStepList from '@/components/SopStepList';
-import { t } from '@/lib/i18n';
+import { plural, t } from '@/lib/i18n';
 import { loadAgentPickerSummaries } from '@/lib/agents';
 import {
   listSops,
@@ -1580,7 +1580,7 @@ export function SopView() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {graph ? (
             <Badge tone="neutral">
-              {graph.nodes.length} {t('sops.steps')}
+              {plural(graph.nodes.length, 'sops.steps_count')}
             </Badge>
           ) : null}
           <div className="ml-auto flex flex-wrap gap-2">

@@ -3,7 +3,7 @@ import { Plus, Shield, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useRoles } from '@/hooks/useRoles';
 import { HttpError, type AuthzProfile, type AuthzPrincipalSummary } from '@/lib/api';
 import { Badge, Button, Card, ConfirmDialog, PageHeader, Select } from '@/components/ui';
-import { t } from '@/lib/i18n';
+import { plural, t } from '@/lib/i18n';
 
 // Sentinel written into `allowed_agents` for "every agent" — matches the
 // backend contract (`api_authz.rs` / `AuthzConfig::effective_agents`), which
@@ -300,7 +300,7 @@ export default function Roles() {
         <Card className="text-sm border-status-warning/25 bg-status-warning/10 text-status-warning space-y-1">
           <div className="flex items-start justify-between gap-2">
             <span>
-              {deleteAffected.principals.length} {t('roles.delete_profile_affected')}
+              {plural(deleteAffected.principals.length, 'roles.delete_profile_affected')}
             </span>
             <button
               type="button"
@@ -389,8 +389,7 @@ export default function Roles() {
                     {isPrincipalAdmin(principal, profiles) && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
                     {pending && <Badge tone="warn">{t('roles.pending_badge')}</Badge>}
                     <span className="text-[11px] text-pc-text-muted">
-                      {principal.tokenHashCount} {t('roles.token_count')} · {principal.deviceIdCount}{' '}
-                      {t('roles.device_count')}
+                      {plural(principal.tokenHashCount, 'roles.token_count')} · {plural(principal.deviceIdCount, 'roles.device_count')}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">

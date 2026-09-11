@@ -4,7 +4,7 @@ import { apiFetch } from '@/lib/api';
 import type { LogEvent, LogsQueryParams, LogsResponse } from '@/lib/api';
 import { usePolling } from '@/hooks/usePolling';
 import { Badge, Button, PageHeader } from '@/components/ui';
-import { t } from '@/lib/i18n';
+import { plural, t } from '@/lib/i18n';
 
 const DEFAULT_SEVERITY_MIN = 9;
 const PAGE_LIMIT = 200;
@@ -376,7 +376,7 @@ export default function Logs() {
           actions={
             <>
               <Badge tone="neutral">
-                {events.length} {t('logs.events')}
+                {plural(events.length, 'logs.events_count')}
                 {atEnd ? ` · ${t('logs.at_end')}` : ''}
               </Badge>
               <Button

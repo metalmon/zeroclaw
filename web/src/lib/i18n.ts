@@ -696,8 +696,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'fieldform.edit_in_source_suffix': " in its source section",
     'fieldform.element_shape_unavailable': "Element shape unavailable from schema; edit raw JSON below.",
     'fieldform.empty': "empty",
-    'fieldform.entries': "entries",
-    'fieldform.entry': "entry",
+    'fieldform.entries_count_one': "entry",
+    'fieldform.entries_count_other': "entries",
     'fieldform.fetching_models_help': "Fetching available models from the provider's catalog…",
     'fieldform.fetching_models_placeholder': "Fetching models…",
     'fieldform.field_label': "field",
@@ -842,7 +842,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'quickstart.peer_group_named_prefix': "Peer group will be named ",
     'quickstart.peer_groups_none': "none — channels accept no peers",
     'quickstart.peer_groups_title': "Peer groups",
-    'quickstart.peers_suffix': "peers",
+    'quickstart.peers_suffix_one': "peer",
+    'quickstart.peers_suffix_other': "peers",
     'quickstart.personality_files_none': "none — agent uses bootstrap defaults",
     'quickstart.personality_files_title': "Personality files",
     'quickstart.pick_channel_type': "— pick a channel type —",
@@ -870,8 +871,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'reload_banner.and_more_suffix': " more",
     'reload_banner.differ_suffix': "differ from on-disk",
     'reload_banner.dismiss': "Dismiss",
-    'reload_banner.path_plural': "paths",
-    'reload_banner.path_singular': "path",
+    'reload_banner.path_one': "path",
+    'reload_banner.path_other': "paths",
     'reload_banner.pending_and_drift': "Config changed this session and on-disk drift detected",
     'reload_banner.pending_only': "Config changed — reload daemon to apply",
     'reload_banner.quickstart_saved': "Changes saved. Continue setup.",
@@ -963,7 +964,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'skills.search': "Search skills…",
     'skills.shadows': "shadows",
     'skills.skill_md': "SKILL.md",
-    'skills.skipped_count': "skill(s) skipped (failed security audit)",
+    'skills.skipped_count_one': "skill skipped (failed security audit)",
+    'skills.skipped_count_other': "skills skipped (failed security audit)",
     'skills.title': "Skills",
     'skills_bundle.archive_skill': "Archive skill",
     'skills_bundle.author_label': "Author",
@@ -1081,8 +1083,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'unsaved_banner.in_sections_prefix': "— in ",
     'unsaved_banner.save_all': "Save all",
     'unsaved_banner.saving': "Saving…",
-    'unsaved_banner.unsaved_change': "unsaved change",
-    'unsaved_banner.unsaved_changes': "unsaved changes",
+    'unsaved_banner.unsaved_changes_count_one': "unsaved change",
+    'unsaved_banner.unsaved_changes_count_other': "unsaved changes",
     'workspace.back_to_chat_prefix': "Back to chat",
     'workspace.binary_file_prefix': "Binary file",
     'workspace.binary_file_suffix': "Preview is base64-encoded; download via CLI to inspect.",
@@ -1147,6 +1149,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.diagnostics': 'Diagnostics',
     'sops.step': 'Step',
     'sops.steps': 'steps',
+    'sops.steps_count_one': 'step',
+    'sops.steps_count_other': 'steps',
     'sops.empty': 'No SOPs found.',
     'sops.empty_graph': 'This SOP has no steps to render.',
     'sops.run_id_placeholder': 'Watch a run: paste run id',
@@ -1570,15 +1574,15 @@ const translations: Record<Locale, Record<string, string>> = {
     // Agent card (list row)
     'agentcard.open_detail_prefix': 'Open',
     'agentcard.open_detail_suffix': 'detail',
-    'agentcard.channel': 'channel',
-    'agentcard.channels': 'channels',
+    'agentcard.channels_count_one': 'channel',
+    'agentcard.channels_count_other': 'channels',
     'agentcard.no_channels_bound': 'No channels bound',
     'agentcard.channels_title': 'Channels',
-    'agentcard.session': 'session',
-    'agentcard.sessions': 'sessions',
+    'agentcard.sessions_count_one': 'session',
+    'agentcard.sessions_count_other': 'sessions',
     'agentcard.active_sessions': 'Active sessions',
-    'agentcard.memory': 'memory',
-    'agentcard.memories': 'memories',
+    'agentcard.memories_count_one': 'memory',
+    'agentcard.memories_count_other': 'memories',
     'agentcard.stored_memories': 'Stored memories',
     'agentcard.this_month': 'this month',
 
@@ -1758,6 +1762,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'logs.connected': 'Connected',
     'logs.disconnected': 'Disconnected',
     'logs.events': 'events',
+    'logs.events_count_one': 'event',
+    'logs.events_count_other': 'events',
     'logs.jump_to_bottom': 'Jump to bottom',
     'logs.paused_hint': 'Log streaming is paused.',
     'logs.waiting_hint': 'Waiting for events...',
@@ -1831,7 +1837,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'roles.delete_profile_title': 'Delete profile?',
     'roles.delete_profile_message_prefix': 'This will delete the permission profile',
     'roles.delete_profile_message_suffix': '. Principals still bound to it will keep a dangling reference that grants nothing until rebound.',
-    'roles.delete_profile_affected': 'principal(s) now have a dangling reference to this profile and need to be rebound:',
+    'roles.delete_profile_affected_one': 'principal now has a dangling reference to this profile and needs to be rebound:',
+    'roles.delete_profile_affected_other': 'principals now have a dangling reference to this profile and need to be rebound:',
     'roles.principals_heading': 'Principals',
     'roles.no_principals': 'No principals configured yet. Principals are created by pairing or the operator bootstrap — once one exists, bind it to a profile here.',
     'roles.pending_badge': 'PENDING — no role assigned',
@@ -1845,8 +1852,10 @@ const translations: Record<Locale, Record<string, string>> = {
     'roles.bind_error': 'Failed to bind profile',
     'roles.unbind_error': 'Failed to unbind profile',
     'roles.forbidden_error': 'This action requires a principal bound to an admin profile.',
-    'roles.token_count': 'tokens',
-    'roles.device_count': 'devices',
+    'roles.token_count_one': 'token',
+    'roles.token_count_other': 'tokens',
+    'roles.device_count_one': 'device',
+    'roles.device_count_other': 'devices',
     'roles.legacy_agents_hint': 'Legacy inline agents (pre-migration):',
     'roles.id_required': 'A profile ID is required.',
     'roles.id_taken': 'A profile with this ID already exists.',
@@ -13719,6 +13728,34 @@ export function t(key: string): string {
  */
 export function tLocale(key: string, locale: Locale): string {
   return translations[locale]?.[key] ?? translations.en[key] ?? key;
+}
+
+// ---------------------------------------------------------------------------
+// Pluralization
+// ---------------------------------------------------------------------------
+
+/**
+ * Translate a count-dependent string using CLDR plural rules for the current
+ * locale (e.g. Russian's one/few/many/other, not just English's binary
+ * one/other). `baseKey` is combined with the selected category to form the
+ * lookup key (`${baseKey}_${category}`, e.g. `runs.count_one`).
+ *
+ * Fallback order per candidate key: current-locale form -> English form.
+ * Candidates are tried in order: `${baseKey}_${category}`, then
+ * `${baseKey}_other`, then the bare `baseKey` itself, then the key literal.
+ * Any `{n}` in the resolved string is replaced with `n`.
+ */
+export function plural(n: number, baseKey: string): string {
+  const category = new Intl.PluralRules(currentLocale).select(n);
+  const candidates = [`${baseKey}_${category}`, `${baseKey}_other`, baseKey];
+
+  let raw: string | undefined;
+  for (const candidate of candidates) {
+    raw = translations[currentLocale]?.[candidate] ?? translations.en[candidate];
+    if (raw !== undefined) break;
+  }
+
+  return (raw ?? baseKey).replace(/\{n\}/g, String(n));
 }
 
 // ---------------------------------------------------------------------------

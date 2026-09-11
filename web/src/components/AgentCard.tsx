@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import type { AgentSummary } from '@/lib/agents';
 import { Badge } from '@/components/ui';
 import { formatUsd } from '@/lib/format';
-import { t } from '@/lib/i18n';
+import { plural, t } from '@/lib/i18n';
 
 export interface AgentCardProps {
   agent: AgentSummary;
@@ -103,7 +103,7 @@ export default function AgentCard({ agent, onSelect, selected = false }: AgentCa
         <RowFact
           icon={Wifi}
           value={channelCount}
-          label={channelCount === 1 ? t('agentcard.channel') : t('agentcard.channels')}
+          label={plural(channelCount, 'agentcard.channels_count')}
           title={
             channelCount === 0
               ? t('agentcard.no_channels_bound')
@@ -113,13 +113,13 @@ export default function AgentCard({ agent, onSelect, selected = false }: AgentCa
         <RowFact
           icon={MessageSquare}
           value={agent.sessionCount}
-          label={agent.sessionCount === 1 ? t('agentcard.session') : t('agentcard.sessions')}
+          label={plural(agent.sessionCount, 'agentcard.sessions_count')}
           title={t('agentcard.active_sessions')}
         />
         <RowFact
           icon={Brain}
           value={agent.memoryCount}
-          label={agent.memoryCount === 1 ? t('agentcard.memory') : t('agentcard.memories')}
+          label={plural(agent.memoryCount, 'agentcard.memories_count')}
           title={t('agentcard.stored_memories')}
         />
         <RowFact

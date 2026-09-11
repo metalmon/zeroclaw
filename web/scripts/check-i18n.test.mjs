@@ -7,8 +7,12 @@ import {
   checkPlaceholderParity,
   checkSplitKeyOrphans,
   checkEnglishLeak,
+  checkPluralCoverage,
+  findPluralBases,
   looksLikeEnglishLeak,
   runChecks,
+  loadEnCatalog,
+  loadRuCatalog,
 } from "./check-i18n.mjs";
 
 // ---------------------------------------------------------------------------
@@ -233,4 +237,130 @@ test("runChecks fails when any violation class is present", () => {
   assert.ok(failures.some((f) => f.startsWith("placeholder:")));
   assert.ok(failures.some((f) => f.startsWith("split-key:")));
   assert.ok(failures.some((f) => f.startsWith("english-leak:")));
+});
+
+// ---------------------------------------------------------------------------
+// e) plural-family coverage (ru needs one/few/many where en only has one/other)
+// ---------------------------------------------------------------------------
+
+test("findPluralBases detects a family from its _other sibling", () => {
+  const en = { "runs.count_one": "{n} run", "runs.count_other": "{n} runs" };
+  assert.deepEqual([...findPluralBases(en)], ["runs.count"]);
+});
+
+test("findPluralBases does not misdetect a lone _one key with no _other sibling", () => {
+  // this key ends in "_one" but is not a plural family — it must not be
+  // flagged as one, or checkPluralCoverage would demand ru forms that were
+  // never meant to exist
+  const en = { "fieldform.no_entries_add_one": "No entries. Click \"+ Add\" to add one." };
+  assert.deepEqual([...findPluralBases(en)], []);
+});
+
+test("checkPluralCoverage fails when ru is missing a required plural category", () => {
+  const en = { "runs.count_one": "{n} run", "runs.count_other": "{n} runs" };
+  const ru = {
+    "runs.count_one": "{n} запуск",
+    "runs.count_many": "{n} запусков",
+    // "runs.count_few" missing
+  };
+  const { failures } = checkPluralCoverage(en, ru);
+  assert.equal(failures.length, 1);
+  assert.match(failures[0], /runs\.count_few/);
+});
+
+test("checkPluralCoverage passes when ru ships one/few/many", () => {
+  const en = { "runs.count_one": "{n} run", "runs.count_other": "{n} runs" };
+  const ru = {
+    "runs.count_one": "{n} запуск",
+    "runs.count_few": "{n} запуска",
+    "runs.count_many": "{n} запусков",
+  };
+  const { failures } = checkPluralCoverage(en, ru);
+  assert.deepEqual(failures, []);
+});
+
+test("checkPluralCoverage is independent of the coverage allowlist — it always applies", () => {
+  const en = { "unlisted.count_one": "{n} thing", "unlisted.count_other": "{n} things" };
+  const ru = {}; // nothing translated, and "unlisted." is not allowlisted anywhere
+  const { failures } = checkPluralCoverage(en, ru);
+  assert.equal(failures.length, 3);
+  assert.ok(failures.some((f) => f.includes("unlisted.count_one")));
+  assert.ok(failures.some((f) => f.includes("unlisted.count_few")));
+  assert.ok(failures.some((f) => f.includes("unlisted.count_many")));
+});
+
+test("runChecks fails when a plural family is missing a ru category", () => {
+  const en = {
+    "roles.title": "Roles",
+    "runs.count_one": "{n} run",
+    "runs.count_other": "{n} runs",
+  };
+  const ru = {
+    "roles.title": "Роли",
+    "runs.count_one": "{n} запуск",
+    "runs.count_few": "{n} запуска",
+    // "runs.count_many" missing
+  };
+  const { failures } = runChecks(en, ru, ["roles."]);
+  assert.ok(failures.some((f) => f.startsWith("plural:") && f.includes("runs.count_many")));
+});
+
+// ---------------------------------------------------------------------------
+// f) Russian plural-category mapping + plural() lookup/interpolation
+// ---------------------------------------------------------------------------
+
+test("Intl.PluralRules('ru') selects the expected CLDR category for each count", () => {
+  const rules = new Intl.PluralRules("ru");
+  assert.equal(rules.select(1), "one");
+  assert.equal(rules.select(2), "few");
+  assert.equal(rules.select(4), "few");
+  assert.equal(rules.select(5), "many");
+  assert.equal(rules.select(11), "many");
+  assert.equal(rules.select(21), "one");
+  assert.equal(rules.select(22), "few");
+});
+
+/**
+ * Mirrors the fallback/interpolation contract of `plural()` in
+ * src/lib/i18n.ts: select the CLDR category for the current locale, try
+ * `<base>_<category>` then `<base>_other` then the bare `<base>` (checking
+ * the current locale before falling back to en at each step), then replace
+ * `{n}` in whatever string was found.
+ *
+ * i18n.ts can't be imported directly under plain Node for this test — it
+ * transitively touches `window` at module scope (via lib/basePath.ts) — so
+ * this re-implements the same small algorithm and runs it against catalogs
+ * pulled from the real source files with loadEnCatalog/loadRuCatalog, which
+ * verifies the actual committed translations render correctly end to end.
+ */
+function pluralLookup(n, base, locale, catalogs) {
+  const category = new Intl.PluralRules(locale).select(n);
+  const candidates = [`${base}_${category}`, `${base}_other`, base];
+  let raw;
+  for (const candidate of candidates) {
+    raw = catalogs[locale]?.[candidate] ?? catalogs.en[candidate];
+    if (raw !== undefined) break;
+  }
+  return (raw ?? base).replace(/\{n\}/g, String(n));
+}
+
+test("plural(n, 'runs.count') renders the correct ru form with {n} substituted", async () => {
+  const en = loadEnCatalog();
+  const ru = await loadRuCatalog();
+  const catalogs = { en, ru };
+
+  assert.equal(pluralLookup(1, "runs.count", "ru", catalogs), "1 запуск");
+  assert.equal(pluralLookup(2, "runs.count", "ru", catalogs), "2 запуска");
+  assert.equal(pluralLookup(4, "runs.count", "ru", catalogs), "4 запуска");
+  assert.equal(pluralLookup(5, "runs.count", "ru", catalogs), "5 запусков");
+  assert.equal(pluralLookup(11, "runs.count", "ru", catalogs), "11 запусков");
+  assert.equal(pluralLookup(21, "runs.count", "ru", catalogs), "21 запуск");
+  assert.equal(pluralLookup(22, "runs.count", "ru", catalogs), "22 запуска");
+});
+
+test("plural() falls back to the en form for a locale with no ru-specific catalog", () => {
+  const en = { "runs.count_one": "{n} run", "runs.count_other": "{n} runs" };
+  const catalogs = { en, fr: {} };
+  assert.equal(pluralLookup(1, "runs.count", "fr", catalogs), "1 run");
+  assert.equal(pluralLookup(3, "runs.count", "fr", catalogs), "3 runs");
 });

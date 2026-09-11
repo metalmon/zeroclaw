@@ -5,7 +5,7 @@ import { getDrift, getReloadStatus, type DriftEntry } from '@/lib/api';
 import ReloadDaemonButton from '@/components/sections/ReloadDaemonButton';
 import { useReloadAvailable } from '@/lib/reloadAvailability';
 import { usePolling } from '@/hooks/usePolling';
-import { t } from '@/lib/i18n';
+import { plural, t } from '@/lib/i18n';
 
 const POLL_INTERVAL_MS = 5_000;
 
@@ -95,7 +95,7 @@ export default function ReloadBanner() {
             ? t('reload_banner.pending_and_drift')
             : pendingReload
               ? t('reload_banner.pending_only')
-              : `${driftedCount} ${driftedCount === 1 ? t('reload_banner.path_singular') : t('reload_banner.path_plural')} ${t('reload_banner.differ_suffix')}`}
+              : `${driftedCount} ${plural(driftedCount, 'reload_banner.path')} ${t('reload_banner.differ_suffix')}`}
         </p>
         {driftedCount > 0 && (
           <ul className="text-xs mt-1 flex flex-col gap-0.5 text-pc-text-muted">

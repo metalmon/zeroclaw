@@ -5,7 +5,7 @@ import { cancelSop, isTerminalRunStatus, runStatusBadge, type SopRunSummary } fr
 import { basePath } from '@/lib/basePath';
 import { getToken } from '@/lib/auth';
 import { formatRelative } from '@/lib/format';
-import { t } from '@/lib/i18n';
+import { plural, t } from '@/lib/i18n';
 import { Badge, Card, PageHeader } from '@/components/ui';
 import { confirmsCancellation, runsStreamEffect } from './runs.logic';
 
@@ -17,7 +17,7 @@ type RunsFrame =
   | { type: 'error'; error: string };
 
 function count(n: number): string {
-  return (n === 1 ? t('runs.count_one') : t('runs.count_other')).replace('{n}', String(n));
+  return plural(n, 'runs.count');
 }
 
 function sortRuns(map: Map<string, SopRunSummary>): SopRunSummary[] {

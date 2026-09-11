@@ -48,7 +48,7 @@ import ToolPermissionGrid, {
 import { profileLevelFromDraft } from "@/components/ToolPermissionGrid.logic";
 import { Badge, Button, ComboBox, Select } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
-import { t } from "@/lib/i18n";
+import { plural, t } from "@/lib/i18n";
 import {
   ApiError,
   descriptionForPath,
@@ -2300,10 +2300,7 @@ function ArrayFieldEditor({
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
-          {rows.length}{" "}
-          {rows.length === 1
-            ? t("fieldform.entry")
-            : t("fieldform.entries")}
+          {plural(rows.length, "fieldform.entries_count")}
           {isOptional && rows.length === 0
             ? t("fieldform.saves_as_null")
             : null}
@@ -2507,8 +2504,7 @@ function ObjectArrayEditor({
     <div className="space-y-2" id={inputId}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
-          {rows.length}{" "}
-          {rows.length === 1 ? t("fieldform.entry") : t("fieldform.entries")}
+          {plural(rows.length, "fieldform.entries_count")}
         </span>
         <button
           type="button"
@@ -2747,8 +2743,7 @@ function KeyValueChipEditor({
     <div className="space-y-1.5 mt-1">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
-          {pairs.length}{" "}
-          {pairs.length === 1 ? t("fieldform.entry") : t("fieldform.entries")}
+          {plural(pairs.length, "fieldform.entries_count")}
         </span>
         <div
           className="inline-flex rounded-md overflow-hidden border text-xs"

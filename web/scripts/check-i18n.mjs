@@ -105,6 +105,49 @@ function isAllowlisted(key, prefixes) {
   return prefixes.some((prefix) => key.startsWith(prefix));
 }
 
+const PLURAL_REQUIRED_RU_SUFFIXES = ["_one", "_few", "_many"];
+
+/**
+ * Find the set of "plural bases" in a catalog — key prefixes that have at
+ * least one CLDR plural-category child (`<base>_one`, `<base>_few`,
+ * `<base>_many`, `<base>_other`). Detection is anchored on `_other` because
+ * every plural family in this catalog carries it (English's PluralRules
+ * only ever selects "one" or "other", so a real family always defines
+ * `_other` as its fallback); this keeps a key that merely happens to end in
+ * `_one` for unrelated reasons (e.g. "click to add one") from being
+ * misdetected as a plural base with no sibling `_other`.
+ */
+export function findPluralBases(catalog) {
+  const bases = new Set();
+  for (const key of Object.keys(catalog)) {
+    if (key.endsWith("_other")) {
+      bases.add(key.slice(0, -"_other".length));
+    }
+  }
+  return bases;
+}
+
+/**
+ * Russian needs three plural categories (one/few/many) where English only
+ * has two (one/other) — see Intl.PluralRules('ru'). Any EN key that is part
+ * of a plural family (has a `_other` sibling) must ship ru forms for all
+ * three ru-specific categories, regardless of the coverage allowlist: a
+ * missing category isn't merely untranslated, it's a grammar bug (wrong
+ * number agreement) for every count that selects it.
+ */
+export function checkPluralCoverage(en, ru) {
+  const failures = [];
+  for (const base of findPluralBases(en)) {
+    for (const suffix of PLURAL_REQUIRED_RU_SUFFIXES) {
+      const key = `${base}${suffix}`;
+      if (!Object.prototype.hasOwnProperty.call(ru, key)) {
+        failures.push(`plural: "${base}" is missing required ru form "${key}"`);
+      }
+    }
+  }
+  return { failures };
+}
+
 export function checkCoverage(en, ru, prefixes) {
   const failures = [];
   const infos = [];
@@ -208,12 +251,14 @@ export function runChecks(en, ru, prefixes) {
   const placeholder = checkPlaceholderParity(en, ru);
   const splitKey = checkSplitKeyOrphans(en, ru);
   const englishLeak = checkEnglishLeak(ru, prefixes);
+  const pluralCoverage = checkPluralCoverage(en, ru);
   return {
     failures: [
       ...coverage.failures,
       ...placeholder.failures,
       ...splitKey.failures,
       ...englishLeak.failures,
+      ...pluralCoverage.failures,
     ],
     infos: [...coverage.infos],
   };
