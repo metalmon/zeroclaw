@@ -116,6 +116,9 @@ pub enum TurnEvent {
         /// channels attach the file structurally instead of parsing `output`.
         /// `None` for ordinary tools.
         artifact: Option<ToolArtifact>,
+        /// Typed metadata for a UI resource artifact (e.g. a canvas HTML page
+        /// delivered via `ui://` protocol). `None` for ordinary tools.
+        ui_resource: Option<UiResource>,
     },
     Plan {
         entries: Vec<PlanEntry>,
