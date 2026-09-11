@@ -934,7 +934,7 @@ export const ru: Record<string, string> = {
   'sops.stop_refresh_error': 'Остановка принята, но не удалось обновить актуальное состояние запуска.',
   'sops.run_state.pending': 'ожидает',
   'sops.run_state.active': 'активен',
-  'sops.run_state.completed': 'готово',
+  'sops.run_state.completed': 'завершено',
   'sops.run_state.failed': 'ошибка',
   'sops.run_state.skipped': 'пропущен',
   'sops.run_status.pending': 'ожидает',
@@ -942,7 +942,7 @@ export const ru: Record<string, string> = {
   'sops.run_status.cancel_requested': 'останавливается',
   'sops.run_status.waiting_approval': 'ожидает одобрения',
   'sops.run_status.paused_checkpoint': 'приостановлен',
-  'sops.run_status.completed': 'завершен',
+  'sops.run_status.completed': 'завершено',
   'sops.run_status.failed': 'ошибка',
   'sops.run_status.cancelled': 'отменен',
   'sops.new': 'Новый СОП',
@@ -971,7 +971,7 @@ export const ru: Record<string, string> = {
   'sops.tools_accordion_hint': 'Разрешенные инструменты и запланированные вызовы (нажмите, чтобы развернуть)',
   'sops.handle_out': 'Перетащите от маркера «{label}»',
   'sops.handle_in': 'Входящие: сюда приходят связи «{label}»',
-  'sops.wire_kind_data': 'Связь данных: передает значение из выходного порта во входной',
+  'sops.wire_kind_data': 'Связь данных: передает значение из выходного маркера во входной',
   'sops.legend_title': 'Легенда',
   'sops.legend_data': 'Привязка данных',
   'sops.legend_handles_hint':
@@ -1003,9 +1003,9 @@ export const ru: Record<string, string> = {
   'sops.step_tools_label': 'Рекомендуемые инструменты',
   'sops.trigger_condition_hint':
     'Оставьте пустым, чтобы срабатывать на каждое событие. Иначе: `$.path.to.field >= 85` для JSON-полезной нагрузки или `> 0` для числовой. Операторы: >= <= != == > <.',
-  'sops.trigger_condition_placeholder': '$.значение >= 85',
+  'sops.trigger_condition_placeholder': 'например: $.value >= 85',
   'sops.trigger_expression_hint': 'Логическое выражение, вычисляемое по полезной нагрузке события.',
-  'sops.trigger_expression_placeholder': '$.статус == активен',
+  'sops.trigger_expression_placeholder': 'например: $.status == "active"',
   'sops.trigger_path_hint': 'Абсолютный путь или glob-шаблон для отслеживания.',
   'sops.trigger_path_placeholder': '~/.zeroclaw/config.toml',
   'sops.trigger_topic_hint': 'Фильтр темы MQTT. Поддерживает подстановочные знаки + и #.',
@@ -1088,7 +1088,7 @@ export const ru: Record<string, string> = {
   'sops.call_output_data': 'Структурированный вывод',
   'sops.captured_calls': 'Зафиксированные вызовы',
   'sops.calls_chip': 'запланированные вызовы',
-  'sops.routing_when_placeholder': '$.значение > 85',
+  'sops.routing_when_placeholder': 'например: $.value > 85',
 
   // Field form
   'fieldform.array_value_placeholder': '["value1", "value2"]',
