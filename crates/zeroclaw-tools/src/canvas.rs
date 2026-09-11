@@ -240,6 +240,89 @@ impl CanvasTool {
     }
 }
 
+/// Read a `content_file` for delivery through a directory handle bound to its
+/// approved root (cap-std beneath/no-follow), enforcing `MAX_CONTENT_SIZE`.
+/// Binding the open to the verified boundary — rather than re-walking
+/// `resolved` by name via `std::fs::read` — means a file or a parent
+/// component swapped to an escaping symlink after `resolve_content_file`'s
+/// check cannot redirect the read outside the approved root. Mirrors
+/// `deliver_file::read_source_bounded` exactly (down to the `None` fallback
+/// for a fully-permissive/unconfigured policy).
+fn read_content_file_bounded(
+    security: Option<&SecurityPolicy>,
+    resolved: &std::path::Path,
+) -> Result<Vec<u8>, String> {
+    use cap_std::ambient_authority;
+    use cap_std::fs::Dir;
+
+    match security.and_then(|s| s.approved_read_root(resolved)) {
+        Some(root) => {
+            let rel = resolved
+                .strip_prefix(&root)
+                .map_err(|_| "Path escapes its approved root".to_string())?;
+            let dir = Dir::open_ambient_dir(&root, ambient_authority())
+                .map_err(|e| format!("Failed to open approved root: {e}"))?;
+            read_content_from_dir(&dir, rel)
+        }
+        None => {
+            // No bounded allowlist root (no security policy configured, a
+            // fully permissive policy, or a device path): there is no
+            // confinement boundary to bind to. Open the final component
+            // through a handle on its parent so at least a final-component
+            // symlink escaping the parent is refused.
+            let parent = resolved
+                .parent()
+                .ok_or_else(|| "Path has no parent directory".to_string())?;
+            let name = resolved
+                .file_name()
+                .ok_or_else(|| "Path has no file name".to_string())?;
+            let dir = Dir::open_ambient_dir(parent, ambient_authority())
+                .map_err(|e| format!("Failed to open directory: {e}"))?;
+            read_content_from_dir(&dir, std::path::Path::new(name))
+        }
+    }
+}
+
+/// Open `rel` beneath the already-opened directory handle `dir` (cap-std
+/// refuses any component that escapes `dir` via `..` or an escaping symlink),
+/// verify it is a regular file within `MAX_CONTENT_SIZE`, and return its
+/// bytes. Every check and the read use that one opened handle, so nothing
+/// swapped in at the pathname between check and read can redirect the bytes.
+fn read_content_from_dir(
+    dir: &cap_std::fs::Dir,
+    rel: &std::path::Path,
+) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+
+    let file = dir
+        .open(rel)
+        .map_err(|e| format!("Failed to open content_file: {e}"))?;
+    let meta = file
+        .metadata()
+        .map_err(|e| format!("Failed to read content_file metadata: {e}"))?;
+    if !meta.is_file() {
+        return Err("content_file is not a regular file".to_string());
+    }
+    if meta.len() > MAX_CONTENT_SIZE as u64 {
+        return Err(format!(
+            "Content exceeds maximum size of {} bytes",
+            MAX_CONTENT_SIZE
+        ));
+    }
+    // One extra byte over the cap catches a grow-after-stat race.
+    let mut content = Vec::with_capacity(meta.len() as usize);
+    file.take(MAX_CONTENT_SIZE as u64 + 1)
+        .read_to_end(&mut content)
+        .map_err(|e| format!("Failed to read content_file: {e}"))?;
+    if content.len() > MAX_CONTENT_SIZE {
+        return Err(format!(
+            "Content exceeds maximum size of {} bytes",
+            MAX_CONTENT_SIZE
+        ));
+    }
+    Ok(content)
+}
+
 #[async_trait]
 impl Tool for CanvasTool {
     fn name(&self) -> &str {
@@ -354,26 +437,26 @@ impl Tool for CanvasTool {
                                 });
                             }
                         };
-                        let bytes = match std::fs::read(&path) {
+                        // Read through a cap-std Dir handle bound to the approved
+                        // root (or its parent, when no policy scopes it) rather
+                        // than re-walking `path` by name — closes the check/open
+                        // TOCTOU a plain `std::fs::read(&path)` would leave open
+                        // if a component were swapped to an escaping symlink
+                        // between `resolve_content_file`'s check and this read.
+                        // The 256 KiB cap is enforced here, before UTF-8 decode.
+                        let bytes = match read_content_file_bounded(
+                            self.security.as_deref(),
+                            &path,
+                        ) {
                             Ok(b) => b,
                             Err(e) => {
                                 return Ok(ToolResult {
                                     success: false,
                                     output: ToolOutput::default(),
-                                    error: Some(format!("Failed to read content_file: {e}")),
+                                    error: Some(e),
                                 });
                             }
                         };
-                        if bytes.len() > MAX_CONTENT_SIZE {
-                            return Ok(ToolResult {
-                                success: false,
-                                output: ToolOutput::default(),
-                                error: Some(format!(
-                                    "Content exceeds maximum size of {} bytes",
-                                    MAX_CONTENT_SIZE
-                                )),
-                            });
-                        }
                         match String::from_utf8(bytes) {
                             Ok(s) => s,
                             Err(e) => {
