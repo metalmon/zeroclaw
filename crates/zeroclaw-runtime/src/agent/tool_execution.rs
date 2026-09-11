@@ -477,7 +477,10 @@ pub(crate) async fn execute_one_tool(
                     .output_data
                     .as_ref()
                     .and_then(ToolArtifact::from_delivered_data),
-                ui_resource: None,
+                ui_resource: out
+                    .output_data
+                    .as_ref()
+                    .and_then(zeroclaw_api::agent::UiResource::from_ui_resource_data),
             })
             .await;
     }
