@@ -1076,7 +1076,7 @@ export const ru: Record<string, string> = {
   'config.section.knowledge_bundles.desc': 'Именованные наборы источников знаний (RAG-индексы, папки с документами). Агенты ссылаются на набор, чтобы получать релевантные фрагменты во время работы.',
   'config.section.providers.tts.label': 'TTS-провайдеры',
   'config.section.providers.tts.desc': 'Провайдеры синтеза речи (OpenAI, ElevenLabs, Google, Edge, Piper). Настройте по одному на голос/язык; агенты ссылаются на них по псевдониму.',
-  'config.section.providers.transcription.label': 'Провайдеры распознавания речи',
+  'config.section.providers.transcription.label': 'Распознавание речи',
   'config.section.providers.transcription.desc': 'Провайдеры распознавания речи (OpenAI Whisper, Groq, Deepgram, AssemblyAI, Google, локальный Whisper). Настройте по одному на конвейер; агенты ссылаются на них по псевдониму.',
   'config.section.channels.label': 'Каналы',
   'config.section.channels.desc': 'Выберите, какие чат-платформы должен прослушивать ZeroClaw. Общие настройки каналов находятся в разделе `[channels]`; каждая настроенная платформа все равно получает собственный псевдоним.',
