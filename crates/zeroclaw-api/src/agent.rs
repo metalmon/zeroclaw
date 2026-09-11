@@ -72,7 +72,7 @@ impl UiResource {
     /// (`ui_resource: true` with non-empty `uri` and `text`). Returns `None` if
     /// `ui_resource != true`, or any of `uri`/`text` empty.
     pub fn from_ui_resource_data(data: &serde_json::Value) -> Option<Self> {
-        if data.get("ui_resource")?.as_bool()? != true {
+        if !data.get("ui_resource")?.as_bool()? {
             return None;
         }
         let uri = data.get("uri")?.as_str()?.to_string();
