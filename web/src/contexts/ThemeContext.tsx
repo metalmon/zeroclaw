@@ -97,6 +97,17 @@ export function saveLocale(locale: string) {
   localStorage.setItem(LOCALE_STORAGE_KEY, locale);
 }
 
+/**
+ * Whether the user has ever explicitly picked a locale (persisted via
+ * `saveLocale`). Distinguishes "no stored key yet" from "stored key happens
+ * to be 'en'" — the former should still defer to the server/enterprise
+ * default and the browser language, the latter is a real user choice that
+ * must win over both.
+ */
+export function hasExplicitLocale(): boolean {
+  return localStorage.getItem(LOCALE_STORAGE_KEY) !== null;
+}
+
 // ── Theme storage (was themeStorage.ts) ──────────────────────────────────────
 
 const STORAGE_KEY = 'zeroclaw-theme';

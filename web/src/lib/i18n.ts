@@ -13972,6 +13972,29 @@ export function fmtRelative(value: number, unit: Intl.RelativeTimeFormatUnit): s
 // Supported locales
 // ---------------------------------------------------------------------------
 
+/**
+ * Normalize a raw locale string (e.g. `navigator.language` "ru-RU", or the
+ * daemon's `/api/status` "locale" field) to a supported `Locale` code.
+ * Strips region/script subtags and falls back to 'en' when the base
+ * language is not one of SUPPORTED_LOCALES.
+ */
+export function normalizeLocale(raw: string | null | undefined): Locale {
+  if (!raw) return 'en';
+  const base = raw.toLowerCase().replace(/-.*/, '').replace(/_.*/, '');
+  return (base in translations) ? (base as Locale) : 'en';
+}
+
+/**
+ * Detect a locale from the browser's own language preference
+ * (`navigator.language`), matched against SUPPORTED_LOCALES. Used as the
+ * pre-auth / pre-status initial locale, before the server's enterprise
+ * default is known. Falls back to 'en' when unavailable or unmatched.
+ */
+export function detectBrowserLocale(): Locale {
+  if (typeof navigator === 'undefined' || !navigator.language) return 'en';
+  return normalizeLocale(navigator.language);
+}
+
 export const SUPPORTED_LOCALES: { code: Locale; name: string }[] = [
   { code: 'ar', name: 'العربية' },
   { code: 'bn', name: 'বাংলা' },
@@ -14023,8 +14046,7 @@ export function useLocale(): { locale: Locale; t: (key: string) => string } {
     getStatus()
       .then((status) => {
         if (cancelled) return;
-        const raw = (status.locale || 'en').toLowerCase().replace(/-.*/, '').replace(/_.*/, '');
-        const detected: Locale = (raw in translations) ? (raw as Locale) : 'en';
+        const detected = normalizeLocale(status.locale);
         setLocale(detected);
         setLocaleState(detected);
       })

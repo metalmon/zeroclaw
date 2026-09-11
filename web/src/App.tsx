@@ -10,13 +10,13 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
-import { loadLocale, saveLocale } from "./contexts/ThemeContext";
+import { hasExplicitLocale, loadLocale, saveLocale } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { DraftContext, useDraftStore } from "./hooks/useDraft";
-import { getAdminPairCode, generatePairCode, PairCodeForbiddenError, getQuickstartState } from "./lib/api";
+import { getAdminPairCode, generatePairCode, getStatus, PairCodeForbiddenError, getQuickstartState } from "./lib/api";
 import { basePath } from "./lib/basePath";
 import { ConfigDraftProvider } from "./lib/draftStore";
-import { setLocale, t, type Locale } from "./lib/i18n";
+import { detectBrowserLocale, normalizeLocale, setLocale, t, type Locale } from "./lib/i18n";
 import { Router } from "./router/router";
 
 // Locale context
@@ -366,7 +366,12 @@ function PairingDialog({
 
 function AppContent() {
   const { isAuthenticated, requiresPairing, loading, pair, logout } = useAuth();
-  const [locale, setLocaleState] = useState(loadLocale());
+  // Initial locale, before the server/enterprise default is known: the
+  // user's own persisted choice (if any) always wins; otherwise fall back
+  // to the browser's language, then 'en'.
+  const [locale, setLocaleState] = useState<string>(() =>
+    hasExplicitLocale() ? loadLocale() : detectBrowserLocale(),
+  );
   const draftStore = useDraftStore();
   setLocale(locale as Locale);
 
@@ -381,6 +386,28 @@ function AppContent() {
     window.addEventListener("zeroclaw-unauthorized", logout);
     return () => window.removeEventListener("zeroclaw-unauthorized", logout);
   }, [logout]);
+
+  // Apply the server/enterprise default locale (`/api/status`.locale) once
+  // authenticated — but only when the user never made an explicit choice.
+  // A persisted user override always wins, including one made while this
+  // request is still in flight (re-checked after the fetch resolves).
+  useEffect(() => {
+    if (!isAuthenticated || hasExplicitLocale()) return;
+    let cancelled = false;
+    getStatus()
+      .then((status) => {
+        if (cancelled || hasExplicitLocale()) return;
+        const detected = normalizeLocale(status.locale);
+        setLocaleState(detected);
+        setLocale(detected);
+      })
+      .catch(() => {
+        // Keep the browser-detected/default locale on error.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   if (loading) {
     return (

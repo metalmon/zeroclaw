@@ -88,3 +88,51 @@ test('setLocale updates document.documentElement.lang when a document is present
     delete globalThis.document;
   }
 });
+
+test('normalizeLocale strips region/script subtags and matches SUPPORTED_LOCALES', async () => {
+  const { normalizeLocale } = await loadI18n();
+  assert.equal(normalizeLocale('ru-RU'), 'ru');
+  assert.equal(normalizeLocale('ru_RU'), 'ru');
+  assert.equal(normalizeLocale('RU'), 'ru');
+  assert.equal(normalizeLocale('en-US'), 'en');
+});
+
+test('normalizeLocale falls back to en for unsupported or missing input', async () => {
+  const { normalizeLocale } = await loadI18n();
+  assert.equal(normalizeLocale('xx-ZZ'), 'en');
+  assert.equal(normalizeLocale(null), 'en');
+  assert.equal(normalizeLocale(undefined), 'en');
+  assert.equal(normalizeLocale(''), 'en');
+});
+
+test('detectBrowserLocale matches navigator.language against SUPPORTED_LOCALES', async () => {
+  const { detectBrowserLocale } = await loadI18n();
+
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { language: 'ru-RU' },
+  });
+  try {
+    assert.equal(detectBrowserLocale(), 'ru');
+  } finally {
+    delete globalThis.navigator;
+  }
+});
+
+test('detectBrowserLocale falls back to en when navigator is unavailable or unmatched', async () => {
+  const { detectBrowserLocale } = await loadI18n();
+
+  // No navigator at all.
+  assert.equal(detectBrowserLocale(), 'en');
+
+  // navigator.language set to an unsupported locale.
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { language: 'xx-ZZ' },
+  });
+  try {
+    assert.equal(detectBrowserLocale(), 'en');
+  } finally {
+    delete globalThis.navigator;
+  }
+});
