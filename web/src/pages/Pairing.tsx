@@ -226,15 +226,9 @@ export default function Pairing() {
         open={pendingRevoke !== null}
         danger
         title={t('pairing.revoke_title')}
-        message={
-          <>
-            {t('pairing.revoke_message_prefix')}{' '}
-            <span className="text-pc-text-secondary">
-              {pendingRevoke?.name || t('pairing.this_device')}
-            </span>
-            {t('pairing.revoke_message_suffix')}
-          </>
-        }
+        message={t('pairing.revoke_message', {
+          value: pendingRevoke?.name || t('pairing.this_device'),
+        })}
         confirmLabel={t('pairing.revoke')}
         onConfirm={() => {
           if (pendingRevoke) void handleRevokeDevice(pendingRevoke.id);

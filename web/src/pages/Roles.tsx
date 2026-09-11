@@ -443,13 +443,7 @@ export default function Roles() {
         open={pendingDelete !== null}
         danger
         title={t('roles.delete_profile_title')}
-        message={
-          <>
-            {t('roles.delete_profile_message_prefix')}{' '}
-            <span className="font-mono text-pc-text-secondary">{pendingDelete?.id}</span>
-            {t('roles.delete_profile_message_suffix')}
-          </>
-        }
+        message={t('roles.delete_profile_message', { value: pendingDelete?.id ?? '' })}
         confirmLabel={t('roles.delete')}
         onConfirm={() => void confirmDelete()}
         onClose={() => setPendingDelete(null)}
