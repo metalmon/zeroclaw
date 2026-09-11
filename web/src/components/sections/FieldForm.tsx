@@ -2410,7 +2410,7 @@ function ArrayFieldEditor({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="input-electric w-full px-3 py-2 text-sm font-mono resize-y"
-          placeholder='["value1", "value2"]'
+          placeholder={t('fieldform.array_value_placeholder')}
         />
       )}
     </div>

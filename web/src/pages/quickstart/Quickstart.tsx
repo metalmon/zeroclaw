@@ -1098,7 +1098,7 @@ function PeerGroupAddForm({
         value={peersBuf}
         onChange={setPeersBuf}
         multiline
-        placeholder="@alice&#10;@bob"
+        placeholder={t('quickstart.external_peers_placeholder')}
       />
 
       <div className="text-xs" style={MUTED}>

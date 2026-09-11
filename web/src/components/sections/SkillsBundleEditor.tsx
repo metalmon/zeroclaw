@@ -480,7 +480,7 @@ function FrontmatterForm({ value, onChange, onTagsChange }: FrontmatterFormProps
         label={t('skills_bundle.license_label')}
         value={value.license ?? ''}
         onChange={(v) => onChange('license', v)}
-        placeholder="MIT"
+        placeholder={t('skills_bundle.license_placeholder')}
       />
       <Field
         label={t('skills_bundle.author_label')}
@@ -491,7 +491,7 @@ function FrontmatterForm({ value, onChange, onTagsChange }: FrontmatterFormProps
         label={t('skills_bundle.category_label')}
         value={value.category ?? ''}
         onChange={(v) => onChange('category', v)}
-        placeholder="coding, ops, …"
+        placeholder={t('skills_bundle.category_placeholder')}
       />
       <TagsField tags={value.tags ?? []} onTagsChange={onTagsChange} />
     </div>
@@ -571,7 +571,7 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
           {isOpenSkills && (
             <span
               className="inline-flex items-center text-xs px-2 py-0.5 rounded-md border opacity-60"
-              title="Loader-managed: community-synced skill (open-skills)"
+              title={t('skills_bundle.open_skills_badge_title')}
               style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-faint)' }}
             >
               open-skills
@@ -587,8 +587,8 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
                 addTag();
               }
             }}
-            placeholder="add tag…"
-            aria-label="Add tag"
+            placeholder={t('skills_bundle.tag_input_placeholder')}
+            aria-label={t('skills_bundle.tag_input_aria_label')}
             className="text-xs bg-transparent border rounded-md px-2 py-0.5 w-24"
             style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text)' }}
           />
@@ -787,7 +787,7 @@ function SlashOptionCard({
             type="text"
             value={option.name}
             onChange={(e) => onChange({ name: e.target.value })}
-            placeholder="lowercase_name"
+            placeholder={t('skills_bundle.option_name_placeholder')}
             aria-label={`Option ${index + 1} name`}
             className="rounded-md border bg-transparent px-2 py-1 text-sm"
             style={{ borderColor: 'var(--pc-border)' }}
@@ -850,7 +850,7 @@ function SlashOptionCard({
           <button
             type="button"
             onClick={onRemove}
-            aria-label="Remove option"
+            aria-label={t('skills_bundle.remove_option_aria_label')}
             className="text-xs px-1.5 py-0.5 rounded border"
             style={{ borderColor: 'var(--pc-border)', color: '#f87171' }}
           >
@@ -867,7 +867,7 @@ function SlashOptionCard({
           type="text"
           value={option.description}
           onChange={(e) => onChange({ description: e.target.value })}
-          placeholder="Shown to the user when picking this option"
+          placeholder={t('skills_bundle.option_description_placeholder')}
           aria-label={`Option ${index + 1} description`}
           className="rounded-md border bg-transparent px-2 py-1 text-sm"
           style={{ borderColor: 'var(--pc-border)' }}
@@ -959,7 +959,7 @@ function ChoicesEditor({ choices, onChange }: ChoicesEditorProps) {
             type="text"
             value={c.name}
             onChange={(e) => update(i, { name: e.target.value })}
-            placeholder="label"
+            placeholder={t('skills_bundle.choice_label_placeholder')}
             aria-label={`Choice ${i + 1} label`}
             className="rounded-md border bg-transparent px-2 py-1 text-xs flex-1"
             style={{ borderColor: 'var(--pc-border)' }}
@@ -971,7 +971,7 @@ function ChoicesEditor({ choices, onChange }: ChoicesEditorProps) {
             type="text"
             value={c.value}
             onChange={(e) => update(i, { value: e.target.value })}
-            placeholder="value"
+            placeholder={t('skills_bundle.choice_value_placeholder')}
             aria-label={`Choice ${i + 1} value`}
             className="rounded-md border bg-transparent px-2 py-1 text-xs flex-1 font-mono"
             style={{ borderColor: 'var(--pc-border)' }}

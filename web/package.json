@@ -12,6 +12,7 @@
     "pretest:contexts": "jiti src/lib/chatSessions.test.ts && JITI_TSCONFIG_PATHS=1 jiti src/pages/chatWorkspace.state.test.ts && JITI_JSX=1 JITI_TSCONFIG_PATHS=1 jiti src/contexts/sessionLifecycle.test.ts",
     "check:generated": "node scripts/check-generated-api.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "check:no-literal-english": "node scripts/check-no-literal-english.mjs",
     "typecheck": "npm run check:generated && tsc -b",
     "build": "npm run check:generated && tsc -b && vite build",
     "dev": "vite",

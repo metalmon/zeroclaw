@@ -538,7 +538,7 @@ export default function Config() {
                 <FieldForm
                   key={`${reloadKey}-channels-global`}
                   prefix="channels"
-                  title="Global channel settings"
+                  title={t('config.global_channel_settings_title')}
                   onSaved={fetchDrift}
                   drift={drifted}
                   includePath={isDirectChannelSetting}

@@ -465,7 +465,7 @@ function StepEditor({
         <TextField
           label={t('sops.routing_when')}
           value={routing.when ?? ''}
-          placeholder="$.value > 85"
+          placeholder={t('sops.routing_when_placeholder')}
           help={sopFieldHelp('StepRouting', 'when')}
           onChange={(v) => setRouting({ when: v || undefined })}
         />
@@ -821,7 +821,7 @@ function ConditionBuilder({
             <input
               type="text"
               value={parsed.path ?? ''}
-              placeholder="path.to.field"
+              placeholder={t('sops.condition_field_placeholder')}
               onChange={(e) =>
                 emit({ path: e.target.value, op: parsed.op, value: parsed.value })
               }

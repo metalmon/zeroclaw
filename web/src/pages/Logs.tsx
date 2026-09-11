@@ -471,7 +471,7 @@ export default function Logs() {
           type="text"
           value={filter.action}
           onChange={(event) => setFilter((prev) => ({ ...prev, action: event.target.value }))}
-          placeholder="event.action"
+          placeholder={t('logs.action_filter_placeholder')}
           className={`${CONTROL_CLASS} w-[160px]`}
         />
         <label className="flex items-center gap-1.5 text-[11px] cursor-pointer text-pc-text-muted">

@@ -16,7 +16,7 @@ import { DraftContext, useDraftStore } from "./hooks/useDraft";
 import { getAdminPairCode, generatePairCode, PairCodeForbiddenError, getQuickstartState } from "./lib/api";
 import { basePath } from "./lib/basePath";
 import { ConfigDraftProvider } from "./lib/draftStore";
-import { setLocale, type Locale } from "./lib/i18n";
+import { setLocale, t, type Locale } from "./lib/i18n";
 import { Router } from "./router/router";
 
 // Locale context
@@ -330,7 +330,7 @@ function PairingDialog({
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="6-digit code"
+            placeholder={t('pairing.code_input_placeholder')}
             className="input-electric w-full px-4 py-4 text-center text-2xl tracking-[0.3em] font-medium mb-4"
             maxLength={6}
             autoFocus

@@ -1400,6 +1400,9 @@ jobs:
       - name: Check i18n catalog (coverage, placeholder parity, split-key, english-leak)
         working-directory: web
         run: npm run check:i18n
+      - name: Check for hardcoded English bypassing the i18n catalog
+        working-directory: web
+        run: npm run check:no-literal-english
       - name: Build web app
         working-directory: web
         run: npm run build

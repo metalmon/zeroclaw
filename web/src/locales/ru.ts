@@ -273,6 +273,7 @@ export const ru: Record<string, string> = {
   'logs.jump_to_bottom': 'Перейти вниз',
   'logs.paused_hint': 'Потоковая передача журналов приостановлена.',
   'logs.waiting_hint': 'Ожидание событий...',
+  'logs.action_filter_placeholder': 'event.action',
 
   // Doctor
   'doctor.title': 'Диагностика системы',
@@ -319,6 +320,7 @@ export const ru: Record<string, string> = {
   'pairing.load_error': 'Не удалось загрузить устройства',
   'pairing.generate_error': 'Не удалось создать код сопряжения',
   'pairing.revoke_error': 'Не удалось отозвать устройство',
+  'pairing.code_input_placeholder': 'Код из 6 цифр',
 
   // Common
   'common.loading': 'Загрузка...',
@@ -473,4 +475,30 @@ export const ru: Record<string, string> = {
   'doctor.severity_error_one': 'ошибка',
   'doctor.severity_error_few': 'ошибки',
   'doctor.severity_error_many': 'ошибок',
+
+  // Skills bundle editor
+  'skills_bundle.license_placeholder': 'MIT',
+  'skills_bundle.open_skills_badge_title': 'Управляется загрузчиком: навык синхронизирован из сообщества (open-skills)',
+  'skills_bundle.tag_input_placeholder': 'добавить тег…',
+  'skills_bundle.tag_input_aria_label': 'Добавить тег',
+  'skills_bundle.option_name_placeholder': 'имя_строчными',
+  'skills_bundle.option_description_placeholder': 'Показывается пользователю при выборе этого варианта',
+  'skills_bundle.category_placeholder': 'coding, ops, …',
+  'skills_bundle.remove_option_aria_label': 'Удалить вариант',
+  'skills_bundle.choice_label_placeholder': 'подпись',
+  'skills_bundle.choice_value_placeholder': 'значение',
+
+  // Config
+  'config.global_channel_settings_title': 'Общие настройки канала',
+
+  // SOPs
+  'sops.condition_field_placeholder': 'path.to.field',
+  'sops.routing_when_placeholder': '$.value > 85',
+  'sops.call_args_placeholder': '{"function": "add", "values": "{{steps.1.value}}"}',
+
+  // Field form
+  'fieldform.array_value_placeholder': '["value1", "value2"]',
+
+  // Quickstart
+  'quickstart.external_peers_placeholder': '@alice&#10;@bob',
 };
