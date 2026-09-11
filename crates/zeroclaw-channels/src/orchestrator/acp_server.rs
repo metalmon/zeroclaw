@@ -578,7 +578,17 @@ impl AcpServer {
                             })),
                         "ACP request failed"
                     );
-                    self.write_error(id, e.code, &e.message).await;
+                    // `RpcError::data` is dual-purpose: a bare `Value::String`
+                    // is an internal diagnostic (see `acp_turn_failure_from_parts`)
+                    // that must stay off the wire, while a `Value::Object`
+                    // (e.g. `{"reason": "..."}`) is deliberately client-facing.
+                    // Only the latter shape is forwarded here.
+                    let data = match &e.data {
+                        Some(Value::Object(_)) => e.data.clone(),
+                        _ => None,
+                    };
+                    self.write_error_with_data(id, e.code, &e.message, data)
+                        .await;
                 }
             }
         }
@@ -784,7 +794,7 @@ impl AcpServer {
             Err(RpcError {
                 code: INVALID_PARAMS,
                 message: format!("Agent `{agent_alias}` is not permitted for this principal"),
-                data: None,
+                data: Some(serde_json::json!({ "reason": "agent_not_permitted" })),
             })
         }
     }
@@ -2272,13 +2282,28 @@ impl AcpServer {
     }
 
     async fn write_error(&self, id: Value, code: i32, message: &str) {
+        self.write_error_with_data(id, code, message, None).await;
+    }
+
+    /// Same as [`Self::write_error`], but lets the caller attach structured
+    /// `data` to the JSON-RPC error frame — e.g. `{"reason": "<stable
+    /// code>"}` so panel clients can localize the headline without parsing
+    /// the English `message`, which stays the human-readable / EN-fallback
+    /// detail. Passing `data: None` reproduces `write_error` exactly.
+    async fn write_error_with_data(
+        &self,
+        id: Value,
+        code: i32,
+        message: &str,
+        data: Option<Value>,
+    ) {
         let response = JsonRpcResponse {
             jsonrpc: "2.0",
             result: None,
             error: Some(JsonRpcError {
                 code,
                 message: message.to_string(),
-                data: None,
+                data,
             }),
             id,
         };
@@ -3984,6 +4009,15 @@ mod tests {
         .expect("session/new should not block");
         let err = denied.expect_err("hr-bot is not entitled for alice and must be denied");
         assert_eq!(err.code, INVALID_PARAMS);
+        assert_eq!(
+            err.data
+                .as_ref()
+                .and_then(|d| d.get("reason"))
+                .and_then(Value::as_str),
+            Some("agent_not_permitted"),
+            "the panel client keys its localized headline off this stable \
+             `data.reason` code, not the English `message`"
+        );
     }
 
     #[tokio::test]

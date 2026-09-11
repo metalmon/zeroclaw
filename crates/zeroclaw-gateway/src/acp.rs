@@ -454,11 +454,12 @@ async fn run_pre_auth(
         let method = value.get("method").and_then(Value::as_str).unwrap_or("");
 
         if method != "zeroclaw/pair" {
-            if !send_pre_auth_error(
+            if !send_pre_auth_error_with_reason(
                 sender,
                 id,
                 error_codes::AUTH_REQUIRED,
                 "pair first via zeroclaw/pair",
+                Some("pair_first"),
             )
             .await
             {
@@ -539,11 +540,12 @@ async fn run_pre_auth(
                             // under enforced authz (e.g. a stale/removed
                             // principal binding). Stay pre-auth rather than
                             // proceeding with no principal.
-                            if !send_pre_auth_error(
+                            if !send_pre_auth_error_with_reason(
                             sender,
                             id,
                             error_codes::AUTH_REQUIRED,
                             "pairing succeeded but no principal is entitled for the issued token",
+                            Some("paired_not_entitled"),
                         )
                         .await
                         {
@@ -560,11 +562,12 @@ async fn run_pre_auth(
                 return Some(principal);
             }
             Ok(None) => {
-                if !send_pre_auth_error(
+                if !send_pre_auth_error_with_reason(
                     sender,
                     id,
                     error_codes::AUTH_REQUIRED,
                     "invalid pairing code",
+                    Some("invalid_pair_code"),
                 )
                 .await
                 {
@@ -606,6 +609,20 @@ async fn send_pre_auth_error(
     code: i32,
     message: &str,
 ) -> bool {
+    send_pre_auth_error_with_reason(sender, id, code, message, None).await
+}
+
+/// Same as [`send_pre_auth_error`], but tags the frame with a stable,
+/// machine-readable `data.reason` so panel clients can show a localized
+/// headline without parsing the English `message` — which stays exactly as
+/// written, appended as the human-readable / EN-fallback detail.
+async fn send_pre_auth_error_with_reason(
+    sender: &mut SplitSink<WebSocket, Message>,
+    id: Value,
+    code: i32,
+    message: &str,
+    reason: Option<&'static str>,
+) -> bool {
     send_pre_auth_response(
         sender,
         id,
@@ -613,7 +630,7 @@ async fn send_pre_auth_error(
         Some(JsonRpcError {
             code,
             message: message.to_string(),
-            data: None,
+            data: reason.map(|r| serde_json::json!({ "reason": r })),
         }),
     )
     .await
