@@ -273,7 +273,7 @@ function ProcessCpuCard({ process }: { process?: ProcessStats }) {
       <p className="text-sm truncate" style={{ color: "var(--pc-text-muted)" }}>
         {supported
           ? ncpu > 0
-            ? `${ncpu} ${t("dashboard.cpu.cores")} · ${(pct / ncpu).toFixed(1)}% ${t("dashboard.cpu.normalized")}`
+            ? `${ncpu} ${plural(ncpu, "dashboard.cpu.cores")} · ${(pct / ncpu).toFixed(1)}% ${t("dashboard.cpu.normalized")}`
             : t("dashboard.cpu.across_all_cores")
           : t("dashboard.cpu.unsupported")}
       </p>
@@ -2096,7 +2096,7 @@ function CostTab({
                       className="flex items-center gap-3 text-xs flex-wrap"
                       style={{ color: "var(--pc-text-muted)" }}
                     >
-                      <span>{row.request_count} {t("dashboard.cost.exchanges")}</span>
+                      <span>{row.request_count} {plural(row.request_count, "dashboard.cost.exchanges")}</span>
                       <span>
                         {fmtNumber(row.input_tokens)} {t("dashboard.cost.input_tokens")}
                       </span>
@@ -2167,7 +2167,7 @@ function CostTab({
                       className="flex items-center gap-3 text-xs flex-wrap"
                       style={{ color: "var(--pc-text-muted)" }}
                     >
-                      <span>{row.request_count} {t("dashboard.cost.exchanges")}</span>
+                      <span>{row.request_count} {plural(row.request_count, "dashboard.cost.exchanges")}</span>
                       <span>
                         {fmtNumber(row.input_tokens)} {t("dashboard.cost.input_tokens")}
                       </span>
@@ -2785,7 +2785,7 @@ function MemoryContent({
         >
           {expanded
             ? t("dashboard.mem.collapse")
-            : `${t("dashboard.mem.expand")} (${fmtNumber(content.length)} ${t("dashboard.mem.chars")}, ${newlines + 1} ${t("dashboard.mem.lines")})`}
+            : `${t("dashboard.mem.expand")} (${fmtNumber(content.length)} ${t("dashboard.mem.chars")}, ${newlines + 1} ${plural(newlines + 1, "dashboard.mem.lines")})`}
         </button>
       )}
     </>
