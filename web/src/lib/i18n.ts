@@ -13710,6 +13710,9 @@ export function getLocale(): Locale {
 
 export function setLocale(locale: Locale): void {
   currentLocale = locale;
+  if (typeof document !== 'undefined' && document.documentElement) {
+    document.documentElement.lang = locale;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -13758,6 +13761,66 @@ export function plural(n: number, baseKey: string): string {
   }
 
   return (raw ?? baseKey).replace(/\{n\}/g, String(n));
+}
+
+// ---------------------------------------------------------------------------
+// Locale-aware date/time/number formatting
+// ---------------------------------------------------------------------------
+
+function toDate(d: Date | number | string): Date | null {
+  const date = d instanceof Date ? d : new Date(d);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Format a date using the current panel locale. Falls back to the raw input
+ * (stringified) if the input is not a valid date.
+ */
+export function fmtDate(d: Date | number | string, opts?: Intl.DateTimeFormatOptions): string {
+  const date = toDate(d);
+  if (!date) return String(d);
+  try {
+    return new Intl.DateTimeFormat(currentLocale, opts).format(date);
+  } catch {
+    return date.toISOString();
+  }
+}
+
+/**
+ * Format a time using the current panel locale (hour/minute/second by default).
+ */
+export function fmtTime(d: Date | number | string, opts?: Intl.DateTimeFormatOptions): string {
+  const date = toDate(d);
+  if (!date) return String(d);
+  try {
+    return new Intl.DateTimeFormat(currentLocale, opts ?? { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(date);
+  } catch {
+    return date.toISOString();
+  }
+}
+
+/**
+ * Format a number using the current panel locale's grouping/decimal conventions.
+ */
+export function fmtNumber(n: number, opts?: Intl.NumberFormatOptions): string {
+  if (!Number.isFinite(n)) return String(n);
+  try {
+    return new Intl.NumberFormat(currentLocale, opts).format(n);
+  } catch {
+    return String(n);
+  }
+}
+
+/**
+ * Format a relative time (e.g. "3 hours ago") using the current panel locale.
+ * `value` is negative for the past, positive for the future.
+ */
+export function fmtRelative(value: number, unit: Intl.RelativeTimeFormatUnit): string {
+  try {
+    return new Intl.RelativeTimeFormat(currentLocale, { numeric: 'auto' }).format(value, unit);
+  } catch {
+    return `${value} ${unit}`;
+  }
 }
 
 // ---------------------------------------------------------------------------

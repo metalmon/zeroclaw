@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { useAgent, type ChatMessage } from '@/contexts/AgentContext';
 import { ApiError, uploadChatImage } from '@/lib/api';
 import { useDraft } from '@/hooks/useDraft';
-import { t } from '@/lib/i18n';
+import { t, fmtNumber, fmtTime } from '@/lib/i18n';
 import {
   COMMANDS,
   helpText,
@@ -35,9 +35,9 @@ const markdownComponents: Components = {
     ),
 };
 
-/** Format token count with commas (e.g., 12345 -> "12,345"). */
+/** Format token count using the panel locale's grouping (e.g., 12345 -> "12,345"). */
 function fmtTokens(n: number): string {
-  return n.toLocaleString();
+  return fmtNumber(n);
 }
 
 /** Context bar component showing context window usage. */
@@ -938,7 +938,7 @@ const MessageItem = memo(function MessageItem({
           )}
           {!compact && (
             <p className="text-[10px] mt-1.5 text-pc-text-faint">
-              {msg.timestamp.toLocaleTimeString()}
+              {fmtTime(msg.timestamp)}
             </p>
           )}
         </div>

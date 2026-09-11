@@ -4,7 +4,7 @@ import { apiFetch } from '@/lib/api';
 import type { LogEvent, LogsQueryParams, LogsResponse } from '@/lib/api';
 import { usePolling } from '@/hooks/usePolling';
 import { Badge, Button, PageHeader } from '@/components/ui';
-import { plural, t } from '@/lib/i18n';
+import { plural, t, fmtTime } from '@/lib/i18n';
 
 const DEFAULT_SEVERITY_MIN = 9;
 const PAGE_LIMIT = 200;
@@ -93,11 +93,7 @@ function severityClasses(severityNumber: number): { text: string; chip: string }
 }
 
 function formatTimestamp(raw: string): string {
-  try {
-    return new Date(raw).toLocaleTimeString(undefined, { hour12: false });
-  } catch {
-    return raw;
-  }
+  return fmtTime(raw, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 }
 
 function buildQueryParams(

@@ -12,7 +12,7 @@ import MarkdownEditor from '@/components/MarkdownEditor';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
-import { t } from '@/lib/i18n';
+import { t, fmtNumber } from '@/lib/i18n';
 import {
   ApiError,
   PersonalityConflictError,
@@ -438,7 +438,7 @@ export default function PersonalityEditor({ agent }: Props) {
             style={{ color: 'var(--pc-text-muted)' }}
           >
             <span>
-              {charCount.toLocaleString()} / {maxChars.toLocaleString()} {t('personality.chars')}
+              {fmtNumber(charCount)} / {fmtNumber(maxChars)} {t('personality.chars')}
               {overLimit && (
                 <span style={{ color: 'var(--color-status-error)' }}>
                   {' '}— {t('personality.over_limit')}

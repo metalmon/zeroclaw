@@ -12,7 +12,7 @@ import {
   triggerCronJob,
 } from '@/lib/api';
 import { agentBoundChannels, type AgentBoundChannel } from '@/lib/agentChannels';
-import { t } from '@/lib/i18n';
+import { t, fmtDate } from '@/lib/i18n';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
 import ToolPicker from '@/components/ToolPicker';
 import type { CronJob, CronRun } from '@/types/api';
@@ -35,8 +35,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '-';
-  const d = new Date(iso);
-  return d.toLocaleString();
+  return fmtDate(iso, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 }
 
 function formatDuration(ms: number | null): string {

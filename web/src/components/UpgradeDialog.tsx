@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Check, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { t } from '@/lib/i18n';
+import { t, fmtDate } from '@/lib/i18n';
 import {
   startUpgrade,
   getUpgradeStatus,
@@ -266,7 +266,7 @@ export function UpgradeDialog({
   const isNewer = info?.is_newer === true;
   const hasError = info?.error != null && info.error !== '';
   const published =
-    info?.published_at != null ? new Date(info.published_at).toLocaleDateString() : null;
+    info?.published_at != null ? fmtDate(info.published_at) : null;
 
   const beginUpgrade = async () => {
     setError(null);

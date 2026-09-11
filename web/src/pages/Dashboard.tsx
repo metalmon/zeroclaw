@@ -163,7 +163,7 @@ import EntityLink from "@/components/EntityLink";
 import EntityEnabledToggle from "@/components/EntityEnabledToggle";
 import { useSSE } from "@/hooks/useSSE";
 import { usePolling } from "@/hooks/usePolling";
-import { t } from "@/lib/i18n";
+import { t, fmtDate, fmtNumber, fmtRelative } from "@/lib/i18n";
 import { StatCard, PageHeader, ConfirmDialog } from "@/components/ui";
 
 type TabId =
@@ -282,33 +282,29 @@ function ProcessCpuCard({ process }: { process?: ProcessStats }) {
 }
 
 function formatLocalDateTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return fmtDate(d, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 function formatRelative(iso: string): string {
   try {
     const diff = Date.now() - new Date(iso).getTime();
     const seconds = Math.floor(diff / 1000);
-    if (seconds < 60) return `${seconds}${t("dashboard.rel.seconds_ago")}`;
+    if (seconds < 60) return fmtRelative(-seconds, "second");
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}${t("dashboard.rel.minutes_ago")}`;
+    if (minutes < 60) return fmtRelative(-minutes, "minute");
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}${t("dashboard.rel.hours_ago")}`;
+    if (hours < 24) return fmtRelative(-hours, "hour");
     const days = Math.floor(hours / 24);
-    return `${days}${t("dashboard.rel.days_ago")}`;
+    return fmtRelative(-days, "day");
   } catch {
     return iso;
   }
@@ -588,7 +584,7 @@ function OverviewTab({
               className="font-mono"
               style={{ color: "var(--pc-text-primary)" }}
             >
-              {cost.total_tokens.toLocaleString()}
+              {fmtNumber(cost.total_tokens)}
             </span>
           </div>
           <div className="flex justify-between text-sm mt-1">
@@ -599,7 +595,7 @@ function OverviewTab({
               className="font-mono"
               style={{ color: "var(--pc-text-primary)" }}
             >
-              {cost.request_count.toLocaleString()}
+              {fmtNumber(cost.request_count)}
             </span>
           </div>
         </div>
@@ -2102,15 +2098,15 @@ function CostTab({
                     >
                       <span>{row.request_count} {t("dashboard.cost.exchanges")}</span>
                       <span>
-                        {row.input_tokens.toLocaleString()} {t("dashboard.cost.input_tokens")}
+                        {fmtNumber(row.input_tokens)} {t("dashboard.cost.input_tokens")}
                       </span>
                       {row.cached_input_tokens > 0 && (
                         <span>
-                          {row.cached_input_tokens.toLocaleString()} {t("dashboard.cost.cached")}
+                          {fmtNumber(row.cached_input_tokens)} {t("dashboard.cost.cached")}
                         </span>
                       )}
                       <span>
-                        {row.output_tokens.toLocaleString()} {t("dashboard.cost.output_tokens")}
+                        {fmtNumber(row.output_tokens)} {t("dashboard.cost.output_tokens")}
                       </span>
                     </div>
                   </li>
@@ -2173,15 +2169,15 @@ function CostTab({
                     >
                       <span>{row.request_count} {t("dashboard.cost.exchanges")}</span>
                       <span>
-                        {row.input_tokens.toLocaleString()} {t("dashboard.cost.input_tokens")}
+                        {fmtNumber(row.input_tokens)} {t("dashboard.cost.input_tokens")}
                       </span>
                       {row.cached_input_tokens > 0 && (
                         <span>
-                          {row.cached_input_tokens.toLocaleString()} {t("dashboard.cost.cached")}
+                          {fmtNumber(row.cached_input_tokens)} {t("dashboard.cost.cached")}
                         </span>
                       )}
                       <span>
-                        {row.output_tokens.toLocaleString()} {t("dashboard.cost.output_tokens")}
+                        {fmtNumber(row.output_tokens)} {t("dashboard.cost.output_tokens")}
                       </span>
                     </div>
                   </li>
@@ -2789,7 +2785,7 @@ function MemoryContent({
         >
           {expanded
             ? t("dashboard.mem.collapse")
-            : `${t("dashboard.mem.expand")} (${content.length.toLocaleString()} ${t("dashboard.mem.chars")}, ${newlines + 1} ${t("dashboard.mem.lines")})`}
+            : `${t("dashboard.mem.expand")} (${fmtNumber(content.length)} ${t("dashboard.mem.chars")}, ${newlines + 1} ${t("dashboard.mem.lines")})`}
         </button>
       )}
     </>
@@ -2824,7 +2820,7 @@ function formatMetricUsd(value: number): string {
   if (value < 0.01) return "<$0.01";
   // Below $100 keep cents; the prior `< 1` and `< 100` branches were identical.
   if (value < 100) return `$${value.toFixed(2)}`;
-  return `$${Math.round(value).toLocaleString()}`;
+  return `$${fmtNumber(Math.round(value))}`;
 }
 
 function DashboardMetrics({ agents }: { agents: AgentSummary[] }) {
@@ -2862,14 +2858,14 @@ function DashboardMetrics({ agents }: { agents: AgentSummary[] }) {
       />
       <StatCard
         label={t("dash.metric.sessions")}
-        value={totalSessions.toLocaleString()}
+        value={fmtNumber(totalSessions)}
         sublabel={t("dash.metric.sessions.sub")}
         icon={<MessageSquare className="h-5 w-5" />}
         tone="neutral"
       />
       <StatCard
         label={t("dash.metric.memories")}
-        value={totalMemories.toLocaleString()}
+        value={fmtNumber(totalMemories)}
         sublabel={t("dash.metric.memories.sub")}
         icon={<Brain className="h-5 w-5" />}
         tone="neutral"

@@ -27,7 +27,7 @@ import {
   type AcpSessionUpdateParams,
   type JsonRpcId,
 } from '@/lib/acp';
-import { t } from '@/lib/i18n';
+import { t, fmtTime } from '@/lib/i18n';
 import { ThoughtChunkBuffer } from './acp-console/thought-stream';
 
 type ConsoleMessageKind = 'user' | 'assistant' | 'thought' | 'tool' | 'system';
@@ -53,7 +53,7 @@ const DEFAULT_PROMPT_KEY = 'acp.default_prompt';
 const MAX_DETAIL_CHARS = 8_000;
 
 function nowLabel(): string {
-  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return fmtTime(new Date(), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function messageId(): string {

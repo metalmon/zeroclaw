@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Smartphone, Trash2, X } from 'lucide-react';
 import { getAdminPairCode } from '@/lib/api';
 import { Button, Card, ConfirmDialog, PageHeader } from '@/components/ui';
-import { t } from '@/lib/i18n';
+import { t, fmtDate } from '@/lib/i18n';
 
 interface Device {
   id: string;
@@ -196,10 +196,10 @@ export default function Pairing() {
                       {device.device_type || t('pairing.unknown')}
                     </td>
                     <td className="px-5 py-3 text-xs text-pc-text-muted">
-                      {new Date(device.paired_at).toLocaleDateString()}
+                      {fmtDate(device.paired_at)}
                     </td>
                     <td className="px-5 py-3 text-xs text-pc-text-muted">
-                      {new Date(device.last_seen).toLocaleString()}
+                      {fmtDate(device.last_seen, { dateStyle: 'medium', timeStyle: 'medium' })}
                     </td>
                     <td className="px-5 py-3 font-mono text-xs text-pc-text-secondary">
                       {device.ip_address || '-'}
