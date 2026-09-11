@@ -15,3 +15,9 @@ run_detail.
 skills.
 skills_bundle.
 sops.
+tools.
+agents_list.
+agent.
+agentchat.
+acp.
+workspace.

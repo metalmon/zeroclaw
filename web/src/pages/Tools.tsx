@@ -460,7 +460,7 @@ function ToolAccessMatrix({
                 <Link
                   to={`/config/risk_profiles/${encodeURIComponent(profile)}`}
                   className="text-sm font-mono text-pc-text-secondary hover:text-pc-accent truncate inline-flex items-center gap-1"
-                  title={`${t('tools.open_profile_prefix')}${profile}${t('tools.open_profile_suffix')}`}
+                  title={t('tools.open_profile', { value: profile })}
                 >
                   {profile}
                   <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-60" />
@@ -475,8 +475,8 @@ function ToolAccessMatrix({
                 aria-pressed={allowed}
                 title={
                   allowed
-                    ? `${t('tools.block_prefix')}${tool}${t('tools.in_profile_mid')}${profile}`
-                    : `${t('tools.allow_prefix')}${tool}${t('tools.in_profile_mid')}${profile}`
+                    ? t('tools.block_in_profile', { tool, profile })
+                    : t('tools.allow_in_profile', { tool, profile })
                 }
                 className={[
                   'flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
