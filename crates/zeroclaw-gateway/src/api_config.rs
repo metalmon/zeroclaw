@@ -309,18 +309,24 @@ pub(crate) fn map_prop_error(err: anyhow::Error, path: &str) -> ConfigApiError {
 /// (`authz.principals`, `authz.principals.alice.token_hashes`,
 /// `authz.profiles.ops.admin`, ...).
 ///
-/// Used by the generic config write surfaces (`handle_map_key`,
-/// `handle_prop_put`, `handle_patch`) to decide whether a write might be the
-/// one that first turns `AuthzConfig::is_enforced()` on, so they know to run
-/// the same caller-scoped operator-bootstrap seed the dedicated
+/// Used by `handle_map_key` to decide whether a `create_map_key` write might
+/// be the one that first turns `AuthzConfig::is_enforced()` on, so it knows
+/// to run the same caller-scoped operator-bootstrap seed the dedicated
 /// `/api/authz/profiles` handlers already run
-/// (`api_authz::seed_operator_admin_for_caller`) — without this check those
-/// generic surfaces would create valid `authz.*` rows but never seed the
+/// (`api_authz::seed_operator_admin_for_caller`) — without this check that
+/// generic surface would create valid `authz.*` rows but never seed the
 /// operator, leaving them locked out of their own admin gate after the next
-/// restart/reload. Deliberately dumb prefix matching, not schema-aware: it
-/// only needs to be a superset of every real `authz.*` field path, and the
-/// seed helper itself is a no-op unless authz actually ends up enforced and
-/// the caller's own credential is genuinely locked out.
+/// restart/reload.
+///
+/// `handle_prop_put`/`handle_patch` do NOT call the seed even though they
+/// can also target `authz.*` paths: their `ensure_map_key_for_path`
+/// vivification only covers `Map`-kind sections, and `authz.principals`/
+/// `authz.profiles` are `List`-kind (`#[natural_key]`), so neither handler
+/// can ever be the write that first creates a row — only `create_map_key`
+/// (this `handle_map_key`, or the dedicated handlers) can. A seed hook on
+/// those two would be permanently dead code; if `ensure_map_key_for_path` is
+/// ever extended to vivify `List`-kind sections, that change should add the
+/// seed call then, under its own review.
 fn path_targets_authz(path: &str) -> bool {
     path == "authz" || path.starts_with("authz.")
 }
@@ -429,12 +435,13 @@ pub(crate) async fn persist_and_swap(
     // the write. `persist_and_swap` has no caller identity to scope a seed
     // to (it's shared by every config-mutating route, most of which have
     // nothing to do with authz), so seeding is done by the specific callers
-    // that know their own caller AND that this particular write targets
-    // `authz.*`: the dedicated `/api/authz/profiles` handlers
-    // (`handle_create_profile`/`handle_update_profile`) always do; the
-    // generic map-key/prop surface (`handle_map_key`, `handle_prop_put`,
-    // `handle_patch` in this file) does it conditionally, gated on
-    // `path_targets_authz`. All of them call the same
+    // that know their own caller AND that this particular write can be the
+    // one that first creates an `authz.*` row: the dedicated
+    // `/api/authz/profiles` handlers (`handle_create_profile`/
+    // `handle_update_profile`) always do; `handle_map_key` in this file does
+    // it conditionally, gated on `path_targets_authz` (see that function's
+    // doc comment for why `handle_prop_put`/`handle_patch` do NOT need the
+    // same hook). All of them call the same
     // `api_authz::seed_operator_admin_for_caller`.
     let config_path = new_config.config_path.clone();
 
@@ -793,21 +800,6 @@ pub async fn handle_prop_put(
         Ok(ws) => ws,
         Err(err) => return error_response(err),
     };
-
-    // Task-4 follow-up: same rationale as `handle_map_key` — this generic
-    // prop surface is admin-gated the same way, so run the same
-    // caller-scoped seed after any write that touches `authz.*`.
-    // `ensure_map_key_for_path` above only vivifies `Map`-kind sections, so
-    // in practice a PUT can never be the write that first creates an
-    // `authz.principals`/`authz.profiles` row (that natural-key `List`
-    // section requires `create_map_key`, i.e. `handle_map_key` above or the
-    // dedicated `/api/authz/profiles` handlers) — this call is
-    // defense-in-depth / consistency for an already-existing row, and the
-    // seed helper's own idempotency guard keeps it a no-op for every caller
-    // that could actually reach this line.
-    if path_targets_authz(&body.path) {
-        seed_operator_admin_for_caller(&mut new_config, &headers);
-    }
 
     let config_path = new_config.config_path.clone();
     let mut warnings = new_config.collect_warnings();
@@ -2063,18 +2055,6 @@ pub async fn handle_patch(
 
     let mut working = working;
     let mut results = Vec::with_capacity(ops.len());
-    // Task-4 follow-up: a bulk PATCH can add/replace/remove into
-    // `authz.principals`/`authz.profiles` too, via the same
-    // `ensure_map_key_for_path` vivification `handle_prop_put` uses (which
-    // only covers `Map`-kind sections, so — like `handle_prop_put` — this
-    // cannot actually be the batch that first creates a row; only
-    // `handle_map_key`/the dedicated `/api/authz/profiles` handlers can).
-    // Track whether any op in this batch touched `authz.*` so the
-    // caller-scoped operator seed runs once, after every op has applied,
-    // mirroring the other generic write surfaces (defense-in-depth; the
-    // seed helper's own idempotency guard makes this a no-op whenever the
-    // caller could actually reach it).
-    let mut touches_authz = false;
 
     for (idx, op) in ops.iter().enumerate() {
         let path = json_pointer_to_dotted(&op.path);
@@ -2168,7 +2148,6 @@ pub async fn handle_patch(
                 if let Err(e) = working.set_prop_persistent(&path, &value_str) {
                     return error_response(map_prop_error(e, &path).with_op_index(idx));
                 }
-                touches_authz |= path_targets_authz(&path);
                 if is_sensitive {
                     results.push(PatchOpResult {
                         op: op.op.clone(),
@@ -2272,10 +2251,6 @@ pub async fn handle_patch(
         .zip(results.iter())
         .filter_map(|(op, res)| op.comment.as_ref().map(|c| (res.path.clone(), c.clone())))
         .collect();
-
-    if touches_authz {
-        seed_operator_admin_for_caller(&mut working, &headers);
-    }
 
     let config_path = working.config_path.clone();
     // Collect non-fatal validation warnings against the post-save state
@@ -4500,12 +4475,14 @@ mod tests {
     // `create_map_key_checked`), which is admin-gated the same way but did
     // not call the seed — an operator who enabled authz that way got valid
     // config rows but was silently dropped from admin on the next
-    // restart/reload. `handle_prop_put` / `handle_patch` are wired the same
-    // way for consistency and defense-in-depth, even though — see the
-    // comment on `prop_put_on_an_already_seeded_authz_row_...` below —
-    // their `ensure_map_key_for_path` vivification only covers `Map`-kind
-    // sections, so in practice they can only ever reach the seed hook as a
-    // guaranteed no-op today, never the actual first-enabling write.
+    // restart/reload.
+    //
+    // `handle_prop_put`/`handle_patch` deliberately do NOT get the same
+    // hook: `ensure_map_key_for_path` only vivifies `Map`-kind sections,
+    // and `authz.principals`/`authz.profiles` are `List`-kind
+    // (`#[natural_key]`), so neither handler can ever be the write that
+    // first creates a row — a seed call there would be permanently dead
+    // code (see `path_targets_authz`'s doc comment).
 
     fn bearer_headers(token: &str) -> HeaderMap {
         let mut headers = HeaderMap::new();
@@ -4560,188 +4537,6 @@ mod tests {
                 .authz
                 .is_admin(zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID),
             "the well-known operator principal must be admin-bound"
-        );
-    }
-
-    /// Struct-literal `AuthzConfig` fixture: enforcement already on, with the
-    /// well-known operator principal already admin-seeded for `operator_tok`
-    /// (as if a prior `handle_map_key` write had already run the seed), plus
-    /// one unrelated pre-existing `alice` principal / `crm` profile that a
-    /// PUT/PATCH in these tests can target. Mirrors `admin_authz_fixture` in
-    /// `api_authz.rs`'s own test module.
-    fn seeded_operator_authz(operator_tok: &str) -> zeroclaw_config::authz::AuthzConfig {
-        zeroclaw_config::authz::AuthzConfig {
-            principals: vec![
-                zeroclaw_config::authz::PrincipalRecord {
-                    id: "alice".to_string(),
-                    allowed_agents: vec![],
-                    device_ids: vec![],
-                    token_hashes: vec![],
-                    profiles: vec!["crm".to_string()],
-                },
-                zeroclaw_config::authz::PrincipalRecord {
-                    id: zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID.to_string(),
-                    allowed_agents: vec![],
-                    device_ids: vec![],
-                    token_hashes: vec![PairingGuard::token_hash(operator_tok)],
-                    profiles: vec![zeroclaw_config::authz::OPERATOR_ADMIN_PROFILE_ID.to_string()],
-                },
-            ],
-            profiles: vec![
-                zeroclaw_config::authz::PermissionProfile {
-                    id: "crm".to_string(),
-                    allowed_agents: vec!["crm-bot".to_string()],
-                    admin: false,
-                },
-                zeroclaw_config::authz::PermissionProfile {
-                    id: zeroclaw_config::authz::OPERATOR_ADMIN_PROFILE_ID.to_string(),
-                    allowed_agents: vec![],
-                    admin: true,
-                },
-            ],
-        }
-    }
-
-    #[tokio::test]
-    async fn prop_put_on_an_already_seeded_authz_row_does_not_duplicate_the_operator() {
-        // `authz.principals`/`authz.profiles` are `#[natural_key]` (List-kind)
-        // sections: `ensure_map_key_for_path` only vivifies `Map`-kind
-        // sections (`HashMap<String, T>`), so a bare PUT can never create a
-        // brand-new principal/profile out of thin air — only `create_map_key`
-        // (`handle_map_key`, or the dedicated `/api/authz/profiles`
-        // handlers) can be the write that first flips `is_enforced()`. This
-        // test instead exercises the OTHER reachable case: a PUT onto an
-        // ALREADY-existing `authz.*` field, by an already-admin caller (the
-        // only kind of caller `require_admin` lets reach an admin-gated
-        // handler once enforcement is on). `path_targets_authz` still
-        // routes it through `seed_operator_admin_for_caller`, whose own
-        // "already resolves to a principal" guard must make that a pure
-        // no-op — never a duplicate operator row.
-        let tmp = tempfile::tempdir().unwrap();
-        let mut config = temp_config(&tmp);
-        config.authz = seeded_operator_authz("operator-tok");
-        let state = test_state(config);
-        let operator_headers = bearer_headers("operator-tok");
-        assert!(
-            require_admin(&state, &operator_headers).await.is_ok(),
-            "fixture precondition: operator must already be admin"
-        );
-
-        let (status, _json) = response_json(
-            handle_prop_put(
-                State(state.clone()),
-                operator_headers.clone(),
-                axum::Json(PropPutBody {
-                    path: "authz.principals.alice.allowed_agents".to_string(),
-                    value: serde_json::json!(["crm-bot", "hr-bot"]),
-                    comment: None,
-                }),
-            )
-            .await,
-        )
-        .await;
-        assert_eq!(status, StatusCode::OK);
-
-        let cfg = state.config.read();
-        assert_eq!(
-            cfg.authz
-                .principals
-                .iter()
-                .filter(|p| p.id == zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID)
-                .count(),
-            1,
-            "the seed hook must not duplicate an already-seeded operator principal"
-        );
-        assert_eq!(
-            cfg.authz.by_id("alice").unwrap().allowed_agents,
-            vec!["crm-bot".to_string(), "hr-bot".to_string()],
-            "the actual PUT must still have applied"
-        );
-    }
-
-    #[tokio::test]
-    async fn patch_on_an_already_seeded_authz_row_does_not_duplicate_the_operator() {
-        // Same reachability argument as the PUT case above, through the
-        // bulk JSON-Patch surface's `replace` op on an existing field.
-        let tmp = tempfile::tempdir().unwrap();
-        let mut config = temp_config(&tmp);
-        config.authz = seeded_operator_authz("operator-tok");
-        // `compute_drift` (handle_patch's pre-check) reads the on-disk file.
-        config.save().await.unwrap();
-        let state = test_state(config);
-        let operator_headers = bearer_headers("operator-tok");
-
-        let (status, _json) = response_json(
-            handle_patch(
-                State(state.clone()),
-                operator_headers.clone(),
-                axum::Json(serde_json::json!([{
-                    "op": "replace",
-                    "path": "/authz/profiles/crm/admin",
-                    "value": true
-                }])),
-            )
-            .await,
-        )
-        .await;
-        assert_eq!(status, StatusCode::OK);
-
-        let cfg = state.config.read();
-        assert_eq!(
-            cfg.authz
-                .principals
-                .iter()
-                .filter(|p| p.id == zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID)
-                .count(),
-            1,
-            "the seed hook must not duplicate an already-seeded operator principal"
-        );
-        assert!(
-            cfg.authz
-                .profiles
-                .iter()
-                .find(|p| p.id == "crm")
-                .unwrap()
-                .admin,
-            "the actual PATCH must still have applied"
-        );
-    }
-
-    #[tokio::test]
-    async fn prop_put_on_non_authz_path_never_seeds_the_operator() {
-        // Negative control: an ordinary, non-authz generic write must NOT
-        // trigger the seed — `path_targets_authz` must actually gate it,
-        // not just happen to be a no-op for unrelated reasons.
-        let tmp = tempfile::tempdir().unwrap();
-        let state = test_state(temp_config(&tmp));
-        let operator_headers = bearer_headers("operator-tok");
-
-        let (status, _json) = response_json(
-            handle_prop_put(
-                State(state.clone()),
-                operator_headers.clone(),
-                axum::Json(PropPutBody {
-                    path: "channels.telegram.newbot.bot_token".to_string(),
-                    value: serde_json::json!("tok"),
-                    comment: None,
-                }),
-            )
-            .await,
-        )
-        .await;
-        assert_eq!(status, StatusCode::OK);
-        assert!(
-            !state.config.read().authz.is_enforced(),
-            "a non-authz write must never itself turn authz enforcement on"
-        );
-        assert!(
-            state
-                .config
-                .read()
-                .authz
-                .by_id(zeroclaw_config::authz::OPERATOR_PRINCIPAL_ID)
-                .is_none(),
-            "a non-authz write must never seed the operator principal"
         );
     }
 }
