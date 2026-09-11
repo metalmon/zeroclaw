@@ -58,6 +58,7 @@ $Branches = @(
     "fix/knowledge-per-agent-attribution",     # local-only (#9647, no PR yet): knowledge graph per-agent attribution + scoping, gated behind [knowledge] per_agent_scope (default off)
     "feat/mcp-tasks-host",                     # local-only (no PR yet): MCP tasks-extension host — supervisor polls task-augmented tool calls (kutsu place_call) and injects the result reactively into the originating session
     "fix/mcp-scope-connection-pool",           # local-only (no PR yet): stacked on feat/mcp-tasks-host — daemon-owned per-scope MCP connection pool shared by all sessions + the task poller (one process per scope; fixes kutsu double-spawn)
+    "feat/acp-ui-resource-artifacts",          # local-only (no PR): ACP ui:// UI-resource artifacts — canvas render emits a ui:// text resource on tool_call_update (+ content_file input, + store:false session isolation); paired with the Thunderbolt client. Off pristine master, applies clean.
     "local/dev-tooling"                       # local-only: fork CI (fork-build.yml) + this script; self-restoring, keep last
 )
 
