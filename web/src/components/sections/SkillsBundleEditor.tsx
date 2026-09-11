@@ -229,8 +229,8 @@ export default function SkillsBundleEditor({ bundle }: Props) {
       <p className="text-sm" style={{ color: 'var(--pc-text-muted)' }}>
         {t('skills_bundle.intro_before_skill_md')}
         <code>SKILL.md</code> {t('skills_bundle.intro_after_skill_md')}{' '}
-        <code> scripts/</code>, <code>references/</code>,{' '}
-        {t('skills_bundle.intro_and')} <code>assets/</code>{' '}
+        <code> scripts/</code>, <code>references/</code>{' '}
+        {t('skills_bundle.intro_and')} <code>assets/</code>
         {t('skills_bundle.intro_subdirs')}
       </p>
 
@@ -560,7 +560,7 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
               <button
                 type="button"
                 onClick={() => removeTag(tag)}
-                aria-label={`Remove tag ${tag}`}
+                aria-label={t('skills_bundle.aria_remove_tag', { tag })}
                 className="leading-none"
                 style={{ color: 'var(--pc-text-muted)' }}
               >
@@ -788,7 +788,7 @@ function SlashOptionCard({
             value={option.name}
             onChange={(e) => onChange({ name: e.target.value })}
             placeholder={t('skills_bundle.option_name_placeholder')}
-            aria-label={`Option ${index + 1} name`}
+            aria-label={t('skills_bundle.aria_option_name', { n: index + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-sm"
             style={{ borderColor: 'var(--pc-border)' }}
           />
@@ -800,7 +800,7 @@ function SlashOptionCard({
           <select
             value={option.type}
             onChange={(e) => onType(e.target.value)}
-            aria-label={`Option ${index + 1} type`}
+            aria-label={t('skills_bundle.aria_option_type', { n: index + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-sm"
             style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text)' }}
           >
@@ -831,7 +831,7 @@ function SlashOptionCard({
             type="button"
             onClick={() => onMove(-1)}
             disabled={index === 0}
-            aria-label={`Move option ${index + 1} up`}
+            aria-label={t('skills_bundle.aria_option_move_up', { n: index + 1 })}
             className="text-xs px-1.5 py-0.5 rounded border disabled:opacity-30"
             style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-muted)' }}
           >
@@ -841,7 +841,7 @@ function SlashOptionCard({
             type="button"
             onClick={() => onMove(1)}
             disabled={index === count - 1}
-            aria-label={`Move option ${index + 1} down`}
+            aria-label={t('skills_bundle.aria_option_move_down', { n: index + 1 })}
             className="text-xs px-1.5 py-0.5 rounded border disabled:opacity-30"
             style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-muted)' }}
           >
@@ -868,7 +868,7 @@ function SlashOptionCard({
           value={option.description}
           onChange={(e) => onChange({ description: e.target.value })}
           placeholder={t('skills_bundle.option_description_placeholder')}
-          aria-label={`Option ${index + 1} description`}
+          aria-label={t('skills_bundle.aria_option_description', { n: index + 1 })}
           className="rounded-md border bg-transparent px-2 py-1 text-sm"
           style={{ borderColor: 'var(--pc-border)' }}
         />
@@ -960,7 +960,7 @@ function ChoicesEditor({ choices, onChange }: ChoicesEditorProps) {
             value={c.name}
             onChange={(e) => update(i, { name: e.target.value })}
             placeholder={t('skills_bundle.choice_label_placeholder')}
-            aria-label={`Choice ${i + 1} label`}
+            aria-label={t('skills_bundle.aria_choice_label', { n: i + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-xs flex-1"
             style={{ borderColor: 'var(--pc-border)' }}
           />
@@ -972,14 +972,14 @@ function ChoicesEditor({ choices, onChange }: ChoicesEditorProps) {
             value={c.value}
             onChange={(e) => update(i, { value: e.target.value })}
             placeholder={t('skills_bundle.choice_value_placeholder')}
-            aria-label={`Choice ${i + 1} value`}
+            aria-label={t('skills_bundle.aria_choice_value', { n: i + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-xs flex-1 font-mono"
             style={{ borderColor: 'var(--pc-border)' }}
           />
           <button
             type="button"
             onClick={() => remove(i)}
-            aria-label={`Remove choice ${i + 1}`}
+            aria-label={t('skills_bundle.aria_remove_choice', { n: i + 1 })}
             className="text-xs leading-none"
             style={{ color: 'var(--pc-text-muted)' }}
           >

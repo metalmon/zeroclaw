@@ -1401,7 +1401,7 @@ function ManualRunPanel({ name, sop }: { name: string; sop: Sop | null }) {
       try {
         JSON.parse(trimmed);
       } catch {
-        setRunError(`${t('sops.run_error')}: invalid JSON`);
+        setRunError(`${t('sops.run_error')}: ${t('sops.invalid_json')}`);
         return;
       }
     }

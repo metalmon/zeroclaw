@@ -10,3 +10,8 @@ cron.
 doctor.
 integrations.
 logs.
+runs.
+run_detail.
+skills.
+skills_bundle.
+sops.
