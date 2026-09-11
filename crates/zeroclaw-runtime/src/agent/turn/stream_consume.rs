@@ -284,6 +284,7 @@ pub(crate) async fn consume_provider_streaming_response(
                             name,
                             output,
                             artifact: None,
+                            ui_resource: None,
                         })
                         .await;
                 }
