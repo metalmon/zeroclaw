@@ -576,6 +576,7 @@ mod tests {
                     name: "shell".to_string(),
                     output: "ok".to_string(),
                     artifact: None,
+                    ui_resource: None,
                 })
                 .await;
             let _ = tx

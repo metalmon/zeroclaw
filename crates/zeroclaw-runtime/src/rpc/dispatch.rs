@@ -12619,6 +12619,7 @@ fn notification_for_turn_event(session_id: &str, event: &TurnEvent) -> Option<St
             name,
             output,
             artifact: _,
+            ui_resource: _,
         } => SessionUpdateEvent::ToolResult {
             session_id: session_id.to_string(),
             tool_call_id: id.clone(),
@@ -25717,6 +25718,7 @@ mod tests {
             name: "bash".into(),
             output: "file.txt".into(),
             artifact: None,
+            ui_resource: None,
         };
         let json = notification_for_turn_event("s1", &event).unwrap();
         let v = parse(&json);
