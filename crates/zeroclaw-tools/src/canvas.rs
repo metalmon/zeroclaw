@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use zeroclaw_api::tool::{Tool, ToolOutput, ToolResult};
+use zeroclaw_config::policy::SecurityPolicy;
 
 /// Maximum content size per canvas frame (256 KB).
 pub const MAX_CONTENT_SIZE: usize = 256 * 1024;
@@ -181,11 +182,61 @@ impl CanvasStore {
 /// `CanvasTool` — agent-callable tool for the Live Canvas (A2UI) system.
 pub struct CanvasTool {
     store: CanvasStore,
+    /// Workspace-root guard used to resolve/validate `content_file`. `None` in
+    /// most tests and in any deployment with no workspace-scoping policy
+    /// configured — in that case the guard degrades to the same fully-
+    /// permissive posture `deliver_file` falls back to when it has no bounded
+    /// allowlist root (null-byte / `..`-traversal rejection + canonicalize,
+    /// no containment check).
+    security: Option<Arc<SecurityPolicy>>,
 }
 
 impl CanvasTool {
     pub fn new(store: CanvasStore) -> Self {
-        Self { store }
+        Self {
+            store,
+            security: None,
+        }
+    }
+
+    /// Construct with a workspace-scoping [`SecurityPolicy`] so `content_file`
+    /// reads are confined to the workspace, mirroring `deliver_file`'s guard.
+    pub fn new_with_security(store: CanvasStore, security: Arc<SecurityPolicy>) -> Self {
+        Self {
+            store,
+            security: Some(security),
+        }
+    }
+
+    /// Resolve a caller-supplied `content_file`/`content_path` to a
+    /// canonicalized, safe-to-read path. Mirrors `deliver_file`'s path guard:
+    /// reject null bytes and `..` components up front, then canonicalize and
+    /// (when a workspace-scoping [`SecurityPolicy`] is available) enforce
+    /// containment within the workspace via `is_resolved_path_readable`.
+    fn resolve_content_file(&self, path: &str) -> Result<std::path::PathBuf, String> {
+        if path.contains('\0') {
+            return Err("Path not allowed: contains null byte".to_string());
+        }
+        if std::path::Path::new(path)
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
+            return Err(format!("Path not allowed by security policy: {path}"));
+        }
+
+        match &self.security {
+            Some(security) => {
+                let candidate = security.resolve_tool_path(path);
+                let resolved = std::fs::canonicalize(&candidate)
+                    .map_err(|e| format!("Failed to resolve content_file path: {e}"))?;
+                if !security.is_resolved_path_readable(&resolved) {
+                    return Err(format!("Path escapes workspace directory: {path}"));
+                }
+                Ok(resolved)
+            }
+            None => std::fs::canonicalize(path)
+                .map_err(|e| format!("Failed to resolve content_file path: {e}")),
+        }
     }
 }
 
@@ -222,7 +273,18 @@ impl Tool for CanvasTool {
                 },
                 "content": {
                     "type": "string",
-                    "description": "Content to render (for render action)."
+                    "description": "Content to render (for render action). Mutually exclusive with content_file."
+                },
+                "content_file": {
+                    "type": "string",
+                    "description": "Workspace path to a file whose contents should be rendered \
+                        (for render action), instead of passing large HTML inline as `content`. \
+                        Read runtime-side, bounded by the same size cap as `content`. Mutually \
+                        exclusive with `content`. Alias: content_path."
+                },
+                "content_path": {
+                    "type": "string",
+                    "description": "Alias for content_file."
                 },
                 "store": {
                     "type": "boolean",
@@ -264,9 +326,66 @@ impl Tool for CanvasTool {
                     .and_then(|v| v.as_str())
                     .unwrap_or("html");
 
-                let content = match args.get("content").and_then(|v| v.as_str()) {
-                    Some(c) => c,
-                    None => {
+                let content_arg = args.get("content").and_then(|v| v.as_str());
+                let content_file_arg = args
+                    .get("content_file")
+                    .or_else(|| args.get("content_path"))
+                    .and_then(|v| v.as_str());
+
+                let content: String = match (content_arg, content_file_arg) {
+                    (Some(_), Some(_)) => {
+                        return Ok(ToolResult {
+                            success: false,
+                            output: ToolOutput::default(),
+                            error: Some(
+                                "content and content_file are mutually exclusive".to_string(),
+                            ),
+                        });
+                    }
+                    (Some(c), None) => c.to_string(),
+                    (None, Some(f)) => {
+                        let path = match self.resolve_content_file(f) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                return Ok(ToolResult {
+                                    success: false,
+                                    output: ToolOutput::default(),
+                                    error: Some(e),
+                                });
+                            }
+                        };
+                        let bytes = match std::fs::read(&path) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                return Ok(ToolResult {
+                                    success: false,
+                                    output: ToolOutput::default(),
+                                    error: Some(format!("Failed to read content_file: {e}")),
+                                });
+                            }
+                        };
+                        if bytes.len() > MAX_CONTENT_SIZE {
+                            return Ok(ToolResult {
+                                success: false,
+                                output: ToolOutput::default(),
+                                error: Some(format!(
+                                    "Content exceeds maximum size of {} bytes",
+                                    MAX_CONTENT_SIZE
+                                )),
+                            });
+                        }
+                        match String::from_utf8(bytes) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                return Ok(ToolResult {
+                                    success: false,
+                                    output: ToolOutput::default(),
+                                    error: Some(format!("content_file is not valid UTF-8: {e}")),
+                                });
+                            }
+                        }
+                    }
+                    (None, None) => {
                         return Ok(ToolResult {
                             success: false,
                             output: ToolOutput::default(),
@@ -277,6 +396,7 @@ impl Tool for CanvasTool {
                         });
                     }
                 };
+                let content = content.as_str();
 
                 if content.len() > MAX_CONTENT_SIZE {
                     return Ok(ToolResult {
@@ -735,5 +855,97 @@ mod tests {
             .unwrap();
         assert!(!result.success);
         assert!(result.error.as_ref().unwrap().contains("expression"));
+    }
+
+    #[tokio::test]
+    async fn render_reads_content_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("dash.html");
+        std::fs::write(&p, "<!doctype html><title>fromfile</title>").unwrap();
+        let store = CanvasStore::new();
+        let tool = CanvasTool::new(store); // no security policy: permissive fallback guard
+        let out = tool
+            .execute(serde_json::json!({
+                "action": "render", "canvas_id": "dashboard", "content_type": "html",
+                "content_file": p.to_string_lossy()
+            }))
+            .await
+            .unwrap();
+        let data = out.output.into_data().unwrap();
+        assert!(data["text"].as_str().unwrap().contains("fromfile"));
+    }
+
+    #[tokio::test]
+    async fn render_rejects_content_and_content_file_together() {
+        let tool = CanvasTool::new(CanvasStore::new());
+        let err = tool
+            .execute(serde_json::json!({
+                "action": "render", "canvas_id": "d", "content_type": "html",
+                "content": "<x>", "content_file": "y.html"
+            }))
+            .await;
+        assert!(
+            err.is_err() || !err.unwrap().success,
+            "mutually exclusive"
+        );
+    }
+
+    #[tokio::test]
+    async fn render_content_file_alias_content_path_works() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("alias.html");
+        std::fs::write(&p, "<!doctype html><title>viapath</title>").unwrap();
+        let tool = CanvasTool::new(CanvasStore::new());
+        let out = tool
+            .execute(serde_json::json!({
+                "action": "render", "canvas_id": "d", "content_type": "html",
+                "content_path": p.to_string_lossy()
+            }))
+            .await
+            .unwrap();
+        assert!(out.success, "error: {:?}", out.error);
+        let data = out.output.into_data().unwrap();
+        assert!(data["text"].as_str().unwrap().contains("viapath"));
+    }
+
+    #[tokio::test]
+    async fn render_content_file_missing_file_errors() {
+        let tool = CanvasTool::new(CanvasStore::new());
+        let result = tool
+            .execute(serde_json::json!({
+                "action": "render", "canvas_id": "d", "content_type": "html",
+                "content_file": "/nonexistent/path/does-not-exist.html"
+            }))
+            .await
+            .unwrap();
+        assert!(!result.success);
+    }
+
+    #[tokio::test]
+    async fn render_content_file_scoped_by_security_policy_rejects_escape() {
+        use zeroclaw_config::policy::{AutonomyLevel, SecurityPolicy};
+
+        let workspace = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let outside_file = outside.path().join("secret.html");
+        std::fs::write(&outside_file, "<!doctype html><title>secret</title>").unwrap();
+
+        let security = Arc::new(SecurityPolicy {
+            autonomy: AutonomyLevel::Supervised,
+            workspace_dir: workspace.path().to_path_buf(),
+            ..SecurityPolicy::default()
+        });
+        let tool = CanvasTool::new_with_security(CanvasStore::new(), security);
+        let result = tool
+            .execute(serde_json::json!({
+                "action": "render", "canvas_id": "d", "content_type": "html",
+                "content_file": outside_file.to_string_lossy()
+            }))
+            .await
+            .unwrap();
+        assert!(
+            !result.success,
+            "content_file outside the workspace must be rejected when a security policy scopes it"
+        );
     }
 }

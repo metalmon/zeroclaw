@@ -958,7 +958,10 @@ pub fn all_tools_with_runtime(
         )),
         Arc::new(CalculatorTool::new()),
         Arc::new(WeatherTool::new()),
-        Arc::new(CanvasTool::new(canvas_store.unwrap_or_default())),
+        Arc::new(CanvasTool::new_with_security(
+            canvas_store.unwrap_or_default(),
+            security.clone(),
+        )),
         Arc::new(TodoWriteTool::new()),
     ];
 
