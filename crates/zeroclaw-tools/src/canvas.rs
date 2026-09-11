@@ -545,6 +545,14 @@ impl Tool for CanvasTool {
                 })
             }
 
+            // `snapshot` reflects ONLY content explicitly persisted with
+            // `store: true` (the single-presenter/gateway use case). It is
+            // NOT a cross-session read channel: an ACP render done with
+            // `store: false` (see the `render` branch above) writes nothing
+            // here, so a different session polling the same `canvas_id` sees
+            // nothing of it (isolation §5a). There is no session id on this
+            // tool to scope reads further — the only isolation guarantee is
+            // "unstored content never appears in any snapshot, anywhere".
             "snapshot" => match self.store.snapshot(canvas_id) {
                 Some(frame) => Ok(ToolResult {
                     success: true,
@@ -925,6 +933,41 @@ mod tests {
         assert!(
             store.current("dashboard").is_none(),
             "ACP render must not write shared store"
+        );
+    }
+
+    /// Isolation acceptance (§5a): an ACP render done with `store: false` in
+    /// one session must never be readable back via `snapshot` from another
+    /// session sharing the same `CanvasStore`. Two `CanvasTool`s built on one
+    /// `store.clone()` stand in for "two sessions" — there is no per-session
+    /// scoping on `CanvasStore`, so the only guarantee available is that
+    /// unstored content is written nowhere at all.
+    #[tokio::test]
+    async fn snapshot_cannot_read_back_acp_render() {
+        let store = CanvasStore::new(); // one shared store == "two sessions"
+        let a = CanvasTool::new(store.clone()); // session A
+        let b = CanvasTool::new(store.clone()); // session B
+
+        // A renders an ACP artifact (store:false)
+        let _ = a
+            .execute(serde_json::json!({
+                "action": "render", "canvas_id": "pnl/dashboard", "store": false,
+                "content_type": "html", "content": "<!doctype html><title>A-private</title>"
+            }))
+            .await
+            .unwrap();
+
+        // B tries to read it back by bare id
+        let snap = b
+            .execute(serde_json::json!({
+                "action": "snapshot", "canvas_id": "pnl/dashboard"
+            }))
+            .await
+            .unwrap();
+
+        assert!(
+            !snap.output.contains("A-private"),
+            "session B must not read session A's ACP render"
         );
     }
 
