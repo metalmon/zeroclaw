@@ -72,14 +72,21 @@
   --pc-text-muted: #a19a91;
   --pc-text-faint: #79726a;
 
-  /* Accent — Volt brand: raspberry solid, amber second stop, and an
-     amber→raspberry gradient (the logo's gold→magenta bolt) for the loud
-     "electric" surfaces (primary action, active states). */
-  --pc-accent: #c12d6c;
-  --pc-accent-light: #db5c8b;
-  --pc-accent-dim: rgba(193, 45, 108, 0.32);
-  --pc-accent-glow: rgba(193, 45, 108, 0.12);
-  --pc-accent-rgb: 193, 45, 108;
+  /* Everyday accent — a NEUTRAL warm tone (Volt keeps the brand restrained):
+     active/selected/focus and links use this, not the loud brand. In dark the
+     accent is a warm off-white; --pc-accent-foreground is the legible text on
+     an accent-filled surface. */
+  --pc-accent: #e9e3d8;
+  --pc-accent-light: #f4f1ea;
+  --pc-accent-dim: rgba(233, 227, 216, 0.22);
+  --pc-accent-glow: rgba(233, 227, 216, 0.08);
+  --pc-accent-rgb: 233, 227, 216;
+  --pc-accent-foreground: #1b1e1f;
+
+  /* Brand — the logo's amber→raspberry bolt. Reserved for "electric" spots:
+     primary-action buttons (.btn-electric / Button variant="primary") and the
+     brand mark. Everyday chrome stays on --pc-accent above. */
+  --pc-brand: #c12d6c;
   --pc-accent-2: #ab5e17;
   --pc-accent-gradient: linear-gradient(90deg, #ab5e17, #c12d6c);
 
@@ -416,9 +423,9 @@ code, kbd, pre {
   text-security: disc;
 }
 
-/* Primary action (pill) */
+/* Primary action (pill) — Volt brand bolt gradient. */
 .btn-primary {
-  background: var(--pc-accent);
+  background: var(--pc-accent-gradient, var(--pc-accent));
   color: white;
   border-radius: 1rem;
   font-weight: 600;
