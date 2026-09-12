@@ -656,6 +656,9 @@ impl AcpServer {
                     "thunderbird.net/thunderbolt": {
                         "skills": true,
                     },
+                    "io.modelcontextprotocol/ui": {
+                        "apps": true,
+                    },
                 },
             },
             "agentInfo": {
@@ -3100,6 +3103,23 @@ mod tests {
         );
         assert!(result.get("serverInfo").is_none());
         assert!(result.get("capabilities").is_none());
+    }
+
+    #[test]
+    fn initialize_advertises_mcp_apps_ui_capability() {
+        let server = AcpServer::new(Config::default(), AcpServerConfig::default());
+        let resp = server
+            .handle_initialize(&serde_json::json!({
+                "protocolVersion": 1,
+                "clientCapabilities": {},
+                "clientInfo": {
+                    "name": "test-client",
+                    "version": "1.0.0"
+                }
+            }))
+            .unwrap();
+        let ui = &resp["agentCapabilities"]["_meta"]["io.modelcontextprotocol/ui"];
+        assert_eq!(ui["apps"], serde_json::json!(true));
     }
 
     #[test]
