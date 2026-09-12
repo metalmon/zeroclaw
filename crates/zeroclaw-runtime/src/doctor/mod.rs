@@ -1264,7 +1264,10 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
                         cat,
                         crate::i18n::get_required_cli_string_with_args(
                             "cli-doctor-provider-temperature-ok",
-                            &[("label", &label), ("temperature", &format!("{temperature:.1}"))],
+                            &[
+                                ("label", &label),
+                                ("temperature", &format!("{temperature:.1}")),
+                            ],
                         ),
                     ));
                 }
@@ -1273,7 +1276,10 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
                         cat,
                         crate::i18n::get_required_cli_string_with_args(
                             "cli-doctor-provider-temperature-out-of-range",
-                            &[("label", &label), ("temperature", &format!("{temperature:.1}"))],
+                            &[
+                                ("label", &label),
+                                ("temperature", &format!("{temperature:.1}")),
+                            ],
                         ),
                     ));
                 }
