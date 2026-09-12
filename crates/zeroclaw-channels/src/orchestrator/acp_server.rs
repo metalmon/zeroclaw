@@ -1612,6 +1612,16 @@ impl AcpServer {
         // through to `turn_streamed` unchanged.
         let canvas_call = extract_canvas_tool_call(params.get("_meta"));
         let prompt_is_empty = prompt.trim().is_empty();
+        // §3b: `_meta["io.modelcontextprotocol/ui"].origin` (e.g. "canvas") is
+        // carried through to the turn's audit/log span for attribution only.
+        // It is NOT a dispatch signal — the 3-way canvas branch above/below
+        // decides purely on `canvas_call`/`prompt_is_empty`.
+        let canvas_origin = params
+            .get("_meta")
+            .and_then(|m| m.get("io.modelcontextprotocol/ui"))
+            .and_then(|ui| ui.get("origin"))
+            .and_then(|o| o.as_str())
+            .map(|s| s.to_string());
 
         let config = self.config_snapshot();
         let cost_tracker = zeroclaw_runtime::cost::CostTracker::get_or_init_global(
@@ -1650,6 +1660,7 @@ impl AcpServer {
                     model_provider = %turn_provider,
                     model = %turn_model,
                     channel = "acp",
+                    canvas_origin = %canvas_origin.as_deref().unwrap_or("none"),
                 );
                 zeroclaw_runtime::agent::loop_::scope_session_key(
                     Some(session_id_for_task),
@@ -3461,6 +3472,95 @@ mod tests {
                 .iter()
                 .any(|u| u["params"]["update"]["sessionUpdate"] == "agent_message_chunk"),
             "the model turn must NOT run when the combined tool is denied (§3c abort), got {updates:?}"
+        );
+    }
+
+    // ── Canvas action-channel dispatch, origin audit tag (Task 6) ────────
+
+    #[tokio::test]
+    async fn session_prompt_with_canvas_origin_runs_full_turn() {
+        let cwd = tempfile::tempdir().unwrap();
+        let (writer_tx, mut writer_rx) = tokio::sync::mpsc::channel::<String>(16);
+        let server = Arc::new(AcpServer::new_with_writer(
+            make_test_config(cwd.path()),
+            AcpServerConfig::default(),
+            writer_tx,
+        ));
+        let session = server
+            .handle_session_new(&serde_json::json!({
+                "cwd": cwd.path().to_string_lossy(),
+                "agentAlias": "test-agent"
+            }))
+            .await
+            .expect("session/new must succeed");
+        let session_id = session["sessionId"]
+            .as_str()
+            .expect("session id")
+            .to_string();
+        let session_arc = server
+            .sessions
+            .lock()
+            .await
+            .get(&session_id)
+            .cloned()
+            .expect("session must be registered");
+
+        let invocations = Arc::new(AtomicUsize::new(0));
+        let approval = zeroclaw_runtime::approval::ApprovalManager::from_risk_profile(
+            &zeroclaw_config::schema::RiskProfileConfig {
+                level: zeroclaw_runtime::security::AutonomyLevel::Full,
+                ..Default::default()
+            },
+        );
+        session_arc.lock().await.agent = canvas_combined_test_agent(
+            cwd.path().to_path_buf(),
+            "canvas_unused",
+            Arc::clone(&invocations),
+            approval,
+        );
+
+        // `_meta["io.modelcontextprotocol/ui"]` carries only `origin` — no
+        // `toolCall` at all — so this must run the ordinary full model turn,
+        // exactly like a prompt with no `_meta.io.modelcontextprotocol/ui`
+        // present, per spec §3b.
+        let result = server
+            .handle_session_prompt(
+                &serde_json::json!({
+                    "sessionId": session_id,
+                    "prompt": "Explain",
+                    "_meta": {
+                        "io.modelcontextprotocol/ui": {
+                            "origin": "canvas"
+                        }
+                    }
+                }),
+                &serde_json::json!(5),
+            )
+            .await
+            .expect("a ui/prompt turn with only an origin tag must run normally");
+
+        assert_eq!(result["stopReason"], "end_turn");
+        assert_eq!(
+            invocations.load(Ordering::SeqCst),
+            0,
+            "no tool call was named in _meta, so the canvas tool path must not run"
+        );
+
+        let updates = drain_notifications(&mut writer_rx).await;
+        assert!(
+            updates
+                .iter()
+                .any(|u| u["params"]["update"]["sessionUpdate"] == "agent_message_chunk"),
+            "expected at least one agent_message_chunk — the full model turn must have run, got {updates:?}"
+        );
+        assert!(
+            !updates.iter().any(|u| {
+                u["params"]["update"]["sessionUpdate"] == "tool_call_update"
+                    && u["params"]["update"]["toolCallId"]
+                        .as_str()
+                        .is_some_and(|id| id.starts_with("canvas:"))
+            }),
+            "the pure tool-only path must not run when no toolCall is present, got {updates:?}"
         );
     }
 
