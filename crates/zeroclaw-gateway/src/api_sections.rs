@@ -529,7 +529,11 @@ fn providers_picker(cfg: &zeroclaw_config::schema::Config) -> Vec<PickerItem> {
             key: p.name.to_string(),
             label: p.display_name.to_string(),
             description: if p.local {
-                Some("Local — no API key required".to_string())
+                Some(
+                    zeroclaw_runtime::i18n::localized_section("picker-provider-local-desc")
+                        .unwrap_or("Local — no API key required")
+                        .to_string(),
+                )
             } else {
                 None
             },
@@ -598,7 +602,11 @@ fn model_provider_alias_usable(
 fn storage_picker(cfg: &zeroclaw_config::schema::Config) -> Vec<PickerItem> {
     let mut items = schema_walk_picker(cfg, "storage");
     for item in &mut items {
-        item.description = storage_description(&item.key).map(str::to_string);
+        item.description = storage_description(&item.key).map(|en| {
+            zeroclaw_runtime::i18n::localized_section(&format!("picker-storage-{}-desc", item.key))
+                .unwrap_or(en)
+                .to_string()
+        });
         if item.badge.as_deref() == Some("configured") {
             item.badge = Some("created".to_string());
         }
@@ -650,7 +658,9 @@ fn memory_picker(cfg: &zeroclaw_config::schema::Config) -> Vec<PickerItem> {
         .iter()
         .map(|b| PickerItem {
             key: b.key.to_string(),
-            label: b.label.to_string(),
+            label: zeroclaw_runtime::i18n::localized_section(&format!("picker-memory-{}", b.key))
+                .map(str::to_string)
+                .unwrap_or_else(|| b.label.to_string()),
             description: None,
             badge: if b.key == current && memory_completed {
                 Some("active".to_string())
@@ -812,7 +822,11 @@ fn tunnel_provider_picker(cfg: &zeroclaw_config::schema::Config) -> Vec<PickerIt
     let mut items = vec![PickerItem {
         key: "none".to_string(),
         label: "none".to_string(),
-        description: Some("Localhost only — no public tunnel.".to_string()),
+        description: Some(
+            zeroclaw_runtime::i18n::localized_section("picker-tunnel-none-desc")
+                .unwrap_or("Localhost only — no public tunnel.")
+                .to_string(),
+        ),
         badge: if active == "none" || active.is_empty() {
             Some("active".to_string())
         } else {
