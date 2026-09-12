@@ -1,25 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Settings, Sun, Moon, Monitor, Laptop, Check, Type, CaseSensitive, Palette } from 'lucide-react';
+import { X, Settings, Sun, Moon, Laptop, BookOpen, Check, Type, CaseSensitive } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 import { t } from '@/lib/i18n';
-import type { AccentColor, UiFont, MonoFont, ThemeMode } from '@/contexts/ThemeContext';
+import type { UiFont, MonoFont, ThemeMode } from '@/contexts/ThemeContext';
 import { uiFontStacks, monoFontStacks } from '@/contexts/ThemeContext';
-import { colorThemes } from '@/contexts/colorThemes';
 
-const themeOptions: { value: ThemeMode; icon: typeof Sun; labelKey: string; previewBg: string; previewFg: string }[] = [
-  { value: 'system', icon: Laptop, labelKey: 'theme.system', previewBg: 'linear-gradient(135deg, #1e1e24 50%, #f4f4f5 50%)', previewFg: '#d4d4d8' },
-  { value: 'dark', icon: Moon, labelKey: 'theme.dark', previewBg: '#1e1e24', previewFg: '#d4d4d8' },
-  { value: 'light', icon: Sun, labelKey: 'theme.light', previewBg: '#f4f4f5', previewFg: '#18181b' },
-  { value: 'oled', icon: Monitor, labelKey: 'theme.oled', previewBg: '#000000', previewFg: '#d4d4d8' },
-];
-
-const accentOptions: { value: AccentColor; color: string }[] = [
-  { value: 'cyan', color: '#22d3ee' },
-  { value: 'violet', color: '#8b5cf6' },
-  { value: 'emerald', color: '#10b981' },
-  { value: 'amber', color: '#f59e0b' },
-  { value: 'rose', color: '#f43f5e' },
-  { value: 'blue', color: '#3b82f6' },
+// The Volt theme set — a fixed brand palette shared with the desktop client.
+// Each swatch previews the theme's real page background, foreground and brand
+// accent (the same colors ThemeContext applies).
+const themeOptions: {
+  value: ThemeMode;
+  icon: typeof Sun;
+  labelKey: string;
+  bg: string;
+  fg: string;
+  accent: string;
+}[] = [
+  { value: 'system', icon: Laptop, labelKey: 'theme.system', bg: 'linear-gradient(135deg, #1b1e1f 50%, #f5f2ee 50%)', fg: '#cbc6bf', accent: '#c12d6c' },
+  { value: 'dark', icon: Moon, labelKey: 'theme.dark', bg: '#1b1e1f', fg: '#f2f1ee', accent: '#c12d6c' },
+  { value: 'light', icon: Sun, labelKey: 'theme.light', bg: '#f5f2ee', fg: '#262120', accent: '#c12d6c' },
+  { value: 'paper', icon: BookOpen, labelKey: 'theme.paper', bg: '#f0e9dd', fg: '#2b2622', accent: '#c96442' },
 ];
 
 const uiFontOptions: { value: UiFont; label: string; sample: string }[] = [
@@ -64,77 +64,6 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Mini terminal preview card for a color theme. */
-function ThemePreviewCard({
-  theme,
-  active,
-  onClick,
-}: {
-  theme: typeof colorThemes[number];
-  active: boolean;
-  onClick: () => void;
-}) {
-  const [bg, c1, c2, c3, text] = theme.preview;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        'flex flex-col gap-1.5 p-2 rounded-[var(--radius-lg)] border text-left group',
-        'min-w-0 w-full', // let the card shrink with the grid track on narrow screens
-        'transition-colors duration-150 cursor-pointer',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]',
-        'focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base',
-        active
-          ? 'border-pc-accent bg-pc-accent/10'
-          : 'border-pc-border hover:bg-[var(--pc-hover)] hover:border-pc-border-strong',
-      ].join(' ')}
-      aria-pressed={active}
-    >
-      {/* Mini terminal — keeps the theme's literal preview colors (it is a preview). */}
-      <div
-        className="w-full rounded-lg overflow-hidden"
-        style={{ background: bg, border: `1px solid ${theme.scheme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}` }}
-      >
-        {/* Title bar dots */}
-        <div className="flex gap-1 px-2 py-1.5">
-          <span className="w-[6px] h-[6px] rounded-full" style={{ background: '#ff5f57' }} />
-          <span className="w-[6px] h-[6px] rounded-full" style={{ background: '#febc2e' }} />
-          <span className="w-[6px] h-[6px] rounded-full" style={{ background: '#28c840' }} />
-        </div>
-        {/* Fake code lines */}
-        <div className="px-2 pb-2 flex flex-col gap-[3px]">
-          <div className="flex gap-1 items-center">
-            <span className="h-[3px] rounded-full" style={{ background: c1, width: '30%' }} />
-            <span className="h-[3px] rounded-full" style={{ background: text, width: '20%', opacity: 0.4 }} />
-          </div>
-          <div className="flex gap-1 items-center">
-            <span className="h-[3px] rounded-full" style={{ background: text, width: '15%', opacity: 0.3 }} />
-            <span className="h-[3px] rounded-full" style={{ background: c2, width: '25%' }} />
-            <span className="h-[3px] rounded-full" style={{ background: c3, width: '18%' }} />
-          </div>
-          <div className="flex gap-1 items-center">
-            <span className="h-[3px] rounded-full" style={{ background: c3, width: '22%' }} />
-            <span className="h-[3px] rounded-full" style={{ background: text, width: '28%', opacity: 0.3 }} />
-          </div>
-        </div>
-      </div>
-      {/* Label */}
-      <div className="flex items-center gap-1 px-0.5">
-        {active && <Check size={10} className="text-pc-accent" />}
-        <span
-          className={[
-            'text-[10px] font-medium truncate',
-            active ? 'text-pc-accent-light' : 'text-pc-text-muted',
-          ].join(' ')}
-        >
-          {theme.name}
-        </span>
-      </div>
-    </button>
-  );
-}
-
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -142,24 +71,19 @@ interface Props {
 
 export function SettingsModal({ open, onClose }: Props) {
   const {
-    theme, accent, colorTheme, uiFont, monoFont, uiFontSize, monoFontSize,
-    setTheme, setAccent, setColorTheme, setUiFont, setMonoFont, setUiFontSize, setMonoFontSize,
+    theme, uiFont, monoFont, uiFontSize, monoFontSize,
+    setTheme, setUiFont, setMonoFont, setUiFontSize, setMonoFontSize,
   } = useTheme();
 
-  type TabId = 'appearance' | 'themes' | 'typography';
+  type TabId = 'appearance' | 'typography';
   const [tab, setTab] = useState<TabId>('appearance');
 
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const tabs: { id: TabId; label: string; icon: typeof Palette }[] = useMemo(() => [
+  const tabs: { id: TabId; label: string; icon: typeof Settings }[] = useMemo(() => [
     { id: 'appearance', label: t('settings.tab.appearance'), icon: Settings },
-    { id: 'themes', label: t('settings.tab.themes'), icon: Palette },
     { id: 'typography', label: t('settings.tab.typography'), icon: Type },
   ], []);
-
-  // Group themes by scheme for the themes tab
-  const darkThemes = useMemo(() => colorThemes.filter(ct => ct.scheme === 'dark'), []);
-  const lightThemes = useMemo(() => colorThemes.filter(ct => ct.scheme === 'light'), []);
 
   // Focus management: focus the first control on open, restore focus to the
   // trigger on close.
@@ -259,119 +183,53 @@ export function SettingsModal({ open, onClose }: Props) {
             ))}
           </div>
 
-          {/* Appearance Tab */}
+          {/* Appearance Tab — the Volt theme picker. */}
           {tab === 'appearance' && (
             <>
               <SectionTitle>{t('settings.appearance')}</SectionTitle>
-
-              {/* Theme Mode */}
-              <div className="mb-3">
-                <div className="text-xs mb-2 text-pc-text-secondary">{t('theme.mode')}</div>
-                <div className="flex gap-1.5">
-                  {themeOptions.map(opt => {
-                    const Icon = opt.icon;
-                    const active = theme === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setTheme(opt.value)}
-                        aria-pressed={active}
-                        className={chip(
-                          active,
-                          'flex-1 flex flex-col items-center gap-1.5 py-2 rounded-[var(--radius-md)] text-xs',
-                        )}
-                      >
-                        {/* Theme preview swatch — keeps its literal colors (it previews a mode). */}
-                        <div
-                          className="w-8 h-5 rounded-md border"
-                          style={{
-                            background: opt.previewBg,
-                            borderColor: opt.value === 'light' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)',
-                          }}
-                        >
-                          <div className="flex items-center justify-center h-full">
-                            <Icon size={10} style={{ color: opt.previewFg }} />
-                          </div>
-                        </div>
-                        <span>{t(opt.labelKey)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Accent Color */}
-              <div className="mb-4">
-                <div className="text-xs mb-2 text-pc-text-secondary">{t('theme.accent')}</div>
-                {/* flex-wrap so swatches never overflow the modal on a phone; each
-                    button carries a ≥44px hit area (min-h/min-w + padding) while the
-                    visible swatch stays 28px. */}
-                <div className="flex flex-wrap gap-1">
-                  {accentOptions.map(opt => (
+              <div className="text-xs mb-2 text-pc-text-secondary">{t('theme.mode')}</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {themeOptions.map(opt => {
+                  const Icon = opt.icon;
+                  const active = theme === opt.value;
+                  return (
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => setAccent(opt.value)}
-                      className="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base"
-                      aria-pressed={accent === opt.value}
-                      aria-label={`${opt.value} ${t('settings.accent_suffix')}`}
+                      onClick={() => setTheme(opt.value)}
+                      aria-pressed={active}
+                      className={[
+                        'flex flex-col gap-2 p-2 rounded-[var(--radius-lg)] border text-left',
+                        'transition-colors duration-150 cursor-pointer',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]',
+                        'focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base',
+                        active
+                          ? 'border-pc-accent bg-pc-accent/10'
+                          : 'border-pc-border hover:bg-[var(--pc-hover)] hover:border-pc-border-strong',
+                      ].join(' ')}
                     >
-                      <span
-                        className="flex h-7 w-7 items-center justify-center rounded-full transition-all"
+                      {/* Mini preview — the theme's literal page colors. */}
+                      <div
+                        className="relative w-full h-12 rounded-md overflow-hidden border"
                         style={{
-                          backgroundColor: opt.color,
-                          border: accent === opt.value ? `2px solid ${opt.color}` : '2px solid transparent',
-                          boxShadow: accent === opt.value ? `0 0 8px ${opt.color}40` : 'none',
+                          background: opt.bg,
+                          borderColor: opt.value === 'dark' || opt.value === 'system' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)',
                         }}
                       >
-                        {accent === opt.value && <Check size={14} style={{ color: 'white' }} />}
-                      </span>
+                        <Icon size={12} style={{ color: opt.fg }} className="absolute top-1.5 left-1.5" />
+                        {/* Brand accent dot + text lines. */}
+                        <span className="absolute bottom-1.5 left-1.5 h-2 w-2 rounded-full" style={{ background: opt.accent }} />
+                        <span className="absolute bottom-2 left-4 h-[3px] w-6 rounded-full" style={{ background: opt.fg, opacity: 0.35 }} />
+                      </div>
+                      <div className="flex items-center gap-1 px-0.5">
+                        {active && <Check size={11} className="text-pc-accent" />}
+                        <span className={['text-xs font-medium', active ? 'text-pc-accent-light' : 'text-pc-text-secondary'].join(' ')}>
+                          {t(opt.labelKey)}
+                        </span>
+                      </div>
                     </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Themes Tab */}
-          {tab === 'themes' && (
-            <>
-              <SectionTitle>{t('settings.dark_themes')}</SectionTitle>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-4">
-                {darkThemes.map(ct => (
-                  <ThemePreviewCard
-                    key={ct.id}
-                    theme={ct}
-                    active={colorTheme === ct.id}
-                    onClick={() => setColorTheme(ct.id)}
-                  />
-                ))}
-              </div>
-
-              <SectionTitle>{t('settings.light_themes')}</SectionTitle>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-4">
-                {lightThemes.map(ct => (
-                  <ThemePreviewCard
-                    key={ct.id}
-                    theme={ct}
-                    active={colorTheme === ct.id}
-                    onClick={() => setColorTheme(ct.id)}
-                  />
-                ))}
-              </div>
-
-              {/* Active theme info */}
-              <div className="rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface p-3 mt-2">
-                <div className="flex items-center gap-2">
-                  <Palette size={14} className="text-pc-accent" />
-                  <span className="text-xs font-medium text-pc-text">
-                    {colorThemes.find(ct => ct.id === colorTheme)?.name ?? t('settings.default_dark')}
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-pc-accent/10 text-pc-accent-light">
-                    {t('settings.active')}
-                  </span>
-                </div>
+                  );
+                })}
               </div>
             </>
           )}

@@ -828,6 +828,7 @@ export const ru: Record<string, string> = {
   'theme.dark': 'Темная',
   'theme.light': 'Светлая',
   'theme.oled': 'OLED черная',
+  'theme.paper': 'Бумага',
 
   // Pluralization (one/few/many via Intl.PluralRules('ru'); see plural() in lib/i18n.ts)
   'runs.count_one': '{n} запуск',

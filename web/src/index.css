@@ -45,13 +45,15 @@
   --color-status-success-alpha-20: color-mix(in srgb, var(--color-status-success) 20%, transparent);
   --color-status-warning-alpha-05: color-mix(in srgb, var(--color-status-warning) 5%, transparent);
   --color-status-warning-alpha-20: color-mix(in srgb, var(--color-status-warning) 20%, transparent);
-  /* Backgrounds */
-  --pc-bg-base: #1e1e24;
-  --pc-bg-surface: #232329;
-  --pc-bg-elevated: #27272a;
-  --pc-bg-input: #1a1a20;
-  --pc-bg-code: #1a1a20;
-  --pc-bg-sidebar: rgba(30, 30, 36, 0.95);
+  /* Backgrounds (Volt dark — warm graphite, no pure black; mirrors the Volt
+     desktop client. ThemeContext overrides these per theme at runtime, but the
+     defaults here are the first-paint palette before JS applies a choice.) */
+  --pc-bg-base: #1b1e1f;
+  --pc-bg-surface: #282a2b;
+  --pc-bg-elevated: #313334;
+  --pc-bg-input: #212425;
+  --pc-bg-code: #202324;
+  --pc-bg-sidebar: rgba(27, 30, 31, 0.95);
 
   /* Derived surface tints — adapt automatically across every color theme
      because they color-mix the per-theme surface/text/accent tokens that the
@@ -61,21 +63,25 @@
   --pc-bg-surface-elevated: color-mix(in srgb, var(--pc-bg-elevated) 85%, var(--pc-text-primary) 15%);
 
   /* Borders */
-  --pc-border: rgba(255, 255, 255, 0.08);
-  --pc-border-strong: rgba(255, 255, 255, 0.1);
+  --pc-border: rgba(255, 255, 255, 0.09);
+  --pc-border-strong: rgba(255, 255, 255, 0.14);
 
-  /* Text */
-  --pc-text-primary: #d4d4d8;
-  --pc-text-secondary: #a1a1aa;
-  --pc-text-muted: #71717a;
-  --pc-text-faint: #52525b;
+  /* Text (warm off-white) */
+  --pc-text-primary: #f2f1ee;
+  --pc-text-secondary: #cbc6bf;
+  --pc-text-muted: #a19a91;
+  --pc-text-faint: #79726a;
 
-  /* Accent (cyan) */
-  --pc-accent: #22d3ee;
-  --pc-accent-light: #67e8f9;
-  --pc-accent-dim: rgba(34, 211, 238, 0.3);
-  --pc-accent-glow: rgba(34, 211, 238, 0.1);
-  --pc-accent-rgb: 34, 211, 238;
+  /* Accent — Volt brand: raspberry solid, amber second stop, and an
+     amber→raspberry gradient (the logo's gold→magenta bolt) for the loud
+     "electric" surfaces (primary action, active states). */
+  --pc-accent: #c12d6c;
+  --pc-accent-light: #db5c8b;
+  --pc-accent-dim: rgba(193, 45, 108, 0.32);
+  --pc-accent-glow: rgba(193, 45, 108, 0.12);
+  --pc-accent-rgb: 193, 45, 108;
+  --pc-accent-2: #ab5e17;
+  --pc-accent-gradient: linear-gradient(90deg, #ab5e17, #c12d6c);
 
   /* Link text — derived from the per-theme accent so it tracks every palette. */
   --pc-text-link: var(--pc-accent-light);
@@ -100,9 +106,9 @@
   --pc-separator: rgba(255, 255, 255, 0.05);
 
   /* Scrollbar */
-  --pc-scrollbar-thumb: #52525b;
-  --pc-scrollbar-track: #27272a;
-  --pc-scrollbar-thumb-hover: #71717a;
+  --pc-scrollbar-thumb: #3a3d3e;
+  --pc-scrollbar-track: #282a2b;
+  --pc-scrollbar-thumb-hover: #525657;
 
   /* Fonts */
   --pc-font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -359,9 +365,10 @@ code, kbd, pre {
   backdrop-filter: blur(16px);
 }
 
-/* Electric button (primary action) */
+/* Electric button (primary action) — the Volt brand gradient (amber→raspberry
+   bolt). Falls back to the solid accent where the gradient token is unset. */
 .btn-electric {
-  background: var(--pc-accent);
+  background: var(--pc-accent-gradient, var(--pc-accent));
   color: white;
   border: none;
   border-radius: 0.75rem;

@@ -2190,6 +2190,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'theme.dark': 'Dark',
     'theme.light': 'Light',
     'theme.oled': 'OLED Black',
+    'theme.paper': 'Paper',
   },
 
   tr: {
