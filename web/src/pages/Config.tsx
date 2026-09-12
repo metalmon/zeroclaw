@@ -53,7 +53,7 @@ import CostRatesEditor, {
   type CostRatesCategory,
 } from "../components/sections/CostRatesEditor";
 import { Badge, Button, Card } from "@/components/ui";
-import { t, plural, sectionDesc, sectionLabel } from "@/lib/i18n";
+import { t, plural, sectionDesc, sectionLabel, displayAlias, badgeLabel } from "@/lib/i18n";
 import { formatServerError } from "@/lib/serverError";
 
 // Display order for the curated sidebar groups. Each `SectionInfo.group`
@@ -568,13 +568,13 @@ export default function Config() {
   ];
   if (typeParam)
     crumbs.push({
-      label: typeParam,
+      label: displayAlias(typeParam),
       url:
         typeParam && aliasParam
           ? `/config/${encodeURIComponent(sectionParam ?? "")}/${encodeURIComponent(typeParam)}`
           : undefined,
     });
-  if (aliasParam) crumbs.push({ label: aliasParam });
+  if (aliasParam) crumbs.push({ label: displayAlias(aliasParam) });
 
   // A "real" selection exists only when the URL carries a section param.
   // Bare /config (no params) shows the calm empty-state placeholder in the
@@ -1679,7 +1679,7 @@ function ConfiguredOnlyPicker({
           <div className="flex items-center gap-2 flex-shrink-0">
             {item.badge && (
               <Badge tone={badgeTone(item.badge)}>
-                {item.badge}
+                {badgeLabel(item.badge)}
               </Badge>
             )}
             <ChevronRight className="h-4 w-4 text-pc-text-muted" />

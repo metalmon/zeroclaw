@@ -1048,6 +1048,24 @@ export const ru: Record<string, string> = {
   'config.wiretab.cron': 'Расписание',
   'config.wiretab.costs': 'Стоимость',
 
+  // Status badges on config pickers/cards (schema-driven item.badge),
+  // keyed by the lowercased badge with spaces as underscores.
+  'config.badge.configured': 'настроено',
+  'config.badge.not_configured': 'не настроено',
+  'config.badge.needs_setup': 'нужна настройка',
+  'config.badge.active': 'активно',
+  'config.badge.inactive': 'неактивно',
+  'config.badge.set': 'задано',
+  'config.badge.unset': 'не задано',
+  'config.badge.created': 'создано',
+  'config.badge.missing': 'отсутствует',
+  'config.badge.enabled': 'включено',
+  'config.badge.disabled': 'выключено',
+  'config.badge.paired': 'сопряжено',
+
+  // Magic entity-alias display names (breadcrumb / navigator / lists).
+  'alias.default': 'По умолчанию',
+
   // Config SECTION label/description catalog — keyed by the section's wire
   // id (SectionInfo.key from GET /api/config/sections, e.g.
   // "providers.models", "agents"). Covers the left config sub-nav entry,

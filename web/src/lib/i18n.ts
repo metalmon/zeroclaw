@@ -620,6 +620,22 @@ const translations: Record<Locale, Record<string, string>> = {
     'config.wiretab.memory': "Memory",
     'config.wiretab.cron': "Cron",
     'config.wiretab.costs': "Costs",
+    // Status badges on config pickers/cards (schema-driven `item.badge`),
+    // keyed by the lowercased badge with spaces as underscores.
+    'config.badge.configured': "configured",
+    'config.badge.not_configured': "not configured",
+    'config.badge.needs_setup': "needs setup",
+    'config.badge.active': "active",
+    'config.badge.inactive': "inactive",
+    'config.badge.set': "set",
+    'config.badge.unset': "unset",
+    'config.badge.created': "created",
+    'config.badge.missing': "missing",
+    'config.badge.enabled': "enabled",
+    'config.badge.disabled': "disabled",
+    'config.badge.paired': "paired",
+    // Magic entity-alias display names (breadcrumb / navigator / lists).
+    'alias.default': "default",
     'cost_rates.add': "Add",
     'cost_rates.add_one_below': "Add one below.",
     'cost_rates.add_rates': "Add rates",
@@ -13958,6 +13974,27 @@ export function sectionGroupLabel(groupLabel: string): string {
   const id = groupLabel.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
   const key = `config.section_group.${id}`;
   return translations[currentLocale]?.[key] ?? groupLabel;
+}
+
+/**
+ * Display name for an entity alias in navigation surfaces (breadcrumb,
+ * section navigator, alias lists). Most aliases are user-chosen identifiers
+ * shown verbatim; a few magic ones (e.g. "default") read better localized.
+ * The on-disk key is never rewritten — this is display-only.
+ */
+export function displayAlias(alias: string): string {
+  const key = `alias.${alias.toLowerCase()}`;
+  return translations[currentLocale]?.[key] ?? alias;
+}
+
+/**
+ * Localize a schema-driven status badge ("configured", "needs setup", ...)
+ * rendered on config pickers/cards. Falls back to the raw badge text for any
+ * value not in the catalog.
+ */
+export function badgeLabel(badge: string): string {
+  const key = `config.badge.${badge.toLowerCase().replace(/\s+/g, "_")}`;
+  return translations[currentLocale]?.[key] ?? badge;
 }
 
 // ---------------------------------------------------------------------------

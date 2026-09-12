@@ -400,7 +400,7 @@ export default function SectionNavigator({
         role="tree"
         aria-label={t('section_nav.tree_label')}
         onKeyDown={onTreeKeyDown}
-        className="flex-1 overflow-y-auto py-2"
+        className="flex-1 overflow-y-auto overflow-x-hidden py-2"
       >
         {searching ? (
           // Flat search-results mode.
