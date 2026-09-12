@@ -39,7 +39,6 @@ import FieldForm, {
 import PersonalityEditor from "../components/sections/PersonalityEditor";
 import SkillsBundleEditor from "../components/sections/SkillsBundleEditor";
 import BindChannelForm from "../components/sections/BindChannelForm";
-import ReloadDaemonButton from "../components/sections/ReloadDaemonButton";
 import SectionPicker, {
   badgeIsGood,
   badgeTone,
@@ -111,7 +110,10 @@ export default function Config() {
   };
   useEffect(fetchDrift, [activeKey]);
 
-  const [reloadKey, setReloadKey] = useState(0);
+  // Remount key for the field forms. Retained so form keys stay stable across
+  // renders; the daemon-reload flow now lives in the global header and does a
+  // full app refresh, so nothing bumps this locally anymore.
+  const [reloadKey] = useState(0);
   // Section whose "+ Add" affordance is open in the navigator (modal).
   const [addSection, setAddSection] = useState<SectionInfo | null>(null);
   // Bumped to make the navigator re-fetch its expanded sections' entities
@@ -659,55 +661,34 @@ export default function Config() {
                 title was dropped — the section name already lives in the
                 breadcrumb leaf and again as the section editor's own heading,
                 so a separate page title was pure repetition. The trail is
-                sized up (text-sm, bolder leaf) to carry the header on its own,
-                with the page-level actions on the right. ReloadDaemonButton
-                keeps its own confirm modal. */}
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <nav
-                aria-label={t("config.breadcrumb")}
-                className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm"
-              >
-                {crumbs.map((crumb, i) => (
-                  <span key={i} className="flex items-center gap-1.5">
-                    {i > 0 && (
-                      <ChevronRight className="h-4 w-4 text-pc-text-faint" />
-                    )}
-                    {crumb.url && i < crumbs.length - 1 ? (
-                      <button
-                        type="button"
-                        onClick={() => navigate(crumb.url!)}
-                        className="text-pc-text-secondary transition-colors hover:text-pc-text"
-                      >
-                        {crumb.label}
-                      </button>
-                    ) : (
-                      <span className="font-semibold text-pc-text">
-                        {crumb.label}
-                      </span>
-                    )}
-                  </span>
-                ))}
-              </nav>
-              <div className="flex flex-shrink-0 items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="md"
-                  onClick={() => navigate("/quickstart")}
-                  title={t("cfg.header.quickstart")}
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  {t("cfg.header.quickstart")}
-                </Button>
-                <ReloadDaemonButton
-                  onReloaded={() => {
-                    goToSection(activeSection.key);
-                    fetchDrift();
-                    setReloadKey((n) => n + 1);
-                    setNavRefresh((n) => n + 1);
-                  }}
-                />
-              </div>
-            </div>
+                sized up (text-sm, bolder leaf) to carry the header on its own.
+                Daemon-level actions (Quickstart, Reload) now live in the global
+                top bar, not here — they were repeating on every section. */}
+            <nav
+              aria-label={t("config.breadcrumb")}
+              className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm"
+            >
+              {crumbs.map((crumb, i) => (
+                <span key={i} className="flex items-center gap-1.5">
+                  {i > 0 && (
+                    <ChevronRight className="h-4 w-4 text-pc-text-faint" />
+                  )}
+                  {crumb.url && i < crumbs.length - 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(crumb.url!)}
+                      className="text-pc-text-secondary transition-colors hover:text-pc-text"
+                    >
+                      {crumb.label}
+                    </button>
+                  ) : (
+                    <span className="font-semibold text-pc-text">
+                      {crumb.label}
+                    </span>
+                  )}
+                </span>
+              ))}
+            </nav>
 
             <div className="flex-1 min-h-0 flex flex-col">{mainContent}</div>
           </div>

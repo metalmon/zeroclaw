@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import { Save, X } from 'lucide-react';
 import { Button } from '@/components/ui';
-import { plural, t } from '@/lib/i18n';
+import { plural, t, sectionLabel } from '@/lib/i18n';
 import { ApiError, getSections, type ValidationWarning } from '@/lib/api';
 import { validationWarningMessage } from '@/lib/validationWarnings';
 import {
@@ -61,7 +61,9 @@ export default function UnsavedChangesBanner() {
 
   if (dirtyCount === 0) return null;
 
-  const labelFor = (key: string) => labels[key] ?? humanize(key);
+  // Prefer the localized section label; fall back to the gateway's EN label,
+  // then a humanized key.
+  const labelFor = (key: string) => sectionLabel(key, labels[key] ?? humanize(key));
   const sectionList = dirtySections.map(labelFor).join(', ');
 
   const onSave = async () => {

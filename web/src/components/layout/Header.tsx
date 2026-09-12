@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import { LogOut, Settings, ChevronDown, Menu, Globe, Search } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { LogOut, Settings, ChevronDown, Menu, Globe, Search, Sparkles } from 'lucide-react';
 import { t, SUPPORTED_LOCALES } from '@/lib/i18n';
 import { useLocaleContext } from '@/App';
 import { useAuth } from '@/hooks/useAuth';
 import { SettingsModal } from '@/components/SettingsModal';
+import ReloadDaemonButton from '@/components/sections/ReloadDaemonButton';
 import { Button } from '@/components/ui';
 
 // Exact-path titles. The dashboard ('/') must stay exact so it doesn't
@@ -52,6 +53,7 @@ interface HeaderProps {
 
 export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { logout } = useAuth();
   const { locale, setAppLocale } = useLocaleContext();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -106,6 +108,22 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
             keep their size (icons here are flex items that would otherwise
             collapse in a tight row). */}
         <div className="flex items-center gap-2 h-9 shrink-0">
+          {/* Daemon-level actions, hoisted out of the per-section config header
+              (they repeated on every config tab). Icon-only + tooltip to match
+              the header's other controls. Reload triggers a full app refresh
+              once the daemon answers /health, so every open page picks up the
+              re-consumed config. */}
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/quickstart')}
+            className="hidden sm:flex h-9 w-9 border-transparent px-0"
+            title={t('cfg.header.quickstart')}
+            aria-label={t('cfg.header.quickstart')}
+          >
+            <Sparkles className="h-[18px] w-[18px] shrink-0" />
+          </Button>
+          <ReloadDaemonButton compact onReloaded={() => window.location.reload()} />
+
           {/* Command-palette trigger — styled like a search field. Opens the
               palette; the same action is bound globally to ⌘K / Ctrl+K, shown
               as a hint chip on the right. */}

@@ -26,6 +26,8 @@ interface ReloadDaemonButtonProps {
   onReloaded?: () => void;
   /** Override the default 30s health-poll timeout. */
   timeoutMs?: number;
+  /** Icon-only rendering for the global header (label shown as a tooltip). */
+  compact?: boolean;
 }
 
 type State =
@@ -36,7 +38,7 @@ type State =
   | { kind: 'back' }            // /health answered after reload
   | { kind: 'error'; message: string };
 
-export default function ReloadDaemonButton({ onReloaded, timeoutMs = 30_000 }: ReloadDaemonButtonProps) {
+export default function ReloadDaemonButton({ onReloaded, timeoutMs = 30_000, compact = false }: ReloadDaemonButtonProps) {
   const [state, setState] = useState<State>({ kind: 'idle' });
   const reloadAvailable = useReloadAvailable();
 
@@ -101,21 +103,31 @@ export default function ReloadDaemonButton({ onReloaded, timeoutMs = 30_000 }: R
         type="button"
         onClick={() => setState({ kind: 'confirming' })}
         disabled={isBusy}
-        className="btn-secondary flex items-center gap-2 text-sm h-9 px-3"
-        title={t('reload_btn.button_title')}
+        className={
+          compact
+            ? 'btn-secondary flex items-center justify-center h-9 w-9 border-transparent'
+            : 'btn-secondary flex items-center gap-2 text-sm h-9 px-3'
+        }
+        title={
+          compact && state.kind === 'idle'
+            ? t('reload_btn.reload_daemon')
+            : t('reload_btn.button_title')
+        }
+        aria-label={t('reload_btn.reload_daemon')}
       >
         {state.kind === 'reloading' || state.kind === 'waiting' ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <RotateCw className="h-4 w-4" />
         )}
-        {state.kind === 'reloading'
-          ? t('reload_btn.reloading')
-          : state.kind === 'waiting'
-            ? t('reload_btn.waiting')
-            : state.kind === 'back'
-              ? t('reload_btn.back')
-              : t('reload_btn.reload_daemon')}
+        {!compact &&
+          (state.kind === 'reloading'
+            ? t('reload_btn.reloading')
+            : state.kind === 'waiting'
+              ? t('reload_btn.waiting')
+              : state.kind === 'back'
+                ? t('reload_btn.back')
+                : t('reload_btn.reload_daemon'))}
       </button>
 
       {state.kind === 'error' && (
