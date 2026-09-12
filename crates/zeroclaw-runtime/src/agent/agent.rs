@@ -3335,6 +3335,65 @@ impl Agent {
         })
     }
 
+    /// Route a single, already-parsed tool call through this Agent's own
+    /// gated tool-only entry (`crate::agent::turn::tool_only::run_tool_only_turn`)
+    /// with no LLM/provider call anywhere in the path.
+    ///
+    /// This is the seam a non-model-driven caller (e.g. the ACP canvas-action
+    /// channel) uses to invoke a tool: it resolves the SAME sealed per-agent
+    /// `tools` (`ScopedToolRegistry`), `approval_manager`, and
+    /// `activated_tools` a normal turn resolves at
+    /// `turn_streamed_with_steering_state` (see the `ResolvedAgentExecution`
+    /// construction above) — never a second, unfiltered registry.
+    ///
+    /// `call.tool_call_id` should already carry the caller's own correlation
+    /// id (e.g. `"canvas:<callId>"`); it flows through unchanged to the
+    /// `TurnEvent::ToolCall`/`TurnEvent::ToolResult` pair sent on `event_tx`.
+    // consumed by the ACP canvas-action handler (follow-up task)
+    #[allow(dead_code)]
+    pub async fn run_canvas_tool_only_turn(
+        &mut self,
+        call: zeroclaw_tool_call_parser::ParsedToolCall,
+        event_tx: tokio::sync::mpsc::Sender<TurnEvent>,
+        cancellation_token: Option<tokio_util::sync::CancellationToken>,
+    ) -> Result<crate::agent::turn::tool_only::ToolOnlyOutcome> {
+        let turn_id = Self::new_turn_id();
+        let agent_alias = self.observer_agent_alias();
+        // No loop iterations happen on this path (a single pre-formed call,
+        // gated then executed once), so pacing knobs are inert here — a
+        // default is the same choice the LLM-driven turn effectively makes
+        // for anything `prepare_tool_calls` doesn't read off `ctx.pacing`.
+        let pacing = zeroclaw_config::schema::PacingConfig::default();
+        let ctx = crate::agent::turn::TurnCtx {
+            observer: self.observer.as_ref(),
+            provider_name: &self.model_provider_name,
+            model: &self.model_name,
+            temperature: self.temperature,
+            approval: self.approval_manager.as_deref(),
+            channel_name: &self.channel_name,
+            channel_reply_target: None,
+            cancellation_token: cancellation_token.as_ref(),
+            on_delta: None,
+            event_tx: Some(&event_tx),
+            hooks: self.hook_runner.as_deref(),
+            dedup_exempt_tools: &self.config.resolved.tool_call_dedup_exempt,
+            pacing: &pacing,
+            strict_tool_parsing: self.config.resolved.strict_tool_parsing,
+            channel: None,
+            draft_reasoning: zeroclaw_config::schema::StreamReasoningMode::Status,
+            turn_id: &turn_id,
+            agent_alias: agent_alias.as_deref(),
+            parent_agent_alias: None,
+        };
+        crate::agent::turn::tool_only::run_tool_only_turn(
+            &ctx,
+            &self.tools,
+            self.activated_tools.as_ref(),
+            call,
+        )
+        .await
+    }
+
     pub async fn run_single(&mut self, message: &str) -> Result<String> {
         self.turn(message).await
     }
@@ -5102,6 +5161,78 @@ mod tests {
 
         let response = agent.turn("hi").await.unwrap();
         assert_eq!(response, "hello");
+    }
+
+    #[tokio::test]
+    async fn run_canvas_tool_only_turn_runs_allowed_auto_approved_tool() {
+        let model_provider = Box::new(MockModelProvider {
+            responses: Mutex::new(Vec::new()),
+        });
+        let memory_cfg = zeroclaw_config::schema::MemoryConfig {
+            backend: "none".into(),
+            ..zeroclaw_config::schema::MemoryConfig::default()
+        };
+        let mem: Arc<dyn Memory> = Arc::from(
+            zeroclaw_memory::create_memory(&memory_cfg, std::path::Path::new("/tmp"), None)
+                .expect("memory creation should succeed with valid config"),
+        );
+        let observer: Arc<dyn Observer> = Arc::from(crate::observability::NoopObserver {});
+        let calls = Arc::new(AtomicUsize::new(0));
+        let approval = crate::approval::ApprovalManager::from_risk_profile(
+            &zeroclaw_config::schema::RiskProfileConfig {
+                level: crate::security::AutonomyLevel::Full,
+                ..Default::default()
+            },
+        );
+        let mut agent = Agent::builder()
+            .model_provider(model_provider)
+            .tools(crate::tools::scoped::ScopedToolRegistry::from_raw_for_test(
+                vec![Box::new(CountingTool {
+                    calls: Arc::clone(&calls),
+                })],
+            ))
+            .memory(mem)
+            .observer(observer)
+            .tool_dispatcher(Box::new(NativeToolDispatcher))
+            .workspace_dir(std::path::PathBuf::from("/tmp"))
+            .approval_manager(Some(Arc::new(approval)))
+            .build()
+            .expect("agent builder should succeed with valid config");
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<TurnEvent>(8);
+        let call = zeroclaw_tool_call_parser::ParsedToolCall {
+            name: "echo".to_string(),
+            arguments: serde_json::json!({"x": 1}),
+            tool_call_id: Some("canvas:n1:1".to_string()),
+        };
+
+        let outcome = agent
+            .run_canvas_tool_only_turn(call, tx.clone(), None)
+            .await
+            .expect("tool-only turn should not error");
+
+        assert!(
+            !outcome.gated_out,
+            "an allowed, auto-approved call must not be gated out"
+        );
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            1,
+            "the tool must have run exactly once"
+        );
+
+        drop(tx);
+        let mut saw_result = false;
+        while let Some(event) = rx.recv().await {
+            if let TurnEvent::ToolResult { id, .. } = event {
+                assert_eq!(id, "canvas:n1:1", "ToolResult must carry the caller's id");
+                saw_result = true;
+            }
+        }
+        assert!(
+            saw_result,
+            "expected a ToolResult event for the executed call"
+        );
     }
 
     #[tokio::test]
