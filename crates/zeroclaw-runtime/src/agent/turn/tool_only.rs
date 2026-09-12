@@ -16,8 +16,6 @@ use std::collections::HashSet;
 use zeroclaw_tool_call_parser::ParsedToolCall;
 
 /// Outcome of a gated tool-only turn.
-// consumed by the ACP canvas-action handler (next task)
-#[allow(dead_code)]
 pub struct ToolOnlyOutcome {
     /// `true` when nothing executed: the approval gate denied the call, a
     /// `before_tool_call` hook cancelled it, it was deduplicated away, or the
@@ -42,8 +40,6 @@ pub struct ToolOnlyOutcome {
 /// failed" outcome. This function checks resolvability itself (after the
 /// gate, so it never skips approval) and reports an unresolvable tool as
 /// `gated_out` instead of a failed execution.
-// consumed by the ACP canvas-action handler (next task)
-#[allow(dead_code)]
 pub async fn run_tool_only_turn(
     ctx: &TurnCtx<'_>,
     tools_registry: &[Box<dyn crate::tools::Tool>],
