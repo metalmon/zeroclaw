@@ -63,3 +63,15 @@ cli-doctor-cli-tools-count = обнаружено CLI-инструментов: 
 cli-doctor-command-version = {$cmd}: {$version}
 cli-doctor-command-nonzero = {$cmd} найден, но вернул ненулевой код
 cli-doctor-command-not-found = {$cmd} не найден в PATH
+
+# --- doctor diagnostics (pre-existing keys, web-visible) ---
+cli-doctor-context-window-ok = {$provider_ref}: окно контекста: {$context_window} токенов
+cli-doctor-context-window-unset = {$provider_ref}: context_window не задан — при выборе будет использован запасной лимит {$fallback} токенов; вероятно, намного ниже реального лимита модели; задайте context_window в этом профиле
+cli-doctor-context-window-zero = {$provider_ref}: context_window равен 0 (недопустимо; задайте реальный лимит контекста модели)
+cli-doctor-degraded-section = раздел конфигурации `{$path}` некорректен и был сброшен к значениям по умолчанию; значения в этом разделе НЕ действуют. Выполните `zeroclaw config migrate`, чтобы увидеть ошибку разбора, затем исправьте файл.
+cli-doctor-degraded-security = КРИТИЧНЫЙ ДЛЯ БЕЗОПАСНОСТИ раздел конфигурации `{$path}` некорректен и был сброшен к значению по умолчанию, чтобы демон смог запуститься; текущая защита может быть СЛАБЕЕ задуманной. Выполните `zeroclaw config migrate`, чтобы увидеть ошибку разбора, затем исправьте файл.
+cli-doctor-systemd-linger-disabled = задержка сессии systemd (lingering) отключена; пользовательская служба может остановиться после выхода из системы. Включите командой: loginctl enable-linger {$user}
+cli-doctor-systemd-linger-enabled = задержка сессии systemd (lingering) включена
+cli-doctor-systemd-linger-unknown = не удалось проверить задержку сессии systemd (lingering) через loginctl
+cli-doctor-web-dist-dir-expansion-warning = gateway.web_dist_dir = "{$path}" — {$reason}; gateway.web_dist_dir читается буквально, поэтому раскройте значение самостоятельно (например, абсолютный путь)
+cli-doctor-verifiable-intent-tool-withheld = verifiable_intent.enabled включен, но инструмент vi_verify скрыт из видимого модели реестра, пока не появится проверяющий цепочку учетных данных. Включение раздела не включает проверку учетных данных при коммерческих вызовах инструментов. Пути библиотек выпуска и проверки не затронуты.
