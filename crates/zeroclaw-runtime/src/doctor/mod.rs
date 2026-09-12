@@ -1597,6 +1597,17 @@ fn localized_validation_warning_message(
         zeroclaw_config::validation_warnings::VERIFIABLE_INTENT_TOOL_WITHHELD => {
             crate::i18n::get_required_cli_string("cli-doctor-verifiable-intent-tool-withheld")
         }
+        // The config crate can't reach the runtime i18n, so this warning ships a
+        // fully-formatted English `message`. The only dynamic part is the
+        // search_mode, rendered as the first quoted token — recover it and pass
+        // it to the localized template.
+        "memory_semantic_search_without_embedder" => {
+            let search_mode = warning.message.split('"').nth(1).unwrap_or_default();
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-memory-semantic-search-without-embedder",
+                &[("search_mode", search_mode)],
+            )
+        }
         _ => warning.message.clone(),
     }
 }

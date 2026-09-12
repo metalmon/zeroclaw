@@ -1184,6 +1184,7 @@ cli-doctor-probe-timeout-message = Model probing timed out. Some provider catalo
 cli-doctor-degraded-security = SECURITY-CRITICAL config section `{$path}` is invalid and was reset to its default so the daemon can boot; the running posture may be WEAKER than intended. Run `zeroclaw config migrate` to see the parse error, then repair the file.
 cli-doctor-degraded-section = config section `{$path}` is malformed and was reset to defaults; values in that section are NOT in effect. Run `zeroclaw config migrate` to see the parse error, then repair the file.
 cli-doctor-verifiable-intent-tool-withheld = verifiable_intent.enabled is set, but the vi_verify tool is withheld from the model-visible registry until a credential chain verifier exists. Enabling the section does not enable credential verification on commerce tool calls. The issuance and verification library paths are unaffected.
+cli-doctor-memory-semantic-search-without-embedder = memory.search_mode is "{$search_mode}" on sqlite memory, but no effective embedding provider is configured; vector search is skipped and recall falls back to keyword-only behavior. Configure memory.embedding_provider or a valid memory.embedding_model hint route, or set memory.search_mode = "bm25".
 
 # --- doctor diagnostics ---
 cli-doctor-config-file = config file: {$path}
