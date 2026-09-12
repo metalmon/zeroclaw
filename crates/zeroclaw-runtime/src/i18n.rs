@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 static DESCRIPTIONS: OnceLock<HashMap<String, String>> = OnceLock::new();
+static SECTIONS: OnceLock<HashMap<String, String>> = OnceLock::new();
 static CLI_STRINGS: OnceLock<HashMap<String, String>> = OnceLock::new();
 static CLI_FTL_SOURCES: OnceLock<CliFtlSources> = OnceLock::new();
 static LOCALE: OnceLock<String> = OnceLock::new();
@@ -54,6 +55,7 @@ struct CliFtlSources {
 pub fn init(locale: &str) {
     let locale = LOCALE.get_or_init(|| normalize_locale(locale));
     DESCRIPTIONS.get_or_init(|| load_descriptions(locale));
+    SECTIONS.get_or_init(|| load_sections(locale));
     CLI_STRINGS.get_or_init(|| load_cli_strings(locale));
     CLI_FTL_SOURCES.get_or_init(|| load_cli_ftl_sources(locale));
 }
@@ -74,6 +76,19 @@ pub fn localized_tool_description(tool_name: &str) -> Option<&'static str> {
         return None;
     }
     get_tool_description(tool_name)
+}
+
+/// Localized config-picker / wizard-preset string for UI surfaces (section
+/// pickers, Quickstart risk/runtime presets). Keyed by the stable identifier
+/// (backend key, `preset_name`, storage key). Returns `None` on English so
+/// callers keep their canonical English literal, and `Some(text)` on a
+/// non-English locale when a translated catalog entry exists on disk.
+pub fn localized_section(key: &str) -> Option<&'static str> {
+    if active_locale() == "en" {
+        return None;
+    }
+    let map = SECTIONS.get_or_init(|| load_sections(active_locale()));
+    map.get(key).map(String::as_str)
 }
 
 /// Get a CLI string by key (e.g. "cli-config-about").
@@ -147,6 +162,16 @@ fn load_descriptions(locale: &str) -> HashMap<String, String> {
     let mut map = format_ftl_messages(include_str!("../locales/en/tools.ftl"), "en");
     if locale != "en"
         && let Some(locale_ftl) = load_ftl_from_disk(locale, "tools.ftl")
+    {
+        map.extend(format_ftl_messages(&locale_ftl, locale));
+    }
+    map
+}
+
+fn load_sections(locale: &str) -> HashMap<String, String> {
+    let mut map = format_ftl_messages(include_str!("../locales/en/sections.ftl"), "en");
+    if locale != "en"
+        && let Some(locale_ftl) = load_ftl_from_disk(locale, "sections.ftl")
     {
         map.extend(format_ftl_messages(&locale_ftl, locale));
     }
