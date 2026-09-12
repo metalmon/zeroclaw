@@ -190,3 +190,69 @@ tool-web-search-tool-note-truncated-results = (further results omitted)
 tool-workspace = Manage multi-client workspaces. Subcommands: list, switch, create, info, export. Each workspace provides isolated memory, audit, secrets, and tool restrictions.
 
 tool-weather = Get current weather conditions and forecast for any location worldwide. Supports city names (in any language or script), IATA airport codes (e.g. 'LAX'), GPS coordinates (e.g. '51.5,-0.1'), postal/zip codes, and domain-based geolocation. Returns temperature, feels-like, humidity, wind speed/direction, precipitation, visibility, pressure, UV index, and cloud cover. Optional 0-3 day forecast with hourly breakdown. Units default to metric (°C, km/h, mm) but can be set to imperial (°F, mph, inches) per request. No API key required.
+
+# --- coverage completion: descriptions for tools that previously fell back to English ---
+
+# delegation / CLI coding agents / subagents
+tool-claude-code = Delegate a coding task to Claude Code (claude -p). Supports file editing, bash execution, structured output, and multi-turn sessions. Use for complex coding work that benefits from Claude Code's full agent loop.
+tool-claude-code-runner = Spawn a Claude Code task in a tmux session with live Slack progress updates and SSH handoff. Returns immediately with session ID and attach command.
+tool-codex-cli = Delegate a coding task to Codex CLI (codex exec). Supports file editing and bash execution. Use for complex coding work that benefits from Codex's full agent loop.
+tool-gemini-cli = Delegate a coding task to Gemini CLI (gemini -p). Supports file editing and shell execution. Use for complex coding work that benefits from Gemini CLI's full agent loop.
+tool-opencode-cli = Delegate a coding task to OpenCode CLI (opencode run). Supports file editing and bash execution. Use for complex coding work that benefits from OpenCode's full agent loop.
+tool-spawn-subagent = Spawn an ephemeral SubAgent that inherits this agent's identity, security policy, and memory allowlist. The SubAgent runs the supplied prompt to completion under the parent's permissions envelope and returns its response. Use for focused subtasks (research lookup, multi-step reasoning, etc.) that should not pollute this agent's main conversation history. Cost-aware: each SubAgent run is a full agent loop and consumes provider tokens.
+tool-llm-task = Run a prompt through an LLM with no tool access and return the response. Optionally validates the output against a JSON Schema. Ideal for structured data extraction, classification, summarization, and transformation tasks.
+
+# pipeline / runtime model switch
+tool-execute-pipeline = Execute a multi-step tool pipeline in a single call. Steps run sequentially by default with result interpolation (use {"{{step[N].result}}"} to reference prior outputs), or in parallel when 'parallel: true' is set. Set 'result: "last"' to return only the final step's output (recommended when an earlier step yields a large blob, e.g. base64, that should not flow back into the context); the default 'all' returns every step's result.
+tool-model-switch = Request a runtime model switch using a configured provider profile plus provider-local model. Use 'get' to see the pending switch, 'list_model_providers' to see provider families, 'list_models' to see common models for a provider profile, or 'set' with a dotted provider profile ref such as 'openai.default'. The switch is runtime/session state and does not write config.
+
+# interaction / compute / canvas / todo
+tool-ask-user = Ask the user a question and wait for their response. Sends the question to a messaging channel and blocks until the user replies or the timeout expires. Optionally provide choices for structured responses.
+tool-escalate-to-human = Escalate a situation to a human operator with urgency routing. Sends a structured message to the active channel. High/critical urgency also notifies any channels listed in `[escalation] alert_channels`, which additionally serve as a fallback when the active channel cannot deliver. Optionally blocks to wait for a human response.
+tool-calculator = Perform arithmetic and statistical calculations. Supports 25 functions: add, subtract, divide, multiply, pow, sqrt, abs, modulo, round, log, ln, exp, factorial, sum, average, median, mode, min, max, range, variance, stdev, percentile, count, percentage_change, clamp. Use this tool whenever you need to compute a numeric result instead of guessing.
+tool-canvas = Push rendered content (HTML, SVG, Markdown) to a live web canvas that users can see in real-time. Actions: render (push content), snapshot (get current content), clear (reset canvas), eval (evaluate JS expression in canvas context). Each canvas is identified by a canvas_id string.
+tool-TodoWrite = Render a live task tracker for the current work. Call this with the COMPLETE current todo list every time — the new list wholly replaces the previous one. Each todo has `content` (imperative description), `status` (pending, in_progress, or completed), and optionally `priority` (high, medium, low) and `activeForm` (present-continuous label shown while in_progress). Keep exactly one item in_progress at a time. Pass an empty list to clear the tracker.
+
+# messaging / delivery
+tool-send-via = Control where and how this turn's reply is delivered, or send an extra message to another channel. WHEN TO USE: call this tool at the start of your response whenever the user requests a specific reply format or destination — e.g. "reply by text", "send as voice", "text only", "send to my email", "redirect to Discord". Do not wait for the user to name the tool; infer intent from natural language just as you would use a weather tool when asked for the weather. Without `body` (routing instruction — affects this turn's main reply): - `send_via(modality: "text")` — reply by text even on a voice-only peer - `send_via(modality: "voice")` — reply by voice even on a text-only peer - `send_via(target: "discord.main")` — redirect reply to another channel - `send_via(target: "discord.main", modality: "voice")` — redirect + force modality At least one of `target` or `modality` is required when `body` is absent. With `body` (immediate fanout — main reply still goes to originating channel): - `send_via(target: "email.default", body: "...")` — send separate content elsewhere `target` is required when `body` is present. `target` must be a channel alias (e.g. `telegram.default`) or a peer group name the active agent belongs to. `modality` defaults to the peer group's output_modality.
+tool-send-message-to-peer = Send a message to a peer agent or external peer (human, external bot) on a shared channel. The target must be a member of a peer group both this agent and the target agree on (or an external peer listed on the shared group's `external_peers`). Cross-agent sends to non-peers are rejected at the tool boundary; the channel send only happens after the peer-set check passes. Use the current channel ref unless the user explicitly names another allowed channel. Do not pass peer group names as the `channel` parameter.
+tool-deliver-file = Deliver a file from the workspace to the ACP client as an embedded binary resource (PDF, DOCX, images, etc.). Use when the user should download or preview the file. Path must stay inside the workspace. On success the result includes `uri` (`attachment://deliver/<content-hash>`) — cite that exact uri in widgets/`[N]`; do not invent prefixes. Pass an optional `title` (any prose) as the client's chat label for the file; it defaults to the filename. Do not invent ACP filename fields.
+
+# email
+tool-email-read = Fetch the full content of an email by its UID (from email_search results). Returns sender, subject, date, body text, and attachment names. Never marks the email as read.
+tool-email-search = Search emails in a configured IMAP mailbox. Never modifies any email (read-state is preserved). Use to check if someone sent a message, find emails by subject, or look up threads. Returns sender, subject, date, and UID for each match.
+
+# files / upload / images
+tool-file-upload = Upload a local file to the configured remote endpoint via multipart/form-data. The file path stays on the host; bytes are not loaded into model context. Returns the HTTP status and a truncated response body so the caller can extract any URL or identifier the receiver echoes back.
+tool-file-upload-bundle = Upload N local files as a single multipart/form-data request. All files are sent in one HTTP round-trip; however, transactional (all-or-nothing) semantics depend on the receiving endpoint. Use for multi-file deliverables (HTML + CSS + JS, report + figures). File paths stay on the host; bytes are not loaded into model context. Returns the HTTP status and a truncated response body.
+tool-image-gen = Generate an image from a text prompt using fal.ai (Flux models). Saves the result to the workspace images directory and returns the file path.
+
+# git forge
+tool-git-forge = Operate on a git forge (GitHub/Gitea) through the git channel. Actions: 'describe' returns the resource/action grid and endpoint shapes; a typed call takes {"{resource, action, repo, ...}"} for milestone/label/issue/pull/ review/reviewer/comment (validated beyond a bare 2xx); 'raw' takes {"{method, path, body}"} for any endpoint not yet typed. Call 'describe' first when unsure. Names the git channel by its channel key (default 'git').
+tool-git = Operate on a git forge (GitHub/Gitea) through the git channel. Actions: 'describe' returns the resource/action grid and endpoint shapes; a typed call takes {"{resource, action, repo, ...}"} for milestone/label/issue/pull/ review/reviewer/comment (validated beyond a bare 2xx); 'raw' takes {"{method, path, body}"} for any endpoint not yet typed. Call 'describe' first when unsure. Names the git channel by its channel key (default 'git').
+
+# mcp prompts / resources
+tool-mcp-prompts = List or get prompts exposed by connected MCP servers. action=list [server,cursor] returns available prompts (names are prefixed `<server>__<name>`); action=get name=<prefixed-name> arguments={"{...}"} returns the resolved prompt messages.
+tool-mcp-resources = List or read resources exposed by connected MCP servers. action=list [server,cursor] returns available resources (uris are prefixed `<server>__<uri>`); action=read uri=<prefixed-uri> returns the resource contents.
+
+# memory
+tool-memory-export = Export visible memories as a JSON array for GDPR Art. 20 data portability. Supports filtering by namespace, session, category, and time range. Returns a structured, machine-readable JSON array of entries that pass the active memory read policy.
+tool-memory-purge = Remove all memories in a namespace or session. Use to bulk-delete per-tenant or per-conversation data. Returns the number of deleted entries. WARNING: This operation cannot be undone.
+
+# sessions
+tool-sessions-list = List all active conversation sessions with their channel, last activity time, and message count.
+tool-sessions-history = Read the message history of a specific session by its session ID. Returns the last N messages.
+tool-sessions-send = Send a message to a specific session by its session ID. The message is appended to the session's conversation history as a 'user' message, enabling inter-agent communication.
+tool-sessions-current = Return the session key and metadata for the session this agent is currently running in.
+tool-sessions-reset = Reset a session by clearing all its messages. The session can still receive new messages after reset.
+tool-sessions-delete = Permanently delete a session and all its messages. This cannot be undone.
+
+# skills / SOP
+tool-read-skill = Read the full source file for an available skill by name. Use this in compact skills mode when you need the complete skill instructions without remembering file paths.
+tool-skills-list = List installed skills with their name, version, and one-line description. Read-only. Use before `skill_view` or `skill_manage` to find candidate slugs.
+tool-skill-view = Read a single skill's SKILL.md content (YAML front-matter + body preview) plus the names of its support files under references/, templates/, scripts/. Use this before deciding whether to patch the skill or add a support file.
+tool-skill-manage = Mutating operations on installed skills. Actions: `patch` (atomically rewrite SKILL.md — supply the full new file content; the YAML front-matter must have a `name` field), `write_file` (add a file under references/, templates/, or scripts/), `archive` (move to .archive/). All writes go through atomic temp-rename and validation where applicable.
+tool-sop-workshop = Manage SOP procedural-memory proposals: propose, capture_run, list, inspect, apply, reject, or quarantine. Apply writes SOP.toml/SOP.md only after an explicit action.
+
+# browsing
+tool-text-browser = Render a web page as plain text using a text-based browser (lynx, links, or w3m). Ideal for headless/SSH environments without a graphical browser. Auto-detects available browser or uses a configured preference. For untrusted URLs, prefer web_fetch because external browsers can re-resolve DNS and follow redirects to unvalidated hosts.
