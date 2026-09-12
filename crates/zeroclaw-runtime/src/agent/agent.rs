@@ -3394,6 +3394,136 @@ impl Agent {
         .await
     }
 
+    /// Combined-mode canvas action (spec §3c): gate+run a single tool call
+    /// exactly as `run_canvas_tool_only_turn` does, then — only if it
+    /// succeeded — inject the tool call+result round into `self.history`
+    /// and run a normal model turn, so the model answers with the tool
+    /// result already in its provider-visible context.
+    ///
+    /// `run_canvas_tool_only_turn` is a deliberate NO-history side channel;
+    /// this method exists because combined mode needs the model to actually
+    /// see the tool's output, which requires injecting it into `self.history`
+    /// before `turn_streamed_with_steering_state` builds the provider
+    /// request from that history.
+    ///
+    /// Abort semantics (non-negotiable): if the tool is gated out (denied,
+    /// hook-cancelled, deduplicated, or unresolvable) or its execution
+    /// outcome reports failure, this returns `Ok((text, Vec::new()))` with
+    /// NO model turn at all — `text` mirrors the same
+    /// `outcome.map(|o| o.output).unwrap_or_default()` mapping the pure
+    /// tool-only ACP caller uses. An empty returned `Vec` tells the caller
+    /// there is nothing beyond what `run_tool_only_turn` already streamed
+    /// via `event_tx` to persist to its own turn history.
+    ///
+    /// On success, the returned `Vec` starts with the two injected
+    /// `ConversationMessage`s (`AssistantToolCalls` then `ToolResults`)
+    /// followed by the model round's own new messages, so a caller's single
+    /// `append_turn` persists the whole combined turn atomically.
+    // consumed by the ACP combined-mode branch (Task 5b)
+    #[allow(dead_code)]
+    pub async fn run_canvas_combined_turn(
+        &mut self,
+        call: zeroclaw_tool_call_parser::ParsedToolCall,
+        prompt: &str,
+        event_tx: tokio::sync::mpsc::Sender<TurnEvent>,
+        cancellation_token: Option<tokio_util::sync::CancellationToken>,
+    ) -> Result<(String, Vec<ConversationMessage>)> {
+        let turn_id = Self::new_turn_id();
+        let agent_alias = self.observer_agent_alias();
+        // Same rationale as `run_canvas_tool_only_turn`: a single pre-formed
+        // call gated then executed once has no loop iterations, so pacing
+        // knobs are inert here.
+        let pacing = zeroclaw_config::schema::PacingConfig::default();
+        let ctx = crate::agent::turn::TurnCtx {
+            observer: self.observer.as_ref(),
+            provider_name: &self.model_provider_name,
+            model: &self.model_name,
+            temperature: self.temperature,
+            approval: self.approval_manager.as_deref(),
+            channel_name: &self.channel_name,
+            channel_reply_target: None,
+            cancellation_token: cancellation_token.as_ref(),
+            on_delta: None,
+            event_tx: Some(&event_tx),
+            hooks: self.hook_runner.as_deref(),
+            dedup_exempt_tools: &self.config.resolved.tool_call_dedup_exempt,
+            pacing: &pacing,
+            strict_tool_parsing: self.config.resolved.strict_tool_parsing,
+            channel: None,
+            draft_reasoning: zeroclaw_config::schema::StreamReasoningMode::Status,
+            turn_id: &turn_id,
+            agent_alias: agent_alias.as_deref(),
+            parent_agent_alias: None,
+        };
+
+        // The call is consumed by `run_tool_only_turn`; keep what the
+        // injected history round needs afterward.
+        let tool_call_id = call
+            .tool_call_id
+            .clone()
+            .unwrap_or_else(|| format!("canvas:{turn_id}"));
+        let tool_name = call.name.clone();
+        let tool_arguments = call.arguments.to_string();
+
+        let crate::agent::turn::tool_only::ToolOnlyOutcome { gated_out, outcome } =
+            crate::agent::turn::tool_only::run_tool_only_turn(
+                &ctx,
+                &self.tools,
+                self.activated_tools.as_ref(),
+                call,
+            )
+            .await?;
+
+        // Abort path (spec §3c step 2): denied/hook-cancelled/deduplicated/
+        // unresolvable (`gated_out`), missing, or failed outcomes all
+        // short-circuit here with NO model turn — the tool's denial/failure
+        // already streamed as a `tool_call_update` via `event_tx` inside
+        // `run_tool_only_turn`. Same output-text mapping the pure tool-only
+        // ACP caller uses (`outcome.output` if present, else empty).
+        if gated_out || outcome.as_ref().is_none_or(|o| !o.success) {
+            let text = outcome.map(|o| o.output).unwrap_or_default();
+            return Ok((text, Vec::new()));
+        }
+        let exec_outcome =
+            outcome.expect("checked above: gated_out is false and outcome is Some(success)");
+
+        // Success: inject the tool call+result round into `self.history`
+        // BEFORE the model turn runs, in the exact shape the normal tool
+        // loop replays into history (see `Self::replay_loop_messages` and
+        // the `self.history.push(replayed)` site in the round loop above) —
+        // so `turn_streamed_with_steering_state`'s provider request (built
+        // from `self.history`) includes the tool result.
+        let injected_assistant = ConversationMessage::AssistantToolCalls {
+            text: None,
+            tool_calls: vec![zeroclaw_providers::ToolCall {
+                id: tool_call_id.clone(),
+                name: tool_name.clone(),
+                arguments: tool_arguments,
+                extra_content: None,
+            }],
+            reasoning_content: None,
+        };
+        let injected_results = ConversationMessage::ToolResults(vec![ToolResultMessage {
+            tool_call_id,
+            content: exec_outcome.output,
+            tool_name,
+        }]);
+        self.history.push(injected_assistant.clone());
+        self.history.push(injected_results.clone());
+
+        let (model_text, mut new_msgs) = self
+            .turn_streamed_with_steering_state(prompt, event_tx, cancellation_token, None)
+            .await
+            .map(|success| (success.response, success.new_messages))
+            .map_err(|err| err.error)?;
+
+        let mut combined = Vec::with_capacity(2 + new_msgs.len());
+        combined.push(injected_assistant);
+        combined.push(injected_results);
+        combined.append(&mut new_msgs);
+        Ok((model_text, combined))
+    }
+
     pub async fn run_single(&mut self, message: &str) -> Result<String> {
         self.turn(message).await
     }
@@ -5539,6 +5669,228 @@ mod tests {
                 "provider must receive the labeled envelope and original text: {}",
                 user.content
             );
+        }
+
+        /// Model provider that must never be invoked. Used by the combined-turn
+        /// abort-path test: if the canvas tool is denied, `run_canvas_combined_turn`
+        /// must return before any provider call is attempted.
+        struct NeverCalledModelProvider;
+
+        #[async_trait]
+        impl ModelProvider for NeverCalledModelProvider {
+            async fn chat_with_system(
+                &self,
+                _system_prompt: Option<&str>,
+                _message: &str,
+                _model: &str,
+                _temperature: Option<f64>,
+            ) -> Result<String> {
+                panic!("model provider must not be called when the canvas tool is denied");
+            }
+
+            async fn chat(
+                &self,
+                _request: ChatRequest<'_>,
+                _model: &str,
+                _temperature: Option<f64>,
+            ) -> Result<zeroclaw_providers::ChatResponse> {
+                panic!("model provider must not be called when the canvas tool is denied");
+            }
+        }
+
+        impl ::zeroclaw_api::attribution::Attributable for NeverCalledModelProvider {
+            fn role(&self) -> ::zeroclaw_api::attribution::Role {
+                ::zeroclaw_api::attribution::Role::Provider(
+                    ::zeroclaw_api::attribution::ProviderKind::Model(
+                        ::zeroclaw_api::attribution::ModelProviderKind::Custom,
+                    ),
+                )
+            }
+            fn alias(&self) -> &str {
+                "NeverCalledModelProvider"
+            }
+        }
+
+        #[tokio::test]
+        async fn run_canvas_combined_turn_injects_tool_result_then_runs_model() {
+            let memory_cfg = zeroclaw_config::schema::MemoryConfig {
+                backend: "none".into(),
+                ..zeroclaw_config::schema::MemoryConfig::default()
+            };
+            let workspace = tempfile::TempDir::new().expect("temp dir");
+            let mem: Arc<dyn Memory> = Arc::from(
+                zeroclaw_memory::create_memory(&memory_cfg, workspace.path(), None)
+                    .expect("memory creation should succeed"),
+            );
+            let observer: Arc<dyn Observer> = Arc::from(crate::observability::NoopObserver {});
+            let tool_calls = Arc::new(AtomicUsize::new(0));
+            let approval = crate::approval::ApprovalManager::from_risk_profile(
+                &zeroclaw_config::schema::RiskProfileConfig {
+                    level: crate::security::AutonomyLevel::Full,
+                    ..Default::default()
+                },
+            );
+            let (provider, captured) = capturing_provider(true);
+
+            let mut agent = Agent::builder()
+                .model_provider(provider)
+                .tools(crate::tools::scoped::ScopedToolRegistry::from_raw_for_test(
+                    vec![Box::new(CountingTool {
+                        calls: Arc::clone(&tool_calls),
+                    })],
+                ))
+                .memory(mem)
+                .observer(observer)
+                .tool_dispatcher(Box::new(NativeToolDispatcher))
+                .workspace_dir(workspace.path().to_path_buf())
+                .approval_manager(Some(Arc::new(approval)))
+                .build()
+                .expect("agent builder should succeed");
+
+            let (tx, mut rx) = tokio::sync::mpsc::channel::<TurnEvent>(8);
+            let call = zeroclaw_tool_call_parser::ParsedToolCall {
+                name: "echo".to_string(),
+                arguments: serde_json::json!({"x": 1}),
+                tool_call_id: Some("canvas:n1:1".to_string()),
+            };
+
+            let (model_text, messages) = agent
+                .run_canvas_combined_turn(call, "Explain", tx.clone(), None)
+                .await
+                .expect("combined turn should not error");
+
+            assert_eq!(
+                tool_calls.load(Ordering::SeqCst),
+                1,
+                "the tool must have run exactly once"
+            );
+            assert_eq!(
+                model_text, "done",
+                "method must return the model turn's answer text"
+            );
+
+            assert!(
+                messages.len() >= 2,
+                "returned messages must include the injected round: {messages:?}"
+            );
+            match &messages[0] {
+                ConversationMessage::AssistantToolCalls { tool_calls, .. } => {
+                    assert_eq!(tool_calls.len(), 1);
+                    assert_eq!(tool_calls[0].id, "canvas:n1:1");
+                    assert_eq!(tool_calls[0].name, "echo");
+                }
+                other => panic!("expected AssistantToolCalls first, got {other:?}"),
+            }
+            match &messages[1] {
+                ConversationMessage::ToolResults(results) => {
+                    assert_eq!(results.len(), 1);
+                    assert_eq!(results[0].tool_call_id, "canvas:n1:1");
+                    assert_eq!(results[0].content, "tool-out");
+                }
+                other => panic!("expected ToolResults second, got {other:?}"),
+            }
+
+            // Load-bearing assertion: the injected tool round must have reached
+            // the model's own provider-visible context, not just the returned
+            // Vec — otherwise the model turn ran blind to the tool result.
+            let captured = captured.lock();
+            let last_request = captured.last().expect("provider request captured");
+            assert!(
+                last_request.iter().any(|m| m.content.contains("tool-out")),
+                "the model-visible transcript must contain the injected tool result: {last_request:?}"
+            );
+            drop(captured);
+
+            drop(tx);
+            let mut saw_tool_result_event = false;
+            while let Some(event) = rx.recv().await {
+                if let TurnEvent::ToolResult { id, .. } = event {
+                    assert_eq!(id, "canvas:n1:1", "ToolResult must carry the caller's id");
+                    saw_tool_result_event = true;
+                }
+            }
+            assert!(
+                saw_tool_result_event,
+                "expected a ToolResult event for the executed call"
+            );
+        }
+
+        #[tokio::test]
+        async fn run_canvas_combined_turn_aborts_on_denial_without_model_turn() {
+            let memory_cfg = zeroclaw_config::schema::MemoryConfig {
+                backend: "none".into(),
+                ..zeroclaw_config::schema::MemoryConfig::default()
+            };
+            let workspace = tempfile::TempDir::new().expect("temp dir");
+            let mem: Arc<dyn Memory> = Arc::from(
+                zeroclaw_memory::create_memory(&memory_cfg, workspace.path(), None)
+                    .expect("memory creation should succeed"),
+            );
+            let observer: Arc<dyn Observer> = Arc::from(crate::observability::NoopObserver {});
+            let tool_calls = Arc::new(AtomicUsize::new(0));
+            // Supervised + non-interactive + no channel: the approval gate falls
+            // back to auto-deny for any tool it prompts for (mirrors
+            // `tool_only::tests::approval_required_and_denied_gates_out_without_running`).
+            let approval = crate::approval::ApprovalManager::for_non_interactive(
+                &zeroclaw_config::schema::RiskProfileConfig::default(),
+            );
+
+            let mut agent = Agent::builder()
+                .model_provider(Box::new(NeverCalledModelProvider))
+                .tools(crate::tools::scoped::ScopedToolRegistry::from_raw_for_test(
+                    vec![Box::new(CountingTool {
+                        calls: Arc::clone(&tool_calls),
+                    })],
+                ))
+                .memory(mem)
+                .observer(observer)
+                .tool_dispatcher(Box::new(NativeToolDispatcher))
+                .workspace_dir(workspace.path().to_path_buf())
+                .approval_manager(Some(Arc::new(approval)))
+                .build()
+                .expect("agent builder should succeed");
+
+            let (tx, mut rx) = tokio::sync::mpsc::channel::<TurnEvent>(8);
+            let call = zeroclaw_tool_call_parser::ParsedToolCall {
+                name: "echo".to_string(),
+                arguments: serde_json::json!({}),
+                tool_call_id: Some("canvas:n2:1".to_string()),
+            };
+
+            let (text, messages) = agent
+                .run_canvas_combined_turn(call, "Explain", tx.clone(), None)
+                .await
+                .expect("combined turn should not error even when the tool is denied");
+
+            assert_eq!(
+                tool_calls.load(Ordering::SeqCst),
+                0,
+                "the tool's execute() must never run when the approval gate denies the call"
+            );
+            assert!(
+                messages.is_empty(),
+                "a denied tool must produce no history messages — no model turn ran: {messages:?}"
+            );
+            assert_eq!(
+                text, "",
+                "a gated-out call has no execution outcome to report as text"
+            );
+
+            // `prepare_tool_calls` synthesizes a denial ToolCall/ToolResult pair
+            // on the deny path (parity with a model-emitted denied call) — that
+            // is expected and is NOT the real tool running.
+            drop(tx);
+            while let Some(event) = rx.recv().await {
+                if let TurnEvent::ToolResult { output, .. } = event {
+                    assert_ne!(
+                        output, "tool-out",
+                        "a denied call's ToolResult must not be the tool's own output"
+                    );
+                }
+            }
+            // NeverCalledModelProvider would have panicked already if the
+            // model turn had run; reaching here without a panic IS the
+            // "provider never called" assertion.
         }
 
         #[test]
