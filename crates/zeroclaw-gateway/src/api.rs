@@ -413,9 +413,13 @@ pub async fn handle_api_tools(
     let tools: Vec<serde_json::Value> = registry
         .iter()
         .map(|spec| {
+            let description = match zeroclaw_runtime::i18n::localized_tool_description(&spec.name) {
+                Some(localized) => serde_json::json!(localized),
+                None => serde_json::json!(spec.description),
+            };
             let mut tool = serde_json::json!({
                 "name": spec.name,
-                "description": spec.description,
+                "description": description,
                 "parameters": spec.parameters,
             });
             if let Some(output) = &spec.output {
