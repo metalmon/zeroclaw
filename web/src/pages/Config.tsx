@@ -52,7 +52,7 @@ import SectionTabs, {
 import CostRatesEditor, {
   type CostRatesCategory,
 } from "../components/sections/CostRatesEditor";
-import { Badge, Button, Card, PageHeader } from "@/components/ui";
+import { Badge, Button, Card } from "@/components/ui";
 import { t, plural, sectionDesc, sectionLabel } from "@/lib/i18n";
 import { formatServerError } from "@/lib/serverError";
 
@@ -659,61 +659,59 @@ export default function Config() {
                 that chain, the save bar's `sticky bottom-0` anchors
                 to a content-height column and floats mid-viewport
                 instead of pinning to the bottom of the scroll area. */}
-            {/* Config header: generic "Settings" title (the section name
-                already appears in the breadcrumb below and again as the
-                section editor's own heading — repeating it a third time
-                here was redundant) + breadcrumb trail (as the description
-                slot) + the page-level actions. ReloadDaemonButton keeps its
-                own confirm modal — only the surrounding chrome is
-                restyled. */}
-            <PageHeader
-              title={t("config.breadcrumb")}
-              description={
-                <span className="flex items-center gap-1.5 flex-wrap text-pc-text-muted">
-                  {crumbs.map((crumb, i) => (
-                    <span key={i} className="flex items-center gap-1.5">
-                      {i > 0 && (
-                        <ChevronRight className="h-3 w-3 text-pc-text-faint" />
-                      )}
-                      {crumb.url && i < crumbs.length - 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => navigate(crumb.url!)}
-                          className="text-pc-text-secondary hover:text-pc-text transition-colors"
-                        >
-                          {crumb.label}
-                        </button>
-                      ) : (
-                        <span className="text-pc-text font-medium">
-                          {crumb.label}
-                        </span>
-                      )}
-                    </span>
-                  ))}
-                </span>
-              }
-              actions={
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate("/quickstart")}
-                    title={t("cfg.header.quickstart")}
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    {t("cfg.header.quickstart")}
-                  </Button>
-                  <ReloadDaemonButton
-                    onReloaded={() => {
-                      goToSection(activeSection.key);
-                      fetchDrift();
-                      setReloadKey((n) => n + 1);
-                      setNavRefresh((n) => n + 1);
-                    }}
-                  />
-                </>
-              }
-            />
+            {/* Config header: breadcrumb trail only. The generic "Settings"
+                title was dropped — the section name already lives in the
+                breadcrumb leaf and again as the section editor's own heading,
+                so a separate page title was pure repetition. The trail is
+                sized up (text-sm, bolder leaf) to carry the header on its own,
+                with the page-level actions on the right. ReloadDaemonButton
+                keeps its own confirm modal. */}
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <nav
+                aria-label={t("config.breadcrumb")}
+                className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm"
+              >
+                {crumbs.map((crumb, i) => (
+                  <span key={i} className="flex items-center gap-1.5">
+                    {i > 0 && (
+                      <ChevronRight className="h-4 w-4 text-pc-text-faint" />
+                    )}
+                    {crumb.url && i < crumbs.length - 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(crumb.url!)}
+                        className="text-pc-text-secondary transition-colors hover:text-pc-text"
+                      >
+                        {crumb.label}
+                      </button>
+                    ) : (
+                      <span className="font-semibold text-pc-text">
+                        {crumb.label}
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </nav>
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate("/quickstart")}
+                  title={t("cfg.header.quickstart")}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {t("cfg.header.quickstart")}
+                </Button>
+                <ReloadDaemonButton
+                  onReloaded={() => {
+                    goToSection(activeSection.key);
+                    fetchDrift();
+                    setReloadKey((n) => n + 1);
+                    setNavRefresh((n) => n + 1);
+                  }}
+                />
+              </div>
+            </div>
 
             <div className="flex-1 min-h-0 flex flex-col">{mainContent}</div>
           </div>
