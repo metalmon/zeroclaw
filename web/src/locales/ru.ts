@@ -2,11 +2,11 @@ export const ru: Record<string, string> = {
   // Product identity — single-source key for the product name so a future
   // rebrand changes exactly one value (stays "ZeroClaw" in every locale
   // until then; it's a proper noun, not translated prose).
-  'product.name': "ZeroClaw",
-  'sidebar.brand': "ZeroClaw",
+  'product.name': "Вольт Агент",
+  'sidebar.brand': "Вольт Агент",
   'sidebar.close_menu': "Закрыть меню",
-  'sidebar.gateway': "Шлюз ZeroClaw",
-  'sidebar.logo_alt': "ZeroClaw",
+  'sidebar.gateway': "Шлюз Вольт",
+  'sidebar.logo_alt': "Вольт Агент",
   'sidebar.mobile_menu': "Мобильное меню",
   'sidebar.update_available': "Доступно обновление",
   'upgrade.title': "Обновить",
@@ -341,7 +341,7 @@ export const ru: Record<string, string> = {
   'cron.agent_label': 'Агент',
   'cron.agent_required_error': 'Выберите агента для этой задачи',
   'cron.all_tools': 'все инструменты',
-  'cron.catch_up_description': 'Запускать все просроченные задачи при старте ZeroClaw после простоя',
+  'cron.catch_up_description': 'Запускать все просроченные задачи при старте Вольт Агента после простоя',
   'cron.catch_up_title': 'Выполнять пропущенные задачи при запуске',
   'cron.command_placeholder': 'напр. cleanup --older-than 7d',
   'cron.delivery': 'Доставка',
@@ -504,7 +504,7 @@ export const ru: Record<string, string> = {
   'doctor.warnings_summary': 'Предупреждения',
   'doctor.all_clear': 'Все в порядке',
   'doctor.system_diagnostics': 'Диагностика системы',
-  'doctor.empty_hint': 'Нажмите «Запустить диагностику», чтобы проверить установку ZeroClaw.',
+  'doctor.empty_hint': 'Нажмите «Запустить диагностику», чтобы проверить установку Вольт Агента.',
   'doctor.hide_prefix': 'Скрыть ',
   'doctor.show_prefix': 'Показать ',
   'doctor.no_filter_match': 'Ни один результат не соответствует активному фильтру серьезности.',
@@ -1079,7 +1079,7 @@ export const ru: Record<string, string> = {
   'config.section.providers.transcription.label': 'Распознавание речи',
   'config.section.providers.transcription.desc': 'Провайдеры распознавания речи (OpenAI Whisper, Groq, Deepgram, AssemblyAI, Google, локальный Whisper). Настройте по одному на конвейер; агенты ссылаются на них по псевдониму.',
   'config.section.channels.label': 'Каналы',
-  'config.section.channels.desc': 'Выберите, какие чат-платформы должен прослушивать ZeroClaw. Общие настройки каналов находятся в разделе `[channels]`; каждая настроенная платформа все равно получает собственный псевдоним.',
+  'config.section.channels.desc': 'Выберите, какие чат-платформы должен прослушивать Вольт Агент. Общие настройки каналов находятся в разделе `[channels]`; каждая настроенная платформа все равно получает собственный псевдоним.',
   'config.section.hardware.label': 'Оборудование',
   'config.section.hardware.desc': 'Необязательно: периферийные устройства (Arduino, STM32, GPIO и т. д.). Пропустите, если они не нужны.',
   'config.section.agents.label': 'Агенты',
@@ -1187,9 +1187,9 @@ export const ru: Record<string, string> = {
   'config.field.gateway.allow_remote_admin.label': 'Разрешить удаленное администрирование',
   'config.field.gateway.allow_remote_admin.desc': 'Разрешает административные операции (перезапуск, обновление и т. п.) с удаленных, не-loopback подключений.',
   'config.field.gateway.allow_self_upgrade.label': 'Разрешить самообновление',
-  'config.field.gateway.allow_self_upgrade.desc': 'Позволяет обновлять ZeroClaw прямо из панели управления — шлюз скачивает и устанавливает новую версию.',
+  'config.field.gateway.allow_self_upgrade.desc': 'Позволяет обновлять Вольт Агента прямо из панели управления — шлюз скачивает и устанавливает новую версию.',
   'config.field.gateway.check_updates.label': 'Проверять обновления',
-  'config.field.gateway.check_updates.desc': 'Периодически проверяет наличие новой версии ZeroClaw.',
+  'config.field.gateway.check_updates.desc': 'Периодически проверяет наличие новой версии Вольт Агента.',
   'config.field.gateway.idempotency_max_keys.label': 'Максимум ключей идемпотентности',
   'config.field.gateway.idempotency_max_keys.desc': 'Верхняя граница числа одновременно хранимых ключей идемпотентности запросов.',
   'config.field.gateway.idempotency_ttl_secs.label': 'Время жизни ключа идемпотентности (сек)',
@@ -1484,7 +1484,7 @@ export const ru: Record<string, string> = {
   'config.field.memory.auto_reindex_on_identity_change.label': 'Автопереиндексация при смене провайдера эмбеддингов',
   'config.field.memory.auto_reindex_on_identity_change.desc': 'Автоматически переэмбеддинговать все записи памяти в фоне при обнаружении на старте смены провайдера/модели/размерности эмбеддингов (после очистки устаревших векторов). Стоит один вызов API эмбеддингов на каждую запись памяти, поэтому по умолчанию выключено — для больших хранилищ оставьте выключенным и запускайте `zeroclaw memory reindex` вручную.',
   'config.field.memory.auto_save.label': 'Автосохранение в память',
-  'config.field.memory.auto_save.desc': 'Автоматически сохранять то, что *вы* сообщаете ZeroClaw, в память как историю диалога — собственные ответы агента не сохраняются. Выключите, если память должна хранить только то, что вы явно записываете через инструмент памяти.',
+  'config.field.memory.auto_save.desc': 'Автоматически сохранять то, что *вы* сообщаете Вольт Агенту, в память как историю диалога — собственные ответы агента не сохраняются. Выключите, если память должна хранить только то, что вы явно записываете через инструмент памяти.',
   'config.field.memory.backend.label': 'Бэкенд хранилища',
   'config.field.memory.backend.desc': 'Ссылка на активный экземпляр хранилища вида `<бэкенд>.<псевдоним>` (например, `sqlite.default`, `postgres.work`). Разрешается через `Config.storage.<бэкенд>.<псевдоним>` во время выполнения. Голое имя бэкенда (`sqlite`) трактуется как `<бэкенд>.default`. Значение `none` полностью отключает сохранение.',
   'config.field.memory.candidate_multiplier.label': 'Множитель кандидатов',
@@ -1774,7 +1774,7 @@ export const ru: Record<string, string> = {
   'config.field.security.audit.enabled.label': 'Аудит-логирование включено',
   'config.field.security.audit.enabled.desc': 'Включает журналирование аудита.',
   'config.field.security.audit.log_path.label': 'Путь к журналу аудита',
-  'config.field.security.audit.log_path.desc': 'Путь к файлу журнала аудита (относительно каталога ZeroClaw).',
+  'config.field.security.audit.log_path.desc': 'Путь к файлу журнала аудита (относительно каталога Вольт Агента).',
   'config.field.security.audit.max_size_mb.label': 'Максимальный размер журнала (МБ)',
   'config.field.security.audit.max_size_mb.desc': 'Максимальный размер журнала в МБ до ротации.',
   'config.field.security.audit.sign_events.label': 'Подписывать события',
@@ -1808,7 +1808,7 @@ export const ru: Record<string, string> = {
   'config.field.security.nevis.require_mfa.label': 'Требовать MFA',
   'config.field.security.nevis.require_mfa.desc': 'Требовать прохождение MFA-проверки для всех запросов, аутентифицированных через Nevis.',
   'config.field.security.nevis.role_mapping.label': 'Сопоставление ролей',
-  'config.field.security.nevis.role_mapping.desc': 'Сопоставления ролей Nevis с правами доступа ZeroClaw.',
+  'config.field.security.nevis.role_mapping.desc': 'Сопоставления ролей Nevis с правами доступа Вольт Агента.',
   'config.field.security.nevis.session_timeout_secs.label': 'Тайм-аут сессии (сек.)',
   'config.field.security.nevis.session_timeout_secs.desc': 'Тайм-аут сессии в секундах.',
   'config.field.security.nevis.token_validation.label': 'Способ проверки токена',
@@ -2810,13 +2810,13 @@ export const ru: Record<string, string> = {
   'quickstart.external_peers_placeholder': '@alice&#10;@bob',
 
   // Agent chat workspace (file browser opened from the chat header)
-  'agentchat.empty_title': 'Агент ZeroClaw',
+  'agentchat.empty_title': 'Агент Вольт',
   'agentchat.files': 'Файлы',
   'agentchat.open_workspace': 'Открыть рабочую область агента',
   'agentchat.thinking': 'Думает',
 
   // Agents list
-  'agents_list.description': 'Агенты, настроенные в этом экземпляре ZeroClaw.',
+  'agents_list.description': 'Агенты, настроенные в этом экземпляре Вольт Агента.',
   'agents_list.empty_hint': 'Запустите быстрый старт, чтобы создать первого агента.',
   'agents_list.empty_title': 'Пока нет настроенных агентов',
   'agents_list.load_failed': 'Не удалось загрузить агентов',
@@ -2883,7 +2883,7 @@ export const ru: Record<string, string> = {
 
   'acp.agent_select_label': 'Агент ACP',
   'acp.agent_thought': 'Мысль агента',
-  'acp.default_prompt': 'Опишите одним абзацем текущее состояние шлюза ZeroClaw.',
+  'acp.default_prompt': 'Опишите одним абзацем текущее состояние шлюза Вольт.',
   'acp.manage_agents': 'Управление агентами',
   'acp.role_agent': 'Агент',
   'acp.role_system': 'Система',
@@ -2968,7 +2968,7 @@ export const ru: Record<string, string> = {
   'alias_prompt.or': 'или',
 
   // Auth
-  'auth.logout_confirm': 'Выйти из ZeroClaw?',
+  'auth.logout_confirm': 'Выйти из Вольт Агента?',
 
   // Canvas
   'canvas.active': 'Активные:',

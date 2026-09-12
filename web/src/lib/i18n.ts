@@ -467,7 +467,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Product identity — single-source key for the product name so a future
     // rebrand changes exactly one value (stays "ZeroClaw" in every locale
     // until then; it's a proper noun, not translated prose).
-    'product.name': "ZeroClaw",
+    'product.name': "Volt Agent",
     // ── i18n sweep: keys added by the conversion workflow ──
     // Self-review follow-ups: singular forms for Doctor severity pills + the
     // relative-time suffixes used by lib/format.ts formatRelative.
@@ -482,7 +482,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'agent.rel_days': "d ago",
     'acp.agent_select_label': "ACP agent",
     'acp.agent_thought': "Agent thought",
-    'acp.default_prompt': "Summarize the current ZeroClaw gateway state in one paragraph.",
+    'acp.default_prompt': "Summarize the current Volt Agent gateway state in one paragraph.",
     'acp.manage_agents': "Manage agents",
     'acp.role_agent': "Agent",
     'acp.role_system': "System",
@@ -501,11 +501,11 @@ const translations: Record<Locale, Record<string, string>> = {
     'add_entity.alias_invalid': "Alias must use lowercase letters, digits, or single underscores only; no hyphens, dots, spaces, leading/trailing underscores, or double underscores.",
     'add_entity.choose_different_type': "Choose a different type",
     'agent.open_config': "Open {value} config",
-    'agentchat.empty_title': "ZeroClaw Agent",
+    'agentchat.empty_title': "Volt Agent",
     'agentchat.files': "Files",
     'agentchat.open_workspace': "Open agent file workspace",
     'agentchat.thinking': "Thinking",
-    'agents_list.description': "Configured agents on this ZeroClaw instance.",
+    'agents_list.description': "Configured agents on this Volt Agent instance.",
     'agents_list.empty_hint': "Run Quickstart to create your first agent.",
     'agents_list.empty_title': "No agents configured yet",
     'agents_list.load_failed': "Failed to load agents",
@@ -618,7 +618,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'cron.agent_label': "Agent",
     'cron.agent_required_error': "Pick an agent for this cron job",
     'cron.all_tools': "all tools",
-    'cron.catch_up_description': "Run all overdue jobs when ZeroClaw starts after downtime",
+    'cron.catch_up_description': "Run all overdue jobs when Volt Agent starts after downtime",
     'cron.catch_up_title': "Catch up missed jobs on startup",
     'cron.command_placeholder': "e.g. cleanup --older-than 7d",
     'cron.delivery': "Delivery",
@@ -941,10 +941,10 @@ const translations: Record<Locale, Record<string, string>> = {
     'settings.default_dark': "Default Dark",
     'settings.light_themes': "Light Themes",
     'settings.tab.themes': "Themes",
-    'sidebar.brand': "ZeroClaw",
+    'sidebar.brand': "Volt Agent",
     'sidebar.close_menu': "Close menu",
-    'sidebar.gateway': "ZeroClaw Gateway",
-    'sidebar.logo_alt': "ZeroClaw",
+    'sidebar.gateway': "Volt Gateway",
+    'sidebar.logo_alt': "Volt Agent",
     'sidebar.mobile_menu': "Mobile menu",
     'sidebar.update_available': "Update available",
     'upgrade.title': "Upgrade",
@@ -1870,14 +1870,14 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Warnings',
     'doctor.all_clear': 'All Clear',
     'doctor.system_diagnostics': 'System Diagnostics',
-    'doctor.empty_hint': 'Click "Run Diagnostics" to check your ZeroClaw installation.',
+    'doctor.empty_hint': 'Click "Run Diagnostics" to check your Volt Agent installation.',
 
     // Auth / Pairing
     'auth.pair': 'Pair Device',
     'auth.pairing_code': 'Pairing Code',
     'auth.pair_button': 'Pair',
     'auth.logout': 'Logout',
-    'auth.logout_confirm': 'Log out of ZeroClaw?',
+    'auth.logout_confirm': 'Log out of Volt Agent?',
     'auth.pairing_success': 'Pairing successful!',
     'auth.pairing_failed': 'Pairing failed. Please try again.',
     'auth.enter_code': 'Enter your pairing code to connect to the agent.',

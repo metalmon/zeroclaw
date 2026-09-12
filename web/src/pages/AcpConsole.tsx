@@ -437,7 +437,7 @@ export default function AcpConsole() {
     && prompt.trim().length > 0;
   const agentLabel = useMemo(() => {
     const info = initResult?.agentInfo;
-    return info?.title ?? info?.name ?? 'ZeroClaw ACP';
+    return info?.title ?? info?.name ?? 'Volt Agent ACP';
   }, [initResult]);
 
   const sendPrompt = async () => {
