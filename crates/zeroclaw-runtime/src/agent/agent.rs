@@ -3349,8 +3349,6 @@ impl Agent {
     /// `call.tool_call_id` should already carry the caller's own correlation
     /// id (e.g. `"canvas:<callId>"`); it flows through unchanged to the
     /// `TurnEvent::ToolCall`/`TurnEvent::ToolResult` pair sent on `event_tx`.
-    // consumed by the ACP canvas-action handler (follow-up task)
-    #[allow(dead_code)]
     pub async fn run_canvas_tool_only_turn(
         &mut self,
         call: zeroclaw_tool_call_parser::ParsedToolCall,
@@ -3431,8 +3429,6 @@ impl Agent {
     /// `turn_streamed_with_steering_state`'s own `(text, new_messages)` —
     /// not a fabricated round — so the caller's `append_turn` persists
     /// exactly what a normal turn would.
-    // consumed by the ACP combined-mode branch (Task 5b)
-    #[allow(dead_code)]
     pub async fn run_canvas_combined_turn(
         &mut self,
         call: zeroclaw_tool_call_parser::ParsedToolCall,
