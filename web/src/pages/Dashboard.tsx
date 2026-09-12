@@ -310,6 +310,15 @@ function formatRelative(iso: string): string {
   }
 }
 
+// Localized label for a component health status ("ok"/"error"/"starting").
+// The badge CSS uppercases it, so the catalog carries natural-case forms.
+// Unknown statuses render verbatim.
+function healthStatusLabel(status: string): string {
+  const key = `dashboard.health_status.${status.toLowerCase()}`;
+  const label = t(key);
+  return label === key ? status : label;
+}
+
 function healthColor(status: string): string {
   switch (status.toLowerCase()) {
     case "ok":
@@ -773,7 +782,7 @@ function OverviewTab({
                             border: `1px solid ${healthBorder(comp.status)}`,
                           }}
                         >
-                          {comp.status}
+                          {healthStatusLabel(comp.status)}
                         </span>
                       </div>
                       {lastErr ? (

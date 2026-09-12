@@ -640,6 +640,13 @@ export const ru: Record<string, string> = {
   'dashboard.inactive': 'Неактивно',
   'dashboard.no_components': 'Нет отчетов от компонентов',
   'dashboard.restarts': 'Перезапуски',
+  // Статус здоровья компонента (бейдж переводится в верхний регистр средствами CSS).
+  'dashboard.health_status.ok': 'ок',
+  'dashboard.health_status.error': 'ошибка',
+  'dashboard.health_status.starting': 'запуск',
+  'dashboard.health_status.warn': 'внимание',
+  'dashboard.health_status.degraded': 'деградация',
+  'dashboard.health_status.healthy': 'норма',
   'dashboard.tab_overview': 'Обзор',
   'dashboard.tab_sessions': 'Сессии',
   'dashboard.tab_channels': 'Каналы',

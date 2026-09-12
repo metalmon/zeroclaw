@@ -2032,6 +2032,14 @@ const translations: Record<Locale, Record<string, string>> = {
     'dashboard.inactive': 'Inactive',
     'dashboard.no_components': 'No components reporting',
     'dashboard.restarts': 'Restarts',
+    // Component health status badge (uppercased by CSS). Keyed by the raw
+    // lowercase status from status.health.components[].status.
+    'dashboard.health_status.ok': 'ok',
+    'dashboard.health_status.error': 'error',
+    'dashboard.health_status.starting': 'starting',
+    'dashboard.health_status.warn': 'warn',
+    'dashboard.health_status.degraded': 'degraded',
+    'dashboard.health_status.healthy': 'healthy',
     'dashboard.tab_overview': 'Overview',
     'dashboard.tab_sessions': 'Sessions',
     'dashboard.tab_channels': 'Channels',
