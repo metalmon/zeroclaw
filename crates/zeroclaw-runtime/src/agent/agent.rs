@@ -3396,29 +3396,41 @@ impl Agent {
 
     /// Combined-mode canvas action (spec §3c): gate+run a single tool call
     /// exactly as `run_canvas_tool_only_turn` does, then — only if it
-    /// succeeded — inject the tool call+result round into `self.history`
-    /// and run a normal model turn, so the model answers with the tool
-    /// result already in its provider-visible context.
+    /// succeeded — fold the tool's output into the prompt text and run one
+    /// normal model turn, so the model answers with the tool result already
+    /// in context.
     ///
-    /// `run_canvas_tool_only_turn` is a deliberate NO-history side channel;
-    /// this method exists because combined mode needs the model to actually
-    /// see the tool's output, which requires injecting it into `self.history`
-    /// before `turn_streamed_with_steering_state` builds the provider
-    /// request from that history.
+    /// This does NOT inject a structured `AssistantToolCalls`/`ToolResults`
+    /// round into `self.history`. An earlier version of this method tried
+    /// that (pushing the round into an empty `self.history` before calling
+    /// the model turn), but `ChatMessage::sanitize_leading_turn_order`
+    /// (`crates/zeroclaw-api/src/model_provider.rs:132-144`, invoked
+    /// unconditionally at round 0 via `vision_route.rs:146`) drains every
+    /// leading non-system/non-user message before the first real user turn.
+    /// A structured tool round injected before a user message is exactly
+    /// that shape, so the provider never saw it — the model ran blind, and
+    /// (since `self.history` was non-empty) the `turn_streamed_with_steering_state`
+    /// system-prompt seed was also skipped. There is no runtime entry that
+    /// runs the model over a pre-built history without appending a fresh
+    /// user message, so folding the tool output as text into ONE user
+    /// prompt is the provider-valid shape: `self.history` stays empty on
+    /// entry, the system-prompt seed fires normally, and the single
+    /// `user(combined_prompt)` message can't be misordered.
     ///
     /// Abort semantics (non-negotiable): if the tool is gated out (denied,
     /// hook-cancelled, deduplicated, or unresolvable) or its execution
     /// outcome reports failure, this returns `Ok((text, Vec::new()))` with
     /// NO model turn at all — `text` mirrors the same
     /// `outcome.map(|o| o.output).unwrap_or_default()` mapping the pure
-    /// tool-only ACP caller uses. An empty returned `Vec` tells the caller
-    /// there is nothing beyond what `run_tool_only_turn` already streamed
-    /// via `event_tx` to persist to its own turn history.
+    /// tool-only ACP caller uses. The canvas still gets its structured
+    /// `tool_call_update` from the `TurnEvent::ToolResult` that
+    /// `run_tool_only_turn` already emits on `event_tx`, unchanged either
+    /// way.
     ///
-    /// On success, the returned `Vec` starts with the two injected
-    /// `ConversationMessage`s (`AssistantToolCalls` then `ToolResults`)
-    /// followed by the model round's own new messages, so a caller's single
-    /// `append_turn` persists the whole combined turn atomically.
+    /// On success, the return is a plain passthrough of
+    /// `turn_streamed_with_steering_state`'s own `(text, new_messages)` —
+    /// not a fabricated round — so the caller's `append_turn` persists
+    /// exactly what a normal turn would.
     // consumed by the ACP combined-mode branch (Task 5b)
     #[allow(dead_code)]
     pub async fn run_canvas_combined_turn(
@@ -3456,14 +3468,9 @@ impl Agent {
             parent_agent_alias: None,
         };
 
-        // The call is consumed by `run_tool_only_turn`; keep what the
-        // injected history round needs afterward.
-        let tool_call_id = call
-            .tool_call_id
-            .clone()
-            .unwrap_or_else(|| format!("canvas:{turn_id}"));
+        // The call is consumed by `run_tool_only_turn`; keep the tool name
+        // for the folded prompt text.
         let tool_name = call.name.clone();
-        let tool_arguments = call.arguments.to_string();
 
         let crate::agent::turn::tool_only::ToolOnlyOutcome { gated_out, outcome } =
             crate::agent::turn::tool_only::run_tool_only_turn(
@@ -3487,41 +3494,21 @@ impl Agent {
         let exec_outcome =
             outcome.expect("checked above: gated_out is false and outcome is Some(success)");
 
-        // Success: inject the tool call+result round into `self.history`
-        // BEFORE the model turn runs, in the exact shape the normal tool
-        // loop replays into history (see `Self::replay_loop_messages` and
-        // the `self.history.push(replayed)` site in the round loop above) —
-        // so `turn_streamed_with_steering_state`'s provider request (built
-        // from `self.history`) includes the tool result.
-        let injected_assistant = ConversationMessage::AssistantToolCalls {
-            text: None,
-            tool_calls: vec![zeroclaw_providers::ToolCall {
-                id: tool_call_id.clone(),
-                name: tool_name.clone(),
-                arguments: tool_arguments,
-                extra_content: None,
-            }],
-            reasoning_content: None,
-        };
-        let injected_results = ConversationMessage::ToolResults(vec![ToolResultMessage {
-            tool_call_id,
-            content: exec_outcome.output,
-            tool_name,
-        }]);
-        self.history.push(injected_assistant.clone());
-        self.history.push(injected_results.clone());
+        // Success: fold the tool's output into ONE user-turn prompt and run
+        // a normal model turn over it. `self.history` is untouched here, so
+        // it is still whatever it was before this call (empty for a brand
+        // new session, in which case `turn_streamed_with_steering_state`'s
+        // own `if self.history.is_empty()` system-prompt seed fires as
+        // usual).
+        let combined_prompt = format!(
+            "{prompt}\n\n[Result of tool `{tool_name}`:\n{}]",
+            exec_outcome.output
+        );
 
-        let (model_text, mut new_msgs) = self
-            .turn_streamed_with_steering_state(prompt, event_tx, cancellation_token, None)
+        self.turn_streamed_with_steering_state(&combined_prompt, event_tx, cancellation_token, None)
             .await
             .map(|success| (success.response, success.new_messages))
-            .map_err(|err| err.error)?;
-
-        let mut combined = Vec::with_capacity(2 + new_msgs.len());
-        combined.push(injected_assistant);
-        combined.push(injected_results);
-        combined.append(&mut new_msgs);
-        Ok((model_text, combined))
+            .map_err(|err| err.error)
     }
 
     pub async fn run_single(&mut self, message: &str) -> Result<String> {
@@ -5769,37 +5756,38 @@ mod tests {
                 "method must return the model turn's answer text"
             );
 
+            // FOLD, not a fabricated round: the returned Vec is
+            // `turn_streamed`'s own passthrough — a plain [user, assistant]
+            // text exchange, since the folded prompt carries the tool
+            // result as text rather than a structured tool-call round.
             assert!(
-                messages.len() >= 2,
-                "returned messages must include the injected round: {messages:?}"
+                !messages.is_empty(),
+                "combined turn must return the model round's own new messages"
             );
-            match &messages[0] {
-                ConversationMessage::AssistantToolCalls { tool_calls, .. } => {
-                    assert_eq!(tool_calls.len(), 1);
-                    assert_eq!(tool_calls[0].id, "canvas:n1:1");
-                    assert_eq!(tool_calls[0].name, "echo");
+            match messages.last() {
+                Some(ConversationMessage::Chat(chat)) => {
+                    assert_eq!(chat.role, "assistant");
+                    assert_eq!(chat.content, model_text);
                 }
-                other => panic!("expected AssistantToolCalls first, got {other:?}"),
-            }
-            match &messages[1] {
-                ConversationMessage::ToolResults(results) => {
-                    assert_eq!(results.len(), 1);
-                    assert_eq!(results[0].tool_call_id, "canvas:n1:1");
-                    assert_eq!(results[0].content, "tool-out");
-                }
-                other => panic!("expected ToolResults second, got {other:?}"),
+                other => panic!("expected the model's assistant answer last, got {other:?}"),
             }
 
-            // Load-bearing assertion: the injected tool round must have reached
-            // the model's own provider-visible context, not just the returned
-            // Vec — otherwise the model turn ran blind to the tool result.
-            let captured = captured.lock();
-            let last_request = captured.last().expect("provider request captured");
-            assert!(
-                last_request.iter().any(|m| m.content.contains("tool-out")),
-                "the model-visible transcript must contain the injected tool result: {last_request:?}"
-            );
-            drop(captured);
+            // Load-bearing assertion: the tool result must have reached the
+            // model's own provider-visible context (folded into the prompt
+            // text), not just the returned Vec — otherwise the model turn
+            // ran blind to the tool result. Scoped in its own block so the
+            // lock guard is dropped before the `.await` below (parking_lot
+            // guards held across an await point trip `clippy::await_holding_lock`
+            // even when an explicit `drop()` follows, in the versions of the
+            // lint that only look at lexical scope).
+            {
+                let captured = captured.lock();
+                let last_request = captured.last().expect("provider request captured");
+                assert!(
+                    last_request.iter().any(|m| m.content.contains("tool-out")),
+                    "the model-visible transcript must contain the folded tool result: {last_request:?}"
+                );
+            }
 
             drop(tx);
             let mut saw_tool_result_event = false;
