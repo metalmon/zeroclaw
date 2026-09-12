@@ -240,7 +240,6 @@ export default function Config() {
         <WireTabForm
           key={`${reloadKey}-${activeSection.key}`}
           prefix={activeSection.key}
-          title={sectionLabel(activeSection.key, activeSection.label)}
           reloadKey={reloadKey}
           onSaved={fetchDrift}
           drift={drifted}
@@ -291,7 +290,6 @@ export default function Config() {
           <WireTabForm
             key={`${reloadKey}-${fieldsPrefix}`}
             prefix={fieldsPrefix}
-            title={`${typeParam} / ${aliasParam}`}
             reloadKey={reloadKey}
             onSaved={fetchDrift}
             drift={drifted}
@@ -375,7 +373,6 @@ export default function Config() {
           <WireTabForm
             key={`${reloadKey}-${fieldsPrefix}`}
             prefix={fieldsPrefix}
-            title={typeParam}
             reloadKey={reloadKey}
             onSaved={fetchDrift}
             drift={drifted}
@@ -447,7 +444,6 @@ export default function Config() {
           <FieldForm
             key={`${reloadKey}-${typeParam}`}
             prefix={typeParam}
-            title={typeParam}
             onSaved={fetchDrift}
             drift={drifted}
           />
@@ -965,7 +961,7 @@ function wireTabSpecs(
   prefix: string,
   ctx: {
     reloadKey: number;
-    title: string;
+    title?: string;
     onSaved: () => void;
     drifted: DriftEntry[];
   },
@@ -1018,7 +1014,7 @@ function WireTabForm({
   extraTabs,
 }: {
   prefix: string;
-  title: string;
+  title?: string;
   reloadKey: number;
   onSaved: () => void;
   drift: DriftEntry[];
