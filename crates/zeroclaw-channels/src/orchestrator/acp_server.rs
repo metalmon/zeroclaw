@@ -1599,6 +1599,17 @@ impl AcpServer {
         // Turn already reserved (and `cancel_token` created) before materialization.
         let (event_tx, mut event_rx) = tokio::sync::mpsc::channel::<TurnEvent>(100);
 
+        // A canvas UI click arrives as a pure `tools/call`: `_meta.toolCall`
+        // names the tool, and the prompt content is empty (nothing for the
+        // model to say). That case skips the LLM turn entirely and dispatches
+        // the named tool through the same gate a model-emitted call goes
+        // through (`Agent::run_canvas_tool_only_turn`) below. When `_meta`
+        // names a tool call AND the prompt is non-empty, this is the combined
+        // mode a later task handles — leave it to fall through to the normal
+        // `turn_streamed` path unchanged.
+        let canvas_call_for_task =
+            extract_canvas_tool_call(params.get("_meta")).filter(|_| prompt.trim().is_empty());
+
         let config = self.config_snapshot();
         let cost_tracker = zeroclaw_runtime::cost::CostTracker::get_or_init_global(
             config.cost.clone(),
@@ -1641,10 +1652,37 @@ impl AcpServer {
                     Some(session_id_for_task),
                     zeroclaw_runtime::agent::cost::TOOL_LOOP_COST_TRACKING_CONTEXT.scope(
                         cost_context,
-                        session
-                            .agent
-                            .turn_streamed(&prompt, event_tx, Some(cancel_token))
-                            .instrument(span),
+                        async {
+                            if let Some(cc) = canvas_call_for_task {
+                                let call = zeroclaw_tool_call_parser::ParsedToolCall {
+                                    name: cc.name,
+                                    arguments: cc.arguments,
+                                    tool_call_id: Some(format!("canvas:{}", cc.call_id)),
+                                };
+                                session
+                                    .agent
+                                    .run_canvas_tool_only_turn(
+                                        call,
+                                        event_tx,
+                                        Some(cancel_token),
+                                    )
+                                    .await
+                                    .map(|outcome| {
+                                        let text = outcome
+                                            .outcome
+                                            .as_ref()
+                                            .map(|o| o.output.clone())
+                                            .unwrap_or_default();
+                                        (text, Vec::new())
+                                    })
+                            } else {
+                                session
+                                    .agent
+                                    .turn_streamed(&prompt, event_tx, Some(cancel_token))
+                                    .await
+                            }
+                        }
+                        .instrument(span),
                     ),
                 )
                 .await
@@ -2712,6 +2750,33 @@ fn history_notifications_for_message(
     }
 }
 
+/// A canvas UI action's tool call, carried in ACP `_meta` on `session/prompt`
+/// (`_meta["io.modelcontextprotocol/ui"].toolCall`). `call_id` is the
+/// client-assigned correlation id for the click; it is opaque to the server
+/// and must never be parsed or split — it is only ever prefixed with
+/// `"canvas:"` before being threaded through as a `TurnEvent` id.
+struct CanvasToolCall {
+    name: String,
+    arguments: serde_json::Value,
+    call_id: String,
+}
+
+/// Extract a canvas action's tool call from ACP `_meta`, mirroring
+/// `extract_wire_skills_from_meta` below. Returns `None` when `_meta` is
+/// absent or does not carry the `io.modelcontextprotocol/ui` extension.
+fn extract_canvas_tool_call(meta: Option<&serde_json::Value>) -> Option<CanvasToolCall> {
+    let ui = meta?.get("io.modelcontextprotocol/ui")?;
+    let tc = ui.get("toolCall")?;
+    Some(CanvasToolCall {
+        name: tc.get("name")?.as_str()?.to_string(),
+        arguments: tc
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({})),
+        call_id: ui.get("callId")?.as_str()?.to_string(),
+    })
+}
+
 /// Extract wire skills from ACP `_meta` extension.
 fn extract_wire_skills_from_meta(meta: Option<&serde_json::Value>) -> Vec<WireSkill> {
     let Some(meta) = meta else { return Vec::new() };
@@ -2775,6 +2840,7 @@ type RpcResult = std::result::Result<Value, RpcError>;
 mod tests {
     use super::*;
     use async_trait::async_trait;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use zeroclaw_api::model_provider::ModelProvider;
 
     #[test]
@@ -2867,6 +2933,275 @@ mod tests {
         assert!(
             !error.message.contains(diagnostic),
             "ACP must not expose the stable diagnostic when Fluent supplies delivery text"
+        );
+    }
+
+    // ── Canvas action-channel dispatch (Task 4b) ────────────────────────
+
+    /// Minimal tool that counts invocations, so tests can assert whether the
+    /// gate actually let execution reach it. Mirrors the equivalent helper in
+    /// `zeroclaw_runtime::agent::turn::tool_only`'s own tests, which is
+    /// private to that crate's test module and so can't be reused directly.
+    struct CanvasCountingTool {
+        name: String,
+        invocations: Arc<AtomicUsize>,
+    }
+
+    impl ::zeroclaw_api::attribution::Attributable for CanvasCountingTool {
+        fn role(&self) -> ::zeroclaw_api::attribution::Role {
+            ::zeroclaw_api::attribution::Role::System
+        }
+
+        fn alias(&self) -> &str {
+            "test-canvas-tool"
+        }
+    }
+
+    #[async_trait]
+    impl zeroclaw_runtime::tools::Tool for CanvasCountingTool {
+        fn name(&self) -> &str {
+            &self.name
+        }
+
+        fn description(&self) -> &str {
+            "Counts invocations for canvas dispatch tests"
+        }
+
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({"type": "object", "properties": {}, "required": []})
+        }
+
+        async fn execute(
+            &self,
+            _args: serde_json::Value,
+        ) -> anyhow::Result<zeroclaw_runtime::tools::ToolResult> {
+            self.invocations.fetch_add(1, Ordering::SeqCst);
+            Ok(zeroclaw_runtime::tools::ToolResult {
+                success: true,
+                output: "echoed".into(),
+                error: None,
+            })
+        }
+    }
+
+    fn canvas_test_agent(
+        workspace_dir: std::path::PathBuf,
+        tool_name: &str,
+        invocations: Arc<AtomicUsize>,
+        approval: zeroclaw_runtime::approval::ApprovalManager,
+    ) -> Agent {
+        Agent::builder()
+            .model_provider(Box::new(EmptyTerminalProvider))
+            .tools(
+                zeroclaw_runtime::tools::scoped::ScopedToolRegistry::from_raw_for_test(vec![
+                    Box::new(CanvasCountingTool {
+                        name: tool_name.to_string(),
+                        invocations,
+                    }),
+                ]),
+            )
+            .approval_manager(Some(Arc::new(approval)))
+            .observer(Arc::from(zeroclaw_runtime::observability::NoopObserver {}))
+            .tool_dispatcher(Box::new(
+                zeroclaw_runtime::agent::dispatcher::NativeToolDispatcher,
+            ))
+            .workspace_dir(workspace_dir)
+            .exclude_memory(true)
+            .build()
+            .expect("test agent must build")
+    }
+
+    /// Drain every `session/update` notification the server has queued on
+    /// `writer_rx` so far, without blocking once the queue runs dry.
+    async fn drain_notifications(writer_rx: &mut mpsc::Receiver<String>) -> Vec<Value> {
+        let mut updates = Vec::new();
+        while let Ok(Some(line)) =
+            tokio::time::timeout(Duration::from_millis(500), writer_rx.recv()).await
+        {
+            updates.push(serde_json::from_str(&line).expect("valid JSON-RPC notification"));
+        }
+        updates
+    }
+
+    #[tokio::test]
+    async fn session_prompt_dispatches_pure_canvas_tool_call_when_allowed() {
+        let cwd = tempfile::tempdir().unwrap();
+        let (writer_tx, mut writer_rx) = tokio::sync::mpsc::channel::<String>(16);
+        let server = Arc::new(AcpServer::new_with_writer(
+            make_test_config(cwd.path()),
+            AcpServerConfig::default(),
+            writer_tx,
+        ));
+        let session = server
+            .handle_session_new(&serde_json::json!({
+                "cwd": cwd.path().to_string_lossy(),
+                "agentAlias": "test-agent"
+            }))
+            .await
+            .expect("session/new must succeed");
+        let session_id = session["sessionId"]
+            .as_str()
+            .expect("session id")
+            .to_string();
+        let session_arc = server
+            .sessions
+            .lock()
+            .await
+            .get(&session_id)
+            .cloned()
+            .expect("session must be registered");
+
+        let invocations = Arc::new(AtomicUsize::new(0));
+        let approval = zeroclaw_runtime::approval::ApprovalManager::from_risk_profile(
+            &zeroclaw_config::schema::RiskProfileConfig {
+                level: zeroclaw_runtime::security::AutonomyLevel::Full,
+                ..Default::default()
+            },
+        );
+        session_arc.lock().await.agent = canvas_test_agent(
+            cwd.path().to_path_buf(),
+            "canvas_echo",
+            Arc::clone(&invocations),
+            approval,
+        );
+
+        let result = server
+            .handle_session_prompt(
+                &serde_json::json!({
+                    "sessionId": session_id,
+                    "prompt": "",
+                    "_meta": {
+                        "io.modelcontextprotocol/ui": {
+                            "toolCall": {"name": "canvas_echo", "arguments": {}},
+                            "callId": "n1:1"
+                        }
+                    }
+                }),
+                &serde_json::json!(1),
+            )
+            .await
+            .expect("a pure, allowed canvas tool call must succeed");
+
+        assert_eq!(result["stopReason"], "end_turn");
+        assert_eq!(
+            invocations.load(Ordering::SeqCst),
+            1,
+            "the tool must actually run"
+        );
+
+        let updates = drain_notifications(&mut writer_rx).await;
+        let tool_updates: Vec<&Value> = updates
+            .iter()
+            .filter(|u| u["params"]["update"]["toolCallId"] == "canvas:n1:1")
+            .collect();
+        assert!(
+            !tool_updates.is_empty(),
+            "expected at least one tool_call/tool_call_update for canvas:n1:1, got {updates:?}"
+        );
+        assert!(
+            tool_updates
+                .iter()
+                .any(
+                    |u| u["params"]["update"]["sessionUpdate"] == "tool_call_update"
+                        && u["params"]["update"]["status"] == "completed"
+                ),
+            "expected a completed tool_call_update, got {updates:?}"
+        );
+        assert!(
+            !updates
+                .iter()
+                .any(|u| u["params"]["update"]["sessionUpdate"] == "agent_message_chunk"),
+            "a pure tools/call must never produce a model message chunk, got {updates:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn session_prompt_gates_out_pure_canvas_tool_call_when_denied() {
+        let cwd = tempfile::tempdir().unwrap();
+        let (writer_tx, mut writer_rx) = tokio::sync::mpsc::channel::<String>(16);
+        let server = Arc::new(AcpServer::new_with_writer(
+            make_test_config(cwd.path()),
+            AcpServerConfig::default(),
+            writer_tx,
+        ));
+        let session = server
+            .handle_session_new(&serde_json::json!({
+                "cwd": cwd.path().to_string_lossy(),
+                "agentAlias": "test-agent"
+            }))
+            .await
+            .expect("session/new must succeed");
+        let session_id = session["sessionId"]
+            .as_str()
+            .expect("session id")
+            .to_string();
+        let session_arc = server
+            .sessions
+            .lock()
+            .await
+            .get(&session_id)
+            .cloned()
+            .expect("session must be registered");
+
+        let invocations = Arc::new(AtomicUsize::new(0));
+        // Supervised + non-interactive + no channel: the approval gate falls
+        // back to auto-deny for any tool it prompts for.
+        let approval = zeroclaw_runtime::approval::ApprovalManager::for_non_interactive(
+            &zeroclaw_config::schema::RiskProfileConfig::default(),
+        );
+        session_arc.lock().await.agent = canvas_test_agent(
+            cwd.path().to_path_buf(),
+            "canvas_dangerous",
+            Arc::clone(&invocations),
+            approval,
+        );
+
+        let result = server
+            .handle_session_prompt(
+                &serde_json::json!({
+                    "sessionId": session_id,
+                    "prompt": "",
+                    "_meta": {
+                        "io.modelcontextprotocol/ui": {
+                            "toolCall": {"name": "canvas_dangerous", "arguments": {}},
+                            "callId": "n2:1"
+                        }
+                    }
+                }),
+                &serde_json::json!(2),
+            )
+            .await
+            .expect("a denied canvas tool call must still complete the turn, not error");
+
+        assert_eq!(result["stopReason"], "end_turn");
+        assert_eq!(
+            invocations.load(Ordering::SeqCst),
+            0,
+            "the tool's execute() must never run when the approval gate denies the call"
+        );
+
+        let updates = drain_notifications(&mut writer_rx).await;
+        let tool_updates: Vec<&Value> = updates
+            .iter()
+            .filter(|u| u["params"]["update"]["toolCallId"] == "canvas:n2:1")
+            .collect();
+        assert!(
+            !tool_updates.is_empty(),
+            "expected a tool_call/tool_call_update for canvas:n2:1, got {updates:?}"
+        );
+        assert!(
+            tool_updates.iter().any(|u| {
+                u["params"]["update"]["rawOutput"]
+                    .as_str()
+                    .is_some_and(|s| s != "echoed" && s.contains("denied"))
+            }),
+            "expected the denial's own message, never the tool's output, got {updates:?}"
+        );
+        assert!(
+            !updates
+                .iter()
+                .any(|u| u["params"]["update"]["sessionUpdate"] == "agent_message_chunk"),
+            "a pure tools/call must never produce a model message chunk, got {updates:?}"
         );
     }
 
