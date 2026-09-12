@@ -65,6 +65,17 @@ pub fn get_tool_description(tool_name: &str) -> Option<&'static str> {
     map.get(&key).map(String::as_str)
 }
 
+/// Localized tool description for UI surfaces (e.g. the dashboard `/api/tools`
+/// listing). Returns `None` when the process locale is English so callers keep
+/// their own canonical English `ToolSpec` text untouched, and `Some(text)` on a
+/// non-English locale when a translated catalog entry exists on disk.
+pub fn localized_tool_description(tool_name: &str) -> Option<&'static str> {
+    if active_locale() == "en" {
+        return None;
+    }
+    get_tool_description(tool_name)
+}
+
 /// Get a CLI string by key (e.g. "cli-config-about").
 pub fn get_cli_string(key: &str) -> Option<String> {
     let map = CLI_STRINGS.get_or_init(|| load_cli_strings(active_locale()));
