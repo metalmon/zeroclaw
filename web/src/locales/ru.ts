@@ -1028,6 +1028,26 @@ export const ru: Record<string, string> = {
   'config.tab_personality': 'Личность',
   'config.tab_skills': 'Навыки',
 
+  // Wire-tab labels: the Rust schema's #[tab(...)] tokens, keyed by the
+  // lowercased identifier. wireTabLabel() falls back to the raw token for
+  // any tab not listed here.
+  'config.wiretab.general': 'Основное',
+  'config.wiretab.behavior': 'Поведение',
+  'config.wiretab.advanced': 'Дополнительно',
+  'config.wiretab.connection': 'Подключение',
+  'config.wiretab.limits': 'Лимиты',
+  'config.wiretab.model': 'Модель',
+  'config.wiretab.providers': 'Провайдеры',
+  'config.wiretab.bundles': 'Наборы',
+  'config.wiretab.settings': 'Настройки',
+  'config.wiretab.channels': 'Каналы',
+  'config.wiretab.workspace': 'Рабочая среда',
+  'config.wiretab.tuning': 'Тонкая настройка',
+  'config.wiretab.servers': 'Серверы',
+  'config.wiretab.memory': 'Память',
+  'config.wiretab.cron': 'Расписание',
+  'config.wiretab.costs': 'Стоимость',
+
   // Config SECTION label/description catalog — keyed by the section's wire
   // id (SectionInfo.key from GET /api/config/sections, e.g.
   // "providers.models", "agents"). Covers the left config sub-nav entry,

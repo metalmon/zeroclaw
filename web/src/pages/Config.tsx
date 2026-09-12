@@ -662,7 +662,7 @@ export default function Config() {
                 sized up (text-sm, bolder leaf) to carry the header on its own,
                 with the page-level actions on the right. ReloadDaemonButton
                 keeps its own confirm modal. */}
-            <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <nav
                 aria-label={t("config.breadcrumb")}
                 className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm"
@@ -691,7 +691,7 @@ export default function Config() {
               <div className="flex flex-shrink-0 items-center gap-2">
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="md"
                   onClick={() => navigate("/quickstart")}
                   title={t("cfg.header.quickstart")}
                 >
@@ -948,6 +948,18 @@ function isDirectChannelSetting(path: string): boolean {
 }
 
 /**
+ * Localize a wire-tab label. Wire tabs come from the Rust schema's
+ * `#[tab(...)]` tokens (English identifiers like "General", "Connection");
+ * map each to a `config.wiretab.<lowercased>` catalog entry, falling back to
+ * the raw token so a newly-added tab still renders until it's translated.
+ */
+function wireTabLabel(tab: string): string {
+  const key = `config.wiretab.${tab.toLowerCase()}`;
+  const label = t(key);
+  return label === key ? tab : label;
+}
+
+/**
  * Build `SectionTabSpec[]` from the `tab` field on wire entries.
  *
  * Each distinct non-empty `tab` value becomes one tab whose `FieldForm`
@@ -984,7 +996,7 @@ function wireTabSpecs(
     const paths = tabPaths.get(tab)!;
     return {
       key: tab.toLowerCase().replace(/\s+/g, "-"),
-      label: tab,
+      label: wireTabLabel(tab),
       render: () => (
         <FieldForm
           key={`${ctx.reloadKey}-${prefix}-${tab}`}

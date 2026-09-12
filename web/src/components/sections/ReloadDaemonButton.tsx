@@ -101,7 +101,7 @@ export default function ReloadDaemonButton({ onReloaded, timeoutMs = 30_000 }: R
         type="button"
         onClick={() => setState({ kind: 'confirming' })}
         disabled={isBusy}
-        className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
+        className="btn-secondary flex items-center gap-2 text-sm h-9 px-3"
         title={t('reload_btn.button_title')}
       >
         {state.kind === 'reloading' || state.kind === 'waiting' ? (
