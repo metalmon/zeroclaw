@@ -2040,6 +2040,17 @@ const translations: Record<Locale, Record<string, string>> = {
     'dashboard.health_status.warn': 'warn',
     'dashboard.health_status.degraded': 'degraded',
     'dashboard.health_status.healthy': 'healthy',
+    // Process-level health component display names.
+    'dashboard.component.channels': 'channels',
+    'dashboard.component.control-plane': 'control-plane',
+    'dashboard.component.daemon': 'daemon',
+    'dashboard.component.enroll': 'enroll',
+    'dashboard.component.gateway': 'gateway',
+    'dashboard.component.mqtt': 'mqtt',
+    'dashboard.component.relay': 'relay',
+    'dashboard.component.scheduler': 'scheduler',
+    'dashboard.component.socket': 'socket',
+    'dashboard.component.wss': 'wss',
     'dashboard.tab_overview': 'Overview',
     'dashboard.tab_sessions': 'Sessions',
     'dashboard.tab_channels': 'Channels',
@@ -13994,6 +14005,20 @@ export function sectionGroupLabel(groupLabel: string): string {
 export function displayAlias(alias: string): string {
   const key = `alias.${alias.toLowerCase()}`;
   return translations[currentLocale]?.[key] ?? alias;
+}
+
+/**
+ * Display name for an entity label that may be a `type / alias` compound
+ * (two-tier providers show "ollama / default" in the navigator). Localizes
+ * each segment via displayAlias, so only magic aliases like "default" change
+ * ("ollama / default" -> "ollama / По умолчанию"). Display-only — the on-disk
+ * key is never rewritten, so search/matching still use the raw label.
+ */
+export function displayEntityLabel(label: string): string {
+  return label
+    .split(" / ")
+    .map((segment) => displayAlias(segment))
+    .join(" / ");
 }
 
 /**

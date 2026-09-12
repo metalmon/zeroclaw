@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, Settings, ChevronDown, Menu, Globe, Search, Sparkles } from 'lucide-react';
+import { LogOut, Settings, ChevronDown, Menu, Globe, Search, Rocket } from 'lucide-react';
 import { t, SUPPORTED_LOCALES } from '@/lib/i18n';
 import { useLocaleContext } from '@/App';
 import { useAuth } from '@/hooks/useAuth';
@@ -109,20 +109,20 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
             collapse in a tight row). */}
         <div className="flex items-center gap-2 h-9 shrink-0">
           {/* Daemon-level actions, hoisted out of the per-section config header
-              (they repeated on every config tab). Icon-only + tooltip to match
-              the header's other controls. Reload triggers a full app refresh
-              once the daemon answers /health, so every open page picks up the
-              re-consumed config. */}
+              (they repeated on every config tab). Kept as labeled buttons — the
+              icon-only form collided with the Skills rail icon. Reload triggers
+              a full app refresh once the daemon answers /health, so every open
+              page picks up the re-consumed config. */}
           <Button
             variant="ghost"
             onClick={() => navigate('/quickstart')}
-            className="hidden sm:flex h-9 w-9 border-transparent px-0"
+            className="hidden md:flex h-9 border-transparent gap-1.5"
             title={t('cfg.header.quickstart')}
-            aria-label={t('cfg.header.quickstart')}
           >
-            <Sparkles className="h-[18px] w-[18px] shrink-0" />
+            <Rocket className="h-[18px] w-[18px] shrink-0" />
+            <span className="hidden lg:inline">{t('nav.quickstart')}</span>
           </Button>
-          <ReloadDaemonButton compact onReloaded={() => window.location.reload()} />
+          <ReloadDaemonButton onReloaded={() => window.location.reload()} />
 
           {/* Command-palette trigger — styled like a search field. Opens the
               palette; the same action is bound globally to ⌘K / Ctrl+K, shown

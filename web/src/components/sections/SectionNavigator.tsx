@@ -28,7 +28,7 @@ import {
   type SectionInfo,
 } from "../../lib/api";
 import { fuzzyFilter } from "../../lib/fuzzy";
-import { sectionGroupLabel, sectionLabel, t } from "@/lib/i18n";
+import { sectionGroupLabel, sectionLabel, displayEntityLabel, t } from "@/lib/i18n";
 import { badgeIsGood } from "./SectionPicker";
 
 // One selectable entity under a section. `url` is the entity's existing
@@ -371,9 +371,9 @@ export default function SectionNavigator({
               ? "bg-pc-accent/10 text-pc-accent font-medium"
               : "text-pc-text-secondary hover:bg-pc-elevated/60 hover:text-pc-text",
           ].join(" ")}
-          title={e.label}
+          title={displayEntityLabel(e.label)}
         >
-          <span className="truncate">{e.label}</span>
+          <span className="truncate">{displayEntityLabel(e.label)}</span>
         </button>
       );
     });
@@ -450,9 +450,9 @@ export default function SectionNavigator({
                         ? "bg-pc-accent/10 text-pc-accent font-medium"
                         : "text-pc-text-secondary hover:bg-pc-elevated/60 hover:text-pc-text",
                     ].join(" ")}
-                    title={`${sectionLabel(h.section.key, h.section.label)} · ${h.entity.label}`}
+                    title={`${sectionLabel(h.section.key, h.section.label)} · ${displayEntityLabel(h.entity.label)}`}
                   >
-                    <span className="truncate">{h.entity.label}</span>
+                    <span className="truncate">{displayEntityLabel(h.entity.label)}</span>
                     <span className="text-[10px] text-pc-text-faint flex-shrink-0 truncate max-w-[40%]">
                       {sectionLabel(h.section.key, h.section.label)}
                     </span>

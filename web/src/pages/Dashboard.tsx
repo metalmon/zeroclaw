@@ -310,6 +310,15 @@ function formatRelative(iso: string): string {
   }
 }
 
+// Localized display name for a process-level health component (gateway,
+// scheduler, …). Unknown/technical component ids (mqtt, wss) fall back to the
+// raw id via their identity catalog entry or the miss path.
+function componentLabel(name: string): string {
+  const key = `dashboard.component.${name}`;
+  const label = t(key);
+  return label === key ? name : label;
+}
+
 // Localized label for a component health status ("ok"/"error"/"starting").
 // The badge CSS uppercases it, so the catalog carries natural-case forms.
 // Unknown statuses render verbatim.
@@ -748,7 +757,7 @@ function OverviewTab({
             return (
               <div className="space-y-2">
                 {sorted.map(([name, comp]) => {
-                  const display = name;
+                  const display = componentLabel(name);
                   const lastErr = comp.last_error ?? null;
                   const lastOk = comp.last_ok ?? null;
                   return (
@@ -769,7 +778,7 @@ function OverviewTab({
                           }}
                         />
                         <span
-                          className="text-sm font-medium font-mono break-all"
+                          className="text-sm font-medium break-all"
                           style={{ color: "var(--pc-text-primary)" }}
                         >
                           {display}

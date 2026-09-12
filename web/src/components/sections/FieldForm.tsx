@@ -2233,7 +2233,7 @@ function FieldRow({
           <button
             type="button"
             onClick={() => setShowComment(true)}
-            className="inline-flex items-center gap-1 text-xs text-pc-text-faint hover:text-pc-text-secondary transition-colors"
+            className="ml-3 inline-flex items-center gap-1 text-xs text-pc-text-faint hover:text-pc-text-secondary transition-colors"
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
             {t("cfg.field.commentAdd")}
