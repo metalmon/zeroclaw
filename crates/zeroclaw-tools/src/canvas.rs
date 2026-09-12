@@ -514,7 +514,7 @@ impl Tool for CanvasTool {
                     let data = json!({
                         "ui_resource": true,
                         "uri": format!("ui://pnl/{canvas_id}"),
-                        "mimeType": "text/html",
+                        "mimeType": "text/html;profile=mcp-app",
                         "text": content,
                     });
                     return Ok(ToolResult {
@@ -909,7 +909,10 @@ mod tests {
         let data = out.output.into_data().expect("has data");
         assert_eq!(data["ui_resource"], serde_json::json!(true));
         assert_eq!(data["uri"], serde_json::json!("ui://pnl/dashboard"));
-        assert_eq!(data["mimeType"], serde_json::json!("text/html"));
+        assert_eq!(
+            data["mimeType"],
+            serde_json::json!("text/html;profile=mcp-app")
+        );
         assert!(data["text"].as_str().unwrap().starts_with("<!doctype"));
     }
 
