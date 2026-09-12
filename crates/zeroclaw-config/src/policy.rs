@@ -2576,7 +2576,9 @@ fn git_verb_index(args: &[String]) -> Option<usize> {
 /// target, the `> file` two-token form, and fd merges like `2>&1`) makes the
 /// classifier's argv match the shell's. A real word glued ahead of a redirect
 /// (`commit>log`) keeps its prefix so the verb still resolves; a bare fd number
-/// does not. Tokens are lower-cased to match `git_verb_index`.
+/// does not. Tokens keep their ORIGINAL case — the consumers lower-case the verb
+/// name for matching, but option inspection needs the real case to tell grep's
+/// `-O` (`--open-files-in-pager`, exec) from `-o` (`--only-matching`, a read).
 fn git_effective_args(tokens: Vec<String>) -> Vec<String> {
     fn prefix_arg(prefix: &str) -> Option<String> {
         let prefix = prefix.trim();
@@ -2591,7 +2593,6 @@ fn git_effective_args(tokens: Vec<String>) -> Vec<String> {
             drop_next_target = false; // this token is a redirect target, not argv
             continue;
         }
-        let token = token.to_ascii_lowercase();
         let (keep, prefix, drop_next) = match parse_redirection_argument(&token) {
             RedirectionArgument::None => (true, None, false),
             RedirectionArgument::Target { prefix, .. } | RedirectionArgument::FdOnly { prefix } => {
@@ -2658,11 +2659,13 @@ fn git_segment_is_write(segment: &str) -> bool {
     let Some(i) = git_verb_index(&args) else {
         return true; // no resolvable verb → conservative write
     };
-    let verb = args[i].as_str();
+    // Git subcommands are lower-case, so match the verb case-insensitively; the
+    // arguments keep their original case for option inspection below.
+    let verb = args[i].to_ascii_lowercase();
     // A read-only verb still fails closed to a write when an argument makes it
     // write a file, mutate the repo, or exec a program from the command line
     // alone (e.g. `diff --output=f`, `fsck --lost-found`, `grep -O`).
-    !is_git_read_only_verb(verb) || git_read_verb_has_mutating_arg(verb, &args[i + 1..])
+    !is_git_read_only_verb(&verb) || git_read_verb_has_mutating_arg(&verb, &args[i + 1..])
 }
 
 /// Git subcommands whose *default* behavior only reads — the read-only allowlist
@@ -2731,47 +2734,62 @@ fn is_git_read_only_verb(verb: &str) -> bool {
 /// `--ext-diff` external diff) needs a pre-existing repo driver and is a
 /// broader shell/config-hardening concern handled separately, not modeled here.
 ///
-/// `verb_args` are the post-verb tokens, already `shlex`-split and lower-cased by
-/// [`git_effective_args`], so options are matched in their lower-cased form (the
-/// grep short option `-O` arrives as `-o`). The grep short option is matched
-/// anywhere in a single-dash flag run so a clustered `-nO` (→ `-no`) cannot hide
-/// it. Long options are matched by PREFIX, not exact name: git's parse-options
-/// accepts any unambiguous abbreviation, so `--open-files-in-pager` can be
-/// written `--open`/`--op` and `--lost-found` as `--lost`/`--l`. Matching the
-/// canonical option against any `--`-prefix (fail closed / over-match) closes
+/// `verb_args` are the post-verb tokens (`shlex`-split, ORIGINAL case). Long
+/// options are matched case-insensitively by PREFIX, not exact name: git's
+/// parse-options accepts any unambiguous abbreviation, so `--open-files-in-pager`
+/// can be written `--open`/`--op` and `--lost-found` as `--lost`/`--l`. Matching
+/// the canonical option against any `--`-prefix (fail closed / over-match) closes
 /// those abbreviations; a longer, distinct option such as the read-only
-/// `--output-indicator-*` is not a prefix of `--output`, so it stays Low.
+/// `--output-indicator-*` is not a prefix of `--output`, so it stays Low. The grep
+/// short option is CASE-SENSITIVE: `-O` (`--open-files-in-pager`, execs a pager) is
+/// gated, `-o` (`--only-matching`, a read) is not; it is matched anywhere in a
+/// single-dash flag run so a clustered `-nO` cannot hide it.
 fn git_read_verb_has_mutating_arg(verb: &str, verb_args: &[String]) -> bool {
-    // Letters in a single-dash short-option run: "-nO" → "no" (already
-    // lower-cased). Empty for long options ("--x") and non-option tokens.
-    fn short_run(token: &str) -> &str {
+    // `git grep -O[<pager>]` execs a pager. The `-O` flag can hide in a cluster of
+    // value-less flags (`-nO`, `-vnO`), but an ARG-CONSUMING git-grep short option
+    // glues its value right after the letter, so an `O` past the first such option
+    // is value text, not the pager flag: `-e<pattern>`/`-f<file>`/`-m<num>` and the
+    // context options `-A`/`-B`/`-C<num>`. Scan the single-dash run and gate on `O`
+    // only until the first arg-consuming letter (or an `=`). Case-sensitive: `-o`
+    // (`--only-matching`) is a read.
+    fn grep_opens_pager(token: &str) -> bool {
         if token.starts_with("--") || !token.starts_with('-') {
-            return "";
+            return false;
         }
-        let body = &token[1..];
-        body.split('=').next().unwrap_or(body)
+        for c in token[1..].chars() {
+            match c {
+                'O' => return true,
+                'A' | 'B' | 'C' | 'e' | 'f' | 'm' | '=' => return false, // value follows
+                _ => {}
+            }
+        }
+        false
     }
-    // `name` (a `--…` option, `=value` already stripped) is an abbreviation of
-    // `canonical` when it is at least `--` plus one letter and `canonical` starts
-    // with it. Over-gating an ambiguous or benign abbreviation to Medium is the
-    // safe direction; under-gating an exec/write is the bug.
+    // `name` (a lower-cased `--…` option, `=value` already stripped) is an
+    // abbreviation of `canonical` when it is at least `--` plus one letter and
+    // `canonical` starts with it. Over-gating an ambiguous or benign abbreviation
+    // to Medium is the safe direction; under-gating an exec/write is the bug.
     fn is_abbrev(name: &str, canonical: &str) -> bool {
         name.len() >= 3 && canonical.starts_with(name)
     }
     verb_args.iter().any(|token| {
-        let name = token.split('=').next().unwrap_or(token);
+        let name = token
+            .split('=')
+            .next()
+            .unwrap_or(token)
+            .to_ascii_lowercase();
         match verb {
             // `--output=<file>` writes the diff to a file instead of stdout.
             // (`-O<orderfile>` is a *read* on these verbs — an order file — and
             // is intentionally NOT matched here.)
             "diff" | "diff-tree" | "diff-files" | "diff-index" | "show" | "log" | "whatchanged" => {
-                is_abbrev(name, "--output")
+                is_abbrev(&name, "--output")
             }
             // `--lost-found` writes dangling objects under `.git/lost-found/`.
-            "fsck" => is_abbrev(name, "--lost-found"),
+            "fsck" => is_abbrev(&name, "--lost-found"),
             // `-O[<pager>]` / `--open-files-in-pager[=<pager>]` execs a pager —
             // arbitrary nested execution outside the `git` allowlist.
-            "grep" => is_abbrev(name, "--open-files-in-pager") || short_run(token).contains('o'),
+            "grep" => is_abbrev(&name, "--open-files-in-pager") || grep_opens_pager(token),
             _ => false,
         }
     })
@@ -2781,6 +2799,10 @@ fn generic_segment_risk(
     base: &str,
     args: &[String],
     joined_segment: &str,
+    // Same segment WITHOUT case-folding. The git write-classifier needs the real
+    // case to tell grep's `-O` (`--open-files-in-pager`, exec) from `-o`
+    // (`--only-matching`, a read); everything else here is case-insensitive.
+    orig_segment: &str,
 ) -> Option<CommandRiskLevel> {
     if matches!(
         base,
@@ -2846,7 +2868,7 @@ fn generic_segment_risk(
         // and redirections, failing closed on unmodeled expansion) instead of
         // `args.first()`, which reads a leading `-C`/redirect as the subcommand
         // and lets a write skip the medium-risk gate. See `git_segment_is_write`.
-        "git" => Some(if git_segment_is_write(joined_segment) {
+        "git" => Some(if git_segment_is_write(orig_segment) {
             CommandRiskLevel::Medium
         } else {
             CommandRiskLevel::Low
@@ -2945,7 +2967,7 @@ impl SecurityPolicy {
             let args: Vec<String> = words.map(|w| w.to_ascii_lowercase()).collect();
             let joined_segment = cmd_part.to_ascii_lowercase();
 
-            match generic_segment_risk(base, &args, &joined_segment) {
+            match generic_segment_risk(base, &args, &joined_segment, cmd_part) {
                 Some(CommandRiskLevel::High) => return CommandRiskLevel::High,
                 Some(CommandRiskLevel::Medium) => saw_medium = true,
                 Some(CommandRiskLevel::Low) | None => {}
@@ -3036,7 +3058,12 @@ impl SecurityPolicy {
                 None => {}
             }
 
-            match generic_segment_risk(base, &arguments_lower, &segment.to_ascii_lowercase()) {
+            match generic_segment_risk(
+                base,
+                &arguments_lower,
+                &segment.to_ascii_lowercase(),
+                &segment,
+            ) {
                 Some(CommandRiskLevel::High) => return CommandRiskLevel::High,
                 Some(CommandRiskLevel::Medium) => saw_medium = true,
                 Some(CommandRiskLevel::Low) => {}
@@ -5513,7 +5540,11 @@ mod tests {
             "git fsck",
             "git grep foo",
             "git grep -n foo",
-            "git grep -w foo", // grep -w is --word-regexp, not the pager option
+            "git grep -w foo",     // grep -w is --word-regexp, not the pager option
+            "git grep -o needle",  // lowercase -o is --only-matching (a read), NOT -O pager
+            "git grep -no needle", // clustered -n -o: still no uppercase O
+            "git grep -eTODO",     // -e<pattern>: glued value with an O is not the pager flag
+            "git grep -fpats.txt", // -f<file>: arg-consuming short, value follows
             "git grep -e a --or -e b", // grep --or is not a prefix of --open-files-in-pager
         ] {
             assert_eq!(
