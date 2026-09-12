@@ -681,6 +681,12 @@ const translations: Record<Locale, Record<string, string>> = {
     'cron.show_recent_runs': "Show this job's recent runs",
     'cron.timezone_placeholder': "e.g. America/New_York",
     'dashboard.cpu.label': "CPU",
+    // Uptime unit suffixes (en: no space, ru: leading space) + cost amount
+    // layout (currency symbol position differs by locale).
+    'dashboard.dur_d': "d",
+    'dashboard.dur_h': "h",
+    'dashboard.dur_m': "m",
+    'dashboard.cost.amount': "${amount}",
     'dashboard.fix': "Fix",
     'dashboard.last_ok_title': "last ok:",
     'dashboard.load_agents_error': "Failed to load agents",

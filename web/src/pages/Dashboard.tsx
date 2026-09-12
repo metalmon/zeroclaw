@@ -178,13 +178,19 @@ function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  if (d > 0) return `${d}d ${h}h ${m}m`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  const du = t("dashboard.dur_d");
+  const hu = t("dashboard.dur_h");
+  const mu = t("dashboard.dur_m");
+  if (d > 0) return `${d}${du} ${h}${hu} ${m}${mu}`;
+  if (h > 0) return `${h}${hu} ${m}${mu}`;
+  return `${m}${mu}`;
 }
 
+// Cost amount with a locale-driven currency layout (en: "$X", ru: "X ₽").
+// The symbol is display-only — the numeric value is whatever currency the cost
+// rates were entered in (default model pricing is USD).
 function formatUSD(value: number): string {
-  return `$${value.toFixed(4)}`;
+  return t("dashboard.cost.amount", { amount: value.toFixed(4) });
 }
 
 function formatBytes(bytes: number): string {
