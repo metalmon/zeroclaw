@@ -6,6 +6,39 @@
    in the personality editor's Markdown preview. */
 @import "highlight.js/styles/github-dark.css";
 
+/* Chat reading serif — Plantin Cyr MT (Latin + Cyrillic), the same bundled
+   face the Volt desktop client uses for chat prose. Self-hosted (no external
+   font CDN); applied only to `.chat-markdown` so the rest of the UI keeps its
+   sans stack. */
+@font-face {
+  font-family: 'Plantin Cyr MT';
+  src: url('./fonts/plantin-cyr.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plantin Cyr MT';
+  src: url('./fonts/plantin-cyr-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plantin Cyr MT';
+  src: url('./fonts/plantin-cyr-italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plantin Cyr MT';
+  src: url('./fonts/plantin-cyr-bolditalic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 @theme {
   /* Theme-aware colors mapped to CSS custom properties */
   --color-pc-base: var(--pc-bg-base);
@@ -117,11 +150,21 @@
   --pc-scrollbar-track: #282a2b;
   --pc-scrollbar-thumb-hover: #525657;
 
-  /* Fonts */
-  --pc-font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  /* Fonts — UI on the system sans stack (matching the Volt client, which keeps
+     everyday UI on the platform font). Runtime font choices override --pc-font-ui
+     via ThemeContext; --pc-font-chat is the bundled reading serif. */
+  --pc-font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
   --pc-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  --pc-font-chat: 'Plantin Cyr MT', Georgia, 'Times New Roman', serif;
+  /* Display / heading font — the same Plantin serif (Cyrillic-capable), used
+     as the editorial voice on page & section titles so the bundled face is
+     actually seen (chat is rare in an admin panel). */
+  --pc-font-heading: 'Plantin Cyr MT', Georgia, 'Times New Roman', serif;
   --pc-font-size: 15px;
   --pc-font-size-mono: 14px;
+  /* Chat prose reads a touch small in the serif, so it carries a small bump
+     over the body size (mirrors the client's serif bump). */
+  --pc-font-chat-size: calc(var(--pc-font-size) * 1.06);
 }
 
 html {
@@ -137,6 +180,13 @@ body {
   margin: 0;
   overflow-x: hidden;
   max-width: 100vw;
+}
+
+/* Page & section titles carry the display serif. Scoped to the two heading
+   levels the console uses for real titles; smaller headings (h3+) and the
+   dense label chrome stay on the sans UI stack. */
+h1, h2 {
+  font-family: var(--pc-font-heading);
 }
 
 #root {
@@ -652,6 +702,20 @@ code, kbd, pre {
 }
 
 /* ── Markdown styles ── */
+/* Chat message prose (AgentChat) — the bundled reading serif, sized a rung up.
+   Code/mono inside still resolves to the mono stack via the .markdown-body
+   rules below. */
+.chat-markdown {
+  font-family: var(--pc-font-chat);
+  font-size: var(--pc-font-chat-size);
+}
+.chat-markdown code,
+.chat-markdown pre,
+.chat-markdown kbd {
+  font-family: var(--pc-font-mono);
+  font-size: var(--pc-font-size-mono);
+}
+
 .markdown-body pre {
   background: var(--pc-bg-code) !important;
   border: 1px solid var(--pc-border);
