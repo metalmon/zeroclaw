@@ -1142,14 +1142,17 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
     if config.config_path.exists() {
         items.push(DiagItem::ok(
             cat,
-            format!("config file: {}", config.config_path.display().to_string()),
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-config-file",
+                &[("path", &config.config_path.display().to_string())],
+            ),
         ));
     } else {
         items.push(DiagItem::error(
             cat,
-            format!(
-                "config file not found: {}",
-                config.config_path.display().to_string()
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-config-file-missing",
+                &[("path", &config.config_path.display().to_string())],
             ),
         ));
     }
@@ -1163,32 +1166,59 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
             if let Some(reason) = provider_validation_error(config, &label) {
                 items.push(DiagItem::error(
                     cat,
-                    format!("model_provider \"{label}\" is invalid: {reason}"),
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-provider-invalid",
+                        &[("label", &label), ("reason", reason.as_str())],
+                    ),
                 ));
             } else {
                 items.push(DiagItem::ok(
                     cat,
-                    format!("model_provider \"{label}\" is valid"),
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-provider-valid",
+                        &[("label", &label)],
+                    ),
                 ));
             }
 
             // API key presence
             if family != "ollama" {
                 if entry.api_key.as_deref().is_some() {
-                    items.push(DiagItem::ok(cat, format!("{label}: API key configured")));
+                    items.push(DiagItem::ok(
+                        cat,
+                        crate::i18n::get_required_cli_string_with_args(
+                            "cli-doctor-api-key-configured",
+                            &[("label", &label)],
+                        ),
+                    ));
                 } else {
                     items.push(DiagItem::warn(
                         cat,
-                        format!("{label}: no api_key set (may rely on env vars or model_provider defaults)"),
+                        crate::i18n::get_required_cli_string_with_args(
+                            "cli-doctor-provider-api-key-missing",
+                            &[("label", &label)],
+                        ),
                     ));
                 }
             }
 
             // Model configured
             if let Some(model) = entry.model.as_deref() {
-                items.push(DiagItem::ok(cat, format!("{label}: model: {model}")));
+                items.push(DiagItem::ok(
+                    cat,
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-provider-model",
+                        &[("label", &label), ("model", model)],
+                    ),
+                ));
             } else {
-                items.push(DiagItem::warn(cat, format!("{label}: no model configured")));
+                items.push(DiagItem::warn(
+                    cat,
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-provider-model-missing",
+                        &[("label", &label)],
+                    ),
+                ));
             }
 
             // A missing value remains unknown until this profile is selected;
@@ -1232,29 +1262,37 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
                 Some(temperature) if (0.0..=2.0).contains(&temperature) => {
                     items.push(DiagItem::ok(
                         cat,
-                        format!(
-                            "{label}: temperature {temperature:.1} (valid range 0.0\u{2013}2.0)"
+                        crate::i18n::get_required_cli_string_with_args(
+                            "cli-doctor-provider-temperature-ok",
+                            &[("label", &label), ("temperature", &format!("{temperature:.1}"))],
                         ),
                     ));
                 }
                 Some(temperature) => {
                     items.push(DiagItem::error(
                         cat,
-                        format!(
-                            "{label}: temperature {temperature:.1} is out of range (expected 0.0\u{2013}2.0)"
+                        crate::i18n::get_required_cli_string_with_args(
+                            "cli-doctor-provider-temperature-out-of-range",
+                            &[("label", &label), ("temperature", &format!("{temperature:.1}"))],
                         ),
                     ));
                 }
                 None => {
                     items.push(DiagItem::ok(
                         cat,
-                        format!("{label}: temperature unset (provider default)"),
+                        crate::i18n::get_required_cli_string_with_args(
+                            "cli-doctor-provider-temperature-unset",
+                            &[("label", &label)],
+                        ),
                     ));
                 }
             }
         }
         if !found_any {
-            items.push(DiagItem::error(cat, "no model providers configured"));
+            items.push(DiagItem::error(
+                cat,
+                crate::i18n::get_required_cli_string("cli-doctor-no-model-providers"),
+            ));
         }
     }
 
@@ -1278,12 +1316,19 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
                 .map(str::trim)
                 .is_some_and(|k| !k.is_empty())
             {
-                items.push(DiagItem::ok(cat, format!("{label}: API key configured")));
+                items.push(DiagItem::ok(
+                    cat,
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-api-key-configured",
+                        &[("label", &label)],
+                    ),
+                ));
             } else {
                 items.push(DiagItem::warn(
                     cat,
-                    format!(
-                        "{label}: no api_key set — this provider will NOT register (not a soft fallback); set `[{label}].api_key` or remove the entry"
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-provider-api-key-not-registered",
+                        &[("label", &label)],
                     ),
                 ));
             }
@@ -1310,12 +1355,19 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
             };
             let label = format!("providers.transcription.{family}.{alias}");
             if api_key.map(str::trim).is_some_and(|k| !k.is_empty()) {
-                items.push(DiagItem::ok(cat, format!("{label}: API key configured")));
+                items.push(DiagItem::ok(
+                    cat,
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-api-key-configured",
+                        &[("label", &label)],
+                    ),
+                ));
             } else {
                 items.push(DiagItem::warn(
                     cat,
-                    format!(
-                        "{label}: no api_key set — this provider will NOT register (not a soft fallback); set `[{label}].api_key` or remove the entry"
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-provider-api-key-not-registered",
+                        &[("label", &label)],
                     ),
                 ));
             }
@@ -1325,29 +1377,48 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
     // Gateway port range
     let port = config.gateway.port;
     if port > 0 {
-        items.push(DiagItem::ok(cat, format!("gateway port: {port}")));
+        items.push(DiagItem::ok(
+            cat,
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-gateway-port",
+                &[("port", &port.to_string())],
+            ),
+        ));
     } else {
-        items.push(DiagItem::error(cat, "gateway port is 0 (invalid)"));
+        items.push(DiagItem::error(
+            cat,
+            crate::i18n::get_required_cli_string("cli-doctor-gateway-port-invalid"),
+        ));
     }
 
     // Model routes validation
     for route in &config.model_routes {
         if route.hint.is_empty() {
-            items.push(DiagItem::warn(cat, "model route with empty hint"));
+            items.push(DiagItem::warn(
+                cat,
+                crate::i18n::get_required_cli_string("cli-doctor-model-route-empty-hint"),
+            ));
         }
         if let Some(reason) = provider_validation_error(config, &route.model_provider) {
             items.push(DiagItem::warn(
                 cat,
-                format!(
-                    "model route \"{}\" uses invalid model_provider \"{}\": {}",
-                    route.hint, route.model_provider, reason
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-model-route-invalid-provider",
+                    &[
+                        ("hint", route.hint.as_str()),
+                        ("provider", route.model_provider.as_str()),
+                        ("reason", reason.as_str()),
+                    ],
                 ),
             ));
         }
         if route.model.is_empty() {
             items.push(DiagItem::warn(
                 cat,
-                format!("model route \"{}\" has empty model", route.hint),
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-model-route-empty-model",
+                    &[("hint", route.hint.as_str())],
+                ),
             ));
         }
     }
@@ -1355,29 +1426,39 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
     // Embedding routes validation
     for route in &config.embedding_routes {
         if route.hint.trim().is_empty() {
-            items.push(DiagItem::warn(cat, "embedding route with empty hint"));
+            items.push(DiagItem::warn(
+                cat,
+                crate::i18n::get_required_cli_string("cli-doctor-embedding-route-empty-hint"),
+            ));
         }
         if let Some(reason) = embedding_provider_validation_error(&route.model_provider) {
             items.push(DiagItem::warn(
                 cat,
-                format!(
-                    "embedding route \"{}\" uses invalid model_provider \"{}\": {}",
-                    route.hint, route.model_provider, reason
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-embedding-route-invalid-provider",
+                    &[
+                        ("hint", route.hint.as_str()),
+                        ("provider", route.model_provider.as_str()),
+                        ("reason", reason.as_str()),
+                    ],
                 ),
             ));
         }
         if route.model.trim().is_empty() {
             items.push(DiagItem::warn(
                 cat,
-                format!("embedding route \"{}\" has empty model", route.hint),
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-embedding-route-empty-model",
+                    &[("hint", route.hint.as_str())],
+                ),
             ));
         }
         if route.dimensions.is_some_and(|value| value == 0) {
             items.push(DiagItem::warn(
                 cat,
-                format!(
-                    "embedding route \"{}\" has invalid dimensions=0",
-                    route.hint
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-embedding-route-invalid-dimensions",
+                    &[("hint", route.hint.as_str())],
                 ),
             ));
         }
@@ -1395,11 +1476,12 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
             .any(|route| route.hint.trim() == hint)
     {
         items.push(DiagItem::warn(
-                cat,
-                format!(
-                    "memory.embedding_model uses hint \"{hint}\" but no matching [[embedding_routes]] entry exists"
-                ),
-            ));
+            cat,
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-embedding-hint-no-route",
+                &[("hint", hint)],
+            ),
+        ));
     }
 
     // gateway.web_dist_dir: flag values that rely on shell expansion the
@@ -1413,11 +1495,14 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
     let has_channel = cc.channels().iter().any(|info| info.configured);
 
     if has_channel {
-        items.push(DiagItem::ok(cat, "at least one channel configured"));
+        items.push(DiagItem::ok(
+            cat,
+            crate::i18n::get_required_cli_string("cli-doctor-channel-present"),
+        ));
     } else {
         items.push(DiagItem::warn(
             cat,
-            "no channels configured — run `zeroclaw quickstart` to set one up",
+            crate::i18n::get_required_cli_string("cli-doctor-no-channels"),
         ));
     }
 
@@ -1429,8 +1514,9 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
         if tg.enabled && zeroclaw_config::traits::is_unset_display_value(&tg.bot_token) {
             items.push(DiagItem::warn(
                 cat,
-                format!(
-                    "channels.telegram.{alias}.bot_token is unset but the channel is enabled — the channel cannot connect until a bot token is set"
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-telegram-bot-token-unset",
+                    &[("alias", alias.as_str())],
                 ),
             ));
         }
@@ -1439,8 +1525,9 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
         if dc.enabled && zeroclaw_config::traits::is_unset_display_value(&dc.bot_token) {
             items.push(DiagItem::warn(
                 cat,
-                format!(
-                    "channels.discord.{alias}.bot_token is unset but the channel is enabled — the channel cannot connect until a bot token is set"
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-discord-bot-token-unset",
+                    &[("alias", alias.as_str())],
                 ),
             ));
         }
@@ -1458,8 +1545,13 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
         if let Some(reason) = provider_validation_error(config, provider_ref) {
             items.push(DiagItem::warn(
                 cat,
-                format!(
-                    "agent \"{name}\" uses invalid model_provider \"{provider_ref}\": {reason}",
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-agent-invalid-provider",
+                    &[
+                        ("name", name.as_str()),
+                        ("provider", provider_ref),
+                        ("reason", reason.as_str()),
+                    ],
                 ),
             ));
         }
@@ -1471,10 +1563,12 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
     for warning in config.collect_warnings() {
         items.push(DiagItem::warn(
             cat,
-            format!(
-                "{} (at {})",
-                localized_validation_warning_message(&warning),
-                warning.path
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-config-warning",
+                &[
+                    ("message", &localized_validation_warning_message(&warning)),
+                    ("path", warning.path.as_str()),
+                ],
             ),
         ));
     }
@@ -1579,12 +1673,18 @@ fn check_workspace(config: &Config, items: &mut Vec<DiagItem>) {
     if ws.exists() {
         items.push(DiagItem::ok(
             cat,
-            format!("directory exists: {}", ws.display().to_string()),
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-workspace-exists",
+                &[("path", &ws.display().to_string())],
+            ),
         ));
     } else {
         items.push(DiagItem::error(
             cat,
-            format!("directory missing: {}", ws.display().to_string()),
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-workspace-missing",
+                &[("path", &ws.display().to_string())],
+            ),
         ));
         return;
     }
@@ -1601,17 +1701,26 @@ fn check_workspace(config: &Config, items: &mut Vec<DiagItem>) {
             drop(probe_file);
             let _ = std::fs::remove_file(&probe);
             match write_result {
-                Ok(()) => items.push(DiagItem::ok(cat, "directory is writable")),
+                Ok(()) => items.push(DiagItem::ok(
+                    cat,
+                    crate::i18n::get_required_cli_string("cli-doctor-workspace-writable"),
+                )),
                 Err(e) => items.push(DiagItem::error(
                     cat,
-                    format!("directory write probe failed: {e}"),
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-workspace-write-probe-failed",
+                        &[("error", &e.to_string())],
+                    ),
                 )),
             }
         }
         Err(e) => {
             items.push(DiagItem::error(
                 cat,
-                format!("directory is not writable: {e}"),
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-workspace-not-writable",
+                    &[("error", &e.to_string())],
+                ),
             ));
         }
     }
@@ -1621,12 +1730,18 @@ fn check_workspace(config: &Config, items: &mut Vec<DiagItem>) {
         if avail_mb >= 100 {
             items.push(DiagItem::ok(
                 cat,
-                format!("disk space: {avail_mb} MB available"),
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-disk-space-ok",
+                    &[("available", &avail_mb.to_string())],
+                ),
             ));
         } else {
             items.push(DiagItem::warn(
                 cat,
-                format!("low disk space: only {avail_mb} MB available"),
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-disk-space-low",
+                    &[("available", &avail_mb.to_string())],
+                ),
             ));
         }
     }
@@ -1656,11 +1771,20 @@ fn check_agent_file(
     items: &mut Vec<DiagItem>,
 ) {
     if workspace_dir.join(name).is_file() {
-        items.push(DiagItem::ok(cat, format!("[{alias}] {name} present")));
+        items.push(DiagItem::ok(
+            cat,
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-agent-file-present",
+                &[("alias", alias), ("name", name)],
+            ),
+        ));
     } else {
         items.push(DiagItem::warn(
             cat,
-            format!("[{alias}] {name} not found (optional)"),
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-agent-file-missing",
+                &[("alias", alias), ("name", name)],
+            ),
         ));
     }
 }
@@ -1704,9 +1828,9 @@ fn check_daemon_state(config: &Config, items: &mut Vec<DiagItem>) {
     if !state_file.exists() {
         items.push(DiagItem::error(
             cat,
-            format!(
-                "state file not found: {} — is the daemon running?",
-                state_file.display()
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-daemon-state-missing",
+                &[("path", &state_file.display().to_string())],
             ),
         ));
         return;
@@ -1715,7 +1839,13 @@ fn check_daemon_state(config: &Config, items: &mut Vec<DiagItem>) {
     let raw = match std::fs::read_to_string(&state_file) {
         Ok(r) => r,
         Err(e) => {
-            items.push(DiagItem::error(cat, format!("cannot read state file: {e}")));
+            items.push(DiagItem::error(
+                cat,
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-daemon-state-read-failed",
+                    &[("error", &e.to_string())],
+                ),
+            ));
             return;
         }
     };
@@ -1723,7 +1853,13 @@ fn check_daemon_state(config: &Config, items: &mut Vec<DiagItem>) {
     let snapshot: serde_json::Value = match serde_json::from_str(&raw) {
         Ok(v) => v,
         Err(e) => {
-            items.push(DiagItem::error(cat, format!("invalid state JSON: {e}")));
+            items.push(DiagItem::error(
+                cat,
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-daemon-state-invalid-json",
+                    &[("error", &e.to_string())],
+                ),
+            ));
             return;
         }
     };
@@ -1739,17 +1875,29 @@ fn check_daemon_state(config: &Config, items: &mut Vec<DiagItem>) {
             .signed_duration_since(ts.with_timezone(&Utc))
             .num_seconds();
         if age <= DAEMON_STALE_SECONDS {
-            items.push(DiagItem::ok(cat, format!("heartbeat fresh ({age}s ago)")));
+            items.push(DiagItem::ok(
+                cat,
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-daemon-heartbeat-fresh",
+                    &[("age", &age.to_string())],
+                ),
+            ));
         } else {
             items.push(DiagItem::error(
                 cat,
-                format!("heartbeat stale ({age}s ago)"),
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-daemon-heartbeat-stale",
+                    &[("age", &age.to_string())],
+                ),
             ));
         }
     } else {
         items.push(DiagItem::error(
             cat,
-            format!("invalid daemon timestamp: {updated_at}"),
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-daemon-timestamp-invalid",
+                &[("timestamp", updated_at)],
+            ),
         ));
     }
 
@@ -1775,16 +1923,28 @@ fn check_daemon_state(config: &Config, items: &mut Vec<DiagItem>) {
             if scheduler_ok && scheduler_age <= SCHEDULER_STALE_SECONDS {
                 items.push(DiagItem::ok(
                     cat,
-                    format!("scheduler healthy (last ok {scheduler_age}s ago)"),
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-scheduler-healthy",
+                        &[("age", &scheduler_age.to_string())],
+                    ),
                 ));
             } else {
                 items.push(DiagItem::error(
                     cat,
-                    format!("scheduler unhealthy (ok={scheduler_ok}, age={scheduler_age}s)"),
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-scheduler-unhealthy",
+                        &[
+                            ("ok", &scheduler_ok.to_string()),
+                            ("age", &scheduler_age.to_string()),
+                        ],
+                    ),
                 ));
             }
         } else {
-            items.push(DiagItem::warn(cat, "scheduler component not tracked yet"));
+            items.push(DiagItem::warn(
+                cat,
+                crate::i18n::get_required_cli_string("cli-doctor-scheduler-not-tracked"),
+            ));
         }
 
         // Channels
@@ -1808,22 +1968,44 @@ fn check_daemon_state(config: &Config, items: &mut Vec<DiagItem>) {
                 });
 
             if status_ok && age <= CHANNEL_STALE_SECONDS {
-                items.push(DiagItem::ok(cat, format!("{name} fresh ({age}s ago)")));
+                items.push(DiagItem::ok(
+                    cat,
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-channel-fresh",
+                        &[("name", name.as_str()), ("age", &age.to_string())],
+                    ),
+                ));
             } else {
                 stale += 1;
                 items.push(DiagItem::error(
                     cat,
-                    format!("{name} stale (ok={status_ok}, age={age}s)"),
+                    crate::i18n::get_required_cli_string_with_args(
+                        "cli-doctor-channel-stale",
+                        &[
+                            ("name", name.as_str()),
+                            ("ok", &status_ok.to_string()),
+                            ("age", &age.to_string()),
+                        ],
+                    ),
                 ));
             }
         }
 
         if channel_count == 0 {
-            items.push(DiagItem::warn(cat, "no channel components tracked yet"));
+            items.push(DiagItem::warn(
+                cat,
+                crate::i18n::get_required_cli_string("cli-doctor-no-channel-components"),
+            ));
         } else if stale > 0 {
             items.push(DiagItem::warn(
                 cat,
-                format!("{channel_count} channels, {stale} stale"),
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-channels-stale-summary",
+                    &[
+                        ("count", &channel_count.to_string()),
+                        ("stale", &stale.to_string()),
+                    ],
+                ),
             ));
         }
     }
@@ -1843,17 +2025,29 @@ fn check_environment(items: &mut Vec<DiagItem>) {
         .filter(|s| !s.is_empty())
         .or_else(|| std::env::var("ComSpec").ok().filter(|s| !s.is_empty()));
     match shell {
-        Some(s) => items.push(DiagItem::ok(cat, format!("shell: {s}"))),
-        None => items.push(DiagItem::warn(cat, "neither $SHELL nor %ComSpec% is set")),
+        Some(s) => items.push(DiagItem::ok(
+            cat,
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-shell-set",
+                &[("shell", s.as_str())],
+            ),
+        )),
+        None => items.push(DiagItem::warn(
+            cat,
+            crate::i18n::get_required_cli_string("cli-doctor-shell-unset"),
+        )),
     }
 
     // HOME
     if std::env::var("HOME").is_ok() || std::env::var("USERPROFILE").is_ok() {
-        items.push(DiagItem::ok(cat, "home directory env set"));
+        items.push(DiagItem::ok(
+            cat,
+            crate::i18n::get_required_cli_string("cli-doctor-home-set"),
+        ));
     } else {
         items.push(DiagItem::error(
             cat,
-            "neither $HOME nor $USERPROFILE is set",
+            crate::i18n::get_required_cli_string("cli-doctor-home-unset"),
         ));
     }
 
@@ -1894,7 +2088,10 @@ fn check_cli_tools(items: &mut Vec<DiagItem>) {
     let discovered = crate::tools::discover_cli_tools(&[], &[]);
 
     if discovered.is_empty() {
-        items.push(DiagItem::warn(cat, "No CLI tools found in PATH"));
+        items.push(DiagItem::warn(
+            cat,
+            crate::i18n::get_required_cli_string("cli-doctor-no-cli-tools"),
+        ));
     } else {
         for cli in &discovered {
             let version_info = cli
@@ -1904,12 +2101,22 @@ fn check_cli_tools(items: &mut Vec<DiagItem>) {
                 .unwrap_or_else(|| "unknown version".to_string());
             items.push(DiagItem::ok(
                 cat,
-                format!("{} ({}) — {}", cli.name, cli.category, version_info),
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-cli-tool-entry",
+                    &[
+                        ("name", cli.name.as_str()),
+                        ("category", &cli.category.to_string()),
+                        ("version", version_info.as_str()),
+                    ],
+                ),
             ));
         }
         items.push(DiagItem::ok(
             cat,
-            format!("{} CLI tools discovered", discovered.len()),
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-cli-tools-count",
+                &[("count", &discovered.len().to_string())],
+            ),
         ));
     }
 }
@@ -1925,16 +2132,31 @@ fn check_command_available(cmd: &str, args: &[&str], cat: &'static str, items: &
             let ver = String::from_utf8_lossy(&output.stdout);
             let first_line = ver.lines().next().unwrap_or("").trim();
             let display = truncate_for_display(first_line, COMMAND_VERSION_PREVIEW_CHARS);
-            items.push(DiagItem::ok(cat, format!("{cmd}: {display}")));
+            items.push(DiagItem::ok(
+                cat,
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-command-version",
+                    &[("cmd", cmd), ("version", display.as_str())],
+                ),
+            ));
         }
         Ok(_) => {
             items.push(DiagItem::warn(
                 cat,
-                format!("{cmd} found but returned non-zero"),
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-command-nonzero",
+                    &[("cmd", cmd)],
+                ),
             ));
         }
         Err(_) => {
-            items.push(DiagItem::warn(cat, format!("{cmd} not found in PATH")));
+            items.push(DiagItem::warn(
+                cat,
+                crate::i18n::get_required_cli_string_with_args(
+                    "cli-doctor-command-not-found",
+                    &[("cmd", cmd)],
+                ),
+            ));
         }
     }
 }
