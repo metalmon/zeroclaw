@@ -48,7 +48,7 @@ import ToolPermissionGrid, {
 import { profileLevelFromDraft } from "@/components/ToolPermissionGrid.logic";
 import { Badge, Button, ComboBox, Select } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
-import { fieldDesc, fieldLabel, plural, t, enumLabel } from "@/lib/i18n";
+import { fieldDesc, fieldLabel, plural, t, enumLabel, sectionLabel } from "@/lib/i18n";
 import {
   ApiError,
   descriptionForPath,
@@ -791,7 +791,12 @@ function AgentEmptyAliasFallback({
   fieldKind: keyof AgentOptionsResponse;
 }) {
   const path = AGENT_ALIAS_SOURCE_PATH[fieldKind];
-  const label = fieldKind.replace(/_/g, " ");
+  // Localized section label for the empty-state copy ("Нет каналов…",
+  // "Настроить каналы") — otherwise the raw section key ("channels") leaks
+  // into the Russian text. Only model_providers' section id differs from the
+  // field kind.
+  const sectionId = fieldKind === "model_providers" ? "providers.models" : fieldKind;
+  const label = sectionLabel(sectionId, fieldKind.replace(/_/g, " "));
   return (
     <div
       className="text-xs px-3 py-2 rounded border"
