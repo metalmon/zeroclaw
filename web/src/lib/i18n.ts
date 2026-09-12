@@ -712,6 +712,16 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.open_config': "Open config",
     'doctor.run_failed': "Failed to run diagnostics",
     'doctor.severity_ok': "ok",
+    // Diagnostics category group headers (CSS-uppercased) + per-finding
+    // severity badges.
+    'doctor.category.config': "config",
+    'doctor.category.workspace': "workspace",
+    'doctor.category.daemon': "daemon",
+    'doctor.category.environment': "environment",
+    'doctor.category.cli-tools': "cli-tools",
+    'doctor.badge.ok': "ok",
+    'doctor.badge.warn': "warn",
+    'doctor.badge.error': "error",
     'doctor.show_prefix': "Show ",
     'doctor_fix.done': "Done",
     'doctor_fix.open_full_page': "Open full page",

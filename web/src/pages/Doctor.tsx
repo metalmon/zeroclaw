@@ -144,6 +144,23 @@ function SeverityFilterToggle({
   );
 }
 
+// Localized group header for a diagnostics category (config/daemon/…). The
+// header CSS uppercases it, so the catalog carries natural-case forms.
+// Unknown categories render verbatim.
+function doctorCategoryLabel(category: string): string {
+  const key = `doctor.category.${category}`;
+  const label = t(key);
+  return label === key ? category : label;
+}
+
+// Localized per-finding severity badge (ok/warn/error). Unknown values render
+// verbatim.
+function doctorSeverityLabel(severity: Severity): string {
+  const key = `doctor.badge.${severity}`;
+  const label = t(key);
+  return label === key ? severity : label;
+}
+
 function severityIcon(severity: Severity) {
   switch (severity) {
     case 'ok':
@@ -301,7 +318,7 @@ export default function Doctor() {
             .map(([category, items]) => (
               <div key={category}>
                 <h3 className="text-sm font-semibold uppercase tracking-wider mb-3 capitalize text-pc-text-muted">
-                  {category}
+                  {doctorCategoryLabel(category)}
                 </h3>
                 <div className="space-y-2">
                   {items.map((result, idx) => {
@@ -339,7 +356,7 @@ export default function Doctor() {
                           </Link>
                         )}
                         <Badge tone={result.severity}>
-                          {result.severity}
+                          {doctorSeverityLabel(result.severity)}
                         </Badge>
                       </Card>
                     );
