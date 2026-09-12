@@ -2046,6 +2046,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'dashboard.component.daemon': 'daemon',
     'dashboard.component.enroll': 'enroll',
     'dashboard.component.gateway': 'gateway',
+    'dashboard.component.heartbeat': 'heartbeat',
     'dashboard.component.mqtt': 'mqtt',
     'dashboard.component.relay': 'relay',
     'dashboard.component.scheduler': 'scheduler',
@@ -14019,6 +14020,17 @@ export function displayEntityLabel(label: string): string {
     .split(" / ")
     .map((segment) => displayAlias(segment))
     .join(" / ");
+}
+
+/**
+ * Display label for a schema enum value shown in a config dropdown
+ * (autonomy level, execution mode, delivery, …). Display-only — the stored
+ * value stays the raw token. Falls back to the raw token, so untranslated /
+ * technical values (mp3, bm25, firejail, …) render unchanged.
+ */
+export function enumLabel(value: string): string {
+  const key = `enum.${value}`;
+  return translations[currentLocale]?.[key] ?? value;
 }
 
 /**

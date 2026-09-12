@@ -48,7 +48,7 @@ import ToolPermissionGrid, {
 import { profileLevelFromDraft } from "@/components/ToolPermissionGrid.logic";
 import { Badge, Button, ComboBox, Select } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
-import { fieldDesc, fieldLabel, plural, t } from "@/lib/i18n";
+import { fieldDesc, fieldLabel, plural, t, enumLabel } from "@/lib/i18n";
 import {
   ApiError,
   descriptionForPath,
@@ -1966,7 +1966,7 @@ function FieldRow({
               { value: "", label: "—" },
               ...(entry.enum_variants ?? []).map((v) => ({
                 value: v,
-                label: v,
+                label: enumLabel(v),
               })),
             ]}
           />

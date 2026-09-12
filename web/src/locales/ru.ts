@@ -653,11 +653,28 @@ export const ru: Record<string, string> = {
   'dashboard.component.daemon': 'Демон',
   'dashboard.component.enroll': 'Регистрация',
   'dashboard.component.gateway': 'Шлюз',
+  'dashboard.component.heartbeat': 'Проверка активности',
   'dashboard.component.mqtt': 'MQTT',
   'dashboard.component.relay': 'Реле',
   'dashboard.component.scheduler': 'Планировщик',
   'dashboard.component.socket': 'Сокет',
   'dashboard.component.wss': 'WSS',
+
+  // Schema enum values shown in config dropdowns (display-only; stored value
+  // stays the raw token). Technical tokens (mp3, bm25, firejail, …) are left
+  // out so they fall back to their raw form.
+  'enum.readonly': 'Только чтение',
+  'enum.supervised': 'Под надзором',
+  'enum.full': 'Полный',
+  'enum.auto': 'Авто',
+  'enum.manual': 'Вручную',
+  'enum.step_by_step': 'Пошагово',
+  'enum.priority_based': 'По приоритету',
+  'enum.deterministic': 'Детерминированный',
+  'enum.none': 'Нет',
+  'enum.notification': 'Уведомление',
+  'enum.isolated': 'Изолированная',
+  'enum.main': 'Основная',
   'dashboard.tab_overview': 'Обзор',
   'dashboard.tab_sessions': 'Сессии',
   'dashboard.tab_channels': 'Каналы',
