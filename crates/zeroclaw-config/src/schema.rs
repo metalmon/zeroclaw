@@ -19500,6 +19500,11 @@ pub const FTL_CATALOGS: &[(&str, &str, &str)] = &[
         "tools.ftl",
     ),
     (
+        "sections",
+        "crates/zeroclaw-runtime/locales/{locale}/sections.ftl",
+        "sections.ftl",
+    ),
+    (
         "zerocode",
         "apps/zerocode/locales/{locale}/zerocode.ftl",
         "zerocode.ftl",

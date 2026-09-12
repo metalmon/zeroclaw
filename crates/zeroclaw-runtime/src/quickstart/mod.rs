@@ -441,10 +441,12 @@ pub struct QuickstartState {
     pub storage: Vec<String>,
     pub model_provider_types: Vec<QuickstartTypeOption>,
     pub channel_types: Vec<QuickstartTypeOption>,
-    /// Risk presets from `zeroclaw_config::presets::RISK_PRESETS`.
-    pub risk_presets: &'static [zeroclaw_config::presets::RiskPreset],
-    /// Runtime presets from `zeroclaw_config::presets::RUNTIME_PRESETS`.
-    pub runtime_presets: &'static [zeroclaw_config::presets::RuntimePreset],
+    /// Risk presets from `zeroclaw_config::presets::RISK_PRESETS`, with
+    /// label/help localized to the process locale.
+    pub risk_presets: Vec<LocalizedPreset>,
+    /// Runtime presets from `zeroclaw_config::presets::RUNTIME_PRESETS`, with
+    /// label/help localized to the process locale.
+    pub runtime_presets: Vec<LocalizedPreset>,
     /// Memory backend snake-case kinds from `MemoryBackendKind`.
     pub memory_kinds: Vec<String>,
     /// Canonical personality filenames the Quickstart will accept.
@@ -468,6 +470,18 @@ pub struct QuickstartTypeOption {
     /// for each state snapshot; never persisted as config.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_runtime_profile: Option<String>,
+}
+
+/// A wizard preset (risk or runtime) with its `label`/`help` localized to the
+/// process locale. Serializes identically to `RiskPreset`/`RuntimePreset`
+/// (`preset_name` / `label` / `help`), so the panel's generated types are
+/// unaffected — only the rendered text changes.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct LocalizedPreset {
+    pub preset_name: String,
+    pub label: String,
+    pub help: String,
 }
 
 /// Resolve a Quickstart provider-type input to the canonical config family.
@@ -536,8 +550,36 @@ pub fn snapshot_state(cfg: &Config) -> QuickstartState {
         storage: collect_aliased_refs(&cfg.storage),
         model_provider_types,
         channel_types,
-        risk_presets: zeroclaw_config::presets::RISK_PRESETS,
-        runtime_presets: zeroclaw_config::presets::RUNTIME_PRESETS,
+        risk_presets: zeroclaw_config::presets::RISK_PRESETS
+            .iter()
+            .map(|p| LocalizedPreset {
+                preset_name: p.preset_name.to_string(),
+                label: crate::i18n::localized_section(&format!("picker-risk-{}", p.preset_name))
+                    .unwrap_or(p.label)
+                    .to_string(),
+                help: crate::i18n::localized_section(&format!(
+                    "picker-risk-{}-desc",
+                    p.preset_name
+                ))
+                .unwrap_or(p.help)
+                .to_string(),
+            })
+            .collect(),
+        runtime_presets: zeroclaw_config::presets::RUNTIME_PRESETS
+            .iter()
+            .map(|p| LocalizedPreset {
+                preset_name: p.preset_name.to_string(),
+                label: crate::i18n::localized_section(&format!("picker-runtime-{}", p.preset_name))
+                    .unwrap_or(p.label)
+                    .to_string(),
+                help: crate::i18n::localized_section(&format!(
+                    "picker-runtime-{}-desc",
+                    p.preset_name
+                ))
+                .unwrap_or(p.help)
+                .to_string(),
+            })
+            .collect(),
         memory_kinds: memory_kind_keys(),
         personality_files: crate::agent::personality::EDITABLE_PERSONALITY_FILES,
     }
