@@ -1161,9 +1161,16 @@ function DraftSidebar({
 }) {
   return (
     <Card className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="font-medium text-pc-text">{t('sops.editor_title')}</div>
-        <div className="flex gap-2">
+      {/* Header row must survive a much longer title than the English source
+          (e.g. Russian "Редактировать СОП") inside the fixed 20rem sidebar
+          column. min-w-0 + truncate lets the title give way instead of
+          wrapping onto the Cancel/Save buttons; flex-shrink-0 keeps those
+          buttons at full, always-readable size. */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 truncate font-medium text-pc-text" title={t('sops.editor_title')}>
+          {t('sops.editor_title')}
+        </div>
+        <div className="flex flex-shrink-0 gap-2">
           <button
             type="button"
             onClick={onCancel}
