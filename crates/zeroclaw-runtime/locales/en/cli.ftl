@@ -1345,6 +1345,7 @@ cli-doctor-degraded-security = SECURITY-CRITICAL config section `{$path}` is inv
 cli-doctor-degraded-section = config section `{$path}` is malformed and was reset to defaults; values in that section are NOT in effect. Run `zeroclaw config migrate` to see the parse error, then repair the file.
 cli-doctor-verifiable-intent-tool-withheld = verifiable_intent.enabled is set, but the vi_verify tool is withheld from the model-visible registry until a credential chain verifier exists. Enabling the section does not enable credential verification on commerce tool calls. The issuance and verification library paths are unaffected.
 cli-doctor-security-audit-disabled-drops-certificate-record = security.audit.enabled=false: certificates are issued and renewed with no audit record. Command execution is not audited either way, because no production path records tool commands. Leave the section enabled to keep the certificate trail, and use an external supervisor or logging wrapper that observes the ZeroClaw process, or OS-level process accounting, if you need a record of what ran.
+cli-doctor-memory-semantic-search-without-embedder = memory.search_mode is "{$search_mode}" on sqlite memory, but no effective embedding provider is configured; vector search is skipped and recall falls back to keyword-only behavior. Configure memory.embedding_provider or a valid memory.embedding_model hint route, or set memory.search_mode = "bm25".
 
 # --- doctor diagnostics ---
 cli-doctor-config-file = config file: {$path}
