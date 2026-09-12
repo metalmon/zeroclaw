@@ -659,12 +659,15 @@ export default function Config() {
                 that chain, the save bar's `sticky bottom-0` anchors
                 to a content-height column and floats mid-viewport
                 instead of pinning to the bottom of the scroll area. */}
-            {/* Config header: section title + breadcrumb trail (as the
-                description slot) + the page-level actions. ReloadDaemonButton
-                keeps its own confirm modal — only the surrounding chrome is
+            {/* Config header: generic "Settings" title (the section name
+                already appears in the breadcrumb below and again as the
+                section editor's own heading — repeating it a third time
+                here was redundant) + breadcrumb trail (as the description
+                slot) + the page-level actions. ReloadDaemonButton keeps its
+                own confirm modal — only the surrounding chrome is
                 restyled. */}
             <PageHeader
-              title={sectionLabel(activeSection.key, activeSection.label)}
+              title={t("config.breadcrumb")}
               description={
                 <span className="flex items-center gap-1.5 flex-wrap text-pc-text-muted">
                   {crumbs.map((crumb, i) => (
