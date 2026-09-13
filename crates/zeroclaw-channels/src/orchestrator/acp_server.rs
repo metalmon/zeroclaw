@@ -1599,23 +1599,22 @@ impl AcpServer {
         // Turn already reserved (and `cancel_token` created) before materialization.
         let (event_tx, mut event_rx) = tokio::sync::mpsc::channel::<TurnEvent>(100);
 
-        // A canvas UI click arrives as a pure `tools/call`: `_meta.toolCall`
-        // names the tool, and the prompt content is empty (nothing for the
-        // model to say). That case skips the LLM turn entirely and dispatches
-        // the named tool through the same gate a model-emitted call goes
-        // through (`Agent::run_canvas_tool_only_turn`) below. When `_meta`
-        // names a tool call AND the prompt is non-empty (combined mode, spec
-        // §3c), the tool is gated+run first via `Agent::run_canvas_combined_turn`,
-        // which aborts (no model turn) on denial/failure and otherwise folds
-        // the tool result into the prompt before running the model turn. When
-        // `_meta` names no tool call at all, this is a normal turn and falls
-        // through to `turn_streamed` unchanged.
+        // A canvas UI control's action arrives with `_meta.toolCall` naming the
+        // tool. Whether it is a silent tool-only action (spec §3) or a combined
+        // tool+prompt turn (spec §3c) is decided by the presence of the canvas's
+        // own user-visible ask, `_meta.io.modelcontextprotocol/ui.prompt`
+        // (`CanvasToolCall.ui_prompt`) — NOT by the emptiness of the top-level
+        // `prompt`, which may carry an always-mixed-in project instruction and
+        // is never a reliable tool-only signal. No `ui_prompt` → tool-only
+        // (`run_canvas_tool_only_turn`, no model turn, top-level prompt ignored).
+        // With `ui_prompt` → combined (`run_canvas_combined_turn`: gated tool
+        // first, abort on denial/failure, else fold the result into the model
+        // turn). No `_meta.toolCall` at all → a normal `turn_streamed`.
         let canvas_call = extract_canvas_tool_call(params.get("_meta"));
-        let prompt_is_empty = prompt.trim().is_empty();
         // §3b: `_meta["io.modelcontextprotocol/ui"].origin` (e.g. "canvas") is
         // carried through to the turn's audit/log span for attribution only.
-        // It is NOT a dispatch signal — the 3-way canvas branch above/below
-        // decides purely on `canvas_call`/`prompt_is_empty`.
+        // It is NOT a dispatch signal — the branch decides on `canvas_call`
+        // (and its `ui_prompt`), never on `origin`.
         let canvas_origin = params
             .get("_meta")
             .and_then(|m| m.get("io.modelcontextprotocol/ui"))
@@ -1669,13 +1668,23 @@ impl AcpServer {
                         async {
                             match canvas_call {
                                 Some(cc) => {
+                                    // Tool-only vs combined is decided by the
+                                    // canvas's own ask (`ui_prompt`), never by the
+                                    // top-level prompt (which may carry a project
+                                    // instruction always mixed in by the client).
+                                    // A blank/absent `ui_prompt` is tool-only.
+                                    let is_tool_only = cc
+                                        .ui_prompt
+                                        .as_deref()
+                                        .is_none_or(|s| s.trim().is_empty());
                                     let call = zeroclaw_tool_call_parser::ParsedToolCall {
                                         name: cc.name,
                                         arguments: cc.arguments,
                                         tool_call_id: Some(format!("canvas:{}", cc.call_id)),
                                     };
-                                    if prompt_is_empty {
-                                        // §3 pure tools/call: tool-only, no model turn.
+                                    if is_tool_only {
+                                        // §3 tool-only: no model turn; the top-level
+                                        // prompt is ignored entirely.
                                         session
                                             .agent
                                             .run_canvas_tool_only_turn(
@@ -1694,12 +1703,23 @@ impl AcpServer {
                                             })
                                     } else {
                                         // §3c combined: gated tool first, abort on
-                                        // denial/failure, then the model turn.
+                                        // denial/failure, then a model turn. The
+                                        // canvas ask (`ui_prompt`) is mixed INTO the
+                                        // top-level prompt (project instruction etc.)
+                                        // so the model turn sees both. When the
+                                        // top-level prompt is blank, the ask stands
+                                        // alone.
+                                        let ui = cc.ui_prompt.unwrap_or_default();
+                                        let combined_input = if prompt.trim().is_empty() {
+                                            ui
+                                        } else {
+                                            format!("{prompt}\n\n{ui}")
+                                        };
                                         session
                                             .agent
                                             .run_canvas_combined_turn(
                                                 call,
-                                                &prompt,
+                                                &combined_input,
                                                 event_tx,
                                                 Some(cancel_token),
                                             )
@@ -2010,6 +2030,12 @@ impl AcpServer {
         params: &Value,
         workspace_dir: Option<&Path>,
     ) -> std::result::Result<String, RpcError> {
+        // A canvas action carries its payload in `_meta.toolCall`; its top-level
+        // `prompt` may legitimately be absent or an empty array (the tool-only
+        // path ignores it entirely, and combined mixes in `_meta.ui.prompt`).
+        // Tolerate an empty/absent prompt for a canvas action rather than
+        // rejecting it at materialization; a normal turn still requires content.
+        let canvas_action = extract_canvas_tool_call(params.get("_meta")).is_some();
         match params.get("prompt") {
             Some(Value::String(s)) => Ok(s.clone()),
             Some(Value::Array(arr)) => {
@@ -2085,6 +2111,9 @@ impl AcpServer {
                     }
                 }
                 if joined.is_empty() {
+                    if canvas_action {
+                        return Ok(String::new());
+                    }
                     return Err(RpcError {
                         code: INVALID_PARAMS,
                         message: "Parameter 'prompt' array must contain at least one text part"
@@ -2094,12 +2123,18 @@ impl AcpServer {
                 }
                 Ok(joined)
             }
-            _ => Err(RpcError {
-                code: INVALID_PARAMS,
-                message: "Missing required parameter: prompt (must be string or array of parts)"
-                    .to_string(),
-                data: None,
-            }),
+            _ => {
+                if canvas_action {
+                    return Ok(String::new());
+                }
+                Err(RpcError {
+                    code: INVALID_PARAMS,
+                    message:
+                        "Missing required parameter: prompt (must be string or array of parts)"
+                            .to_string(),
+                    data: None,
+                })
+            }
         }
     }
 
@@ -2791,6 +2826,13 @@ struct CanvasToolCall {
     name: String,
     arguments: serde_json::Value,
     call_id: String,
+    /// The canvas control's user-visible ask (`_meta.io.modelcontextprotocol/ui.prompt`),
+    /// present ONLY for combined mode (spec §3c). Its presence — NOT the
+    /// emptiness of the top-level `prompt` — is what distinguishes a silent
+    /// tool-only action from a combined tool+prompt turn: the top-level prompt
+    /// may carry an always-mixed-in project instruction and is never a reliable
+    /// tool-only signal. `None` = tool-only (silent, no model turn).
+    ui_prompt: Option<String>,
 }
 
 /// Extract a canvas action's tool call from ACP `_meta`, mirroring
@@ -2806,6 +2848,10 @@ fn extract_canvas_tool_call(meta: Option<&serde_json::Value>) -> Option<CanvasTo
             .cloned()
             .unwrap_or_else(|| serde_json::json!({})),
         call_id: ui.get("callId")?.as_str()?.to_string(),
+        ui_prompt: ui
+            .get("prompt")
+            .and_then(|p| p.as_str())
+            .map(|s| s.to_string()),
     })
 }
 
@@ -3148,6 +3194,118 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn session_prompt_toolcall_without_ui_prompt_is_tool_only_ignoring_top_level_prompt() {
+        // Regression: tool-only vs combined is decided by `_meta.ui.prompt`, NOT
+        // by top-level prompt emptiness. A canvas tool-only action carries a
+        // non-empty top-level prompt (the client's always-mixed-in project
+        // instruction) but NO `_meta.ui.prompt`; it must run tool-only — the
+        // gated tool with NO model turn — ignoring the top-level prompt.
+        let cwd = tempfile::tempdir().unwrap();
+        let (writer_tx, mut writer_rx) = tokio::sync::mpsc::channel::<String>(16);
+        let server = Arc::new(AcpServer::new_with_writer(
+            make_test_config(cwd.path()),
+            AcpServerConfig::default(),
+            writer_tx,
+        ));
+        let session = server
+            .handle_session_new(&serde_json::json!({
+                "cwd": cwd.path().to_string_lossy(),
+                "agentAlias": "test-agent"
+            }))
+            .await
+            .expect("session/new must succeed");
+        let session_id = session["sessionId"]
+            .as_str()
+            .expect("session id")
+            .to_string();
+        let session_arc = server
+            .sessions
+            .lock()
+            .await
+            .get(&session_id)
+            .cloned()
+            .expect("session must be registered");
+
+        let invocations = Arc::new(AtomicUsize::new(0));
+        let approval = zeroclaw_runtime::approval::ApprovalManager::from_risk_profile(
+            &zeroclaw_config::schema::RiskProfileConfig {
+                level: zeroclaw_runtime::security::AutonomyLevel::Full,
+                ..Default::default()
+            },
+        );
+        session_arc.lock().await.agent = canvas_test_agent(
+            cwd.path().to_path_buf(),
+            "canvas_echo",
+            Arc::clone(&invocations),
+            approval,
+        );
+
+        let result = server
+            .handle_session_prompt(
+                &serde_json::json!({
+                    "sessionId": session_id,
+                    // Non-empty top-level prompt (a project instruction), but no
+                    // `_meta.ui.prompt` → still tool-only.
+                    "prompt": "PROJECT INSTRUCTION: always be concise.",
+                    "_meta": {
+                        "io.modelcontextprotocol/ui": {
+                            "toolCall": {"name": "canvas_echo", "arguments": {}},
+                            "callId": "n5:1"
+                        }
+                    }
+                }),
+                &serde_json::json!(5),
+            )
+            .await
+            .expect("a tool-only canvas call with a non-empty top-level prompt must succeed");
+
+        assert_eq!(result["stopReason"], "end_turn");
+        assert_eq!(invocations.load(Ordering::SeqCst), 1, "the tool must run");
+
+        let updates = drain_notifications(&mut writer_rx).await;
+        assert!(
+            updates
+                .iter()
+                .any(|u| u["params"]["update"]["toolCallId"] == "canvas:n5:1"),
+            "expected a tool_call/tool_call_update for canvas:n5:1, got {updates:?}"
+        );
+        assert!(
+            !updates
+                .iter()
+                .any(|u| u["params"]["update"]["sessionUpdate"] == "agent_message_chunk"),
+            "no `_meta.ui.prompt` => tool-only => no model chunk despite a non-empty top-level prompt, got {updates:?}"
+        );
+    }
+
+    #[test]
+    fn materialize_prompt_tolerates_empty_prompt_for_canvas_action() {
+        // Empty array + a canvas `_meta.toolCall` → "" (not rejected): the
+        // tool-only path ignores the top-level prompt, so an empty/absent one
+        // must not wedge the action at materialization.
+        let with_canvas = serde_json::json!({
+            "prompt": [],
+            "_meta": {"io.modelcontextprotocol/ui": {
+                "toolCall": {"name": "x", "arguments": {}}, "callId": "c:1"}}
+        });
+        assert_eq!(
+            AcpServer::materialize_prompt(&with_canvas, None).unwrap(),
+            ""
+        );
+
+        // Absent prompt + canvas action → also "".
+        let absent = serde_json::json!({
+            "_meta": {"io.modelcontextprotocol/ui": {
+                "toolCall": {"name": "x", "arguments": {}}, "callId": "c:2"}}
+        });
+        assert_eq!(AcpServer::materialize_prompt(&absent, None).unwrap(), "");
+
+        // Empty array WITHOUT a canvas action → still rejected (a normal turn
+        // needs content).
+        let no_canvas = serde_json::json!({ "prompt": [] });
+        assert!(AcpServer::materialize_prompt(&no_canvas, None).is_err());
+    }
+
+    #[tokio::test]
     async fn session_prompt_gates_out_pure_canvas_tool_call_when_denied() {
         let cwd = tempfile::tempdir().unwrap();
         let (writer_tx, mut writer_rx) = tokio::sync::mpsc::channel::<String>(16);
@@ -3353,6 +3511,7 @@ mod tests {
                     "_meta": {
                         "io.modelcontextprotocol/ui": {
                             "toolCall": {"name": "canvas_echo", "arguments": {}},
+                            "prompt": "Explain",
                             "callId": "n3:1"
                         }
                     }
@@ -3441,6 +3600,7 @@ mod tests {
                     "_meta": {
                         "io.modelcontextprotocol/ui": {
                             "toolCall": {"name": "canvas_dangerous", "arguments": {}},
+                            "prompt": "Explain",
                             "callId": "n4:1"
                         }
                     }
