@@ -9,10 +9,12 @@
 
 use super::call_prep::prepare_tool_calls;
 use super::context::TurnCtx;
+use super::events::resolve_tool_call_id;
 use crate::agent::tool_execution::{
     ToolDispatchContext, ToolExecutionOutcome, execute_tools_sequential, resolved_tool_provenance,
 };
 use std::collections::HashSet;
+use zeroclaw_api::agent::TurnEvent;
 use zeroclaw_tool_call_parser::ParsedToolCall;
 
 /// Outcome of a gated tool-only turn.
@@ -72,6 +74,30 @@ pub async fn run_tool_only_turn(
     };
 
     if resolved_tool_provenance(tools_registry, activated_tools, &executable_call.name).is_none() {
+        // A caller (e.g. a canvas action) can name a tool that does not resolve
+        // in this agent's registry — a virtual/deferred tool, or a typo. Surface
+        // it as a failed `ToolResult` correlated by the caller's own id rather
+        // than returning silently: an app-initiated `tools/call` that gets no
+        // correlated result hangs on "no result" and retries indefinitely.
+        if let Some(tx) = ctx.event_tx {
+            let id = resolve_tool_call_id(&call);
+            let _ = tx
+                .send(TurnEvent::ToolCall {
+                    id: id.clone(),
+                    name: call.name.clone(),
+                    args: call.arguments.clone(),
+                })
+                .await;
+            let _ = tx
+                .send(TurnEvent::ToolResult {
+                    id,
+                    name: call.name.clone(),
+                    output: format!("Tool '{}' is not available.", call.name),
+                    artifact: None,
+                    ui_resource: None,
+                })
+                .await;
+        }
         return Ok(ToolOnlyOutcome {
             gated_out: true,
             outcome: None,
@@ -304,7 +330,8 @@ mod tests {
             level: AutonomyLevel::Full,
             ..Default::default()
         });
-        let ctx = test_ctx(&observer, &pacing, Some(&approval), None);
+        let (tx, mut rx) = mpsc::channel::<TurnEvent>(8);
+        let ctx = test_ctx(&observer, &pacing, Some(&approval), Some(&tx));
 
         let registry = ScopedToolRegistry::from_raw_for_test(vec![]);
 
@@ -324,5 +351,25 @@ mod tests {
             "an unresolvable tool must be reported as gated out"
         );
         assert!(outcome.is_none());
+
+        // The unresolvable tool must still surface an observable, correlated
+        // failure carrying the caller's canvas id — never a silent return, which
+        // leaves an app-initiated `tools/call` hung on "no result" and retrying.
+        drop(tx);
+        let mut saw_failure = false;
+        while let Some(event) = rx.recv().await {
+            if let TurnEvent::ToolResult { id, output, .. } = event {
+                assert_eq!(id, "canvas:n3:1", "ToolResult must carry the caller's id");
+                assert!(
+                    output.contains("not available"),
+                    "unresolvable tool result must explain the failure: {output}"
+                );
+                saw_failure = true;
+            }
+        }
+        assert!(
+            saw_failure,
+            "an unresolvable canvas tool must emit a failed ToolResult, not stay silent"
+        );
     }
 }
