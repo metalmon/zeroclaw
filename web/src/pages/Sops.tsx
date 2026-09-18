@@ -7,7 +7,7 @@ import MarkdownEditor from '@/components/MarkdownEditor';
 import ToolPicker from '@/components/ToolPicker';
 import { PlannedCallsEditor } from '@/components/SopCalls';
 import SopStepList from '@/components/SopStepList';
-import { plural, t } from '@/lib/i18n';
+import { plural, t, enumLabel } from '@/lib/i18n';
 import { loadAgentPickerSummaries } from '@/lib/agents';
 import {
   listSops,
@@ -283,7 +283,7 @@ function SelectField({
         {children}
         {(options ?? []).map((opt) => (
           <option key={opt} value={opt}>
-            {opt}
+            {enumLabel(opt)}
           </option>
         ))}
       </select>
