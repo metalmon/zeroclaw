@@ -16083,6 +16083,7 @@ impl ChannelsConfig {
             },
             ChannelInfo {
                 kind: "speech_to_speech",
+                config_key: "speech_to_speech",
                 name: "Speech-to-Speech",
                 desc: "Gemini Live voice broker",
                 configured: !self.speech_to_speech.is_empty(),
