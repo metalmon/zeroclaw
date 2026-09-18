@@ -54,7 +54,6 @@ import CostRatesEditor, {
 import { Badge, Button, Card } from "@/components/ui";
 import { t, plural, sectionDesc, sectionLabel, displayAlias, badgeLabel } from "@/lib/i18n";
 import { formatServerError } from "@/lib/serverError";
-import { formatServerError } from "@/lib/serverError";
 
 // Display order for the curated sidebar groups. Each `SectionInfo.group`
 // from the gateway lands in one of these buckets (anything else falls
