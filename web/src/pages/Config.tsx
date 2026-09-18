@@ -54,6 +54,7 @@ import CostRatesEditor, {
 import { Badge, Button, Card } from "@/components/ui";
 import { t, plural, sectionDesc, sectionLabel, displayAlias, badgeLabel } from "@/lib/i18n";
 import { formatServerError } from "@/lib/serverError";
+import { formatServerError } from "@/lib/serverError";
 
 // Display order for the curated sidebar groups. Each `SectionInfo.group`
 // from the gateway lands in one of these buckets (anything else falls
@@ -138,7 +139,7 @@ export default function Config() {
         setError(
           e instanceof ApiError
             ? formatServerError(e, e.envelope.message)
-            : `${t("config.load_sections_error")}${e instanceof Error ? e.message : String(e)}`,
+            : `${t("config.load_sections_error")}${formatServerError(e, String(e))}`,
         );
       })
       .finally(() => !cancelled && setLoading(false));
@@ -500,7 +501,7 @@ export default function Config() {
                   state: { fieldsPrefix: resp.fields_prefix },
                 });
               } catch (e) {
-                setError(e instanceof Error ? e.message : String(e));
+                setError(formatServerError(e, String(e)));
               }
             })();
           }
@@ -783,7 +784,7 @@ function AliasListView({
       .catch((e) => {
         if (!cancelled) {
           setAliases([]);
-          setError(e instanceof Error ? e.message : String(e));
+          setError(formatServerError(e, String(e)));
         }
       })
       .finally(() => {
@@ -1086,7 +1087,7 @@ function AgentPeerGroupsTab({
       setMemberOf(memberships);
       setNonMembers(others);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatServerError(e, String(e)));
     } finally {
       setLoading(false);
     }
@@ -1121,7 +1122,7 @@ function AgentPeerGroupsTab({
       await reload();
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatServerError(e, String(e)));
     } finally {
       setAdding(false);
     }
@@ -1143,7 +1144,7 @@ function AgentPeerGroupsTab({
       await reload();
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatServerError(e, String(e)));
     }
   };
 
@@ -1597,7 +1598,7 @@ function ConfiguredOnlyPicker({
           setError(
             e instanceof ApiError
               ? formatServerError(e, e.envelope.message)
-              : `${t("config.load_items_error")}${e instanceof Error ? e.message : String(e)}`,
+              : `${t("config.load_items_error")}${formatServerError(e, String(e))}`,
           );
         })
         .finally(() => !cancelled && setLoading(false)),
