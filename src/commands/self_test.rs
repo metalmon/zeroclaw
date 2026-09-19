@@ -507,12 +507,16 @@ fn build_websocket_probe_url(
 }
 
 /// Resolve a plaintext gateway bearer token for local diagnostics.
-/// Precedence: `ZEROCLAW_GATEWAY_TOKEN`, then `ZEROCLAW_ACP_BRIDGE_TOKEN`,
-/// then the first plaintext (`zc_*`) entry in `gateway.paired_tokens`.
+/// Precedence: `VOLTD_GATEWAY_TOKEN`/`ZEROCLAW_GATEWAY_TOKEN`, then
+/// `VOLTD_ACP_BRIDGE_TOKEN`/`ZEROCLAW_ACP_BRIDGE_TOKEN`, then the first
+/// plaintext (`zc_*`) entry in `gateway.paired_tokens`.
 #[cfg(feature = "gateway")]
 fn resolve_gateway_bearer_token(config: &crate::config::Config) -> Option<String> {
-    for key in ["ZEROCLAW_GATEWAY_TOKEN", "ZEROCLAW_ACP_BRIDGE_TOKEN"] {
-        if let Ok(value) = std::env::var(key) {
+    for (new, old) in [
+        ("VOLTD_GATEWAY_TOKEN", "ZEROCLAW_GATEWAY_TOKEN"),
+        ("VOLTD_ACP_BRIDGE_TOKEN", "ZEROCLAW_ACP_BRIDGE_TOKEN"),
+    ] {
+        if let Some(value) = zeroclaw_config::legacy_env::env_with_legacy(new, old) {
             let trimmed = value.trim();
             if !trimmed.is_empty() {
                 return Some(trimmed.to_string());

@@ -14,9 +14,11 @@ use tokio_tungstenite::{
 use zeroclaw_config::schema::resolve_runtime_dirs;
 
 const CONFIG_NOT_FOUND_ERROR: &str = "ERROR: config.toml not found.  Are you sure the bridge and ZeroClaw are running on the same host?  Tool use will not work remotely!";
-const PAIRING_TOKEN_NOT_FOUND_ERROR: &str = "ERROR: Gateway pairing is active but no ACP bridge token is cached. Run `zeroclaw gateway get-paircode --new`, then run `zeroclaw-acp-bridge --pair-code <code>`, or set ZEROCLAW_ACP_BRIDGE_TOKEN.";
-const ACP_BRIDGE_TOKEN_ENV: &str = "ZEROCLAW_ACP_BRIDGE_TOKEN";
-const ACP_BRIDGE_PAIRING_CODE_ENV: &str = "ZEROCLAW_ACP_PAIRING_CODE";
+const PAIRING_TOKEN_NOT_FOUND_ERROR: &str = "ERROR: Gateway pairing is active but no ACP bridge token is cached. Run `zeroclaw gateway get-paircode --new`, then run `zeroclaw-acp-bridge --pair-code <code>`, or set VOLTD_ACP_BRIDGE_TOKEN.";
+const ACP_BRIDGE_TOKEN_ENV: &str = "VOLTD_ACP_BRIDGE_TOKEN";
+const ACP_BRIDGE_TOKEN_ENV_LEGACY: &str = "ZEROCLAW_ACP_BRIDGE_TOKEN";
+const ACP_BRIDGE_PAIRING_CODE_ENV: &str = "VOLTD_ACP_PAIRING_CODE";
+const ACP_BRIDGE_PAIRING_CODE_ENV_LEGACY: &str = "ZEROCLAW_ACP_PAIRING_CODE";
 
 #[tokio::main]
 async fn main() {
@@ -105,7 +107,12 @@ async fn load_acp_bridge_target() -> Result<BridgeTarget> {
     let config: BridgeConfig = toml::from_str(contents)
         .with_context(|| format!("failed to parse {}", config_path.display()))?;
 
-    let pair_code = pair_code_from_args(args)?.or_else(|| env_value(ACP_BRIDGE_PAIRING_CODE_ENV));
+    let pair_code = pair_code_from_args(args)?.or_else(|| {
+        env_value(
+            ACP_BRIDGE_PAIRING_CODE_ENV,
+            ACP_BRIDGE_PAIRING_CODE_ENV_LEGACY,
+        )
+    });
     resolve_acp_bridge_target(&config.gateway, &config_dir, pair_code.as_deref()).await
 }
 
@@ -165,12 +172,11 @@ fn bridge_target(config: &BridgeGatewayConfig, token: Option<String>) -> BridgeT
 }
 
 fn token_from_env() -> Option<String> {
-    env_value(ACP_BRIDGE_TOKEN_ENV)
+    env_value(ACP_BRIDGE_TOKEN_ENV, ACP_BRIDGE_TOKEN_ENV_LEGACY)
 }
 
-fn env_value(key: &str) -> Option<String> {
-    std::env::var(key)
-        .ok()
+fn env_value(key: &str, legacy_key: &str) -> Option<String> {
+    zeroclaw_config::legacy_env::env_with_legacy(key, legacy_key)
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
 }

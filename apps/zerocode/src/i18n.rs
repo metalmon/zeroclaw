@@ -129,15 +129,23 @@ fn load_ftl_from_disk(locale: &str) -> Option<String> {
     None
 }
 
+/// `std::env::var(new)`, falling back to `std::env::var(old)` when `new` is
+/// unset. Duplicated (see `client::env_with_legacy` in the `zerocode` lib
+/// crate) because this binary-crate module doesn't share that crate root.
+fn env_with_legacy(new: &str, old: &str) -> Option<String> {
+    std::env::var(new).ok().or_else(|| std::env::var(old).ok())
+}
+
 /// Resolve the ZeroClaw config directory with the same precedence as
 /// `client::resolve_config_dir`: the `--config-dir` flag (passed to `init` and
-/// cached in `CONFIG_DIR`) first, then `ZEROCLAW_CONFIG_DIR`, then `~/.zeroclaw`.
-/// This keeps the FTL read path aligned with the flag the rest of zerocode uses.
+/// cached in `CONFIG_DIR`) first, then `VOLTD_CONFIG_DIR` (or legacy
+/// `ZEROCLAW_CONFIG_DIR`), then `~/.zeroclaw`. This keeps the FTL read path
+/// aligned with the flag the rest of zerocode uses.
 pub(crate) fn config_dir() -> PathBuf {
     if let Some(dir) = CONFIG_DIR.get() {
         return dir.clone();
     }
-    if let Ok(custom) = std::env::var("ZEROCLAW_CONFIG_DIR") {
+    if let Some(custom) = env_with_legacy("VOLTD_CONFIG_DIR", "ZEROCLAW_CONFIG_DIR") {
         let trimmed = custom.trim();
         if !trimmed.is_empty() {
             return PathBuf::from(trimmed);

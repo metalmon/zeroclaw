@@ -45,7 +45,8 @@ fn is_recoverable_accept_error(e: &std::io::Error) -> bool {
 }
 
 pub fn socket_path(config: &Config) -> PathBuf {
-    if let Ok(p) = std::env::var("ZEROCLAW_SOCKET") {
+    if let Some(p) = zeroclaw_config::legacy_env::env_with_legacy("VOLTD_SOCKET", "ZEROCLAW_SOCKET")
+    {
         return PathBuf::from(p);
     }
     platform::default_endpoint(&config.data_dir)

@@ -413,17 +413,23 @@ impl CaKeyProtection {
     }
 
     /// Source CA-key protection from the environment (the daemon's opt-in
-    /// passphrase; threat A4). `ZEROCLAW_CA_PASSPHRASE` takes precedence; otherwise
-    /// `ZEROCLAW_CA_PASSPHRASE_FILE` is read. Unset yields [`CaKeyProtection::None`]
-    /// (the 0600 floor). Every CA generation + read path uses this so the on-disk
-    /// form always matches.
+    /// passphrase; threat A4). `VOLTD_CA_PASSPHRASE` (or legacy
+    /// `ZEROCLAW_CA_PASSPHRASE`) takes precedence; otherwise
+    /// `VOLTD_CA_PASSPHRASE_FILE` (or legacy `ZEROCLAW_CA_PASSPHRASE_FILE`) is
+    /// read. Unset yields [`CaKeyProtection::None`] (the 0600 floor). Every CA
+    /// generation + read path uses this so the on-disk form always matches.
+    ///
+    /// `zeroclaw-tls` deliberately does not depend on `zeroclaw-config` (kept
+    /// a leaf crate), so the new/legacy env-name fallback is inlined here
+    /// rather than calling `zeroclaw_config::legacy_env::env_with_legacy`.
     pub fn from_env() -> Self {
-        if let Ok(p) = std::env::var("ZEROCLAW_CA_PASSPHRASE")
+        if let Some(p) = env_with_legacy("VOLTD_CA_PASSPHRASE", "ZEROCLAW_CA_PASSPHRASE")
             && !p.trim().is_empty()
         {
             return Self::passphrase(p.trim());
         }
-        if let Ok(path) = std::env::var("ZEROCLAW_CA_PASSPHRASE_FILE")
+        if let Some(path) =
+            env_with_legacy("VOLTD_CA_PASSPHRASE_FILE", "ZEROCLAW_CA_PASSPHRASE_FILE")
             && let Ok(p) = std::fs::read_to_string(&path)
             && !p.trim().is_empty()
         {
@@ -431,6 +437,14 @@ impl CaKeyProtection {
         }
         CaKeyProtection::None
     }
+}
+
+/// `std::env::var(new)`, falling back to `std::env::var(old)` when `new` is
+/// unset. Duplicated from `zeroclaw_config::legacy_env::env_with_legacy`
+/// (this crate does not depend on `zeroclaw-config`) so the daemon accepts
+/// both `VOLTD_*` and legacy `ZEROCLAW_*` names during the rebrand.
+fn env_with_legacy(new: &str, old: &str) -> Option<String> {
+    std::env::var(new).ok().or_else(|| std::env::var(old).ok())
 }
 
 /// Magic header identifying the encrypted CA-key envelope:

@@ -15521,15 +15521,19 @@ fn resolve_slack_token(configured: Option<&str>, kind: &str) -> Option<String> {
             return Some(value.to_string());
         }
     }
-    for var in [
-        format!("ZEROCLAW_SLACK_{kind}_TOKEN"),
-        format!("SLACK_{kind}_TOKEN"),
-    ] {
-        if let Ok(value) = std::env::var(&var) {
-            let value = value.trim();
-            if !value.is_empty() {
-                return Some(value.to_string());
-            }
+    if let Some(value) = crate::legacy_env::env_with_legacy(
+        &format!("VOLTD_SLACK_{kind}_TOKEN"),
+        &format!("ZEROCLAW_SLACK_{kind}_TOKEN"),
+    ) {
+        let value = value.trim();
+        if !value.is_empty() {
+            return Some(value.to_string());
+        }
+    }
+    if let Ok(value) = std::env::var(format!("SLACK_{kind}_TOKEN")) {
+        let value = value.trim();
+        if !value.is_empty() {
+            return Some(value.to_string());
         }
     }
     None
@@ -19454,7 +19458,9 @@ fn default_config_and_data_dirs() -> Result<(PathBuf, PathBuf)> {
 }
 
 fn default_config_dir() -> Result<PathBuf> {
-    if let Ok(custom) = std::env::var("ZEROCLAW_CONFIG_DIR") {
+    if let Some(custom) =
+        crate::legacy_env::env_with_legacy("VOLTD_CONFIG_DIR", "ZEROCLAW_CONFIG_DIR")
+    {
         let custom = custom.trim();
         if !custom.is_empty() {
             return Ok(expand_tilde_path(custom));
@@ -19763,14 +19769,15 @@ async fn resolve_runtime_config_dirs(
     default_zeroclaw_dir: &Path,
     default_data_dir: &Path,
 ) -> Result<(PathBuf, PathBuf, ConfigResolutionSource)> {
-    if let Ok(custom_config_dir) = std::env::var("ZEROCLAW_CONFIG_DIR") {
+    if let Some(custom_config_dir) =
+        crate::legacy_env::env_with_legacy("VOLTD_CONFIG_DIR", "ZEROCLAW_CONFIG_DIR")
+    {
         let custom_config_dir = custom_config_dir.trim();
         if !custom_config_dir.is_empty() {
-            // If the operator ALSO set ZEROCLAW_DATA_DIR or
-            // ZEROCLAW_WORKSPACE, CONFIG_DIR wins; surface the
+            // If the operator ALSO set VOLTD_DATA_DIR/ZEROCLAW_DATA_DIR or
+            // VOLTD_WORKSPACE/ZEROCLAW_WORKSPACE, CONFIG_DIR wins; surface the
             // collision so they know which one took effect.
-            if std::env::var("ZEROCLAW_DATA_DIR")
-                .ok()
+            if crate::legacy_env::env_with_legacy("VOLTD_DATA_DIR", "ZEROCLAW_DATA_DIR")
                 .filter(|v| !v.trim().is_empty())
                 .is_some()
             {
@@ -19783,8 +19790,7 @@ async fn resolve_runtime_config_dirs(
                      directory under it)."
                 );
             }
-            if std::env::var("ZEROCLAW_WORKSPACE")
-                .ok()
+            if crate::legacy_env::env_with_legacy("VOLTD_WORKSPACE", "ZEROCLAW_WORKSPACE")
                 .filter(|v| !v.is_empty())
                 .is_some()
             {
@@ -19806,11 +19812,11 @@ async fn resolve_runtime_config_dirs(
         }
     }
 
-    if let Ok(custom_data) = std::env::var("ZEROCLAW_DATA_DIR")
+    if let Some(custom_data) =
+        crate::legacy_env::env_with_legacy("VOLTD_DATA_DIR", "ZEROCLAW_DATA_DIR")
         && !custom_data.trim().is_empty()
     {
-        if std::env::var("ZEROCLAW_WORKSPACE")
-            .ok()
+        if crate::legacy_env::env_with_legacy("VOLTD_WORKSPACE", "ZEROCLAW_WORKSPACE")
             .filter(|v| !v.is_empty())
             .is_some()
         {
@@ -19828,7 +19834,8 @@ async fn resolve_runtime_config_dirs(
         return Ok((zeroclaw_dir, data_dir, ConfigResolutionSource::EnvDataDir));
     }
 
-    if let Ok(custom_workspace) = std::env::var("ZEROCLAW_WORKSPACE")
+    if let Some(custom_workspace) =
+        crate::legacy_env::env_with_legacy("VOLTD_WORKSPACE", "ZEROCLAW_WORKSPACE")
         && !custom_workspace.is_empty()
     {
         ::zeroclaw_log::record!(

@@ -15,7 +15,8 @@ pub(crate) const DEFAULT_REGISTRY_URL: &str =
     "https://raw.githubusercontent.com/zeroclaw-labs/zeroclaw-plugins/main/registry.json";
 pub(crate) const MAX_PLUGIN_ZIP_BYTES: usize = 50 * 1024 * 1024;
 pub(crate) const MAX_PLUGIN_EXTRACTED_BYTES: u64 = 50 * 1024 * 1024;
-const REGISTRY_URL_ENV: &str = "ZEROCLAW_PLUGIN_REGISTRY_URL";
+const REGISTRY_URL_ENV: &str = "VOLTD_PLUGIN_REGISTRY_URL";
+const REGISTRY_URL_ENV_LEGACY: &str = "ZEROCLAW_PLUGIN_REGISTRY_URL";
 
 pub(crate) struct DownloadedPlugin {
     _temp_dir: TempDir,
@@ -37,7 +38,9 @@ pub(crate) fn registry_url(override_url: Option<&str>) -> String {
     override_url
         .filter(|url| !url.trim().is_empty())
         .map(ToOwned::to_owned)
-        .or_else(|| std::env::var(REGISTRY_URL_ENV).ok())
+        .or_else(|| {
+            zeroclaw_config::legacy_env::env_with_legacy(REGISTRY_URL_ENV, REGISTRY_URL_ENV_LEGACY)
+        })
         .filter(|url| !url.trim().is_empty())
         .unwrap_or_else(|| DEFAULT_REGISTRY_URL.to_string())
 }

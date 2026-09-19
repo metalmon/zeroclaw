@@ -162,11 +162,20 @@ pub mod method {
 
 // ── Socket path resolution ───────────────────────────────────────
 
+/// `std::env::var(new)`, falling back to `std::env::var(old)` when `new` is
+/// unset. `zerocode` deliberately does not link `zeroclaw-*` crates (RPC-only
+/// surface), so this duplicates `zeroclaw_config::legacy_env::env_with_legacy`
+/// rather than adding that dependency.
+fn env_with_legacy(new: &str, old: &str) -> Option<String> {
+    std::env::var(new).ok().or_else(|| std::env::var(old).ok())
+}
+
 /// Resolve the daemon's local IPC endpoint path.
-/// CLI flag > `$ZEROCLAW_SOCKET` > `<config_dir>/data/daemon.sock` on Unix
-/// or a `\\.\pipe\zeroclaw-<hash>` derived name on Windows.
+/// CLI flag > `$VOLTD_SOCKET` (or legacy `$ZEROCLAW_SOCKET`) >
+/// `<config_dir>/data/daemon.sock` on Unix or a `\\.\pipe\zeroclaw-<hash>`
+/// derived name on Windows.
 pub fn resolve_socket_path(config_dir: &Path) -> Result<PathBuf> {
-    if let Ok(p) = std::env::var("ZEROCLAW_SOCKET") {
+    if let Some(p) = env_with_legacy("VOLTD_SOCKET", "ZEROCLAW_SOCKET") {
         let p = p.trim();
         if !p.is_empty() {
             return Ok(PathBuf::from(p));
@@ -190,12 +199,13 @@ pub fn resolve_socket_path(config_dir: &Path) -> Result<PathBuf> {
     }
 }
 
-/// Resolve config dir: CLI flag > `$ZEROCLAW_CONFIG_DIR` > home directory.
+/// Resolve config dir: CLI flag > `$VOLTD_CONFIG_DIR` (or legacy
+/// `$ZEROCLAW_CONFIG_DIR`) > home directory.
 pub fn resolve_config_dir(cli_override: Option<&Path>) -> Result<PathBuf> {
     if let Some(dir) = cli_override {
         return Ok(dir.to_path_buf());
     }
-    if let Ok(d) = std::env::var("ZEROCLAW_CONFIG_DIR") {
+    if let Some(d) = env_with_legacy("VOLTD_CONFIG_DIR", "ZEROCLAW_CONFIG_DIR") {
         let d = d.trim();
         if !d.is_empty() {
             return Ok(PathBuf::from(d));

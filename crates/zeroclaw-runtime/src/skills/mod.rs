@@ -1117,7 +1117,7 @@ fn open_skills_enabled_from_sources(
                 WARN,
                 ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                     .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
-                "Ignoring invalid ZEROCLAW_OPEN_SKILLS_ENABLED (valid: 1|0|true|false|yes|no|on|off)"
+                "Ignoring invalid VOLTD_OPEN_SKILLS_ENABLED/ZEROCLAW_OPEN_SKILLS_ENABLED (valid: 1|0|true|false|yes|no|on|off)"
             );
         }
     }
@@ -1126,7 +1126,10 @@ fn open_skills_enabled_from_sources(
 }
 
 fn open_skills_enabled(config_open_skills_enabled: Option<bool>) -> bool {
-    let env_override = std::env::var("ZEROCLAW_OPEN_SKILLS_ENABLED").ok();
+    let env_override = zeroclaw_config::legacy_env::env_with_legacy(
+        "VOLTD_OPEN_SKILLS_ENABLED",
+        "ZEROCLAW_OPEN_SKILLS_ENABLED",
+    );
     open_skills_enabled_from_sources(config_open_skills_enabled, env_override.as_deref())
 }
 
@@ -1154,7 +1157,10 @@ fn resolve_open_skills_dir_from_sources(
 }
 
 fn resolve_open_skills_dir(config_open_skills_dir: Option<&str>) -> Option<PathBuf> {
-    let env_dir = std::env::var("ZEROCLAW_OPEN_SKILLS_DIR").ok();
+    let env_dir = zeroclaw_config::legacy_env::env_with_legacy(
+        "VOLTD_OPEN_SKILLS_DIR",
+        "ZEROCLAW_OPEN_SKILLS_DIR",
+    );
     let home_dir = UserDirs::new().map(|dirs| dirs.home_dir().to_path_buf());
     resolve_open_skills_dir_from_sources(
         env_dir.as_deref(),

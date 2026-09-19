@@ -9183,7 +9183,8 @@ fn build_channel_by_id(
                 format!(
                     "Slack channel '{alias}': bot_token is not set. Provide it in config \
                      (channels.slack.{alias}.bot_token) or via the \
-                     ZEROCLAW_SLACK_BOT_TOKEN / SLACK_BOT_TOKEN environment variable."
+                     VOLTD_SLACK_BOT_TOKEN / ZEROCLAW_SLACK_BOT_TOKEN / SLACK_BOT_TOKEN \
+                     environment variable."
                 )
             })?;
             Ok(Arc::new(
@@ -10587,7 +10588,7 @@ fn collect_configured_channels(
                     .with_outcome(::zeroclaw_log::EventOutcome::Failure)
                     .with_attrs(::serde_json::json!({ "alias": alias.clone() })),
                 "Slack channel skipped: bot_token not set in config or via \
-                 ZEROCLAW_SLACK_BOT_TOKEN / SLACK_BOT_TOKEN env"
+                 VOLTD_SLACK_BOT_TOKEN / ZEROCLAW_SLACK_BOT_TOKEN / SLACK_BOT_TOKEN env"
             );
             continue;
         };
@@ -13269,7 +13270,8 @@ pub async fn deliver_announcement(
                 format!(
                     "Slack channel '{alias}': bot_token is not set. Provide it in config \
                      (channels.slack.{alias}.bot_token) or via the \
-                     ZEROCLAW_SLACK_BOT_TOKEN / SLACK_BOT_TOKEN environment variable."
+                     VOLTD_SLACK_BOT_TOKEN / ZEROCLAW_SLACK_BOT_TOKEN / SLACK_BOT_TOKEN \
+                     environment variable."
                 )
             })?;
             let ch = SlackChannel::new(

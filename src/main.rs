@@ -1169,12 +1169,21 @@ enum DeprecatedPropsCommands {
     Any(Vec<String>),
 }
 
+/// Whether `name` is one of the `*_CONFIG_DIR` / `*_DATA_DIR` / `*_WORKSPACE`
+/// runtime-dir env vars (new `VOLTD_*` or legacy `ZEROCLAW_*` spelling) and
+/// `value` counts as an explicit override. Suffix-matched (rather than an
+/// exhaustive literal match) so it covers both spellings without hardcoding
+/// each pair; only ever called with names drawn from
+/// [`zeroclaw_config::legacy_env::LEGACY_ENV_ALIASES`], so the suffixes are
+/// unambiguous.
 #[cfg(feature = "agent-runtime")]
 fn runtime_dir_env_is_explicit(name: &str, value: &str) -> bool {
-    match name {
-        "ZEROCLAW_CONFIG_DIR" | "ZEROCLAW_DATA_DIR" => !value.trim().is_empty(),
-        "ZEROCLAW_WORKSPACE" => !value.is_empty(),
-        _ => false,
+    if name.ends_with("WORKSPACE") {
+        !value.is_empty()
+    } else if name.ends_with("CONFIG_DIR") || name.ends_with("DATA_DIR") {
+        !value.trim().is_empty()
+    } else {
+        false
     }
 }
 
@@ -1183,13 +1192,17 @@ fn resolve_homebrew_onboard_config_dir(
     exe: &Path,
     env_lookup: impl Fn(&str) -> Option<String>,
 ) -> Option<PathBuf> {
-    let explicit_runtime_dir = [
-        "ZEROCLAW_CONFIG_DIR",
-        "ZEROCLAW_DATA_DIR",
-        "ZEROCLAW_WORKSPACE",
-    ]
-    .iter()
-    .any(|name| env_lookup(name).is_some_and(|value| runtime_dir_env_is_explicit(name, &value)));
+    let explicit_runtime_dir = zeroclaw_config::legacy_env::LEGACY_ENV_ALIASES
+        .iter()
+        .filter(|(_, old)| {
+            old.ends_with("_CONFIG_DIR")
+                || old.ends_with("_DATA_DIR")
+                || old.ends_with("_WORKSPACE")
+        })
+        .flat_map(|(new, old)| [*new, *old])
+        .any(|name| {
+            env_lookup(name).is_some_and(|value| runtime_dir_env_is_explicit(name, &value))
+        });
 
     if explicit_runtime_dir {
         return None;
@@ -11969,6 +11982,22 @@ mod tests {
             "ZEROCLAW_DATA_DIR",
             "ZEROCLAW_WORKSPACE",
         ] {
+            assert_eq!(
+                resolve_homebrew_onboard_config_dir(exe, |name| {
+                    (name == var).then(|| "/tmp/zeroclaw-explicit".to_string())
+                }),
+                None,
+                "{var} should take precedence over Homebrew detection",
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "agent-runtime")]
+    fn homebrew_onboard_config_dir_preserves_explicit_voltd_runtime_paths() {
+        let exe = Path::new("/opt/homebrew/Cellar/zeroclaw/0.8.0/bin/zeroclaw");
+
+        for var in ["VOLTD_CONFIG_DIR", "VOLTD_DATA_DIR", "VOLTD_WORKSPACE"] {
             assert_eq!(
                 resolve_homebrew_onboard_config_dir(exe, |name| {
                     (name == var).then(|| "/tmp/zeroclaw-explicit".to_string())
