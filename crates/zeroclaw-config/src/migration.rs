@@ -812,13 +812,37 @@ pub fn ensure_disk_at_current_version(path: &Path) -> Result<()> {
 /// move) so an older binary can still boot from `.zeroclaw` after a
 /// downgrade/rollback. Returns `Ok(true)` when a copy ran, `Ok(false)` when
 /// there was nothing to do (no legacy dir, or `.voltd` already exists).
+///
+/// Crash/failure safety: the copy lands in a fixed temp sibling,
+/// `<home>/.voltd.migrating`, and only an atomic `rename` publishes it as
+/// `.voltd`. This means a mid-copy failure (permission error, disk full, an
+/// AV lock on Windows) never leaves a half-populated `.voltd` on disk -- if
+/// it did, `.voltd.exists()` would short-circuit every future call above,
+/// permanently stranding the daemon on a broken, un-retryable config while
+/// `resolve_config_dir_for_home` also stops reading through to the intact
+/// `.zeroclaw`. On any error the partial `.voltd.migrating` is removed
+/// (best-effort) and the error is returned, so the next call retries cleanly
+/// and the read-through fallback keeps serving `.zeroclaw` in the meantime.
 pub fn migrate_legacy_config_dir(home: &Path) -> std::io::Result<bool> {
     let new = home.join(".voltd");
     let legacy = home.join(".zeroclaw");
     if new.exists() || !legacy.exists() {
         return Ok(false);
     }
-    copy_dir_recursive(&legacy, &new)?;
+    let staging = home.join(".voltd.migrating");
+    if staging.exists() {
+        // Leftover from a prior interrupted migration -- clear it so this
+        // attempt starts from a clean slate rather than merging into it.
+        std::fs::remove_dir_all(&staging)?;
+    }
+    if let Err(e) = copy_dir_recursive(&legacy, &staging) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(e);
+    }
+    if let Err(e) = std::fs::rename(&staging, &new) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(e);
+    }
     Ok(true)
 }
 
@@ -1041,6 +1065,9 @@ mod tests {
         );
         // Legacy tree is left in place (copy, not move).
         assert!(legacy.join("config.toml").exists());
+        // The staging dir used for the atomic rename must not leak after a
+        // successful migration.
+        assert!(!home.join(".voltd.migrating").exists());
 
         // Mutate the new tree, then confirm the second call does not touch it.
         std::fs::write(voltd.join("config.toml"), "schema_version = 4\n").unwrap();

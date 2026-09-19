@@ -19490,8 +19490,9 @@ pub fn resolve_config_dir_for_home(home: &std::path::Path) -> std::path::PathBuf
 /// `<config_dir>/data/ftl/<locale>/`. This is where `zeroclaw locales fetch`
 /// writes downloaded translations and where the runtime i18n loader reads them.
 /// `<config_dir>` honors `ZEROCLAW_CONFIG_DIR` and otherwise defaults to
-/// `~/.zeroclaw`. The zerocode binary mirrors this path inline (it carries no
-/// `zeroclaw-*` dependency).
+/// `~/.voltd` (reading through to a pre-migration `~/.zeroclaw` install when
+/// only that exists -- see `resolve_config_dir_for_home`). The zerocode
+/// binary mirrors this path inline (it carries no `zeroclaw-*` dependency).
 pub fn ftl_locale_dir(locale: &str) -> Result<PathBuf> {
     Ok(default_config_dir()?.join("data").join("ftl").join(locale))
 }
@@ -31663,6 +31664,10 @@ model = "primary-model"
     /// falls back to reading through a pre-existing `.zeroclaw` install when
     /// `.voltd` has not been created yet, and prefers `.voltd` again once
     /// both exist (post-migration).
+    // Sync test (no `await`), so it needs the plain `#[test]` attribute --
+    // but the bare `test` identifier is shadowed in this module by
+    // `use tokio::test;` (for the async tests around it), so it's spelled
+    // out fully-qualified here to dodge that shadow.
     #[::core::prelude::v1::test]
     fn config_dir_prefers_voltd_and_falls_back_to_legacy() {
         let tmp = tempfile::tempdir().unwrap();
