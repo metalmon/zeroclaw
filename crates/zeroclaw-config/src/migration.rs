@@ -807,6 +807,41 @@ pub fn ensure_disk_at_current_version(path: &Path) -> Result<()> {
     );
 }
 
+/// One-time copy of the legacy `~/.zeroclaw` tree into `~/.voltd` when the new
+/// dir is absent. Idempotent: a present `.voltd` short-circuits. Copy (not
+/// move) so an older binary can still boot from `.zeroclaw` after a
+/// downgrade/rollback. Returns `Ok(true)` when a copy ran, `Ok(false)` when
+/// there was nothing to do (no legacy dir, or `.voltd` already exists).
+pub fn migrate_legacy_config_dir(home: &Path) -> std::io::Result<bool> {
+    let new = home.join(".voltd");
+    let legacy = home.join(".zeroclaw");
+    if new.exists() || !legacy.exists() {
+        return Ok(false);
+    }
+    copy_dir_recursive(&legacy, &new)?;
+    Ok(true)
+}
+
+/// Recursively copies `src` into `dst`, creating directories as needed.
+/// Used only for the one-time `.zeroclaw` -> `.voltd` migration copy.
+fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if file_type.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else if file_type.is_file() {
+            std::fs::copy(&src_path, &dst_path)?;
+        }
+        // Symlinks are intentionally skipped: the config dir is not expected
+        // to contain them, and copying them verbatim could escape `dst`.
+    }
+    Ok(())
+}
+
 pub(crate) fn fold_string_into_array(
     table: &mut toml::Table,
     from_key: &str,
@@ -979,6 +1014,49 @@ mod tests {
     fn detect_version_string_errors() {
         let v: toml::Value = toml::from_str("schema_version = \"two\"\n").unwrap();
         assert!(detect_version(&v).is_err());
+    }
+
+    /// `migrate_legacy_config_dir` copies a legacy `.zeroclaw` install into
+    /// `.voltd` exactly once: the first call performs the copy, the second
+    /// (post-migration) call is a no-op because `.voltd` now exists.
+    #[test]
+    fn migrate_legacy_config_dir_copies_once_then_is_a_noop() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        let legacy = home.join(".zeroclaw");
+        std::fs::create_dir_all(legacy.join("agents")).unwrap();
+        std::fs::write(legacy.join("config.toml"), "schema_version = 3\n").unwrap();
+        std::fs::write(legacy.join("agents").join("note.txt"), "hello").unwrap();
+
+        let migrated = migrate_legacy_config_dir(home).unwrap();
+        assert!(migrated);
+        let voltd = home.join(".voltd");
+        assert_eq!(
+            std::fs::read_to_string(voltd.join("config.toml")).unwrap(),
+            "schema_version = 3\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(voltd.join("agents").join("note.txt")).unwrap(),
+            "hello"
+        );
+        // Legacy tree is left in place (copy, not move).
+        assert!(legacy.join("config.toml").exists());
+
+        // Mutate the new tree, then confirm the second call does not touch it.
+        std::fs::write(voltd.join("config.toml"), "schema_version = 4\n").unwrap();
+        let migrated_again = migrate_legacy_config_dir(home).unwrap();
+        assert!(!migrated_again);
+        assert_eq!(
+            std::fs::read_to_string(voltd.join("config.toml")).unwrap(),
+            "schema_version = 4\n"
+        );
+    }
+
+    /// No legacy `.zeroclaw` and no `.voltd`: nothing to migrate.
+    #[test]
+    fn migrate_legacy_config_dir_noop_when_nothing_to_migrate() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(!migrate_legacy_config_dir(tmp.path()).unwrap());
     }
 
     // ── resilient daemon load: starts no matter what, so config can be repaired ──

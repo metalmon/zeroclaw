@@ -19470,7 +19470,20 @@ fn default_config_dir() -> Result<PathBuf> {
     let home = UserDirs::new()
         .map(|u| u.home_dir().to_path_buf())
         .context("Could not find home directory")?;
-    Ok(home.join(".zeroclaw"))
+    Ok(resolve_config_dir_for_home(&home))
+}
+
+/// `.voltd` when present or fresh; the legacy `.zeroclaw` only when it exists
+/// and `.voltd` does not (read-through so installed daemons keep booting until
+/// migrated).
+pub fn resolve_config_dir_for_home(home: &std::path::Path) -> std::path::PathBuf {
+    let new = home.join(".voltd");
+    let legacy = home.join(".zeroclaw");
+    if !new.exists() && legacy.exists() {
+        legacy
+    } else {
+        new
+    }
 }
 
 /// Canonical on-disk directory for a locale's runtime/zerocode FTL catalogues:
@@ -20370,6 +20383,32 @@ impl Config {
     }
 
     pub async fn load_or_init() -> Result<Self> {
+        // One-time, best-effort COPY of a legacy `~/.zeroclaw` install into
+        // `~/.voltd` so the rebranded default takes over transparently. Uses
+        // the same HOME-env-then-UserDirs precedence as `default_config_dir`'s
+        // plain-default branch. Never fatal: `resolve_config_dir_for_home`'s
+        // read-through fallback keeps an unmigrated `.zeroclaw` install
+        // booting even if this copy fails or is skipped.
+        let migration_home = std::env::var("HOME")
+            .ok()
+            .filter(|h| !h.is_empty())
+            .map(PathBuf::from)
+            .or_else(|| UserDirs::new().map(|u| u.home_dir().to_path_buf()));
+        if let Some(home) = migration_home
+            && let Err(e) = crate::migration::migrate_legacy_config_dir(&home)
+        {
+            ::zeroclaw_log::record!(
+                WARN,
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                    .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
+                    .with_attrs(::serde_json::json!({
+                        "home": home.display().to_string(),
+                        "error": format!("{}", e),
+                    })),
+                "[system] legacy .zeroclaw -> .voltd config migration failed; continuing with read-through fallback"
+            );
+        }
+
         let (default_zeroclaw_dir, default_workspace_dir) = default_config_and_data_dirs()?;
 
         // Resolve env overrides FIRST so the migration runs against
@@ -31618,6 +31657,24 @@ model = "primary-model"
 
         assert_eq!(config.config_path, custom_dir.join("config.toml"));
         assert_eq!(config.data_dir, custom_dir.join("data"));
+    }
+
+    /// `resolve_config_dir_for_home` prefers the new `.voltd` config dir,
+    /// falls back to reading through a pre-existing `.zeroclaw` install when
+    /// `.voltd` has not been created yet, and prefers `.voltd` again once
+    /// both exist (post-migration).
+    #[::core::prelude::v1::test]
+    fn config_dir_prefers_voltd_and_falls_back_to_legacy() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        // fresh: neither dir exists -> returns .voltd
+        assert_eq!(resolve_config_dir_for_home(home), home.join(".voltd"));
+        // legacy only: .zeroclaw exists, .voltd does not -> returns .zeroclaw (read-through)
+        std::fs::create_dir_all(home.join(".zeroclaw")).unwrap();
+        assert_eq!(resolve_config_dir_for_home(home), home.join(".zeroclaw"));
+        // both exist -> prefers .voltd
+        std::fs::create_dir_all(home.join(".voltd")).unwrap();
+        assert_eq!(resolve_config_dir_for_home(home), home.join(".voltd"));
     }
 
     #[test]
