@@ -26,7 +26,23 @@ use zeroclaw_infra::acp_session_store::AcpSessionStore;
 use zeroclaw_runtime::security::auth_provider::{Credential, ProviderRegistry};
 use zeroclaw_runtime::security::pairing_auth_provider::PairingAuthProvider;
 
-const ACP_WS_PROTOCOL: &str = "zeroclaw.acp.v1";
+/// Carrier subprotocols accepted on `/acp`, preference order first. The
+/// legacy `zeroclaw.acp.v1` value MUST stay accepted and echoed verbatim
+/// when offered: the external «Вольт» desktop client hardcodes it on its
+/// `Sec-WebSocket-Protocol` header, and a mismatched echo fails its
+/// WebView2 upgrade.
+pub const ACP_WS_PROTOCOLS: &[&str] = &["volt.acp.v1", "zeroclaw.acp.v1"];
+
+/// Select which offered carrier subprotocol to echo back: the first entry
+/// in `ACP_WS_PROTOCOLS` present in `offered` wins, so a client offering
+/// both gets `volt.acp.v1`, while a client offering only the legacy value
+/// gets that legacy value echoed unchanged.
+pub fn select_acp_subprotocol(offered: &[&str]) -> Option<&'static str> {
+    ACP_WS_PROTOCOLS
+        .iter()
+        .copied()
+        .find(|p| offered.contains(p))
+}
 
 /// How long an unauthenticated `/acp` connection may sit in pre-auth mode
 /// (only `zeroclaw/pair` accepted) before the gateway drops it. Bounds the
@@ -93,12 +109,15 @@ pub async fn handle_ws_acp(
         resolved.as_ref(),
     );
 
-    let ws = if headers
+    let offered_protocol = headers
         .get("sec-websocket-protocol")
         .and_then(|v| v.to_str().ok())
-        .is_some_and(|protos| protos.split(',').any(|p| p.trim() == ACP_WS_PROTOCOL))
-    {
-        ws.protocols([ACP_WS_PROTOCOL])
+        .and_then(|protos| {
+            let offered: Vec<&str> = protos.split(',').map(str::trim).collect();
+            select_acp_subprotocol(&offered)
+        });
+    let ws = if let Some(selected) = offered_protocol {
+        ws.protocols([selected])
     } else {
         ws
     };
@@ -693,6 +712,26 @@ mod tests {
 
     use futures_util::{SinkExt, StreamExt};
     use tokio_tungstenite::tungstenite::Message;
+
+    /// Accept-both proof: legacy `zeroclaw.acp.v1` stays selectable (the
+    /// external «Вольт» desktop client hardcodes it), the new `volt.acp.v1`
+    /// is also selectable, and an unrelated offer selects nothing.
+    #[test]
+    fn acp_subprotocol_accept_both() {
+        assert_eq!(
+            super::select_acp_subprotocol(&["zeroclaw.acp.v1"]),
+            Some("zeroclaw.acp.v1")
+        );
+        assert_eq!(
+            super::select_acp_subprotocol(&["volt.acp.v1"]),
+            Some("volt.acp.v1")
+        );
+        assert_eq!(
+            super::select_acp_subprotocol(&["bearer.tok", "zeroclaw.acp.v1"]),
+            Some("zeroclaw.acp.v1")
+        );
+        assert_eq!(super::select_acp_subprotocol(&["other"]), None);
+    }
 
     /// On-disk-equivalent of the channels-crate `make_test_config`: a fake
     /// `anthropic.default` provider (model name only, no key — agent
