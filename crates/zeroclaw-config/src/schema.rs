@@ -19340,13 +19340,13 @@ impl Default for Config {
         // a `HOME` env override, before falling back to `UserDirs`. Calling
         // it here, instead of duplicating a `UserDirs`-only computation,
         // means a `Config::default()` constructed under an isolated test or
-        // deployment never resolves to the real machine's `~/.zeroclaw`, and
+        // deployment never resolves to the real machine's `~/.voltd`, and
         // so cannot become a save target pointing at an operator's populated
         // config.toml.
         let zeroclaw_dir = default_config_dir().unwrap_or_else(|_| {
             let home =
                 UserDirs::new().map_or_else(|| PathBuf::from("."), |u| u.home_dir().to_path_buf());
-            home.join(".zeroclaw")
+            resolve_config_dir_for_home(&home)
         });
 
         Self {

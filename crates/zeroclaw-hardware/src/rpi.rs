@@ -265,13 +265,16 @@ impl RpiSystemContext {
         s
     }
 
-    /// Write an `rpi0.md` hardware context file to `~/.zeroclaw/hardware/devices/`.
-    /// Silently skips on failure so boot is never blocked.
+    /// Write an `rpi0.md` hardware context file to `~/.voltd/hardware/devices/`
+    /// (or the legacy `~/.zeroclaw/hardware/devices/` when only that
+    /// pre-migration install exists). Silently skips on failure so boot is
+    /// never blocked.
     pub fn write_hardware_context_file(&self) {
         let Some(home) = directories::BaseDirs::new().map(|b| b.home_dir().to_path_buf()) else {
             return;
         };
-        let devices_dir = home.join(".zeroclaw").join("hardware").join("devices");
+        let base = zeroclaw_config::schema::resolve_config_dir_for_home(&home);
+        let devices_dir = base.join("hardware").join("devices");
         if let Err(e) = fs::create_dir_all(&devices_dir) {
             ::zeroclaw_log::record!(
                 WARN,

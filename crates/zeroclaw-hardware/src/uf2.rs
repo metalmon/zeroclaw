@@ -53,11 +53,8 @@ pub fn ensure_firmware_dir() -> Result<PathBuf> {
         anyhow::Error::msg("cannot determine home directory")
     })?;
 
-    let firmware_dir = base
-        .home_dir()
-        .join(".zeroclaw")
-        .join("firmware")
-        .join("pico");
+    let config_dir = zeroclaw_config::schema::resolve_config_dir_for_home(base.home_dir());
+    let firmware_dir = config_dir.join("firmware").join("pico");
     std::fs::create_dir_all(&firmware_dir)?;
 
     // UF2 — validate magic before writing so a broken stub is caught early.
@@ -319,7 +316,8 @@ mod tests {
 
     #[test]
     fn ensure_firmware_dir_creates_directory() {
-        // This test verifies ensure_firmware_dir creates the ~/.zeroclaw/firmware/pico/ path.
+        // This test verifies ensure_firmware_dir creates the ~/.voltd/firmware/pico/
+        // path (or legacy ~/.zeroclaw/firmware/pico/ when only that install exists).
         // It may fail on the UF2 magic check (placeholder UF2) — that's expected and OK.
         let result = ensure_firmware_dir();
         // Either succeeds (real UF2) or fails with a clear placeholder message.

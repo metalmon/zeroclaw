@@ -1,4 +1,5 @@
-//! Plugin manifest loader — scans `~/.zeroclaw/tools/` at startup.
+//! Plugin manifest loader — scans `~/.voltd/tools/` (or legacy
+//! `~/.zeroclaw/tools/`) at startup.
 
 use super::manifest::ToolManifest;
 use super::subprocess::SubprocessTool;
@@ -250,7 +251,9 @@ fn load_one_plugin(plugin_dir: &Path, manifest_path: &Path) -> Result<LoadedPlug
     })
 }
 
-/// Return the path `~/.zeroclaw/tools/` using the `directories` crate.
+/// Return the path `~/.voltd/tools/` (or the legacy `~/.zeroclaw/tools/`
+/// when only that pre-migration install exists) using the `directories`
+/// crate.
 pub fn plugin_tools_dir() -> Result<PathBuf> {
     use directories::BaseDirs;
     let base = BaseDirs::new().ok_or_else(|| {
@@ -262,7 +265,8 @@ pub fn plugin_tools_dir() -> Result<PathBuf> {
         );
         anyhow::Error::msg("cannot determine the user home directory")
     })?;
-    Ok(base.home_dir().join(".zeroclaw").join("tools"))
+    let config_dir = zeroclaw_config::schema::resolve_config_dir_for_home(base.home_dir());
+    Ok(config_dir.join("tools"))
 }
 
 /// Best-effort home dir string for display purposes only.
@@ -354,8 +358,9 @@ binary = "tool.sh"
     #[test]
     fn scan_plugin_dir_skips_broken_manifests_without_panicking() {
         // We can't redirect scan_plugin_dir to an arbitrary directory (it
-        // always uses ~/.zeroclaw/tools), but we can verify load_one_plugin
-        // behaviour under broken input without affecting the real directory.
+        // always uses the resolved plugin_tools_dir()), but we can verify
+        // load_one_plugin behaviour under broken input without affecting
+        // the real directory.
         let dir = tempfile::tempdir().unwrap();
 
         // Plugin 1: valid
@@ -377,10 +382,23 @@ binary = "tool.sh"
     }
 
     #[test]
-    fn plugin_tools_dir_returns_path_ending_in_zeroclaw_tools() {
+    fn plugin_tools_dir_returns_path_ending_in_tools_under_resolved_config_dir() {
+        // plugin_tools_dir() has no way to inject a home dir (it goes
+        // straight to directories::BaseDirs::new()), so this test can only
+        // assert against the real environment's resolved base: `.voltd`
+        // (preferred) or legacy `.zeroclaw` (only when `.voltd` is absent
+        // and `.zeroclaw` already exists) -- see `resolve_config_dir_for_home`.
         let path = plugin_tools_dir().expect("should resolve");
         let display = path.to_string_lossy();
-        let expected = std::path::Path::new(".zeroclaw").join("tools");
-        assert!(path.ends_with(&expected), "unexpected path: {}", display);
+        assert!(path.ends_with("tools"), "unexpected path: {}", display);
+        let base_name = path
+            .parent()
+            .and_then(|p| p.file_name())
+            .and_then(|n| n.to_str());
+        assert!(
+            matches!(base_name, Some(".voltd") | Some(".zeroclaw")),
+            "unexpected base dir in path: {}",
+            display
+        );
     }
 }

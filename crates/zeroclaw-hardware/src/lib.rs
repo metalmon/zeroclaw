@@ -104,8 +104,9 @@ pub struct HardwareBootResult {
     pub tools: Vec<Box<dyn zeroclaw_api::tool::Tool>>,
     /// Human-readable device summary for the LLM system prompt.
     pub device_summary: String,
-    /// Content of `~/.zeroclaw/hardware/` context files (HARDWARE.md, device
-    /// profiles, and skills) for injection into the system prompt.
+    /// Content of `~/.voltd/hardware/` (or legacy `~/.zeroclaw/hardware/`)
+    /// context files (HARDWARE.md, device profiles, and skills) for
+    /// injection into the system prompt.
     pub context_files_prompt: String,
 }
 
@@ -114,7 +115,8 @@ pub fn load_hardware_context_prompt(aliases: &[&str]) -> String {
         Some(h) => h,
         None => return String::new(),
     };
-    load_hardware_context_from_dir(&home.join(".zeroclaw").join("hardware"), aliases)
+    let base = zeroclaw_config::schema::resolve_config_dir_for_home(&home);
+    load_hardware_context_from_dir(&base.join("hardware"), aliases)
 }
 
 /// Inner helper that reads hardware context from an explicit base directory.

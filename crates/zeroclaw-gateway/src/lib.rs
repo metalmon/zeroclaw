@@ -469,6 +469,7 @@ fn auto_detect_web_dist_dir() -> Option<std::path::PathBuf> {
         std::path::PathBuf::from("/usr/share/zeroclawlabs/web/dist"),
     ];
     if let Some(data_dir) = dirs_data_local() {
+        candidates.push(data_dir.join("voltd/web/dist"));
         candidates.push(data_dir.join("zeroclaw/web/dist"));
     }
     candidates

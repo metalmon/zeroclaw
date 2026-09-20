@@ -42,10 +42,13 @@ fn require_auth(
 
 // ── Path helpers ──────────────────────────────────────────────────────────────
 
-/// Return `~/.zeroclaw/hardware/` or an error string.
+/// Return `~/.voltd/hardware/` (or the legacy `~/.zeroclaw/hardware/` when
+/// only that pre-migration install exists) or an error string.
 fn hardware_dir() -> Result<PathBuf, String> {
     directories::BaseDirs::new()
-        .map(|b| b.home_dir().join(".zeroclaw").join("hardware"))
+        .map(|b| {
+            zeroclaw_config::schema::resolve_config_dir_for_home(b.home_dir()).join("hardware")
+        })
         .ok_or_else(|| "Cannot determine home directory".to_string())
 }
 

@@ -10,7 +10,8 @@ tool_attribution!(DatasheetTool, ToolKind::Plugin);
 
 // ── DatasheetManager ─────────────────────────────────────────────────────────
 
-/// Manages device datasheet files in `~/.zeroclaw/hardware/datasheets/`.
+/// Manages device datasheet files in `~/.voltd/hardware/datasheets/` (or the
+/// legacy `~/.zeroclaw/hardware/datasheets/` when only that install exists).
 pub struct DatasheetManager {
     /// Root datasheet storage directory.
     datasheet_dir: PathBuf,
@@ -20,8 +21,9 @@ impl DatasheetManager {
     /// Create a manager rooted at the default ZeroClaw datasheets directory.
     pub fn new() -> Option<Self> {
         let home = directories::BaseDirs::new()?.home_dir().to_path_buf();
+        let base = zeroclaw_config::schema::resolve_config_dir_for_home(&home);
         Some(Self {
-            datasheet_dir: home.join(".zeroclaw").join("hardware").join("datasheets"),
+            datasheet_dir: base.join("hardware").join("datasheets"),
         })
     }
 
@@ -48,7 +50,8 @@ impl DatasheetManager {
     }
 
     /// Download a datasheet PDF from `url` and save it locally.
-    /// The file is saved as `~/.zeroclaw/hardware/datasheets/<device_name>.pdf`.
+    /// The file is saved as `~/.voltd/hardware/datasheets/<device_name>.pdf`
+    /// (or under legacy `~/.zeroclaw/...` when only that install exists).
     /// Returns the path to the saved file.
     pub async fn download_datasheet(
         &self,
@@ -112,7 +115,7 @@ impl DatasheetManager {
 impl Default for DatasheetManager {
     fn default() -> Self {
         Self::new().unwrap_or_else(|| Self {
-            datasheet_dir: PathBuf::from(".zeroclaw/hardware/datasheets"),
+            datasheet_dir: PathBuf::from(".voltd/hardware/datasheets"),
         })
     }
 }
@@ -265,7 +268,7 @@ impl Tool for DatasheetTool {
                             "Datasheet for '{device}' downloaded successfully.\n\
                              Saved to: {}\n\n\
                              Next step: create a device profile at \
-                             ~/.zeroclaw/hardware/devices/<device>.md with the key \
+                             ~/.voltd/hardware/devices/<device>.md with the key \
                              registers, I2C address, and protocol notes from this datasheet.",
                             path.display()
                         )
@@ -288,7 +291,7 @@ impl Tool for DatasheetTool {
                         .to_string()
                 } else {
                     format!(
-                        "{} cached datasheet(s) in ~/.zeroclaw/hardware/datasheets/:\n{}",
+                        "{} cached datasheet(s) in ~/.voltd/hardware/datasheets/:\n{}",
                         datasheets.len(),
                         datasheets
                             .iter()
