@@ -295,7 +295,7 @@ fn print_no_command_help(cmd: clap::Command) -> Result<()> {
             "{}",
             crate::i18n::get_cli_string("cli-try-quickstart")
                 .as_deref()
-                .unwrap_or("Try `zeroclaw quickstart` to create your first agent.")
+                .unwrap_or("Try `voltd quickstart` to create your first agent.")
         );
     }
     #[cfg(not(feature = "agent-runtime"))]
@@ -305,7 +305,7 @@ fn print_no_command_help(cmd: clap::Command) -> Result<()> {
             "{}",
             t(
                 "cli-try-quickstart",
-                "Try `zeroclaw quickstart` to create your first agent."
+                "Try `voltd quickstart` to create your first agent."
             )
         );
     }
@@ -460,7 +460,7 @@ enum EstopLevelArg {
 
 /// `ZeroClaw` - Zero overhead. Zero compromise. 100% Rust.
 #[derive(Parser, Debug)]
-#[command(name = "zeroclaw")]
+#[command(name = "voltd")]
 #[command(author = "theonlyhennygod")]
 #[command(version)]
 // i18n-exempt: clap derive help — framework requires a compile-time literal
@@ -621,10 +621,10 @@ Launches an interactive chat session with the configured AI model_provider. \
 Use --message for single-shot queries without entering interactive mode.
 
 Examples:
-  zeroclaw agent -a assistant                                          # interactive session
-  zeroclaw agent -a assistant -m \"Summarize today's logs\"              # single message
-  zeroclaw agent -a assistant -p anthropic --model claude-sonnet-4-20250514
-  zeroclaw agent -a assistant --peripheral nucleo-f401re:/dev/ttyACM0")]
+  voltd agent -a assistant                                          # interactive session
+  voltd agent -a assistant -m \"Summarize today's logs\"              # single message
+  voltd agent -a assistant -p anthropic --model claude-sonnet-4-20250514
+  voltd agent -a assistant --peripheral nucleo-f401re:/dev/ttyACM0")]
     Agent {
         /// Configured agent alias to run as (must match `[agents.<alias>]`).
         /// Required — there is no default agent.
@@ -665,9 +665,9 @@ Start, restart, or inspect the HTTP/WebSocket gateway that accepts \
 incoming webhook events and WebSocket connections.
 
 Examples:
-  zeroclaw gateway start              # start gateway
-  zeroclaw gateway restart            # restart gateway
-  zeroclaw gateway get-paircode       # show pairing code")]
+  voltd gateway start              # start gateway
+  voltd gateway restart            # restart gateway
+  voltd gateway get-paircode       # show pairing code")]
     Gateway {
         #[command(subcommand)]
         gateway_command: Option<zeroclaw::GatewayCommands>,
@@ -685,8 +685,8 @@ responses as notifications.
 Methods: initialize, session/new, session/prompt, session/stop.
 
 Examples:
-  zeroclaw acp                        # start ACP server
-  zeroclaw acp --max-sessions 5       # limit concurrent sessions")]
+  voltd acp                        # start ACP server
+  voltd acp --max-sessions 5       # limit concurrent sessions")]
     Acp {
         /// Maximum concurrent sessions (default: 10)
         #[arg(long)]
@@ -707,13 +707,13 @@ channels (Telegram, Discord, Slack, etc.), heartbeat monitor, and \
 the cron scheduler. This is the recommended way to run Volt Agent in \
 production or as an always-on assistant.
 
-Use 'zeroclaw service install' to register the daemon as an OS \
+Use 'voltd service install' to register the daemon as an OS \
 service (systemd/launchd) for auto-start on boot.
 
 Examples:
-  zeroclaw daemon                   # use config defaults
-  zeroclaw daemon -p 9090           # gateway on port 9090
-  zeroclaw daemon --host 127.0.0.1  # localhost only")]
+  voltd daemon                   # use config defaults
+  voltd daemon -p 9090           # gateway on port 9090
+  voltd daemon --host 127.0.0.1  # localhost only")]
     Daemon {
         /// Port to listen on (use 0 for random available port); defaults to config gateway.port
         #[arg(short, long)]
@@ -797,15 +797,15 @@ the runtime local timezone. For user-facing schedules, pass --tz with \
 an explicit IANA timezone.
 
 Examples:
-  zeroclaw cron list
-  zeroclaw cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
-  zeroclaw cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
-  zeroclaw cron add '*/5 * * * *' 'echo ok' --agent sentinel
-  zeroclaw cron add-at 2099-01-15T14:00:00Z 'Send reminder' --agent sentinel --prompt
-  zeroclaw cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt
-  zeroclaw cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt
-  zeroclaw cron pause TASK_ID
-  zeroclaw cron update TASK_ID --expression '0 8 * * *' --tz Europe/London")]
+  voltd cron list
+  voltd cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
+  voltd cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
+  voltd cron add '*/5 * * * *' 'echo ok' --agent sentinel
+  voltd cron add-at 2099-01-15T14:00:00Z 'Send reminder' --agent sentinel --prompt
+  voltd cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt
+  voltd cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt
+  voltd cron pause TASK_ID
+  voltd cron update TASK_ID --expression '0 8 * * *' --tz Europe/London")]
     Cron {
         #[command(subcommand)]
         cron_command: CronCommands,
@@ -832,12 +832,12 @@ to messaging platforms. Supported channel types: telegram, discord, \
 slack, whatsapp, matrix, imessage, email.
 
 Examples:
-  zeroclaw channel list
-  zeroclaw channel doctor
-  zeroclaw channel add telegram '{\"bot_token\":\"...\",\"name\":\"my-bot\"}'
-  zeroclaw channel remove my-bot
-  zeroclaw channel bind-telegram zeroclaw_user
-  zeroclaw channel send 'Alert!' --channel-id telegram --recipient 123456789")]
+  voltd channel list
+  voltd channel doctor
+  voltd channel add telegram '{\"bot_token\":\"...\",\"name\":\"my-bot\"}'
+  voltd channel remove my-bot
+  voltd channel bind-telegram zeroclaw_user
+  voltd channel send 'Alert!' --channel-id telegram --recipient 123456789")]
     Channel {
         #[command(subcommand)]
         channel_command: ChannelCommands,
@@ -877,9 +877,9 @@ rejected. Used by the dashboard's skill-bundle directory picker and by \
 operators who want to inspect what's installed.
 
 Examples:
-  zeroclaw browse                  # list shared/ root
-  zeroclaw browse skills           # list shared/skills/
-  zeroclaw browse skills/coding    # list shared/skills/coding/")]
+  voltd browse                  # list shared/ root
+  voltd browse skills           # list shared/skills/
+  voltd browse skills/coding    # list shared/skills/coding/")]
     Browse {
         /// Path relative to `<install>/shared/`. Empty = root.
         #[arg(default_value = "")]
@@ -914,9 +914,9 @@ Enumerate connected USB devices, identify known development boards \
 probe-rs / ST-Link.
 
 Examples:
-  zeroclaw hardware discover
-  zeroclaw hardware introspect /dev/ttyACM0
-  zeroclaw hardware info --chip STM32F401RETx")]
+  voltd hardware discover
+  voltd hardware introspect /dev/ttyACM0
+  voltd hardware info --chip STM32F401RETx")]
     Hardware {
         #[command(subcommand)]
         hardware_command: zeroclaw::HardwareCommands,
@@ -932,11 +932,11 @@ to the agent (GPIO, sensors, actuators). Supported boards: \
 nucleo-f401re, rpi-gpio, esp32, arduino-uno.
 
 Examples:
-  zeroclaw peripheral list
-  zeroclaw peripheral add nucleo-f401re /dev/ttyACM0
-  zeroclaw peripheral add rpi-gpio native
-  zeroclaw peripheral flash --port /dev/cu.usbmodem12345
-  zeroclaw peripheral flash-nucleo")]
+  voltd peripheral list
+  voltd peripheral add nucleo-f401re /dev/ttyACM0
+  voltd peripheral add rpi-gpio native
+  voltd peripheral flash --port /dev/cu.usbmodem12345
+  voltd peripheral flash-nucleo")]
     Peripheral {
         #[command(subcommand)]
         peripheral_command: zeroclaw::PeripheralCommands,
@@ -952,11 +952,11 @@ Supports filtering by category and session, pagination, and \
 batch clearing with confirmation.
 
 Examples:
-  zeroclaw memory stats
-  zeroclaw memory list
-  zeroclaw memory list --category core --limit 10
-  zeroclaw memory get KEY
-  zeroclaw memory clear --category conversation --yes")]
+  voltd memory stats
+  voltd memory list
+  voltd memory list --category core --limit 10
+  voltd memory get KEY
+  voltd memory clear --category conversation --yes")]
     Memory {
         #[command(subcommand)]
         memory_command: MemoryCommands,
@@ -975,19 +975,19 @@ Secret fields (API keys, tokens) automatically use masked input.
 Enum fields offer interactive selection when value is omitted.
 
 Examples:
-  zeroclaw config list                                  # list all properties
-  zeroclaw config list --secrets                        # list only secrets
-  zeroclaw config list --filter channels.matrix         # filter by prefix
-  zeroclaw config get channels.matrix.mention-only      # get a value
-  zeroclaw config set channels.matrix.mention-only true # set a value
-  zeroclaw config set channels.matrix.access-token      # secret: masked input
-  zeroclaw config set channels.matrix.stream-mode       # enum: interactive select
-  zeroclaw config init channels.matrix                  # init section with defaults
-  zeroclaw config init risk_profiles.strict             # create a new dynamic-map alias
-  zeroclaw config schema                                # print JSON Schema to stdout
-  zeroclaw config schema > schema.json
+  voltd config list                                  # list all properties
+  voltd config list --secrets                        # list only secrets
+  voltd config list --filter channels.matrix         # filter by prefix
+  voltd config get channels.matrix.mention-only      # get a value
+  voltd config set channels.matrix.mention-only true # set a value
+  voltd config set channels.matrix.access-token      # secret: masked input
+  voltd config set channels.matrix.stream-mode       # enum: interactive select
+  voltd config init channels.matrix                  # init section with defaults
+  voltd config init risk_profiles.strict             # create a new dynamic-map alias
+  voltd config schema                                # print JSON Schema to stdout
+  voltd config schema > schema.json
 
-Property path tab completion is included automatically in `zeroclaw completions <shell>`.")]
+Property path tab completion is included automatically in `voltd completions <shell>`.")]
     Config {
         #[command(subcommand)]
         config_command: ConfigCommands,
@@ -1007,10 +1007,10 @@ Use --force to skip the confirmation prompt.
 Use --version to target a specific release instead of latest.
 
 Examples:
-  zeroclaw update                      # download and install latest
-  zeroclaw update --check              # check only, don't install
-  zeroclaw update --force              # install without confirmation
-  zeroclaw update --version 0.6.0      # install specific version")]
+  voltd update                      # download and install latest
+  voltd update --check              # check only, don't install
+  voltd update --force              # install without confirmation
+  voltd update --version 0.6.0      # install specific version")]
     Update {
         /// Only check for updates, don't install
         #[arg(long)]
@@ -1036,8 +1036,8 @@ By default, runs the full test suite including network checks \
 checks for faster offline validation.
 
 Examples:
-  zeroclaw self-test             # full suite
-  zeroclaw self-test --quick     # quick checks only (no network)")]
+  voltd self-test             # full suite
+  voltd self-test --quick     # quick checks only (no network)")]
     SelfTest {
         /// Run quick checks only (no network)
         #[arg(long)]
@@ -1056,8 +1056,8 @@ expectations. No network calls, fully deterministic. Exits non-zero if any case 
 so it can gate CI.
 
 Examples:
-  zeroclaw eval run                                  # replay ./evals/regression
-  zeroclaw eval run --suite evals/regression --format json")]
+  voltd eval run                                  # replay ./evals/regression
+  voltd eval run --suite evals/regression --format json")]
     Eval {
         #[command(subcommand)]
         eval_command: EvalCommands,
@@ -1066,18 +1066,18 @@ Examples:
     /// Generate shell completion script to stdout
     // i18n-exempt: clap derive help — framework requires a compile-time literal
     #[command(long_about = "\
-Generate shell completion scripts for `zeroclaw`.
+Generate shell completion scripts for `voltd`.
 
 The script is printed to stdout so it can be sourced directly:
 
 Examples (Unix shells):
-  source <(zeroclaw completions bash)
-  zeroclaw completions zsh > ~/.zfunc/_zeroclaw
-  zeroclaw completions fish > ~/.config/fish/completions/zeroclaw.fish
+  source <(voltd completions bash)
+  voltd completions zsh > ~/.zfunc/_voltd
+  voltd completions fish > ~/.config/fish/completions/voltd.fish
 
 Examples (Windows PowerShell):
-  zeroclaw completions powershell | Out-String | Invoke-Expression
-  zeroclaw completions powershell > $PROFILE.CurrentUserAllHosts")]
+  voltd completions powershell | Out-String | Invoke-Expression
+  voltd completions powershell > $PROFILE.CurrentUserAllHosts")]
     Completions {
         /// Target shell
         #[arg(value_enum)]
@@ -1105,8 +1105,8 @@ Use --install to open the download page for your platform. It does not \
 install anything itself.
 
 Examples:
-  zeroclaw desktop              # launch the companion app
-  zeroclaw desktop --install    # open the download page")]
+  voltd desktop              # launch the companion app
+  voltd desktop --install    # open the download page")]
     Desktop {
         /// Open the companion app's download page
         #[arg(long)]
@@ -1138,9 +1138,9 @@ Pass a single locale. By default every catalogue is fetched; restrict with \
 --catalog (comma-separated): cli, tools, zerocode.
 
 Examples:
-  zeroclaw locales fetch ja
-  zeroclaw locales fetch fr --catalog cli,tools
-  zeroclaw locales fetch zh-CN --catalog zerocode")]
+  voltd locales fetch ja
+  voltd locales fetch fr --catalog cli,tools
+  voltd locales fetch zh-CN --catalog zerocode")]
     Locales {
         #[command(subcommand)]
         locales_command: LocalesCommands,
@@ -1301,7 +1301,7 @@ async fn run_quickstart_cli(
                 "cli-quickstart-needs-tty",
                 "Quickstart is interactive and needs a terminal on stdin and stderr. \
                  Run it from an interactive shell, or use \
-                 `zeroclaw config set <path> <value>` for headless configuration."
+                 `voltd config set <path> <value>` for headless configuration."
             )
         );
     }
@@ -1512,7 +1512,7 @@ async fn run_quickstart_cli(
         } else if form.channels.is_empty() {
             t(
                 "cli-quickstart-summary-channels-none",
-                "none (chat via `zeroclaw agent` only)",
+                "none (chat via `voltd agent` only)",
             )
         } else {
             form.channels
@@ -1928,7 +1928,7 @@ async fn run_quickstart_cli(
                                     "{}",
                                     t(
                                         "cli-quickstart-all-channels-bound",
-                                        "  Every configured channel is already bound to an agent. Free one with `zeroclaw config set agents.<alias>.channels ...` before reusing it here.",
+                                        "  Every configured channel is already bound to an agent. Free one with `voltd config set agents.<alias>.channels ...` before reusing it here.",
                                     )
                                 );
                                 continue;
@@ -2874,7 +2874,7 @@ async fn seed_plugin_config_entries(
                     "warning: skipped seeding the plugin config entry: the \
                      [plugins] section on disk is malformed. Repair it, add \
                      `[[plugins.entries]]` with the instance key, then set values \
-                     with `zeroclaw config set plugins.entries.<instance-key>.config.<key>`."
+                     with `voltd config set plugins.entries.<instance-key>.config.<key>`."
                 )
             );
         }
@@ -2902,7 +2902,7 @@ async fn seed_plugin_config_entries(
                 "cli-plugin-config-entry-seeded",
                 &[("name", instance_key)],
                 "Seeded config entry. Set plugin config values with \
-                 `zeroclaw config set plugins.entries.<instance-key>.config.<key>`."
+                 `voltd config set plugins.entries.<instance-key>.config.<key>`."
             )
         );
     }
@@ -4670,8 +4670,8 @@ async fn async_main(command: clap::Command) -> Result<()> {
             || *tunnel_only;
         if any_legacy_flag {
             eprintln!(
-                "error: `zeroclaw onboard` is deprecated and its flags no longer apply. \
-                 Use `zeroclaw quickstart` to create a new agent, or `zeroclaw config set <path>=<value>` \
+                "error: `voltd onboard` is deprecated and its flags no longer apply. \
+                 Use `voltd quickstart` to create a new agent, or `voltd config set <path>=<value>` \
                  for headless updates."
             );
             std::process::exit(2);
@@ -4680,7 +4680,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
             "{}",
             t(
                 "cli-onboard-deprecated",
-                "`zeroclaw onboard` is deprecated — use `zeroclaw quickstart`."
+                "`voltd onboard` is deprecated — use `voltd quickstart`."
             )
         );
         return Ok(());
@@ -4726,7 +4726,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                 ],
                 "warning: config section is malformed and was reset to defaults \
                  for this run. Values in that section are NOT in effect. Run \
-                 `zeroclaw config migrate` to see the parse error, then repair \
+                 `voltd config migrate` to see the parse error, then repair \
                  the file."
             )
         );
@@ -4797,7 +4797,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
             } => {
                 if config.agent(&agent_alias).is_none() {
                     anyhow::bail!(
-                        "`zeroclaw agent --agent {agent_alias}` is not configured (no [agents.{agent_alias}] entry)"
+                        "`voltd agent --agent {agent_alias}` is not configured (no [agents.{agent_alias}] entry)"
                     );
                 }
                 let agent_entry = config.model_provider_for_agent(&agent_alias);
@@ -4824,7 +4824,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                             );
                             anyhow::Error::msg(format!(
                                 "Unknown model_provider family: {type_key}. \
-                             Configure a provider via `zeroclaw quickstart` or the /config editor."
+                             Configure a provider via `voltd quickstart` or the /config editor."
                             ))
                         })?;
                     if let Some(m) = &model {
@@ -4838,7 +4838,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                 } else if config.model_provider_for_agent(&agent_alias).is_none() {
                     anyhow::bail!(
                         "No model model_provider configured for agent {agent_alias}. \
-                         Pass --model-provider <type> or run `zeroclaw quickstart` to configure one."
+                         Pass --model-provider <type> or run `voltd quickstart` to configure one."
                     );
                 }
 
@@ -4958,7 +4958,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
             // catches typos before any subsystem spins up.
             if config.agent(&agent_alias).is_none() {
                 anyhow::bail!(
-                    "`zeroclaw agent --agent {agent_alias}` is not configured (no [agents.{agent_alias}] entry)"
+                    "`voltd agent --agent {agent_alias}` is not configured (no [agents.{agent_alias}] entry)"
                 );
             }
 
@@ -5242,7 +5242,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                                     "   Is the gateway running? Start it with:"
                                 )
                             );
-                            println!("     zeroclaw gateway start"); // i18n-exempt: literal command/identifier example
+                            println!("     voltd gateway start"); // i18n-exempt: literal command/identifier example
                         }
                     }
                     Ok(())
@@ -7022,7 +7022,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                             "Download it at"
                         )
                     );
-                    println!("  Or run: zeroclaw desktop --install"); // i18n-exempt: literal command
+                    println!("  Or run: voltd desktop --install"); // i18n-exempt: literal command
                     println!();
                     println!(
                         "{}",
@@ -7302,7 +7302,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                             "config set --no-interactive refused: positional value missing"
                         );
                         anyhow::Error::msg(format!(
-                            "Value required in --no-interactive mode. Usage: zeroclaw config set --no-interactive {path} <value>"
+                            "Value required in --no-interactive mode. Usage: voltd config set --no-interactive {path} <value>"
                         ))
                     })?;
                     config.set_prop_persistent(&path, &val)?;
@@ -7416,7 +7416,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                             .join(", ");
                         config.set_prop_persistent(&path, &val)?;
                     } else {
-                        anyhow::bail!("Value required. Usage: zeroclaw config set {path} <value>");
+                        anyhow::bail!("Value required. Usage: voltd config set {path} <value>");
                     }
                 }
                 Box::pin(config.save_dirty()).await?;
@@ -7486,7 +7486,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                         "\n{}",
                         t(
                             "cli-config-review-hint",
-                            "Run `zeroclaw config list` to review, then set required fields."
+                            "Run `voltd config list` to review, then set required fields."
                         )
                     );
                 }
@@ -7963,7 +7963,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                 if !daemon_running {
                     eprintln!(
                         "Note: gateway does not appear to be running at {host}:{port}. \
-                         Start it with `zeroclaw service start` (background) or `zeroclaw daemon` (foreground) to load the explorer."
+                         Start it with `voltd service start` (background) or `voltd daemon` (foreground) to load the explorer."
                     );
                 }
                 Ok(())
@@ -7995,7 +7995,7 @@ Add pricing to the active provider profile or supply a catalog entry."
 
         Commands::Props { .. } => {
             anyhow::bail!(
-                "`zeroclaw props` has been renamed to `zeroclaw config`. \
+                "`voltd props` has been renamed to `voltd config`. \
                  Replace `props` with `config` in your command and try again."
             );
         }
@@ -8026,7 +8026,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                             "cli-plugin-legacy-detected",
                             &[("path", &legacy.display().to_string()), ("target", &target)],
                             "Note: plugins in a legacy location are not loaded by the agent — \
-                             run `zeroclaw plugin migrate` to move them.",
+                             run `voltd plugin migrate` to move them.",
                         )
                     );
                 }
@@ -8087,7 +8087,7 @@ Add pricing to the active provider profile or supply a catalog entry."
             PluginCommands::Install { source, registry } => {
                 if plugin_registry::looks_like_url(&source) {
                     bail!(
-                        "`zeroclaw plugin install <url>` is not supported; use `--registry <url>` with a plugin name, or install a local plugin path"
+                        "`voltd plugin install <url>` is not supported; use `--registry <url>` with a plugin name, or install a local plugin path"
                     );
                 }
                 let mut host = plugin_host_with_configured_security(&config)?;
@@ -8462,22 +8462,22 @@ fn write_shell_completion<W: Write>(shell: CompletionShell, writer: &mut W) -> R
     match shell {
         CompletionShell::Bash => {
             generate(shells::Bash, &mut cmd, bin_name.clone(), writer);
-            // Wrap clap's _zeroclaw to inject dynamic config path completion
+            // Wrap clap's _voltd to inject dynamic config path completion
             writeln!(
                 writer,
                 r#"
-# Dynamic completion for zeroclaw config get/set paths
-if type _zeroclaw &>/dev/null; then
+# Dynamic completion for voltd config get/set paths
+if type _voltd &>/dev/null; then
     # Capture the original clap-generated function body so the wrapper
     # can fall back to it without entering an infinite recursion loop.
-    eval "$(declare -f _zeroclaw | sed '1s/_zeroclaw/_zeroclaw_clap_orig/')"
-    _zeroclaw() {{
+    eval "$(declare -f _voltd | sed '1s/_voltd/_voltd_clap_orig/')"
+    _voltd() {{
         local cur="${{COMP_WORDS[COMP_CWORD]}}"
         if [[ "${{COMP_WORDS[*]}}" =~ "config "(get|set)" " ]]; then
-            COMPREPLY=($(compgen -W "$(zeroclaw config complete "$cur" 2>/dev/null)" -- "$cur"))
+            COMPREPLY=($(compgen -W "$(voltd config complete "$cur" 2>/dev/null)" -- "$cur"))
             return
         fi
-        _zeroclaw_clap_orig "$@"
+        _voltd_clap_orig "$@"
     }}
 fi"#
             )?;
@@ -8487,28 +8487,28 @@ fi"#
             writeln!(
                 writer,
                 r#"
-# Dynamic completion for zeroclaw config get/set paths
-complete -c zeroclaw -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' \
-    -a '(zeroclaw config complete (commandline -ct) 2>/dev/null)' -f"#
+# Dynamic completion for voltd config get/set paths
+complete -c voltd -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' \
+    -a '(voltd config complete (commandline -ct) 2>/dev/null)' -f"#
             )?;
         }
         CompletionShell::Zsh => {
             generate(shells::Zsh, &mut cmd, bin_name.clone(), writer);
-            // Wrap clap's _zeroclaw to inject dynamic config path completion
+            // Wrap clap's _voltd to inject dynamic config path completion
             writeln!(
                 writer,
                 r#"
-# Dynamic completion for zeroclaw config get/set paths
-if (( $+functions[_zeroclaw] )); then
-    functions[_zeroclaw_clap_orig]=$functions[_zeroclaw]
-    _zeroclaw() {{
+# Dynamic completion for voltd config get/set paths
+if (( $+functions[_voltd] )); then
+    functions[_voltd_clap_orig]=$functions[_voltd]
+    _voltd() {{
         if [[ "${{words[*]}}" == *"config "(get|set)* ]] && (( CURRENT > 3 )); then
             local -a props
-            props=(${{(f)"$(zeroclaw config complete "$words[CURRENT]" 2>/dev/null)"}})
+            props=(${{(f)"$(voltd config complete "$words[CURRENT]" 2>/dev/null)"}})
             compadd -a props
             return
         fi
-        _zeroclaw_clap_orig "$@"
+        _voltd_clap_orig "$@"
     }}
 fi"#
             )?;
@@ -8604,7 +8604,7 @@ async fn sop_admin_dispatch(cmd: SopCommands, config: &crate::config::Config) ->
     {
         let _ = (cmd, config);
         anyhow::bail!(
-            "`zeroclaw sop approve/deny/pending` requires the agent-runtime build (the gateway client)"
+            "`voltd sop approve/deny/pending` requires the agent-runtime build (the gateway client)"
         )
     }
 }
@@ -8919,7 +8919,7 @@ fn paircode_no_code_message(
         PaircodeAction::Show => {
             lines.push(t(
                 "cli-pairing-show-only",
-                "`zeroclaw gateway get-paircode` only displays an existing active code; it does not mint a new one.",
+                "`voltd gateway get-paircode` only displays an existing active code; it does not mint a new one.",
             ));
             lines.push(t(
                 "cli-pairing-pair-another",
@@ -8998,7 +8998,7 @@ fn paircode_command(
     default_port: u16,
     flag: Option<&str>,
 ) -> String {
-    let mut command = "    zeroclaw gateway get-paircode".to_string();
+    let mut command = "    voltd gateway get-paircode".to_string();
     if let Some(flag) = flag {
         command.push(' ');
         command.push_str(flag);
@@ -9134,7 +9134,7 @@ async fn run_inline_provider_auth(auth: InlineProviderAuth, config: &mut Config)
             },
             t(
                 "cli-quickstart-auth-codex-skip-hint",
-                "  Finish later with: zeroclaw auth login --model-provider openai-codex",
+                "  Finish later with: voltd auth login --model-provider openai-codex",
             ),
         ),
         InlineProviderAuth::AnthropicSetupToken { alias } => (
@@ -9377,7 +9377,7 @@ async fn handle_auth_command(auth_command: AuthCommands, config: &Config) -> Res
                 }
                 auth::RefreshStatus::NoProfile => {
                     bail!(
-                        "No auth profile found. Run `zeroclaw auth login --model-provider <provider>` first.",
+                        "No auth profile found. Run `voltd auth login --model-provider <provider>` first.",
                     )
                 }
             }
@@ -9578,7 +9578,7 @@ fn gate_security_posture(
             "Config contains malformed security-critical sections ({sections}); \
              they were reset to defaults, so the running posture may be weaker \
              than intended. Refusing to serve with a degraded security posture. \
-             Repair these sections in {} and restart — run `zeroclaw config \
+             Repair these sections in {} and restart — run `voltd config \
              migrate` to see the precise error. To boot anyway (e.g. to reach \
              the gateway config editor and repair from there), re-run with \
              `--allow-degraded-security`.",
@@ -10013,7 +10013,7 @@ fn gateway_addr_in_use_message(
 }
 
 fn gateway_restart_recovery_command(host: &str, port: u16, default_host: &str) -> String {
-    let mut command = format!("    zeroclaw gateway start --port {port}");
+    let mut command = format!("    voltd gateway start --port {port}");
     if host != default_host {
         write!(command, " --host {host}").expect("writing to String cannot fail");
     }
@@ -10027,10 +10027,10 @@ fn gateway_paircode_recovery_command(
     default_port: u16,
 ) -> String {
     if host == default_host && port == default_port {
-        return "    zeroclaw gateway get-paircode".to_string();
+        return "    voltd gateway get-paircode".to_string();
     }
 
-    let mut command = format!("    zeroclaw gateway get-paircode --port {port}");
+    let mut command = format!("    voltd gateway get-paircode --port {port}");
     if host != default_host {
         write!(command, " --host {host}").expect("writing to String cannot fail");
     }
@@ -10067,9 +10067,7 @@ async fn handle_models_set(config: &mut Config, model: &str) -> Result<()> {
             .iter_entries()
             .find(|(_, _, entry)| entry.model.as_ref().map_or(false, |m| !m.trim().is_empty()))
             .ok_or_else(|| {
-                anyhow::Error::msg(
-                    "No model provider configured. Run `zeroclaw config init` first.",
-                )
+                anyhow::Error::msg("No model provider configured. Run `voltd config init` first.")
             })?;
         (entry.0, entry.1.to_string())
     };
@@ -11012,7 +11010,7 @@ mod tests {
             .expect("completion generation should succeed");
         let script = String::from_utf8(output).expect("completion output should be valid utf-8");
         assert!(
-            script.contains("zeroclaw"),
+            script.contains("voltd"),
             "completion script should reference binary name"
         );
     }
@@ -11025,15 +11023,15 @@ mod tests {
             .expect("completion generation should succeed");
         let script = String::from_utf8(output).expect("completion output should be valid utf-8");
         // The wrapper must capture the original clap-generated function body
-        // (via declare -f) rather than calling _zeroclaw by name, which would
-        // create an infinite recursion loop after _zeroclaw is redefined.
+        // (via declare -f) rather than calling _voltd by name, which would
+        // create an infinite recursion loop after _voltd is redefined.
         assert!(
-            script.contains("declare -f _zeroclaw"),
-            "bash completion should use declare -f to capture the original _zeroclaw function body"
+            script.contains("declare -f _voltd"),
+            "bash completion should use declare -f to capture the original _voltd function body"
         );
         assert!(
-            !script.contains("_zeroclaw_clap_orig() { _zeroclaw \"$@\"; }"),
-            "bash completion must not define _zeroclaw_clap_orig as a simple forwarder to _zeroclaw"
+            !script.contains("_voltd_clap_orig() { _voltd \"$@\"; }"),
+            "bash completion must not define _voltd_clap_orig as a simple forwarder to _voltd"
         );
     }
 
@@ -11564,10 +11562,10 @@ mod tests {
 
         assert!(msg.contains(&t(
             "cli-pairing-show-only",
-            "`zeroclaw gateway get-paircode` only displays an existing active code; it does not mint a new one.",
+            "`voltd gateway get-paircode` only displays an existing active code; it does not mint a new one.",
         )));
-        assert!(msg.contains("zeroclaw gateway get-paircode --new"));
-        assert!(msg.contains("zeroclaw gateway get-paircode --rotate"));
+        assert!(msg.contains("voltd gateway get-paircode --new"));
+        assert!(msg.contains("voltd gateway get-paircode --rotate"));
         assert!(msg.contains("open http://127.0.0.1:42617"));
     }
 
@@ -11585,11 +11583,9 @@ mod tests {
             None,
         );
 
+        assert!(msg.contains("voltd gateway get-paircode --new --port 9001 --host 192.168.1.20"));
         assert!(
-            msg.contains("zeroclaw gateway get-paircode --new --port 9001 --host 192.168.1.20")
-        );
-        assert!(
-            msg.contains("zeroclaw gateway get-paircode --rotate --port 9001 --host 192.168.1.20")
+            msg.contains("voltd gateway get-paircode --rotate --port 9001 --host 192.168.1.20")
         );
         assert!(msg.contains("open http://192.168.1.20:9001"));
     }
@@ -11632,8 +11628,8 @@ mod tests {
             None,
         );
 
-        assert!(msg.contains("zeroclaw gateway get-paircode --new\n"));
-        assert!(msg.contains("zeroclaw gateway get-paircode --rotate\n"));
+        assert!(msg.contains("voltd gateway get-paircode --new\n"));
+        assert!(msg.contains("voltd gateway get-paircode --rotate\n"));
         assert!(!msg.contains("--port 9001"));
         assert!(!msg.contains("--host 192.168.1.20"));
     }
@@ -11656,7 +11652,7 @@ mod tests {
             "cli-pairing-new-code-unavailable",
             "The gateway did not mint a new pairing code. A code may already be pending, or pairing may need a reset.",
         )));
-        assert!(msg.contains("zeroclaw gateway get-paircode --rotate"));
+        assert!(msg.contains("voltd gateway get-paircode --rotate"));
     }
 
     #[test]
@@ -11680,16 +11676,16 @@ mod tests {
             String::new(),
             t(
                 "cli-pairing-show-only",
-                "`zeroclaw gateway get-paircode` only displays an existing active code; it does not mint a new one.",
+                "`voltd gateway get-paircode` only displays an existing active code; it does not mint a new one.",
             ),
             t("cli-pairing-pair-another", "To pair another device, run:"),
-            "    zeroclaw gateway get-paircode --new".into(),
+            "    voltd gateway get-paircode --new".into(),
             String::new(),
             t(
                 "cli-pairing-revoke-replace",
                 "To revoke existing pairings and mint a replacement code, run:",
             ),
-            "    zeroclaw gateway get-paircode --rotate".into(),
+            "    voltd gateway get-paircode --rotate".into(),
             String::new(),
             t("cli-pairing-inspect", "To inspect the running gateway:"),
             "    open http://127.0.0.1:42617".into(),
@@ -11776,8 +11772,8 @@ mod tests {
 
         assert!(msg.contains("Port 42617 is already in use"));
         assert!(msg.contains("open http://127.0.0.1:42617"));
-        assert!(msg.contains("zeroclaw gateway get-paircode\n"));
-        assert!(msg.contains("zeroclaw gateway start --port 42618"));
+        assert!(msg.contains("voltd gateway get-paircode\n"));
+        assert!(msg.contains("voltd gateway start --port 42618"));
         assert!(msg.contains("lsof -nP -iTCP:42617 -sTCP:LISTEN"));
     }
 
@@ -11788,8 +11784,8 @@ mod tests {
             gateway_addr_in_use_message("0.0.0.0", 9001, &default.host, default.port, Some(9002));
 
         assert!(!msg.contains("open http://127.0.0.1:42617"));
-        assert!(msg.contains("zeroclaw gateway get-paircode --port 9001 --host 0.0.0.0"));
-        assert!(msg.contains("zeroclaw gateway start --port 9002 --host 0.0.0.0"));
+        assert!(msg.contains("voltd gateway get-paircode --port 9001 --host 0.0.0.0"));
+        assert!(msg.contains("voltd gateway start --port 9002 --host 0.0.0.0"));
         assert!(msg.contains("lsof -nP -iTCP:9001 -sTCP:LISTEN"));
     }
 
@@ -11812,8 +11808,8 @@ mod tests {
         let msg =
             gateway_addr_in_use_message("127.0.0.1", 42617, &default.host, default.port, None);
 
-        assert!(msg.contains("zeroclaw gateway get-paircode\n"));
-        assert!(!msg.contains("zeroclaw gateway start --port"));
+        assert!(msg.contains("voltd gateway get-paircode\n"));
+        assert!(!msg.contains("voltd gateway start --port"));
         assert!(msg.contains("lsof -nP -iTCP:42617 -sTCP:LISTEN"));
     }
 
@@ -11834,11 +11830,11 @@ mod tests {
         );
 
         assert!(
-            !msg.contains(&format!("zeroclaw gateway start --port {}", port + 1)),
+            !msg.contains(&format!("voltd gateway start --port {}", port + 1)),
             "{msg}"
         );
         assert!(
-            msg.contains(&format!("zeroclaw gateway start --port {available_port}")),
+            msg.contains(&format!("voltd gateway start --port {available_port}")),
             "{msg}"
         );
     }
@@ -11848,7 +11844,7 @@ mod tests {
         let msg = gateway_addr_in_use_message("192.168.1.20", 9001, "192.168.1.20", 9001, None);
 
         assert!(msg.contains("open http://192.168.1.20:9001"));
-        assert!(msg.contains("zeroclaw gateway get-paircode\n"));
+        assert!(msg.contains("voltd gateway get-paircode\n"));
         assert!(!msg.contains("get-paircode --port 9001"));
     }
 
