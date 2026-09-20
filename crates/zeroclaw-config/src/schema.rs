@@ -15513,6 +15513,11 @@ pub enum StreamMode {
     /// Send the response as multiple separate messages. The boundary between
     /// messages is channel-specific (for example, Telegram splits at completed
     /// agent turns).
+    ///
+    /// On Telegram, narration streamed for a text-default peer is delivered as
+    /// separate, permanent text messages. A per-turn voice route
+    /// (`send_via(modality = "voice")`) therefore applies to the final reply
+    /// only — it does not convert or retract narration already sent this turn.
     #[serde(rename = "multi_message")]
     MultiMessage,
 }
@@ -15533,11 +15538,6 @@ pub enum MatrixStreamMode {
     #[serde(rename = "single_message")]
     SingleMessage,
     /// Send the response as multiple separate messages at paragraph boundaries.
-    ///
-    /// Narration streamed during a turn is delivered in the peer's default
-    /// (text) modality as separate, permanent messages. A per-turn voice route
-    /// (`send_via(modality = "voice")`) therefore applies to the final reply
-    /// only — it does not convert or retract narration already sent this turn.
     #[serde(rename = "multi_message")]
     MultiMessage,
 }
