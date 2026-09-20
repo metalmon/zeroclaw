@@ -413,10 +413,31 @@ mod tests {
         assert_eq!(args.as_slice(), expected.as_slice());
     }
 
+    // `storage_path()`'s `UserDirs`-present branch is just
+    // `resolve_config_dir_for_home(u.home_dir())`; exercising it against a
+    // synthetic tempdir home (instead of asserting on `NativeRuntime::new()
+    // .storage_path()` against the live OS home) keeps this hermetic —
+    // asserting on the real home would flake on a dev box that already has
+    // `~/.zeroclaw` without `~/.voltd`. Mirrors
+    // `config_dir_prefers_voltd_and_falls_back_to_legacy` in
+    // zeroclaw-config's `schema.rs`.
     #[test]
-    fn native_storage_path_contains_voltd() {
-        let path = NativeRuntime::new().storage_path();
-        assert!(path.to_string_lossy().contains("voltd"));
+    fn native_storage_path_resolver_prefers_voltd_and_falls_back_to_legacy() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+
+        // fresh: neither dir exists -> .voltd
+        assert_eq!(
+            crate::schema::resolve_config_dir_for_home(home),
+            home.join(".voltd")
+        );
+
+        // legacy only: .zeroclaw exists, .voltd does not -> read-through
+        std::fs::create_dir_all(home.join(".zeroclaw")).unwrap();
+        assert_eq!(
+            crate::schema::resolve_config_dir_for_home(home),
+            home.join(".zeroclaw")
+        );
     }
 
     #[test]

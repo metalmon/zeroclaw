@@ -19470,7 +19470,7 @@ fn default_config_dir() -> Result<PathBuf> {
     if let Ok(home) = std::env::var("HOME")
         && !home.is_empty()
     {
-        return Ok(PathBuf::from(home).join(".zeroclaw"));
+        return Ok(resolve_config_dir_for_home(&PathBuf::from(home)));
     }
 
     let home = UserDirs::new()
@@ -31692,6 +31692,33 @@ model = "primary-model"
         assert_eq!(resolve_config_dir_for_home(home), home.join(".voltd"));
     }
 
+    /// `default_config_dir()`'s `HOME`-set branch (the common Unix case,
+    /// including the Linux container) previously returned `~/.zeroclaw`
+    /// directly, bypassing `resolve_config_dir_for_home` entirely -- so the
+    /// `.voltd` rebrand never actually took effect on a real deployment
+    /// (where `HOME` is set). It now routes through the same resolver as
+    /// the `UserDirs` fallback: `.voltd` on a fresh home, legacy
+    /// `.zeroclaw` read-through when only that exists.
+    #[test]
+    async fn default_config_dir_home_branch_prefers_voltd_and_falls_back_to_legacy() {
+        let _env_guard = env_override_lock().await;
+        let temp_home =
+            std::env::temp_dir().join(format!("zeroclaw_test_home_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&temp_home).unwrap();
+        let _config_guard = EnvValueGuard::remove("ZEROCLAW_CONFIG_DIR");
+        let _voltd_config_guard = EnvValueGuard::remove("VOLTD_CONFIG_DIR");
+        let _home_guard = EnvValueGuard::set("HOME", &temp_home);
+
+        // fresh: neither dir exists -> the HOME branch resolves to .voltd
+        assert_eq!(default_config_dir().unwrap(), temp_home.join(".voltd"));
+
+        // legacy only: .zeroclaw exists, .voltd does not -> read-through
+        std::fs::create_dir_all(temp_home.join(".zeroclaw")).unwrap();
+        assert_eq!(default_config_dir().unwrap(), temp_home.join(".zeroclaw"));
+
+        let _ = std::fs::remove_dir_all(&temp_home);
+    }
+
     #[test]
     async fn save_refuses_to_overwrite_existing_runtime_config_from_bare_path() {
         let _env_guard = env_override_lock().await;
@@ -31987,7 +32014,10 @@ wire_api = "ws"
         let _workspace_guard = EnvValueGuard::remove("ZEROCLAW_WORKSPACE");
 
         assert_eq!(
-            classify_runtime_config_kind(&fake_home.join(".zeroclaw").join("config.toml")).await,
+            // fake_home is fresh (neither `.voltd` nor `.zeroclaw` exists on
+            // disk), so `default_config_dir()`'s HOME branch now resolves
+            // to `.voltd`.
+            classify_runtime_config_kind(&fake_home.join(".voltd").join("config.toml")).await,
             RuntimeConfigKind::Default
         );
 
