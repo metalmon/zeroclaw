@@ -83,7 +83,7 @@ const ZONE_LAYOUTS: [ZoneLayout; 12] = [
     ZoneLayout {
         zone: ZONE_SOURCE_DISPATCH_CLOSE,
         range_start: "  # ── Summary ───────────────────────────────────────────────────────",
-        range_end: "BIN=\"$CARGO_HOME/bin/zeroclaw\"\n\n# ── PATH setup",
+        range_end: "BIN=\"$CARGO_HOME/bin/voltd\"\n\n# ── PATH setup",
     },
     ZoneLayout {
         zone: ZONE_PATH_HANDOFF,
@@ -531,9 +531,9 @@ elif [ "$MODIFY_PATH" = true ] && [ "$PREFIX" = "$HOME" ]; then
   if [ "$DRY_RUN" = true ]; then
     info "[dry-run] Would add $CARGO_HOME/bin to PATH in $PROFILE"
   elif {
-    printf '\n# >>> zeroclaw >>>\n'
+    printf '\n# >>> voltd >>>\n'
     printf '%s\n' "$EXPORT_LINE"
-    printf '# <<< zeroclaw <<<\n'
+    printf '# <<< voltd <<<\n'
   } >>"$PROFILE" 2>/dev/null; then
     info "Added $CARGO_HOME/bin to PATH in $PROFILE"
     if [ "$UNIX_PATH_RELOAD" = true ]; then
@@ -564,7 +564,7 @@ fn render_quickstart_handoff() -> &'static str {
     echo
     printf "%s\n" "$(bold "ZeroClaw installed. How would you like to complete setup?")"
     printf "  [1] CLI quickstart  ($QUICKSTART_COMMAND)\n"
-    printf "  [2] Open gateway in browser (zeroclaw daemon + dashboard)\n"
+    printf "  [2] Open gateway in browser (voltd daemon + dashboard)\n"
     printf "  [3] Skip for now\n"
     printf "  Choice [1-3, default 1]: "
     read -r quickstart_choice
@@ -577,11 +577,11 @@ fn render_quickstart_handoff() -> &'static str {
       echo
       info "Starting gateway daemon for browser-based setup..."
       info "Open the dashboard in your browser; pair with the code shown in logs."
-      info "Stop the daemon with Ctrl+C when done; then run 'zeroclaw service install' for always-on."
-      "$BIN" daemon || warn "Daemon exited with an error — run 'zeroclaw daemon' manually"
+      info "Stop the daemon with Ctrl+C when done; then run 'voltd service install' for always-on."
+      "$BIN" daemon || warn "Daemon exited with an error — run 'voltd daemon' manually"
       ;;
     3)
-      info "Skipped setup. Run '$QUICKSTART_COMMAND' (CLI) or 'zeroclaw daemon' (browser) when ready."
+      info "Skipped setup. Run '$QUICKSTART_COMMAND' (CLI) or 'voltd daemon' (browser) when ready."
       ;;
     *)
       warn "Unknown choice '$quickstart_choice' — skipping. Run '$QUICKSTART_COMMAND' to configure."

@@ -38,7 +38,7 @@ fn run(config_dir: &Path, args: &[&str]) -> Output {
         .env("RUST_LOG", "off")
         .args(args)
         .output()
-        .expect("run zeroclaw")
+        .expect("run voltd")
 }
 
 fn stdout_of(out: &Output) -> String {

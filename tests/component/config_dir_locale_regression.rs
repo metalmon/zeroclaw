@@ -37,12 +37,12 @@ where
     let out = Command::new(env!("CARGO_BIN_EXE_voltd"))
         .args(args)
         .output()
-        .expect("failed to run zeroclaw --help");
+        .expect("failed to run voltd --help");
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(
         out.status.success(),
-        "zeroclaw help failed with status {:?}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        "voltd help failed with status {:?}\nstdout:\n{stdout}\nstderr:\n{stderr}",
         out.status.code()
     );
     stdout.into_owned()

@@ -74,7 +74,7 @@ fn desktop_launch_and_install_reach_the_linux_process_boundary() {
 
     let output = desktop_command(&config, &home, &xdg_data, &path_dir)
         .output()
-        .expect("failed to run `zeroclaw desktop`");
+        .expect("failed to run `voltd desktop`");
     assert_success(&output, "desktop launch");
     wait_for_file(&launch_sentinel);
 
@@ -84,7 +84,7 @@ fn desktop_launch_and_install_reach_the_linux_process_boundary() {
     let output = desktop_command(&config, &home, &xdg_data, &path_dir)
         .arg("--install")
         .output()
-        .expect("failed to run `zeroclaw desktop --install`");
+        .expect("failed to run `voltd desktop --install`");
     assert_success(&output, "desktop install-page open");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
@@ -100,7 +100,7 @@ fn desktop_launch_and_install_reach_the_linux_process_boundary() {
     let output = desktop_command(&config, &home, &xdg_data, &path_dir)
         .arg("--help")
         .output()
-        .expect("failed to run `zeroclaw desktop --help`");
+        .expect("failed to run `voltd desktop --help`");
     assert_success(&output, "desktop help");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(

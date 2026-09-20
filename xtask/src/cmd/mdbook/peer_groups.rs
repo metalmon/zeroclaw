@@ -340,14 +340,14 @@ Author the SOP as described in [Syntax](../syntax.md), with a `{ty}` trigger. Th
 #### Validate
 
 ```sh
-zeroclaw sop validate
+voltd sop validate
 ```
 
 #### Inspect
 
 ```sh
-zeroclaw sop list
-zeroclaw sop show <name>
+voltd sop list
+voltd sop show <name>
 ```
 
 </div>
@@ -399,10 +399,10 @@ Open [`/config/{section}`](http://127.0.0.1:42617/config/{section}) and set the 
 
 In the **Config** pane, set the `{display_path}` field (input is masked).
 
-#### zeroclaw config
+#### voltd config
 
 ```sh
-zeroclaw config set {path}    # prompts for masked input, stores encrypted
+voltd config set {path}    # prompts for masked input, stores encrypted
 ```
 
 </div>"#,
@@ -429,10 +429,10 @@ Open [`/config/{section}`](http://127.0.0.1:42617/config/{section}) and set the 
 
 In the **Config** pane, set the `{display_path}` field.
 
-#### zeroclaw config
+#### voltd config
 
 ```sh
-zeroclaw config set {path} <value>
+voltd config set {path} <value>
 ```
 
 </div>"#,
@@ -510,11 +510,11 @@ Open [`/config/{section}`](http://127.0.0.1:42617/config/{section}) and toggle t
 
 In the **Config** pane, set the `{display_path}` field.
 
-#### zeroclaw config
+#### voltd config
 
 ```sh
-zeroclaw config set {p} true     # thread replies on
-zeroclaw config set {p} false    # replies at the channel root
+voltd config set {p} true     # thread replies on
+voltd config set {p} false    # replies at the channel root
 ```
 
 </div>"#
@@ -598,10 +598,10 @@ Open [`/config/{section}`](http://127.0.0.1:42617/config/{section}) and set the 
 
 In the **Config** pane, set the `{display_path}` field.
 
-#### zeroclaw config
+#### voltd config
 
 ```sh
-zeroclaw config set {p} <value>
+voltd config set {p} <value>
 ```
 
 </div>"#
@@ -683,7 +683,7 @@ fn render_example(p: &PeerParams) -> String {
     format!(
         "A {key} peer group named e.g. `my_{key}_group` sets `channel = \"{key}\"`, \
 allows `{example}` in `external_peers`, names {agents}{ignore}. Set it through \
-the gateway dashboard, zerocode, or `zeroclaw config set`.",
+the gateway dashboard, zerocode, or `voltd config set`.",
         key = p.key,
         agents = agents,
         example = p.sender_example,
@@ -1107,7 +1107,7 @@ mod generated_prose_gate {
         let rendered = super::render_secret_config("channels.discord.<alias>.bot_token");
 
         assert!(rendered.contains("`channels.discord.<alias>.bot_token`"));
-        assert!(rendered.contains("zeroclaw config set channels.discord.<alias>.bot_token"));
+        assert!(rendered.contains("voltd config set channels.discord.<alias>.bot_token"));
     }
 
     #[test]
@@ -1122,12 +1122,10 @@ mod generated_prose_gate {
         .expect("streaming context should render");
 
         assert!(thread.contains("`channels.matrix.<alias>.reply_in_thread`"));
-        assert!(
-            thread.contains("zeroclaw config set channels.matrix.<alias>.reply_in_thread true")
-        );
+        assert!(thread.contains("voltd config set channels.matrix.<alias>.reply_in_thread true"));
         assert!(streaming.contains("`channels.slack.<alias>.stream_drafts`"));
         assert!(
-            streaming.contains("zeroclaw config set channels.slack.<alias>.stream_drafts <value>")
+            streaming.contains("voltd config set channels.slack.<alias>.stream_drafts <value>")
         );
     }
 

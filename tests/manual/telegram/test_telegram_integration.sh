@@ -140,9 +140,9 @@ fi
 
 # Test 8: Binary size check
 print_test "Binary size verification"
-if [ -f "target/release/zeroclaw" ]; then
-    BINARY_SIZE=$(ls -lh target/release/zeroclaw | awk '{print $5}')
-    SIZE_BYTES=$(stat -f%z target/release/zeroclaw 2>/dev/null || stat -c%s target/release/zeroclaw)
+if [ -f "target/release/voltd" ]; then
+    BINARY_SIZE=$(ls -lh target/release/voltd | awk '{print $5}')
+    SIZE_BYTES=$(stat -f%z target/release/voltd 2>/dev/null || stat -c%s target/release/voltd)
     SIZE_MB=$((SIZE_BYTES / 1024 / 1024))
 
     if [ $SIZE_MB -le 10 ]; then
@@ -187,10 +187,10 @@ if [ -f "$CONFIG_PATH" ]; then
             warn "User allowlist not set"
         fi
     else
-        warn "Telegram not configured - run 'zeroclaw config set channels.telegram.default.bot-token <token>' first"
+        warn "Telegram not configured - run 'voltd config set channels.telegram.default.bot-token <token>' first"
     fi
 else
-    warn "No config file found - run 'zeroclaw quickstart' first"
+    warn "No config file found - run 'voltd quickstart' first"
 fi
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -202,7 +202,7 @@ print_header "Phase 4: Health Check Tests"
 # Test 13: Health check timeout
 print_test "Health check timeout (should complete in <5s)"
 START_TIME=$(date +%s)
-HEALTH_OUTPUT=$(timeout 10 target/release/zeroclaw channel doctor 2>&1 || true)
+HEALTH_OUTPUT=$(timeout 10 target/release/voltd channel doctor 2>&1 || true)
 END_TIME=$(date +%s)
 HEALTH_TIME=$((END_TIME - START_TIME))
 
@@ -290,7 +290,7 @@ cat << 'EOF'
 📱 Manual Test Checklist:
 
 1. [ ] Start the channel:
-   zeroclaw channel start
+   voltd channel start
 
 2. [ ] Send a short message to your bot in Telegram:
    "Hello bot!"
@@ -315,7 +315,7 @@ cat << 'EOF'
    ✓ Verify: Responses have delays
 
 6. [ ] Check logs for errors:
-   RUST_LOG=debug zeroclaw channel start
+   RUST_LOG=debug voltd channel start
    ✓ Verify: No unexpected errors
    ✓ Verify: "missing chat_id" appears for malformed messages
    ✓ Verify: Health check logs show "timed out" if needed

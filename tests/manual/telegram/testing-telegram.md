@@ -65,7 +65,7 @@ After running automated tests, perform these manual checks:
 1. **Basic messaging**
 
     ```bash
-    zeroclaw channel start
+    voltd channel start
     ```
 
     - Send "Hello bot!" in Telegram
@@ -119,7 +119,7 @@ After running automated tests, perform these manual checks:
 6. **Error logging**
 
     ```bash
-    RUST_LOG=debug zeroclaw channel start
+    RUST_LOG=debug voltd channel start
     ```
 
     - Check for unexpected errors
@@ -128,7 +128,7 @@ After running automated tests, perform these manual checks:
 6. **Health check timeout**
 
     ```bash
-    time zeroclaw channel doctor
+    time voltd channel doctor
     ```
 
     - Verify: Completes in <5 seconds
@@ -159,7 +159,7 @@ Solution: Check user allowlist
   1. Send message to bot
   2. Check logs for user_id
   3. Update config: allowed_users = ["YOUR_ID"]
-  4. Run: zeroclaw config set channels.telegram.default.allowed-users '["YOUR_ID"]'
+  4. Run: voltd config set channels.telegram.default.allowed-users '["YOUR_ID"]'
 ```
 
 **Issue: Message splitting not working**
@@ -179,14 +179,14 @@ Solution: Verify code changes
 ./tests/telegram/test_telegram_integration.sh
 
 # 2. Configure Telegram
-zeroclaw config set channels.telegram.default.bot-token <token>      # from @BotFather
-zeroclaw config set channels.telegram.default.allowed-users '["<your-id>"]'
+voltd config set channels.telegram.default.bot-token <token>      # from @BotFather
+voltd config set channels.telegram.default.allowed-users '["<your-id>"]'
 
 # 3. Verify health
-zeroclaw channel doctor
+voltd channel doctor
 
 # 4. Start channel
-zeroclaw channel start
+voltd channel start
 
 # 5. Send test message in Telegram
 ```
@@ -201,7 +201,7 @@ zeroclaw channel start
 ./tests/telegram/test_telegram_integration.sh
 
 # 3. Manual smoke test
-zeroclaw channel start
+voltd channel start
 # Send message in Telegram
 ```
 
@@ -221,10 +221,10 @@ for i in {1..100}; do
 done
 
 # 3. Monitor logs
-RUST_LOG=info zeroclaw daemon
+RUST_LOG=info voltd daemon
 
 # 4. Check metrics
-zeroclaw status
+voltd status
 ```
 
 ## 📊 Performance Benchmarks
@@ -233,11 +233,11 @@ Expected values after all fixes:
 
 | Metric                 | Expected   | How to Measure                   |
 | ---------------------- | ---------- | -------------------------------- |
-| Health check time      | <5s        | `time zeroclaw channel doctor`   |
+| Health check time      | <5s        | `time voltd channel doctor`      |
 | First response time    | <3s        | Time from sending to receiving   |
 | Message split overhead | <50ms      | Check logs for timing            |
-| Memory usage           | <10MB      | `ps aux \| grep zeroclaw`        |
-| Binary size            | ~3-4MB     | `ls -lh target/release/zeroclaw` |
+| Memory usage           | <10MB      | `ps aux \| grep voltd`           |
+| Binary size            | ~3-4MB     | `ls -lh target/release/voltd`    |
 | Unit test coverage     | 61/61 pass | `cargo test telegram --lib`      |
 
 ## 🐛 Debugging Failed Tests
@@ -259,7 +259,7 @@ cargo test telegram --lib -- --ignored
 
 ```bash
 # Maximum logging
-RUST_LOG=trace zeroclaw channel start
+RUST_LOG=trace voltd channel start
 
 # Check Telegram API directly
 curl "https://api.telegram.org/bot<TOKEN>/getMe"
@@ -336,10 +336,10 @@ git revert <commit-hash>
 cargo build --release
 
 # 4. Restart service
-zeroclaw service restart
+voltd service restart
 
 # 5. Verify
-zeroclaw channel doctor
+voltd channel doctor
 ```
 
 ## 📚 Additional Resources

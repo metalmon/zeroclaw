@@ -66,10 +66,10 @@ runtime_profile = "default"
                 "test prompt",
             ])
             .output()
-            .expect("run zeroclaw agent")
+            .expect("run voltd agent")
     })
     .join()
-    .expect("zeroclaw agent process must not panic");
+    .expect("voltd agent process must not panic");
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     let expected = zeroclaw_runtime::agent::semantic_empty_terminal_completion_message(None);
@@ -153,7 +153,7 @@ runtime_profile = "default"
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .expect("start interactive zeroclaw agent");
+            .expect("start interactive voltd agent");
         child
             .stdin
             .as_mut()
@@ -162,10 +162,10 @@ runtime_profile = "default"
             .expect("send interactive prompt and quit");
         child
             .wait_with_output()
-            .expect("wait for interactive zeroclaw agent")
+            .expect("wait for interactive voltd agent")
     })
     .join()
-    .expect("interactive zeroclaw agent process must not panic");
+    .expect("interactive voltd agent process must not panic");
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     let expected = zeroclaw_runtime::agent::semantic_empty_terminal_completion_message(None);

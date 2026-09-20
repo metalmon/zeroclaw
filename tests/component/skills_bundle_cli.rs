@@ -7,7 +7,7 @@ fn run_zeroclaw(config_dir: &std::path::Path, args: &[&str]) -> Output {
         .env("RUST_LOG", "off")
         .args(args)
         .output()
-        .expect("run zeroclaw")
+        .expect("run voltd")
 }
 
 #[test]

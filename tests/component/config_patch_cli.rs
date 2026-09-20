@@ -156,7 +156,7 @@ fn run_cli_patch_output(config_dir: &std::path::Path, patch_doc: &[u8]) -> Outpu
             }
             child.wait_with_output()
         })
-        .expect("run zeroclaw config patch")
+        .expect("run voltd config patch")
 }
 
 /// Run `zeroclaw config patch - ` **without** `--json`, exercising the
@@ -182,7 +182,7 @@ fn run_cli_patch_output_human(config_dir: &std::path::Path, patch_doc: &[u8]) ->
             }
             child.wait_with_output()
         })
-        .expect("run zeroclaw config patch (human mode)")
+        .expect("run voltd config patch (human mode)")
 }
 
 /// Drive a failing patch in human mode and return stderr. Asserts the
@@ -723,7 +723,7 @@ fn run_cli_init(config_dir: &std::path::Path, section: &str) -> serde_json::Valu
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("run zeroclaw config init");
+        .expect("run voltd config init");
     assert!(
         output.status.success(),
         "config init should succeed: {}",
@@ -742,7 +742,7 @@ fn run_cli_get(config_dir: &std::path::Path, path: &str) -> serde_json::Value {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("run zeroclaw config get");
+        .expect("run voltd config get");
     assert!(
         output.status.success(),
         "config get should succeed after reloading the saved file: {}",
@@ -762,7 +762,7 @@ fn run_cli_set(config_dir: &std::path::Path, path: &str, value: &str) {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("run zeroclaw config set");
+        .expect("run voltd config set");
     assert!(
         output.status.success(),
         "config set {path} should succeed in a new process: {}",

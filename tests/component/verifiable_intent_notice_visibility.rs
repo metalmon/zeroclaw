@@ -71,7 +71,7 @@ fn doctor_stdout(dir: &Path) -> String {
         .env("ZEROCLAW_CONFIG_DIR", dir)
         .arg("doctor")
         .output()
-        .expect("run zeroclaw doctor");
+        .expect("run voltd doctor");
     // The exit status is deliberately not asserted: `doctor` reports on whatever
     // else is unconfigured in a bare temp directory, and this test is about one
     // line of its output rather than the overall verdict.
@@ -208,7 +208,7 @@ fn the_withheld_notice_is_recorded_once_per_config_application() {
         .env("ZEROCLAW_CONFIG_DIR", dir.path())
         .args(["peripheral", "add", "rpi-gpio", "native"])
         .output()
-        .expect("run zeroclaw peripheral add");
+        .expect("run voltd peripheral add");
     assert!(
         out.status.success(),
         "peripheral add must succeed, got {:?}\nstdout:\n{}\nstderr:\n{}",
@@ -300,7 +300,7 @@ fn enabling_the_section_through_config_patch_records_the_notice_once() {
         .args(["config", "patch"])
         .arg(&patch)
         .output()
-        .expect("run zeroclaw config patch");
+        .expect("run voltd config patch");
     assert!(
         out.status.success(),
         "config patch must succeed, got {:?}\nstdout:\n{}\nstderr:\n{}",
@@ -363,7 +363,7 @@ fn a_patch_that_does_not_enable_the_section_adds_no_second_record() {
         .args(["config", "patch"])
         .arg(&patch)
         .output()
-        .expect("run zeroclaw config patch");
+        .expect("run voltd config patch");
     assert!(out.status.success(), "config patch must succeed");
 
     let trace = trace_path(dir.path());

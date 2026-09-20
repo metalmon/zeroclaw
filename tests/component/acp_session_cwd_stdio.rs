@@ -60,7 +60,7 @@ fn acp_stdio_session_new_omitted_cwd_returns_agent_workspace() {
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .expect("spawn `zeroclaw acp`");
+        .expect("spawn `voltd acp`");
 
     let mut stdin = child.stdin.take().expect("child stdin");
     let stdout = child.stdout.take().expect("child stdout");

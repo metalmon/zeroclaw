@@ -430,14 +430,14 @@ fn run_zeroclaw(install_root: &Path, args: &[&str]) -> std::process::Output {
         .args(args)
         .env("ZEROCLAW_CONFIG_DIR", install_root)
         .output()
-        .expect("failed to spawn the zeroclaw binary")
+        .expect("failed to spawn the voltd binary")
 }
 
 /// Assert the child exited cleanly and return its stdout.
 fn stdout_of(output: &std::process::Output, what: &str) -> String {
     assert!(
         output.status.success(),
-        "`zeroclaw {what}` exited with {:?} against a first-run config\n--- stdout ---\n{}\n--- stderr ---\n{}",
+        "`voltd {what}` exited with {:?} against a first-run config\n--- stdout ---\n{}\n--- stderr ---\n{}",
         output.status.code(),
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr),

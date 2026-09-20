@@ -91,7 +91,7 @@ fn run_status(records: &[Value]) -> Output {
         .arg(config_dir.path())
         .arg("status")
         .output()
-        .expect("failed to run zeroclaw status")
+        .expect("failed to run voltd status")
 }
 
 fn output_text(output: &Output) -> (String, String) {
@@ -99,7 +99,7 @@ fn output_text(output: &Output) -> (String, String) {
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
     assert!(
         output.status.success(),
-        "zeroclaw status failed\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        "voltd status failed\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     (stdout, stderr)
 }

@@ -18,22 +18,23 @@ use std::process::{Command, Output};
 
 use chrono::{DateTime, Utc};
 
-const PROMPT_EXAMPLE_TZ: &str = "zeroclaw cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York";
+const PROMPT_EXAMPLE_TZ: &str =
+    "voltd cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York";
 const PROMPT_EXAMPLE: &str =
-    "zeroclaw cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt";
-const SHELL_EXAMPLE: &str = "zeroclaw cron add '*/5 * * * *' 'echo ok' --agent sentinel";
+    "voltd cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt";
+const SHELL_EXAMPLE: &str = "voltd cron add '*/5 * * * *' 'echo ok' --agent sentinel";
 const ADD_EVERY_PARENT_EXAMPLE: &str =
-    "zeroclaw cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt";
+    "voltd cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt";
 const ONCE_PARENT_EXAMPLE: &str =
-    "zeroclaw cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt";
+    "voltd cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt";
 
 const ADD_EVERY_CHILD_EXAMPLES: &[&str] = &[
-    "zeroclaw cron add-every --agent triage --prompt 60000 'Ping heartbeat'",
-    "zeroclaw cron add-every --agent triage --prompt 3600000 'Hourly report'",
+    "voltd cron add-every --agent triage --prompt 60000 'Ping heartbeat'",
+    "voltd cron add-every --agent triage --prompt 3600000 'Hourly report'",
 ];
 const ONCE_CHILD_EXAMPLES: &[&str] = &[
-    "zeroclaw cron once --agent ops-bot --prompt 30m 'Run backup in 30 minutes'",
-    "zeroclaw cron once --agent researcher --prompt 2h 'Follow up on deployment'",
+    "voltd cron once --agent ops-bot --prompt 30m 'Run backup in 30 minutes'",
+    "voltd cron once --agent researcher --prompt 2h 'Follow up on deployment'",
 ];
 
 /// Isolated config dir that pins the CLI locale to English.
@@ -47,7 +48,7 @@ fn run(config_dir: &Path, args: &[&str]) -> Output {
         .env("RUST_LOG", "off")
         .args(args)
         .output()
-        .expect("failed to run zeroclaw binary")
+        .expect("failed to run voltd binary")
 }
 
 fn assert_success(out: &Output) -> String {
@@ -63,7 +64,7 @@ fn assert_success(out: &Output) -> String {
 fn add_at_examples(help: &str) -> Vec<&str> {
     help.lines()
         .map(str::trim)
-        .filter(|line| line.starts_with("zeroclaw cron add-at "))
+        .filter(|line| line.starts_with("voltd cron add-at "))
         .collect()
 }
 
@@ -125,7 +126,7 @@ fn cron_one_shot_and_interval_help_show_runnable_prompt_examples() {
     for expected in ["'Send reminder'", "'Happy New Year!'"] {
         assert!(
             add_at_examples.iter().any(|example| {
-                example.starts_with("zeroclaw cron add-at --agent morning-shift --prompt ")
+                example.starts_with("voltd cron add-at --agent morning-shift --prompt ")
                     && example.ends_with(expected)
             }),
             "cron add-at --help must show a runnable prompt example containing {expected}, got: {add_at_stdout}"
@@ -170,7 +171,7 @@ fn cron_list_empty_state_shows_runnable_hint() {
         "empty cron list must show the empty-state notice, got: {stdout}"
     );
     assert!(
-        stdout.contains("zeroclaw cron add '0 9 * * *' 'echo ok' --agent sentinel"),
+        stdout.contains("voltd cron add '0 9 * * *' 'echo ok' --agent sentinel"),
         "empty cron list hint must be runnable (agent value present), got: {stdout}"
     );
 }

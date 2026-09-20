@@ -316,7 +316,7 @@ install_prebuilt() {
   info "Platform: $triple"
   info "Source:   $asset_url"
   info "Channels: pre-built binaries ship the lean standard distribution set; availability is target-specific."
-  info "Run 'zeroclaw channel list' to inspect this binary. For other channels such as Slack, build from source with --preset full."
+  info "Run 'voltd channel list' to inspect this binary. For other channels such as Slack, build from source with --preset full."
   echo
 
   # Resolve platform-correct web data directory to match gateway auto-detect
@@ -324,7 +324,7 @@ install_prebuilt() {
 
   if [ "$DRY_RUN" = true ]; then
     info "[dry-run] Would download $asset_url"
-    info "[dry-run] Would install to $CARGO_HOME/bin/zeroclaw"
+    info "[dry-run] Would install to $CARGO_HOME/bin/voltd"
     info "[dry-run] Would install $TUI_BIN_NAME to $CARGO_HOME/bin/$TUI_BIN_NAME (if in tarball)"
     info "[dry-run] Would install web dashboard to $web_data_dir"
     return 0
@@ -375,7 +375,7 @@ install_prebuilt() {
 
   tar -xzf "$tmp_dir/$asset_name" -C "$tmp_dir"
   mkdir -p "$CARGO_HOME/bin"
-  install -m 755 "$tmp_dir/zeroclaw" "$CARGO_HOME/bin/zeroclaw"
+  install -m 755 "$tmp_dir/voltd" "$CARGO_HOME/bin/voltd"
   if [ -f "$tmp_dir/$TUI_BIN_NAME" ]; then
     install -m 755 "$tmp_dir/$TUI_BIN_NAME" "$CARGO_HOME/bin/$TUI_BIN_NAME"
   fi
@@ -451,7 +451,7 @@ do_uninstall() {
   printf "%s\n" "$(bold "Uninstalling ZeroClaw")"
   echo
 
-  local bin="$CARGO_HOME/bin/zeroclaw"
+  local bin="$CARGO_HOME/bin/voltd"
 
   if [ -f "$bin" ]; then
     "$bin" service stop 2>/dev/null || true
@@ -488,26 +488,26 @@ do_uninstall() {
   # Strip the PATH marker block this installer may have added to the profile.
   local profile
   profile=$(detect_shell_profile)
-  if [ -f "$profile" ] && grep -q "# >>> zeroclaw >>>" "$profile" 2>/dev/null; then
+  if [ -f "$profile" ] && grep -q "# >>> voltd >>>" "$profile" 2>/dev/null; then
     local tmp_profile
     tmp_profile=$(mktemp)
-    if sed '/# >>> zeroclaw >>>/,/# <<< zeroclaw <<</d' "$profile" >"$tmp_profile" 2>/dev/null &&
+    if sed '/# >>> voltd >>>/,/# <<< voltd <<</d' "$profile" >"$tmp_profile" 2>/dev/null &&
       cat "$tmp_profile" >"$profile" 2>/dev/null; then
       info "Removed PATH entry from $profile"
     else
-      warn "Could not edit $profile — remove the zeroclaw PATH block manually"
+      warn "Could not edit $profile — remove the voltd PATH block manually"
     fi
     rm -f "$tmp_profile"
   fi
 
-  # Check if another zeroclaw still lurks in PATH
+  # Check if another voltd still lurks in PATH
   local other_bin
-  other_bin=$(PATH="$ORIGINAL_PATH" command -v zeroclaw 2>/dev/null || true)
+  other_bin=$(PATH="$ORIGINAL_PATH" command -v voltd 2>/dev/null || true)
   if [ -n "$other_bin" ]; then
     local other_version
     other_version=$("$other_bin" --version 2>/dev/null | awk '{print $NF}' || echo "unknown")
     echo
-    warn "Another zeroclaw found at $other_bin (v$other_version)"
+    warn "Another voltd found at $other_bin (v$other_version)"
     warn "Remove it manually if you want a full uninstall"
   fi
 
@@ -922,7 +922,7 @@ fi
   # >>> end generated:route-decision <<<
 
 [ "${PREBUILT_OK:-false}" = true ] && [ "$DRY_RUN" != true ] && {
-  BIN="$CARGO_HOME/bin/zeroclaw"
+  BIN="$CARGO_HOME/bin/voltd"
   if [ -f "$BIN" ]; then
     NEW_VERSION=$("$BIN" --version 2>/dev/null | awk '{print $NF}' || echo "?")
     SIZE=$(du -h "$BIN" | awk '{print $1}')
@@ -1108,12 +1108,12 @@ See all available features:
 
   # ── Detect existing installs ──────────────────────────────────────
 
-  PATH_BIN=$(PATH="$ORIGINAL_PATH" command -v zeroclaw 2>/dev/null || true)
+  PATH_BIN=$(PATH="$ORIGINAL_PATH" command -v voltd 2>/dev/null || true)
   if [ -n "$PATH_BIN" ]; then
     PATH_VERSION=$("$PATH_BIN" --version 2>/dev/null | awk '{print $NF}' || echo "unknown")
-    TARGET_BIN="$CARGO_HOME/bin/zeroclaw"
+    TARGET_BIN="$CARGO_HOME/bin/voltd"
     if [ "$PATH_BIN" != "$TARGET_BIN" ]; then
-      warn "zeroclaw found at $PATH_BIN (v$PATH_VERSION)"
+      warn "voltd found at $PATH_BIN (v$PATH_VERSION)"
       warn "This install targets $TARGET_BIN"
       warn "The old binary will shadow the new one unless removed or PATH is reordered"
     else
@@ -1269,18 +1269,18 @@ See all available features:
   # ── Summary ───────────────────────────────────────────────────────
 
   if [ "$DRY_RUN" != true ]; then
-    BIN="$CARGO_HOME/bin/zeroclaw"
+    BIN="$CARGO_HOME/bin/voltd"
     if [ -f "$BIN" ]; then
       SIZE=$(du -h "$BIN" | awk '{print $1}')
       NEW_VERSION=$("$BIN" --version 2>/dev/null | awk '{print $NF}' || echo "$VERSION")
       echo
       info "Installed: $BIN (v$NEW_VERSION, $SIZE)"
 
-      ACTIVE_BIN=$(PATH="$ORIGINAL_PATH" command -v zeroclaw 2>/dev/null || true)
+      ACTIVE_BIN=$(PATH="$ORIGINAL_PATH" command -v voltd 2>/dev/null || true)
       if [ -n "$ACTIVE_BIN" ] && [ "$ACTIVE_BIN" != "$BIN" ]; then
         ACTIVE_VERSION=$("$ACTIVE_BIN" --version 2>/dev/null | awk '{print $NF}' || echo "unknown")
         echo
-        warn "$(bold "WARNING:") zeroclaw in your PATH is $ACTIVE_BIN (v$ACTIVE_VERSION)"
+        warn "$(bold "WARNING:") voltd in your PATH is $ACTIVE_BIN (v$ACTIVE_VERSION)"
         warn "It will shadow the v$NEW_VERSION binary you just installed at $BIN"
         warn "Fix: remove the old binary or put $CARGO_HOME/bin earlier in your PATH"
       fi
@@ -1298,7 +1298,7 @@ See all available features:
 fi # end source build block
   # >>> end generated:source-dispatch-close <<<
 
-BIN="$CARGO_HOME/bin/zeroclaw"
+BIN="$CARGO_HOME/bin/voltd"
 
 # ── PATH setup ────────────────────────────────────────────────────
 
@@ -1333,9 +1333,9 @@ elif [ "$MODIFY_PATH" = true ] && [ "$PREFIX" = "$HOME" ]; then
   if [ "$DRY_RUN" = true ]; then
     info "[dry-run] Would add $CARGO_HOME/bin to PATH in $PROFILE"
   elif {
-    printf '\n# >>> zeroclaw >>>\n'
+    printf '\n# >>> voltd >>>\n'
     printf '%s\n' "$EXPORT_LINE"
-    printf '# <<< zeroclaw <<<\n'
+    printf '# <<< voltd <<<\n'
   } >>"$PROFILE" 2>/dev/null; then
     info "Added $CARGO_HOME/bin to PATH in $PROFILE"
     if [ "$UNIX_PATH_RELOAD" = true ]; then
@@ -1368,7 +1368,7 @@ if [ "$SKIP_QUICKSTART" = false ] && [ "$DRY_RUN" != true ] && [ -f "$BIN" ]; th
     echo
     printf "%s\n" "$(bold "ZeroClaw installed. How would you like to complete setup?")"
     printf "  [1] CLI quickstart  ($QUICKSTART_COMMAND)\n"
-    printf "  [2] Open gateway in browser (zeroclaw daemon + dashboard)\n"
+    printf "  [2] Open gateway in browser (voltd daemon + dashboard)\n"
     printf "  [3] Skip for now\n"
     printf "  Choice [1-3, default 1]: "
     read -r quickstart_choice
@@ -1381,11 +1381,11 @@ if [ "$SKIP_QUICKSTART" = false ] && [ "$DRY_RUN" != true ] && [ -f "$BIN" ]; th
       echo
       info "Starting gateway daemon for browser-based setup..."
       info "Open the dashboard in your browser; pair with the code shown in logs."
-      info "Stop the daemon with Ctrl+C when done; then run 'zeroclaw service install' for always-on."
-      "$BIN" daemon || warn "Daemon exited with an error — run 'zeroclaw daemon' manually"
+      info "Stop the daemon with Ctrl+C when done; then run 'voltd service install' for always-on."
+      "$BIN" daemon || warn "Daemon exited with an error — run 'voltd daemon' manually"
       ;;
     3)
-      info "Skipped setup. Run '$QUICKSTART_COMMAND' (CLI) or 'zeroclaw daemon' (browser) when ready."
+      info "Skipped setup. Run '$QUICKSTART_COMMAND' (CLI) or 'voltd daemon' (browser) when ready."
       ;;
     *)
       warn "Unknown choice '$quickstart_choice' — skipping. Run '$QUICKSTART_COMMAND' to configure."
@@ -1403,10 +1403,10 @@ echo
 # fall back to a one-off CLI agent run.
 if [ -f "$CARGO_HOME/bin/$TUI_BIN_NAME" ]; then
   info "Done. Run $(bold "$TUI_BIN_NAME") to launch the terminal UI and start working."
-elif [ -f "$CARGO_HOME/bin/zeroclaw" ] && "$CARGO_HOME/bin/zeroclaw" --help 2>/dev/null | grep -q '\bdaemon\b'; then
-  info "Done. Run $(bold "zeroclaw daemon") for the always-on daemon + web dashboard,"
-  info "or $(bold "zeroclaw agent") for a one-off CLI chat."
+elif [ -f "$CARGO_HOME/bin/voltd" ] && "$CARGO_HOME/bin/voltd" --help 2>/dev/null | grep -q '\bdaemon\b'; then
+  info "Done. Run $(bold "voltd daemon") for the always-on daemon + web dashboard,"
+  info "or $(bold "voltd agent") for a one-off CLI chat."
 else
-  info "Done. Run $(bold "zeroclaw agent") to start chatting."
+  info "Done. Run $(bold "voltd agent") to start chatting."
 fi
 echo
