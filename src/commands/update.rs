@@ -120,7 +120,7 @@ pub async fn check(target_version: Option<&str>) -> Result<UpdateInfo> {
     let current = env!("CARGO_PKG_VERSION").to_string();
 
     let client = reqwest::Client::builder()
-        .user_agent(format!("zeroclaw/{current}"))
+        .user_agent(format!("voltd/{current}"))
         .timeout(std::time::Duration::from_secs(15))
         .build()?;
 
@@ -433,7 +433,7 @@ async fn download_release(
     staging: &Path,
 ) -> Result<PathBuf> {
     let client = reqwest::Client::builder()
-        .user_agent(format!("zeroclaw/{}", env!("CARGO_PKG_VERSION")))
+        .user_agent(format!("voltd/{}", env!("CARGO_PKG_VERSION")))
         .timeout(std::time::Duration::from_mins(5))
         .build()?;
 

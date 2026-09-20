@@ -164,7 +164,7 @@ pub(crate) fn build_catalog_card_with_endpoint(
     }
 
     AgentCard {
-        name: "Volt Agent agents".to_string(),
+        name: "Volt Agent".to_string(),
         description: "Discovery catalog enumerating published A2A agents on \
                       this Volt Agent install. Not a runnable agent; each entry \
                       below serves its own A2A card and endpoint. Skills are \

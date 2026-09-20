@@ -17744,7 +17744,7 @@ pub struct WebAuthnConfig {
     /// Relying Party origin URL (e.g. `"https://example.com"`). Default: `"http://localhost:42617"`.
     #[serde(default = "default_webauthn_rp_origin")]
     pub rp_origin: String,
-    /// Relying Party display name. Default: "ZeroClaw".
+    /// Relying Party display name. Default: "Volt Agent".
     #[serde(default = "default_webauthn_rp_name")]
     pub rp_name: String,
 }
