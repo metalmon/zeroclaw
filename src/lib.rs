@@ -1048,10 +1048,10 @@ Examples:
         /// Path for serial transport (/dev/ttyACM0) or "native" for local GPIO
         path: String,
     },
-    /// Flash ZeroClaw firmware to Arduino (creates .ino, installs arduino-cli if needed, uploads)
+    /// Flash Volt Agent firmware to Arduino (creates .ino, installs arduino-cli if needed, uploads)
     // i18n-exempt: clap derive help — framework requires a compile-time literal
     #[command(long_about = "\
-Flash ZeroClaw firmware to an Arduino board.
+Flash Volt Agent firmware to an Arduino board.
 
 Generates the .ino sketch, installs arduino-cli if it is not \
 already available, compiles, and uploads the firmware.

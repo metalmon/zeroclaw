@@ -702,9 +702,9 @@ Examples:
     #[command(long_about = "\
 Start the long-running autonomous daemon.
 
-Launches the full ZeroClaw runtime: gateway server, all configured \
+Launches the full Volt Agent runtime: gateway server, all configured \
 channels (Telegram, Discord, Slack, etc.), heartbeat monitor, and \
-the cron scheduler. This is the recommended way to run ZeroClaw in \
+the cron scheduler. This is the recommended way to run Volt Agent in \
 production or as an always-on assistant.
 
 Use 'zeroclaw service install' to register the daemon as an OS \
@@ -827,7 +827,7 @@ Examples:
     #[command(long_about = "\
 Manage communication channels.
 
-Add, remove, list, send, and health-check channels that connect ZeroClaw \
+Add, remove, list, send, and health-check channels that connect Volt Agent \
 to messaging platforms. Supported channel types: telegram, discord, \
 slack, whatsapp, matrix, imessage, email.
 
@@ -965,7 +965,7 @@ Examples:
     /// Manage configuration
     // i18n-exempt: clap derive help — framework requires a compile-time literal
     #[command(long_about = "\
-Manage ZeroClaw configuration.
+Manage Volt Agent configuration.
 
 View, set, or initialize config properties by dotted path. \
 Use 'schema' to dump the full JSON Schema for the config file.
@@ -996,7 +996,7 @@ Property path tab completion is included automatically in `zeroclaw completions 
     /// Check for and apply updates
     // i18n-exempt: clap derive help — framework requires a compile-time literal
     #[command(long_about = "\
-Check for and apply ZeroClaw updates.
+Check for and apply Volt Agent updates.
 
 By default, downloads and installs the latest release with a \
 6-phase pipeline: preflight, download, backup, validate, swap, \
@@ -1029,7 +1029,7 @@ Examples:
     /// Run diagnostic self-tests
     // i18n-exempt: clap derive help — framework requires a compile-time literal
     #[command(long_about = "\
-Run diagnostic self-tests to verify the ZeroClaw installation.
+Run diagnostic self-tests to verify the Volt Agent installation.
 
 By default, runs the full test suite including network checks \
 (gateway health, memory round-trip). Use --quick to skip network \
@@ -1095,7 +1095,7 @@ Examples (Windows PowerShell):
     /// Launch the companion desktop app, or open its download page
     // i18n-exempt: clap derive help — framework requires a compile-time literal
     #[command(long_about = "\
-Launch the ZeroClaw companion desktop app.
+Launch the Volt Agent companion desktop app.
 
 The companion app is a lightweight menu bar / system tray application \
 that connects to the same gateway as the CLI. It provides quick access \
@@ -4773,7 +4773,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                 "{}",
                 t(
                     "cli-otp-initialized",
-                    "Initialized OTP secret for ZeroClaw."
+                    "Initialized OTP secret for Volt Agent."
                 )
             );
             println!(
@@ -5062,7 +5062,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                         INFO,
                         ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                             .with_attrs(::serde_json::json!({"addr": addr})),
-                        "🔄 Restarting ZeroClaw Gateway on"
+                        "🔄 Restarting Volt Agent Gateway on"
                     );
 
                     // Try to gracefully shutdown existing gateway via admin endpoint
@@ -5288,7 +5288,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                     .is_some_and(|home| exe.starts_with(&home));
                 if under_home {
                     let install_hint = if cfg!(windows) {
-                        "Consider installing to a system-wide location (e.g. C:\\Program Files\\ZeroClaw) for service use."
+                        "Consider installing to a system-wide location (e.g. C:\\Program Files\\Volt Agent) for service use."
                     } else if cfg!(target_os = "macos") {
                         "Consider installing to /usr/local/bin or /opt/homebrew/bin for system-wide service."
                     } else {
@@ -5312,14 +5312,14 @@ async fn async_main(command: clap::Command) -> Result<()> {
                     INFO,
                     ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                         .with_attrs(::serde_json::json!({"host": host})),
-                    "🧠 Starting ZeroClaw Daemon on (random port)"
+                    "🧠 Starting Volt Agent Daemon on (random port)"
                 );
             } else {
                 ::zeroclaw_log::record!(
                     INFO,
                     ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                         .with_attrs(::serde_json::json!({"host": host, "port": port})),
-                    "🧠 Starting ZeroClaw Daemon on"
+                    "🧠 Starting Volt Agent Daemon on"
                 );
             }
 
@@ -6064,7 +6064,7 @@ async fn async_main(command: clap::Command) -> Result<()> {
                     }
                 }
             }
-            println!("{}", t("cli-status-title", "🦀 ZeroClaw Status"));
+            println!("{}", t("cli-status-title", "🦀 Volt Agent Status"));
             println!();
             println!(
                 "{}",
@@ -6864,7 +6864,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                     "{}",
                     t(
                         "cli-desktop-download",
-                        "Opening the ZeroClaw companion app download page:"
+                        "Opening the Volt Agent companion app download page:"
                     )
                 );
                 println!();
@@ -6997,7 +6997,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                         "{}",
                         t(
                             "cli-desktop-launching",
-                            "Launching ZeroClaw companion app..."
+                            "Launching Volt Agent companion app..."
                         )
                     );
                     let _child = std::process::Command::new(&bin)
@@ -7010,7 +7010,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                         "{}",
                         t(
                             "cli-desktop-not-installed",
-                            "ZeroClaw companion app is not installed."
+                            "Volt Agent companion app is not installed."
                         )
                     );
                     println!();
@@ -8302,7 +8302,7 @@ fn handle_estop_command(
                         "{}",
                         t(
                             "cli-otp-initialized",
-                            "Initialized OTP secret for ZeroClaw."
+                            "Initialized OTP secret for Volt Agent."
                         )
                     );
                     println!(
@@ -8539,14 +8539,14 @@ fn log_gateway_start(host: &str, port: u16) {
             INFO,
             ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                 .with_attrs(::serde_json::json!({"host": host})),
-            "🚀 Starting ZeroClaw Gateway on (random port)"
+            "🚀 Starting Volt Agent Gateway on (random port)"
         );
     } else {
         ::zeroclaw_log::record!(
             INFO,
             ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                 .with_attrs(::serde_json::json!({"host": host, "port": port})),
-            "🚀 Starting ZeroClaw Gateway on"
+            "🚀 Starting Volt Agent Gateway on"
         );
     }
 }
@@ -9979,7 +9979,7 @@ fn gateway_addr_in_use_message(
     let mut lines = vec![
         format!("Port {port} is already in use, so the gateway could not start."),
         String::new(),
-        "A ZeroClaw daemon or another service may already be running on this port.".to_string(),
+        "A Volt Agent daemon or another service may already be running on this port.".to_string(),
         "Try one of:".to_string(),
         String::new(),
     ];
