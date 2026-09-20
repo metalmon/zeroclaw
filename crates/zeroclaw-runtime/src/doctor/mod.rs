@@ -285,7 +285,7 @@ pub(crate) async fn run_structured_with_probe(
 pub async fn run(config: &Config) -> Result<()> {
     let results = run_structured(config).await;
 
-    println!("🩺 ZeroClaw Doctor (enhanced)");
+    println!("🩺 Volt Agent Doctor (enhanced)");
     println!();
 
     let mut current_cat = String::new();
@@ -561,7 +561,7 @@ pub async fn run_models(
         );
     }
 
-    println!("🩺 ZeroClaw Doctor — Model Catalog Probe");
+    println!("🩺 Volt Agent Doctor — Model Catalog Probe");
     println!("  Providers to probe: {}", targets.len());
     println!();
 
@@ -950,9 +950,9 @@ pub async fn run_configured_models(
     }
 
     if verify {
-        println!("🩺 ZeroClaw — Configured Models (--check)");
+        println!("🩺 Volt Agent — Configured Models (--check)");
     } else {
-        println!("🩺 ZeroClaw — Configured Models");
+        println!("🩺 Volt Agent — Configured Models");
     }
     println!();
 

@@ -46,7 +46,7 @@ impl Default for WebAuthnConfig {
             enabled: false,
             rp_id: "localhost".into(),
             rp_origin: "http://localhost:42617".into(),
-            rp_name: "ZeroClaw".into(),
+            rp_name: "Volt Agent".into(),
         }
     }
 }
@@ -1442,6 +1442,6 @@ mod tests {
         let config = WebAuthnConfig::default();
         assert!(!config.enabled);
         assert_eq!(config.rp_id, "localhost");
-        assert_eq!(config.rp_name, "ZeroClaw");
+        assert_eq!(config.rp_name, "Volt Agent");
     }
 }

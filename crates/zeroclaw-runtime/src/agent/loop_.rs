@@ -1656,7 +1656,7 @@ pub async fn run(
         ));
             tool_descs.push((
             "arduino_upload",
-            "Upload agent-generated Arduino sketch. Use when: user asks for 'make a heart', 'blink pattern', or custom LED behavior on Arduino. You write the full .ino code; ZeroClaw compiles and uploads it. Pin 13 = built-in LED on Uno.",
+            "Upload agent-generated Arduino sketch. Use when: user asks for 'make a heart', 'blink pattern', or custom LED behavior on Arduino. You write the full .ino code; Volt Agent compiles and uploads it. Pin 13 = built-in LED on Uno.",
         ));
             tool_descs.push((
             "hardware_memory_map",
@@ -2172,7 +2172,7 @@ pub async fn run(
                     .await;
             }
         } else {
-            println!("🦀 ZeroClaw Interactive Mode");
+            println!("🦀 Volt Agent Interactive Mode");
             println!("Type /help for commands.\n");
             let cli = CLI_CHANNEL_FN.get().expect(
                 "CLI channel factory not registered — call register_cli_channel_fn at startup",
@@ -3138,7 +3138,7 @@ pub async fn process_message(
             ));
             tool_descs.push((
             "arduino_upload",
-            "Upload Arduino sketch. Use for 'make a heart', custom patterns. You write full .ino code; ZeroClaw uploads it.",
+            "Upload Arduino sketch. Use for 'make a heart', custom patterns. You write full .ino code; Volt Agent uploads it.",
         ));
             tool_descs.push((
             "hardware_memory_map",

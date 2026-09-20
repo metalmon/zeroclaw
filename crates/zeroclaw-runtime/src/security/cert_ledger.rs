@@ -441,7 +441,7 @@ impl CertLedger {
             // publishing or discarding credentials on bad assumptions.
             bail!(
                 "cert ledger is at schema v{version}, newer than the v{SCHEMA_VERSION} this build \
-                 understands; upgrade ZeroClaw, or move the ledger aside to start fresh (issued \
+                 understands; upgrade Volt Agent, or move the ledger aside to start fresh (issued \
                  certificates would then need re-enrollment)"
             );
         }

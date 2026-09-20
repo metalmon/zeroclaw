@@ -372,7 +372,7 @@ fn personality_template_context(
         agent: requested_agent
             .map(str::to_string)
             .or_else(|| configured_agent_exists.then(|| agent_alias.to_string()))
-            .unwrap_or_else(|| "ZeroClaw".to_string()),
+            .unwrap_or_else(|| "Volt Agent".to_string()),
         include_memory: configured_agent_exists || agent_requested,
         ..Default::default()
     }
@@ -7999,7 +7999,7 @@ mod tests {
         let req = PersonalityTemplatesParams { agent: None };
         let ctx = personality_template_context(&zeroclaw_config::schema::Config::default(), &req);
 
-        assert_eq!(ctx.agent, "ZeroClaw");
+        assert_eq!(ctx.agent, "Volt Agent");
         assert!(!ctx.include_memory);
     }
 

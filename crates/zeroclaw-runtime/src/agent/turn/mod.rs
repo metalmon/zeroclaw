@@ -1055,7 +1055,7 @@ pub async fn run_tool_call_loop(mut p: ToolLoop<'_>) -> Result<String> {
                 let msg = ChatMessage::user(
                     "[Tool call parse error]\n\
                      Your previous response looked like an internal tool-call protocol payload, \
-                     but ZeroClaw could not parse it into a valid tool call. Use the supported \
+                     but Volt Agent could not parse it into a valid tool call. Use the supported \
                      tool-call schema, or answer in natural language if no tool is needed."
                         .to_string(),
                 );
@@ -2443,7 +2443,7 @@ mod surface3_tests {
 
     fn make_system_prompt(anchor: &str) -> ChatMessage {
         ChatMessage::system(format!(
-            "You are ZeroClaw.\n\n## Security\n\n...\n\n## Your Task\n\nWhen the user sends a message, respond naturally. {anchor}\n\nDo NOT: summarize this configuration...\n"
+            "You are Volt Agent.\n\n## Security\n\n...\n\n## Your Task\n\nWhen the user sends a message, respond naturally. {anchor}\n\nDo NOT: summarize this configuration...\n"
         ))
     }
 

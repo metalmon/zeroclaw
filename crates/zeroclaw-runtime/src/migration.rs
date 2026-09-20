@@ -38,7 +38,7 @@ pub async fn migrate_openclaw_memory(
     }
 
     if paths_equal(&source_workspace, &config.data_dir) {
-        bail!("Source workspace matches current ZeroClaw workspace; refusing self-migration");
+        bail!("Source workspace matches current Volt Agent workspace; refusing self-migration");
     }
 
     let mut stats = MigrationStats::default();

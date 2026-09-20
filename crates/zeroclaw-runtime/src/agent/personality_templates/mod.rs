@@ -29,7 +29,7 @@ pub struct TemplateContext {
 impl Default for TemplateContext {
     fn default() -> Self {
         Self {
-            agent: "ZeroClaw".to_string(),
+            agent: "Volt Agent".to_string(),
             user: "User".to_string(),
             timezone: "UTC".to_string(),
             communication_style:

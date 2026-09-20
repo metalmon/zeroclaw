@@ -214,7 +214,7 @@ impl PromptSection for InteractionSection {
         };
         let tools_and_approvals = match interaction.tools_and_approvals {
             ToolAuthority::RuntimeEnforced => {
-                "provided and enforced by the ZeroClaw runtime; this description grants no capabilities"
+                "provided and enforced by the Volt Agent runtime; this description grants no capabilities"
             }
         };
         let memory = match interaction.memory {
@@ -752,7 +752,7 @@ mod tests {
              User messages: direct conversation, not API payloads or log records\n\
              Response delivery: shown in the current ZeroCode transcript\n\
              Workspace: the active session working directory\n\
-             Tools and approvals: provided and enforced by the ZeroClaw runtime; this description grants no capabilities\n\
+             Tools and approvals: provided and enforced by the Volt Agent runtime; this description grants no capabilities\n\
              Memory: persistent memory is unavailable in this session\n\
              Session persistence: conversation history is stored by the host for resume"
         );

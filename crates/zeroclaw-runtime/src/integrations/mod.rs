@@ -134,7 +134,7 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
         }
         "Browser" => {
             println!("  Built-in:");
-            println!("    ZeroClaw can control Chrome/Chromium for web tasks.");
+            println!("    Volt Agent can control Chrome/Chromium for web tasks.");
             println!("    Uses headless browser automation.");
         }
         "Cron" => {
