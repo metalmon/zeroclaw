@@ -1377,7 +1377,7 @@ mod client {
         if recovery_attempts > 1 {
             bail!(
                 "matrix: corruption recovery looped — aborting to avoid an infinite restart cycle. \
-                 Wipe ~/.zeroclaw/state/matrix/ manually and restart."
+                 Wipe ~/.voltd/state/matrix/ manually and restart."
             );
         }
 

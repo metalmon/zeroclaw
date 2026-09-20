@@ -10354,7 +10354,7 @@ fn matrix_state_dir(config_path: &std::path::Path, alias: &str) -> std::path::Pa
     config_path
         .parent()
         .map(|p| p.join("state").join("matrix").join(alias))
-        .unwrap_or_else(|| std::path::PathBuf::from(".zeroclaw/state/matrix").join(alias))
+        .unwrap_or_else(|| std::path::PathBuf::from(".voltd/state/matrix").join(alias))
 }
 
 /// Build the Matrix channel for `[channels.matrix.<alias>]` with every

@@ -1330,7 +1330,9 @@ fn resolve_web_dist_target(current_exe: &Path, host_candidates: &[PathBuf]) -> P
 /// may already hold a ZeroClaw dashboard and so divert the install target.
 fn host_dashboard_candidates() -> Vec<PathBuf> {
     let mut c = vec![
+        PathBuf::from("/voltd-data/web/dist"),
         PathBuf::from("/zeroclaw-data/web/dist"),
+        PathBuf::from("/usr/share/voltd/web/dist"),
         PathBuf::from("/usr/share/zeroclawlabs/web/dist"),
     ];
     if let Some(base) = directories::BaseDirs::new() {

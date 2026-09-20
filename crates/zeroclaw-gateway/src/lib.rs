@@ -463,7 +463,9 @@ fn auto_detect_web_dist_dir() -> Option<std::path::PathBuf> {
             .ok()
             .and_then(|p| p.parent().map(|d| d.join("web/dist")))
             .unwrap_or_default(),
+        std::path::PathBuf::from("/voltd-data/web/dist"),
         std::path::PathBuf::from("/zeroclaw-data/web/dist"),
+        std::path::PathBuf::from("/usr/share/voltd/web/dist"),
         std::path::PathBuf::from("/usr/share/zeroclawlabs/web/dist"),
     ];
     if let Some(data_dir) = dirs_data_local() {

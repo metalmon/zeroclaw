@@ -803,11 +803,14 @@ impl WeChatChannel {
     }
 
     /// Default state directory when `[channels.wechat.<alias>] state_dir`
-    /// is unset: `~/.zeroclaw/wechat`.
+    /// is unset: `~/.voltd/wechat` (reading through to a pre-migration
+    /// `~/.zeroclaw/wechat` when only that exists).
     fn default_state_dir() -> PathBuf {
         directories::UserDirs::new()
-            .map(|u| u.home_dir().join(".zeroclaw").join("wechat"))
-            .unwrap_or_else(|| PathBuf::from(".zeroclaw/wechat"))
+            .map(|u| {
+                zeroclaw_config::schema::resolve_config_dir_for_home(u.home_dir()).join("wechat")
+            })
+            .unwrap_or_else(|| PathBuf::from(".voltd/wechat"))
     }
 
     /// Resolve the effective state directory from the raw

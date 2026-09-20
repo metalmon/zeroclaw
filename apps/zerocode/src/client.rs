@@ -214,12 +214,27 @@ pub fn resolve_config_dir(cli_override: Option<&Path>) -> Result<PathBuf> {
     #[cfg(unix)]
     {
         let home = std::env::var("HOME").context("HOME not set")?;
-        Ok(PathBuf::from(home).join(".zeroclaw"))
+        Ok(resolve_config_dir_for_home(&PathBuf::from(home)))
     }
     #[cfg(windows)]
     {
         let profile = std::env::var("USERPROFILE").context("USERPROFILE not set")?;
-        Ok(PathBuf::from(profile).join(".zeroclaw"))
+        Ok(resolve_config_dir_for_home(&PathBuf::from(profile)))
+    }
+}
+
+/// `.voltd` when present or fresh; the legacy `.zeroclaw` only when it exists
+/// and `.voltd` does not (read-through so a pre-migration install keeps
+/// working). zerocode stays an RPC-only surface with no `zeroclaw-*` crate
+/// link, so this mirrors `zeroclaw_config::schema::resolve_config_dir_for_home`
+/// rather than depending on it.
+fn resolve_config_dir_for_home(home: &Path) -> PathBuf {
+    let new = home.join(".voltd");
+    let legacy = home.join(".zeroclaw");
+    if !new.exists() && legacy.exists() {
+        legacy
+    } else {
+        new
     }
 }
 
