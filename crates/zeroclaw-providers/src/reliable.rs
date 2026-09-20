@@ -6379,7 +6379,7 @@ mod tests {
                 "configure provider credentials",
             ),
             (
-                "Anthropic credentials not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure.",
+                "Anthropic credentials not set. Run `voltd quickstart` or `voltd config set` to configure.",
                 "credentials_missing",
                 "configuration",
                 "configure provider credentials",

@@ -1969,8 +1969,8 @@ pub fn init_skills_dir(workspace_dir: &Path) -> Result<()> {
              The agent will read it and follow the instructions.\n\n\
              ## Installing community skills\n\n\
              ```bash\n\
-             zeroclaw skills install <source>\n\
-             zeroclaw skills list\n\
+             voltd skills install <source>\n\
+             voltd skills list\n\
              ```\n",
         )?;
     }

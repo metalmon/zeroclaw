@@ -209,7 +209,7 @@ fn gate_reference(notice: &GateNotice<'_>) -> String {
 fn reply_instructions(reference: &str, run_id: &str) -> String {
     format!(
         "Reply `approve {reference}` or `deny {reference}` here, or use \
-         `zeroclaw sop approve|deny {run_id}`."
+         `voltd sop approve|deny {run_id}`."
     )
 }
 

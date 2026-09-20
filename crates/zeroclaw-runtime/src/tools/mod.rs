@@ -1880,7 +1880,7 @@ pub fn all_tools_with_runtime(
                         .with_attrs(::serde_json::json!({
                             "legacy_dir": legacy.display().to_string()
                         })),
-                    "Plugins in a legacy directory are not loaded; run `zeroclaw plugin migrate`"
+                    "Plugins in a legacy directory are not loaded; run `voltd plugin migrate`"
                 );
             }
         }

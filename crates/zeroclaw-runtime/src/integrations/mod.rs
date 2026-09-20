@@ -55,7 +55,7 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
 
     let Some(entry) = entries.iter().find(|e| e.name.to_lowercase() == name_lower) else {
         anyhow::bail!(
-            "Unknown integration: {name}. Check README for supported integrations or run `zeroclaw quickstart` to configure a model provider, then `zeroclaw config set channels.<name>.<field>=<value>` for channels."
+            "Unknown integration: {name}. Check README for supported integrations or run `voltd quickstart` to configure a model provider, then `voltd config set channels.<name>.<field>=<value>` for channels."
         );
     };
 
@@ -84,21 +84,21 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
             println!("  Setup:");
             println!("    1. Message @BotFather on Telegram");
             println!("    2. Create a bot and copy the token");
-            println!("    3. Run: zeroclaw config set channels.telegram.default.bot_token <token>");
-            println!("    4. Start: zeroclaw channel start");
+            println!("    3. Run: voltd config set channels.telegram.default.bot_token <token>");
+            println!("    4. Start: voltd channel start");
         }
         "Discord" => {
             println!("  Setup:");
             println!("    1. Go to https://discord.com/developers/applications");
             println!("    2. Create app → Bot → Copy token");
             println!("    3. Enable MESSAGE CONTENT intent");
-            println!("    4. Run: zeroclaw config set channels.discord.default.bot-token <token>");
+            println!("    4. Run: voltd config set channels.discord.default.bot-token <token>");
         }
         "Slack" => {
             println!("  Setup:");
             println!("    1. Go to https://api.slack.com/apps");
             println!("    2. Create app → Bot Token Scopes → Install");
-            println!("    3. Run: zeroclaw config set channels.slack.default.bot-token <token>");
+            println!("    3. Run: voltd config set channels.slack.default.bot-token <token>");
         }
         "iMessage" => {
             println!("  Setup (macOS only):");
@@ -108,7 +108,7 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
         "OpenRouter" => {
             println!("  Setup:");
             println!("    1. Get API key at https://openrouter.ai/keys");
-            println!("    2. Run: zeroclaw quickstart --model-provider openrouter --api-key <key>");
+            println!("    2. Run: voltd quickstart --model-provider openrouter --api-key <key>");
             println!("    Access 200+ models with one key.");
         }
         "Ollama" => {
@@ -124,13 +124,11 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
                 "       Permissions: Issues R/W, Pull requests R/W, Metadata R. Webhook: off."
             );
             println!("    2. Generate a private key (.pem) and install the app on your repos");
-            println!("    3. Run: zeroclaw config set channels.git.default.provider github");
-            println!("       Run: zeroclaw config set channels.git.default.app-id <id>");
-            println!(
-                "       Run: zeroclaw config set channels.git.default.private-key-path <path>"
-            );
-            println!("       Run: zeroclaw config set channels.git.default.enabled true");
-            println!("    4. Start: zeroclaw channel start");
+            println!("    3. Run: voltd config set channels.git.default.provider github");
+            println!("       Run: voltd config set channels.git.default.app-id <id>");
+            println!("       Run: voltd config set channels.git.default.private-key-path <path>");
+            println!("       Run: voltd config set channels.git.default.enabled true");
+            println!("    4. Start: voltd channel start");
         }
         "Browser" => {
             println!("  Built-in:");
@@ -140,7 +138,7 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
         "Cron" => {
             println!("  Built-in:");
             println!("    Schedule tasks in ~/.zeroclaw/workspace/cron/");
-            println!("    Run: zeroclaw cron list");
+            println!("    Run: voltd cron list");
         }
         "Weather" => {
             println!("  Built-in:");
@@ -150,7 +148,7 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
         }
         _ if entry.category == IntegrationCategory::Chat => {
             println!("  Setup:");
-            println!("    Run: zeroclaw config set channels.<name>.<field>=<value>");
+            println!("    Run: voltd config set channels.<name>.<field>=<value>");
             println!("    (see docs/book/src/channels/overview.md for the per-channel field list)");
         }
         _ => {}

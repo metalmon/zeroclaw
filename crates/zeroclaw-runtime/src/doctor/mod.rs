@@ -319,7 +319,7 @@ pub async fn run(config: &Config) -> Result<()> {
     println!("  Summary: {oks} ok, {warns} warnings, {errors} errors");
 
     if errors > 0 {
-        println!("  💡 Fix the errors above, then run `zeroclaw doctor` again.");
+        println!("  💡 Fix the errors above, then run `voltd doctor` again.");
     }
 
     Ok(())
@@ -557,7 +557,7 @@ pub async fn run_models(
 
     if targets.is_empty() {
         anyhow::bail!(
-            "No configured model_providers to probe — run `zeroclaw quickstart` to set one up first"
+            "No configured model_providers to probe — run `voltd quickstart` to set one up first"
         );
     }
 
@@ -944,9 +944,7 @@ pub async fn run_configured_models(
     let entries = configured_model_entries(config, provider_override);
 
     if entries.is_empty() {
-        anyhow::bail!(
-            "No configured model_providers — run `zeroclaw quickstart` to set one up first"
-        );
+        anyhow::bail!("No configured model_providers — run `voltd quickstart` to set one up first");
     }
 
     if verify {
@@ -1102,7 +1100,7 @@ pub fn run_traces(
     }
 
     println!();
-    println!("Use `zeroclaw doctor traces --id <trace-id>` to inspect a full event payload.");
+    println!("Use `voltd doctor traces --id <trace-id>` to inspect a full event payload.");
     Ok(())
 }
 

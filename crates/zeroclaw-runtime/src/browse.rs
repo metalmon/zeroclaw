@@ -44,7 +44,7 @@ pub enum BrowseError {
     Protected(String),
     #[error("'{0}' is a system file and cannot be modified or removed via the dashboard")]
     ProtectedFile(String),
-    #[error("file '{0}' exceeds the {1}-byte read cap; download via CLI or zeroclaw shell")]
+    #[error("file '{0}' exceeds the {1}-byte read cap; download via CLI or voltd shell")]
     TooLarge(String, u64),
     #[error(transparent)]
     Io(#[from] std::io::Error),

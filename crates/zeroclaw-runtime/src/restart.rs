@@ -33,7 +33,7 @@ struct LaunchCommand {
 /// swaps the binary). Idempotent — later calls are ignored.
 pub fn record_launch() {
     let _ = LAUNCH.set(LaunchCommand {
-        exe: std::env::current_exe().unwrap_or_else(|_| PathBuf::from("zeroclaw")),
+        exe: std::env::current_exe().unwrap_or_else(|_| PathBuf::from("voltd")),
         args: std::env::args_os().skip(1).collect(),
     });
 }
