@@ -5,7 +5,12 @@ use anyhow::{Context, Result};
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
-const PREFIX: &str = "ZEROCLAW_";
+/// Accepted env-var prefixes, in precedence order: when the same dotted path
+/// is named by more than one prefix (e.g. both `VOLTD_gateway__x` and
+/// `ZEROCLAW_gateway__x` are set), the prefix appearing EARLIER in this list
+/// wins. `VOLTD_` is the rebrand-forward name; `ZEROCLAW_` is kept for
+/// backward compatibility with existing deployments.
+const PREFIXES: &[&str] = &["VOLTD_", "ZEROCLAW_"];
 const SEP: &str = "__";
 
 /// `[todotracker]` was a daemon schema section in v0.8.3 only; TodoWrite
@@ -42,26 +47,43 @@ pub struct AppliedOverrides {
     pub snapshots: HashMap<String, String>,
 }
 
-/// Apply every `ZEROCLAW_<lowercase>` env var to `config`. Returns the set of
-/// dotted prop-paths that were overridden plus the pre-override raw values
-/// for each. Hard-errors on any env var that doesn't resolve to a known
-/// schema path or whose alias fails validation.
+/// Apply every `VOLTD_<lowercase>` / `ZEROCLAW_<lowercase>` env var to
+/// `config`. Returns the set of dotted prop-paths that were overridden plus
+/// the pre-override raw values for each. Hard-errors on any env var that
+/// doesn't resolve to a known schema path or whose alias fails validation.
+///
+/// When both prefixes name the same resolved path (e.g. both
+/// `VOLTD_gateway__request_timeout_secs` and
+/// `ZEROCLAW_gateway__request_timeout_secs` are set), the `VOLTD_` value
+/// wins — see [`PREFIXES`] for the precedence order.
 pub fn apply_env_overrides(config: &mut Config) -> Result<AppliedOverrides> {
-    let mut entries: Vec<(String, String, String)> = std::env::vars()
+    let mut entries: Vec<(String, String, String, usize)> = std::env::vars()
         .filter_map(|(k, v)| {
-            let tail = k.strip_prefix(PREFIX)?;
+            let (rank, tail) = PREFIXES
+                .iter()
+                .enumerate()
+                .find_map(|(rank, prefix)| k.strip_prefix(prefix).map(|tail| (rank, tail)))?;
             (!tail.is_empty()
                 && tail
                     .chars()
                     .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'))
-            .then(|| (k.clone(), v, tail.to_string()))
+            .then(|| (k.clone(), v, tail.to_string(), rank))
         })
         .collect();
     entries.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let mut paths: HashSet<String> = HashSet::with_capacity(entries.len());
-    let mut snapshots: HashMap<String, String> = HashMap::with_capacity(entries.len());
-    for (env_name, value, tail) in entries {
+    // Pass 1: resolve + validate EVERY matched env var, regardless of which
+    // prefix named it and regardless of whether it will end up being the
+    // winner for its path. This keeps the hard-fail-on-unknown-path and
+    // not-overridable invariants identical for `VOLTD_` and `ZEROCLAW_`
+    // alike: a typo'd path is an error no matter which prefix wrote it.
+    // `resolve_path`'s map-key creation is idempotent (a second call for an
+    // alias that already exists is a no-op, not an error — see
+    // `create_map_key`), so resolving the same alias/path twice here (once
+    // per colliding prefix) is side-effect-free: no *value* is written in
+    // this pass, only map-key scaffolding.
+    let mut resolved: Vec<(String, String, String, usize)> = Vec::with_capacity(entries.len());
+    for (env_name, value, tail, rank) in entries {
         // Recognized legacy `[todotracker]` vars are accepted and ignored so an
         // upgrade cannot turn a previously working deployment into a daemon
         // that refuses to start. The value has no effect: TodoWrite display is
@@ -88,6 +110,36 @@ pub fn apply_env_overrides(config: &mut Config) -> Result<AppliedOverrides> {
             );
             anyhow::bail!("{env_name} -> {path}: this field is not overridable via env vars");
         }
+        resolved.push((env_name, value, path, rank));
+    }
+
+    // Pass 2: collapse duplicate resolutions of the same path down to a
+    // single winner — lowest `rank` (i.e. `VOLTD_`) beats a higher rank
+    // (i.e. `ZEROCLAW_`) — THEN apply each surviving override exactly once.
+    // Deduping before any `set_prop`/snapshot call matters: it guarantees
+    // the snapshot captures the value that was on `config` before ANY
+    // override touched the path (true pre-override state), never an
+    // intermediate value a losing duplicate would otherwise have left
+    // behind.
+    let mut winners: HashMap<String, (String, String, usize)> =
+        HashMap::with_capacity(resolved.len());
+    for (env_name, value, path, rank) in resolved {
+        match winners.get(&path) {
+            Some((_, _, existing_rank)) if *existing_rank <= rank => {}
+            _ => {
+                winners.insert(path, (env_name, value, rank));
+            }
+        }
+    }
+    let mut winners: Vec<(String, String, String)> = winners
+        .into_iter()
+        .map(|(path, (env_name, value, _))| (env_name, value, path))
+        .collect();
+    winners.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let mut paths: HashSet<String> = HashSet::with_capacity(winners.len());
+    let mut snapshots: HashMap<String, String> = HashMap::with_capacity(winners.len());
+    for (env_name, value, path) in winners {
         // Snapshot the pre-override raw value via TOML serde walk. Bypasses
         // `Config::get_prop`'s unconditional secret mask: secret fields on
         // `config` carry plaintext (post-`decrypt_secrets`), so the snapshot
@@ -380,6 +432,64 @@ mod tests {
         assert!(
             msg.contains("ZEROCLAW_no__such__field") && msg.contains("did not resolve"),
             "error must name the env var and the failure: {msg}",
+        );
+    }
+
+    // ── VOLTD_ / ZEROCLAW_ dual-prefix ──────────────────────────────────────
+
+    #[tokio::test]
+    async fn walker_resolves_voltd_prefixed_path() {
+        let _guard = super::env_test_lock().await;
+        let _v = EnvVarGuard::set("VOLTD_gateway__request_timeout_secs", "120");
+
+        let mut config = Config::default();
+        let applied = apply_env_overrides(&mut config).expect("apply succeeds");
+
+        assert!(applied.paths.contains("gateway.request_timeout_secs"));
+        assert_eq!(config.gateway.request_timeout_secs, 120);
+    }
+
+    #[tokio::test]
+    async fn voltd_wins_over_zeroclaw_on_collision() {
+        let _guard = super::env_test_lock().await;
+        let _v1 = EnvVarGuard::set("VOLTD_gateway__request_timeout_secs", "120");
+        let _v2 = EnvVarGuard::set("ZEROCLAW_gateway__request_timeout_secs", "999");
+
+        let mut config = Config::default();
+        let original_timeout = config.gateway.request_timeout_secs;
+        let applied = apply_env_overrides(&mut config).expect("apply succeeds");
+
+        assert!(applied.paths.contains("gateway.request_timeout_secs"));
+        assert_eq!(
+            config.gateway.request_timeout_secs, 120,
+            "VOLTD_ must win over ZEROCLAW_ for the same resolved path",
+        );
+
+        // The snapshot must capture the TRUE pre-override value (the
+        // default), not the value the losing ZEROCLAW_ duplicate would have
+        // left behind had it been applied first.
+        let mut to_save = config.clone();
+        mask_env_overrides_for_save(&mut to_save, &applied.snapshots).expect("mask succeeds");
+        assert_eq!(
+            to_save.gateway.request_timeout_secs, original_timeout,
+            "snapshot must restore the true pre-override default, not the losing \
+             ZEROCLAW_ duplicate's intermediate value",
+        );
+        // In-memory config is unaffected — VOLTD_'s value is still live.
+        assert_eq!(config.gateway.request_timeout_secs, 120);
+    }
+
+    #[tokio::test]
+    async fn voltd_unknown_path_hard_fails_like_legacy() {
+        let _guard = super::env_test_lock().await;
+        let _v = EnvVarGuard::set("VOLTD_no__such__field", "x");
+
+        let mut config = Config::default();
+        let err = apply_env_overrides(&mut config).expect_err("must hard-error");
+        let msg = format!("{err:#}");
+        assert!(
+            msg.contains("VOLTD_no__such__field") && msg.contains("did not resolve"),
+            "error must name the actual env var and the failure: {msg}",
         );
     }
 
