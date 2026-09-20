@@ -3447,7 +3447,7 @@ impl App {
         } else {
             frame.render_widget(
                 Paragraph::new(Span::styled(
-                    format!("ZeroClaw v{}", self.rpc.server_version),
+                    format!("Volt Agent v{}", self.rpc.server_version),
                     theme::dim_style(),
                 )),
                 rows[0],

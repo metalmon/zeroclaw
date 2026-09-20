@@ -1594,7 +1594,7 @@ mod client {
         let mut login = client
             .matrix_auth()
             .login_username(&user_id, password)
-            .initial_device_display_name("ZeroClaw");
+            .initial_device_display_name("Volt Agent");
         if let Some(d) = config.device_id.as_deref()
             && !d.is_empty()
         {
@@ -6966,7 +6966,12 @@ mod tests {
         #[test]
         fn body_fallback_display_name() {
             let bot = user_id!("@bot:example.org");
-            assert!(is_mentioned(bot, Some("ZeroClaw"), None, "hi zeroclaw!"));
+            assert!(is_mentioned(
+                bot,
+                Some("Volt Agent"),
+                None,
+                "hi volt agent!"
+            ));
         }
 
         #[test]
@@ -6974,7 +6979,7 @@ mod tests {
             let bot = user_id!("@bot:example.org");
             assert!(!is_mentioned(
                 bot,
-                Some("ZeroClaw"),
+                Some("Volt Agent"),
                 None,
                 "no mention here"
             ));
@@ -7130,7 +7135,7 @@ mod tests {
                     r"^/_matrix/client/(v3|r0)/profile/.*/displayname$",
                 ))
                 .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                    "displayname": "ZeroClaw Test"
+                    "displayname": "Volt Agent Test"
                 })))
                 .mount(&server)
                 .await;
@@ -8031,7 +8036,7 @@ mod tests {
                     r"^/_matrix/client/(v3|r0)/profile/.*/displayname$",
                 ))
                 .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                    "displayname": "ZeroClaw Test"
+                    "displayname": "Volt Agent Test"
                 })))
                 .mount(&server)
                 .await;
@@ -8297,7 +8302,7 @@ mod tests {
                     r"^/_matrix/client/(v3|r0)/profile/.*/displayname$",
                 ))
                 .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                    "displayname": "ZeroClaw Test"
+                    "displayname": "Volt Agent Test"
                 })))
                 .mount(&server)
                 .await;

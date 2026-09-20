@@ -567,7 +567,7 @@ mod tests {
                     "id": "msg-abc",
                     "parts": [{
                         "type": "text",
-                        "value": "Hello ZeroClaw!"
+                        "value": "Hello Volt Agent!"
                     }]
                 }
             }
@@ -576,7 +576,7 @@ mod tests {
         let msgs = ch.parse_webhook_payload(&payload);
         assert_eq!(msgs.len(), 1);
         assert_eq!(msgs[0].sender, "+1234567890");
-        assert_eq!(msgs[0].content, "Hello ZeroClaw!");
+        assert_eq!(msgs[0].content, "Hello Volt Agent!");
         assert_eq!(msgs[0].channel, "linq");
         assert_eq!(msgs[0].reply_target, "chat-789");
     }

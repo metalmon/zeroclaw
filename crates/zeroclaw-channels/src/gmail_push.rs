@@ -568,7 +568,7 @@ impl Channel for GmailPushChannel {
             anyhow::bail!("Gmail OAuth token is not configured for sending");
         }
 
-        let subject = message.subject.as_deref().unwrap_or("ZeroClaw Message");
+        let subject = message.subject.as_deref().unwrap_or("Volt Agent Message");
         // Sanitize headers to prevent CRLF injection attacks.
         let safe_recipient = sanitize_header_value(&message.recipient);
         let safe_subject = sanitize_header_value(subject);

@@ -54,7 +54,7 @@ async fn ensure_daemon(app: tauri::AppHandle, state: state::SharedState) {
                 "zeroclaw://splash-status",
                 SplashStatus {
                     kind: "starting",
-                    message: "Starting the ZeroClaw daemon…".to_string(),
+                    message: "Starting the Volt Agent daemon…".to_string(),
                 },
             );
             if let Err(e) = daemon::spawn_daemon(&bin, GATEWAY_PORT) {
@@ -62,7 +62,7 @@ async fn ensure_daemon(app: tauri::AppHandle, state: state::SharedState) {
                     "zeroclaw://splash-status",
                     SplashStatus {
                         kind: "error",
-                        message: format!("Couldn't start the ZeroClaw daemon: {e}"),
+                        message: format!("Couldn't start the Volt Agent daemon: {e}"),
                     },
                 );
             }
@@ -74,7 +74,7 @@ async fn ensure_daemon(app: tauri::AppHandle, state: state::SharedState) {
                 "zeroclaw://splash-status",
                 SplashStatus {
                     kind: "missing",
-                    message: "Couldn't find the `zeroclaw` binary. Install ZeroClaw \
+                    message: "Couldn't find the `zeroclaw` binary. Install Volt Agent \
                               (or start a daemon yourself) and reopen the app."
                         .to_string(),
                 },
@@ -143,7 +143,7 @@ async fn open_dashboard(
     let parsed = tauri::Url::parse(&dashboard_url).map_err(|e| e.to_string())?;
 
     let mut builder = WebviewWindowBuilder::new(&app, "main", WebviewUrl::External(parsed))
-        .title("ZeroClaw")
+        .title("Volt Agent")
         .inner_size(1200.0, 800.0)
         .center()
         .resizable(true);

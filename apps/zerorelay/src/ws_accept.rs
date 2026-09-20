@@ -52,7 +52,7 @@ where
         return Ok(Accepted::WebSocket(Box::new(ws)));
     }
 
-    let body = "this is a ZeroClaw relay endpoint; it speaks only the \
+    let body = "this is a Volt Agent relay endpoint; it speaks only the \
                 volt.relay.v1 WebSocket protocol. Enroll with zerocode.\n";
     let response = http_response("404 Not Found", "text/plain; charset=utf-8", body);
     stream.write_all(&response).await?;

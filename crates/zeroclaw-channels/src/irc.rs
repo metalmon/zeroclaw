@@ -444,7 +444,7 @@ impl Channel for IrcChannel {
         Self::send_raw(&mut writer, &format!("NICK {current_nick}")).await?;
         Self::send_raw(
             &mut writer,
-            &format!("USER {} 0 * :ZeroClaw", self.username),
+            &format!("USER {} 0 * :Volt Agent", self.username),
         )
         .await?;
 

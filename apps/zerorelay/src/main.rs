@@ -33,7 +33,7 @@ const VERSION: &str = env!("ZERORELAY_VERSION");
 #[derive(Parser, Debug)]
 #[command(
     name = "zerorelay",
-    about = "ZeroClaw nominated relay (blind forwarder)",
+    about = "Volt Agent nominated relay (blind forwarder)",
     version = VERSION
 )]
 struct Cli {

@@ -64,7 +64,7 @@ pub struct CachedProfile {
 /// under `<config_dir>/tls`. Prompts for the pairing code and the SAS confirmation
 /// on the terminal.
 pub async fn enroll(host: &str, port: u16, config_dir: &Path) -> Result<()> {
-    eprintln!("Enrolling with the ZeroClaw daemon at {host}:{port} ...");
+    eprintln!("Enrolling with the Volt Agent daemon at {host}:{port} ...");
     let (code, csr_pem, key_pem) = prepare_enrollment_request()?;
     let trust = fetch_enroll_trust(host, port)
         .await
@@ -83,7 +83,7 @@ pub async fn enroll(host: &str, port: u16, config_dir: &Path) -> Result<()> {
 /// inside the inner enrollment TLS stream.
 pub async fn enroll_via_relay(relay: &crate::client::RelayDial, config_dir: &Path) -> Result<()> {
     eprintln!(
-        "Enrolling with the ZeroClaw daemon through relay {} -> {} ...",
+        "Enrolling with the Volt Agent daemon through relay {} -> {} ...",
         relay.relay_addr, relay.node_id
     );
     let (code, csr_pem, key_pem) = prepare_enrollment_request()?;

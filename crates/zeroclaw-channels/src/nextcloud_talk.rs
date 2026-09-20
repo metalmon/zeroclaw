@@ -1611,7 +1611,7 @@ mod tests {
 
         let result = channel
             .send(&SendMessage::new(
-                "Hello from ZeroClaw!".to_string(),
+                "Hello from Volt Agent!".to_string(),
                 "test-room".to_string(),
             ))
             .await;
@@ -1644,10 +1644,10 @@ mod tests {
         let body: serde_json::Value = serde_json::from_slice(&req.body).unwrap();
         assert_eq!(
             body,
-            serde_json::json!({ "message": "Hello from ZeroClaw!" })
+            serde_json::json!({ "message": "Hello from Volt Agent!" })
         );
 
-        let expected_payload = format!("{random}Hello from ZeroClaw!");
+        let expected_payload = format!("{random}Hello from Volt Agent!");
         let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
         mac.update(expected_payload.as_bytes());
         let expected_signature = hex::encode(mac.finalize().into_bytes());

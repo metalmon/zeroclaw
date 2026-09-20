@@ -1128,7 +1128,7 @@ mod tests {
                             "timestamp": "1699999999",
                             "type": "text",
                             "text": {
-                                "body": "Hello ZeroClaw!"
+                                "body": "Hello Volt Agent!"
                             }
                         }]
                     },
@@ -1140,7 +1140,7 @@ mod tests {
         let msgs = ch.parse_webhook_payload(&payload);
         assert_eq!(msgs.len(), 1);
         assert_eq!(msgs[0].sender, "+1234567890");
-        assert_eq!(msgs[0].content, "Hello ZeroClaw!");
+        assert_eq!(msgs[0].content, "Hello Volt Agent!");
         assert_eq!(msgs[0].channel, "whatsapp");
         assert_eq!(msgs[0].timestamp, 1_699_999_999);
     }
@@ -2286,7 +2286,7 @@ mod tests {
     #[test]
     fn whatsapp_compile_valid_patterns() {
         let patterns = WhatsAppChannel::compile_mention_patterns(&[
-            "@?ZeroClaw".into(),
+            "@?Volt Agent".into(),
             r"\+?15555550123".into(),
         ]);
         assert_eq!(patterns.len(), 2);
@@ -2295,14 +2295,14 @@ mod tests {
     #[test]
     fn whatsapp_compile_skips_invalid_patterns() {
         let patterns =
-            WhatsAppChannel::compile_mention_patterns(&["@?ZeroClaw".into(), "[invalid".into()]);
+            WhatsAppChannel::compile_mention_patterns(&["@?Volt Agent".into(), "[invalid".into()]);
         assert_eq!(patterns.len(), 1);
     }
 
     #[test]
     fn whatsapp_compile_skips_empty_patterns() {
         let patterns =
-            WhatsAppChannel::compile_mention_patterns(&["@?ZeroClaw".into(), "  ".into()]);
+            WhatsAppChannel::compile_mention_patterns(&["@?Volt Agent".into(), "  ".into()]);
         assert_eq!(patterns.len(), 1);
     }
 
@@ -2316,38 +2316,38 @@ mod tests {
 
     #[test]
     fn whatsapp_text_matches_at_name() {
-        let pats = WhatsAppChannel::compile_mention_patterns(&["@?ZeroClaw".into()]);
+        let pats = WhatsAppChannel::compile_mention_patterns(&["@?Volt Agent".into()]);
         assert!(WhatsAppChannel::text_matches_patterns(
             &pats,
-            "Hello @ZeroClaw"
+            "Hello @Volt Agent"
         ));
     }
 
     #[test]
     fn whatsapp_text_matches_name_only() {
-        let pats = WhatsAppChannel::compile_mention_patterns(&["@?ZeroClaw".into()]);
+        let pats = WhatsAppChannel::compile_mention_patterns(&["@?Volt Agent".into()]);
         assert!(WhatsAppChannel::text_matches_patterns(
             &pats,
-            "Hello ZeroClaw"
+            "Hello Volt Agent"
         ));
     }
 
     #[test]
     fn whatsapp_text_matches_case_insensitive() {
-        let pats = WhatsAppChannel::compile_mention_patterns(&["@?ZeroClaw".into()]);
+        let pats = WhatsAppChannel::compile_mention_patterns(&["@?Volt Agent".into()]);
         assert!(WhatsAppChannel::text_matches_patterns(
             &pats,
-            "Hello @zeroclaw"
+            "Hello @volt agent"
         ));
         assert!(WhatsAppChannel::text_matches_patterns(
             &pats,
-            "Hello ZEROCLAW"
+            "Hello VOLT AGENT"
         ));
     }
 
     #[test]
     fn whatsapp_text_matches_no_match() {
-        let pats = WhatsAppChannel::compile_mention_patterns(&["@?ZeroClaw".into()]);
+        let pats = WhatsAppChannel::compile_mention_patterns(&["@?Volt Agent".into()]);
         assert!(!WhatsAppChannel::text_matches_patterns(
             &pats,
             "Hello @otherbot"
@@ -2378,12 +2378,12 @@ mod tests {
     #[test]
     fn whatsapp_text_matches_multiple_patterns() {
         let pats = WhatsAppChannel::compile_mention_patterns(&[
-            "@?ZeroClaw".into(),
+            "@?Volt Agent".into(),
             r"\+?15555550123".into(),
         ]);
         assert!(WhatsAppChannel::text_matches_patterns(
             &pats,
-            "Hello @ZeroClaw"
+            "Hello @Volt Agent"
         ));
         assert!(WhatsAppChannel::text_matches_patterns(
             &pats,
@@ -2400,7 +2400,7 @@ mod tests {
         let pats: Vec<Regex> = vec![];
         assert!(!WhatsAppChannel::text_matches_patterns(
             &pats,
-            "Hello @ZeroClaw"
+            "Hello @Volt Agent"
         ));
     }
 
@@ -2503,7 +2503,7 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["*".into()]),
         )
-        .with_group_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_group_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload = serde_json::json!({
             "entry": [{
                 "changes": [{
@@ -2530,7 +2530,7 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["*".into()]),
         )
-        .with_group_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_group_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload = serde_json::json!({
             "entry": [{
                 "changes": [{
@@ -2558,19 +2558,19 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["*".into()]),
         )
-        .with_group_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_group_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload = serde_json::json!({
             "entry": [{
                 "changes": [{
                     "value": {
-                        "messages": [group_msg("111", "1", "@ZeroClaw what is the weather?")]
+                        "messages": [group_msg("111", "1", "@Volt Agent what is the weather?")]
                     }
                 }]
             }]
         });
         let msgs = ch.parse_webhook_payload(&payload);
         assert_eq!(msgs.len(), 1);
-        assert_eq!(msgs[0].content, "@ZeroClaw what is the weather?");
+        assert_eq!(msgs[0].content, "@Volt Agent what is the weather?");
     }
 
     #[test]
@@ -2582,19 +2582,19 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["*".into()]),
         )
-        .with_group_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_group_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload = serde_json::json!({
             "entry": [{
                 "changes": [{
                     "value": {
-                        "messages": [group_msg("111", "1", "Hey @ZeroClaw tell me a joke")]
+                        "messages": [group_msg("111", "1", "Hey @Volt Agent tell me a joke")]
                     }
                 }]
             }]
         });
         let msgs = ch.parse_webhook_payload(&payload);
         assert_eq!(msgs.len(), 1);
-        assert_eq!(msgs[0].content, "Hey @ZeroClaw tell me a joke");
+        assert_eq!(msgs[0].content, "Hey @Volt Agent tell me a joke");
     }
 
     #[test]
@@ -2606,19 +2606,19 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["*".into()]),
         )
-        .with_group_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_group_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload = serde_json::json!({
             "entry": [{
                 "changes": [{
                     "value": {
-                        "messages": [group_msg("111", "1", "@ZeroClaw")]
+                        "messages": [group_msg("111", "1", "@Volt Agent")]
                     }
                 }]
             }]
         });
         let msgs = ch.parse_webhook_payload(&payload);
         assert_eq!(msgs.len(), 1);
-        assert_eq!(msgs[0].content, "@ZeroClaw");
+        assert_eq!(msgs[0].content, "@Volt Agent");
     }
 
     #[test]
@@ -2630,19 +2630,19 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["*".into()]),
         )
-        .with_group_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_group_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload = serde_json::json!({
             "entry": [{
                 "changes": [{
                     "value": {
-                        "messages": [group_msg("111", "1", "@zeroclaw status")]
+                        "messages": [group_msg("111", "1", "@volt agent status")]
                     }
                 }]
             }]
         });
         let msgs = ch.parse_webhook_payload(&payload);
         assert_eq!(msgs.len(), 1);
-        assert_eq!(msgs[0].content, "@zeroclaw status");
+        assert_eq!(msgs[0].content, "@volt agent status");
     }
 
     #[test]
@@ -2677,14 +2677,14 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["*".into()]),
         )
-        .with_group_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_group_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload = serde_json::json!({
             "entry": [{
                 "changes": [{
                     "value": {
                         "messages": [
                             group_msg("111", "1", "No mention here"),
-                            group_msg("222", "2", "@ZeroClaw help me"),
+                            group_msg("222", "2", "@Volt Agent help me"),
                             group_msg("333", "3", "Also no mention")
                         ]
                     }
@@ -2693,7 +2693,7 @@ mod tests {
         });
         let msgs = ch.parse_webhook_payload(&payload);
         assert_eq!(msgs.len(), 1);
-        assert_eq!(msgs[0].content, "@ZeroClaw help me");
+        assert_eq!(msgs[0].content, "@Volt Agent help me");
         assert_eq!(msgs[0].sender, "+222");
     }
 
@@ -2731,12 +2731,12 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["*".into()]),
         )
-        .with_group_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_group_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload = serde_json::json!({
             "entry": [{
                 "changes": [{
                     "value": {
-                        "messages": [dm_msg("111", "1", "@ZeroClaw what is the weather?")]
+                        "messages": [dm_msg("111", "1", "@Volt Agent what is the weather?")]
                     }
                 }]
             }]
@@ -2744,7 +2744,7 @@ mod tests {
         let msgs = ch.parse_webhook_payload(&payload);
         assert_eq!(msgs.len(), 1);
         assert_eq!(
-            msgs[0].content, "@ZeroClaw what is the weather?",
+            msgs[0].content, "@Volt Agent what is the weather?",
             "DM content should not be stripped by group patterns"
         );
     }
@@ -2760,7 +2760,7 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["*".into()]),
         )
-        .with_dm_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_dm_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload = serde_json::json!({
             "entry": [{
                 "changes": [{
@@ -2783,19 +2783,19 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["*".into()]),
         )
-        .with_dm_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_dm_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload = serde_json::json!({
             "entry": [{
                 "changes": [{
                     "value": {
-                        "messages": [dm_msg("111", "1", "@ZeroClaw what is the weather?")]
+                        "messages": [dm_msg("111", "1", "@Volt Agent what is the weather?")]
                     }
                 }]
             }]
         });
         let msgs = ch.parse_webhook_payload(&payload);
         assert_eq!(msgs.len(), 1);
-        assert_eq!(msgs[0].content, "@ZeroClaw what is the weather?");
+        assert_eq!(msgs[0].content, "@Volt Agent what is the weather?");
     }
 
     #[test]
@@ -2808,7 +2808,7 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["*".into()]),
         )
-        .with_dm_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_dm_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload = serde_json::json!({
             "entry": [{
                 "changes": [{
@@ -3269,7 +3269,7 @@ mod tests {
             "whatsapp_test_alias",
             Arc::new(|| vec!["+1234567890".into()]),
         )
-        .with_dm_mention_patterns(vec!["@?ZeroClaw".into()]);
+        .with_dm_mention_patterns(vec!["@?Volt Agent".into()]);
         let payload =
             interactive_reply_payload("button_reply", "agent:librarian", "Librarian", "1234567890");
         let msgs = ch.parse_webhook_payload(&payload);

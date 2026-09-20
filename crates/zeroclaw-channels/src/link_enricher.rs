@@ -81,7 +81,7 @@ fn http_client_builder(timeout_secs: u64) -> reqwest::ClientBuilder {
         .timeout(Duration::from_secs(timeout_secs))
         .connect_timeout(Duration::from_secs(5))
         .redirect(redirect_policy())
-        .user_agent("ZeroClaw/0.1 (link-enricher)")
+        .user_agent("Volt Agent/0.1 (link-enricher)")
 }
 
 fn http_client(timeout_secs: u64) -> reqwest::Result<reqwest::Client> {

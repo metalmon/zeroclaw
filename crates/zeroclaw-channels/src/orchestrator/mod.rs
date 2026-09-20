@@ -12064,7 +12064,7 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
         // `channel doctor` path should report the same diagnostic.
         let dangling = { peer_group_dangling_warning_lines(&config_arc.read()) };
         if !dangling.is_empty() {
-            println!("🩺 ZeroClaw Channel Doctor");
+            println!("🩺 Volt Agent Channel Doctor");
             println!();
             for line in &dangling {
                 println!("{line}");
@@ -12075,7 +12075,7 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
         return Ok(());
     }
 
-    println!("🩺 ZeroClaw Channel Doctor");
+    println!("🩺 Volt Agent Channel Doctor");
     println!();
 
     // Report dangling peer-group channel references alongside health results,
@@ -12866,7 +12866,7 @@ pub async fn start_channels(
                 return Ok(());
             }
 
-            println!("🦀 ZeroClaw Channel Server");
+            println!("🦀 Volt Agent Channel Server");
             println!("  🤖 Model:    {model} (agent: {agent_alias})");
             let effective_backend = config.resolve_active_storage().kind();
             println!(
@@ -14881,7 +14881,11 @@ temperature = 0.3
         let tmp = TempDir::new().unwrap();
         // Create minimal workspace files
         std::fs::write(tmp.path().join("SOUL.md"), "# Soul\nBe helpful.").unwrap();
-        std::fs::write(tmp.path().join("IDENTITY.md"), "# Identity\nName: ZeroClaw").unwrap();
+        std::fs::write(
+            tmp.path().join("IDENTITY.md"),
+            "# Identity\nName: Volt Agent",
+        )
+        .unwrap();
         std::fs::write(tmp.path().join("USER.md"), "# User\nName: Test User").unwrap();
         std::fs::write(
             tmp.path().join("AGENTS.md"),
@@ -25650,7 +25654,7 @@ BTC is currently around $65,000 based on latest tool output."#
             "heading removed: IDENTITY.md"
         );
         assert!(
-            prompt.contains("Name: ZeroClaw"),
+            prompt.contains("Name: Volt Agent"),
             "missing IDENTITY content"
         );
         assert!(!prompt.contains("### USER.md"), "heading removed: USER.md");
@@ -25941,7 +25945,7 @@ BTC is currently around $65,000 based on latest tool output."#
 
     #[test]
     fn channel_log_truncation_is_utf8_safe_for_multibyte_text() {
-        let msg = "Hello from ZeroClaw 🌍. Current status is healthy, and café-style UTF-8 text stays safe in logs.";
+        let msg = "Hello from Volt Agent 🌍. Current status is healthy, and café-style UTF-8 text stays safe in logs.";
 
         // Reproduces the production crash path where channel logs truncate at 80 chars.
         let result =

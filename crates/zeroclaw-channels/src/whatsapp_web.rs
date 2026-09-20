@@ -3006,7 +3006,7 @@ impl Channel for WhatsAppWebChannel {
                 .with_runtime(TokioRuntime)
                 .with_device_props(
                     DevicePropsOverride::new()
-                        .with_os("ZeroClaw")
+                        .with_os("Volt Agent")
                         .with_platform_type(PlatformType::Desktop),
                 )
                 .on_event({
@@ -5654,10 +5654,10 @@ mod tests {
             (None, "", None),
             (Some(""), "Old", None),
             (Some("   \t "), "Old", None),
-            (Some("ZeroClawAgent"), "Galaxy S21", Some("ZeroClawAgent")),
-            (Some("ZeroClawAgent"), "", Some("ZeroClawAgent")),
-            (Some("ZeroClawAgent"), "ZeroClawAgent", None),
-            (Some("  ZeroClawAgent  "), "ZeroClawAgent", None),
+            (Some("VoltAgent"), "Galaxy S21", Some("VoltAgent")),
+            (Some("VoltAgent"), "", Some("VoltAgent")),
+            (Some("VoltAgent"), "VoltAgent", None),
+            (Some("  VoltAgent  "), "VoltAgent", None),
             (Some(non_ascii), "Galaxy S21", Some(non_ascii)),
             (Some(non_ascii), non_ascii, None),
             // A value that is a strict byte-prefix of the device's name is

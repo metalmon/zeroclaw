@@ -26,12 +26,12 @@ pub fn icon_for_state(connected: bool, status: AgentStatus) -> Image<'static> {
 /// Tooltip text for the current state.
 pub fn tooltip_for_state(connected: bool, status: AgentStatus) -> &'static str {
     if !connected {
-        return "ZeroClaw — Disconnected";
+        return "Volt Agent — Disconnected";
     }
     match status {
-        AgentStatus::Idle => "ZeroClaw — Idle",
-        AgentStatus::Working => "ZeroClaw — Working",
-        AgentStatus::Error => "ZeroClaw — Error",
+        AgentStatus::Idle => "Volt Agent — Idle",
+        AgentStatus::Working => "Volt Agent — Working",
+        AgentStatus::Error => "Volt Agent — Error",
     }
 }
 
@@ -58,16 +58,16 @@ mod tests {
     fn tooltip_disconnected() {
         assert_eq!(
             tooltip_for_state(false, AgentStatus::Idle),
-            "ZeroClaw — Disconnected"
+            "Volt Agent — Disconnected"
         );
         // Agent status is irrelevant when disconnected.
         assert_eq!(
             tooltip_for_state(false, AgentStatus::Working),
-            "ZeroClaw — Disconnected"
+            "Volt Agent — Disconnected"
         );
         assert_eq!(
             tooltip_for_state(false, AgentStatus::Error),
-            "ZeroClaw — Disconnected"
+            "Volt Agent — Disconnected"
         );
     }
 
@@ -75,15 +75,15 @@ mod tests {
     fn tooltip_connected_variants() {
         assert_eq!(
             tooltip_for_state(true, AgentStatus::Idle),
-            "ZeroClaw — Idle"
+            "Volt Agent — Idle"
         );
         assert_eq!(
             tooltip_for_state(true, AgentStatus::Working),
-            "ZeroClaw — Working"
+            "Volt Agent — Working"
         );
         assert_eq!(
             tooltip_for_state(true, AgentStatus::Error),
-            "ZeroClaw — Error"
+            "Volt Agent — Error"
         );
     }
 

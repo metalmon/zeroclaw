@@ -148,7 +148,7 @@ pub(crate) mod test_pki {
     pub(crate) fn gen_ca() -> (String, rcgen::Certificate, rcgen::KeyPair) {
         let key = rcgen::KeyPair::generate().expect("generate CA key");
         let mut params = rcgen::CertificateParams::new(Vec::<String>::new()).expect("CA params");
-        params.distinguished_name = distinguished_name("ZeroClaw Test CA");
+        params.distinguished_name = distinguished_name("Volt Agent Test CA");
         params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Constrained(0));
         params.key_usages = vec![
             rcgen::KeyUsagePurpose::KeyCertSign,
