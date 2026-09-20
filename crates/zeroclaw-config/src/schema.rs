@@ -19785,9 +19785,9 @@ async fn resolve_runtime_config_dirs(
                     WARN,
                     ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                         .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
-                    "ZEROCLAW_CONFIG_DIR is set; ZEROCLAW_DATA_DIR is ignored \
-                     (CONFIG_DIR pins both the config directory and the data \
-                     directory under it)."
+                    "VOLTD_CONFIG_DIR (or ZEROCLAW_CONFIG_DIR) is set; VOLTD_DATA_DIR \
+                     (or ZEROCLAW_DATA_DIR) is ignored (CONFIG_DIR pins both the \
+                     config directory and the data directory under it)."
                 );
             }
             if crate::legacy_env::env_with_legacy("VOLTD_WORKSPACE", "ZEROCLAW_WORKSPACE")
@@ -19798,9 +19798,10 @@ async fn resolve_runtime_config_dirs(
                     WARN,
                     ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                         .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
-                    "ZEROCLAW_CONFIG_DIR is set; ZEROCLAW_WORKSPACE (deprecated) \
-                     is ignored. ZEROCLAW_WORKSPACE will be removed in a future \
-                     release; switch any remaining references to ZEROCLAW_DATA_DIR."
+                    "VOLTD_CONFIG_DIR (or ZEROCLAW_CONFIG_DIR) is set; VOLTD_WORKSPACE \
+                     (or ZEROCLAW_WORKSPACE, deprecated) is ignored. VOLTD_WORKSPACE/ \
+                     ZEROCLAW_WORKSPACE will be removed in a future release; switch \
+                     any remaining references to VOLTD_DATA_DIR."
                 );
             }
             let zeroclaw_dir = expand_tilde_path(custom_config_dir);
@@ -19824,9 +19825,10 @@ async fn resolve_runtime_config_dirs(
                 WARN,
                 ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                     .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
-                "ZEROCLAW_DATA_DIR and ZEROCLAW_WORKSPACE are both set; \
-                 ZEROCLAW_WORKSPACE (deprecated) is ignored. \
-                 ZEROCLAW_WORKSPACE will be removed in a future release."
+                "VOLTD_DATA_DIR (or ZEROCLAW_DATA_DIR) and VOLTD_WORKSPACE (or \
+                 ZEROCLAW_WORKSPACE) are both set; VOLTD_WORKSPACE/ZEROCLAW_WORKSPACE \
+                 (deprecated) is ignored. VOLTD_WORKSPACE/ZEROCLAW_WORKSPACE will be \
+                 removed in a future release."
             );
         }
         let expanded = expand_tilde_path(&custom_data);
@@ -19842,8 +19844,9 @@ async fn resolve_runtime_config_dirs(
             WARN,
             ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                 .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
-            "ZEROCLAW_WORKSPACE is deprecated; use ZEROCLAW_DATA_DIR instead. \
-             ZEROCLAW_WORKSPACE will be removed in a future release."
+            "VOLTD_WORKSPACE/ZEROCLAW_WORKSPACE is deprecated; use VOLTD_DATA_DIR \
+             instead. VOLTD_WORKSPACE/ZEROCLAW_WORKSPACE will be removed in a \
+             future release."
         );
         let expanded = expand_tilde_path(&custom_workspace);
         let (zeroclaw_dir, data_dir) = resolve_config_dir_for_data(&expanded);

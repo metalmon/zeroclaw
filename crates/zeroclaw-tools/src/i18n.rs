@@ -160,7 +160,9 @@ fn missing_tool_string(key: &str) -> String {
 }
 
 fn detect_locale() -> String {
-    if let Ok(custom) = std::env::var("ZEROCLAW_CONFIG_DIR") {
+    if let Some(custom) =
+        zeroclaw_config::legacy_env::env_with_legacy("VOLTD_CONFIG_DIR", "ZEROCLAW_CONFIG_DIR")
+    {
         let trimmed = custom.trim();
         if !trimmed.is_empty() {
             let path = std::path::PathBuf::from(trimmed).join("config.toml");

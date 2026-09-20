@@ -4035,9 +4035,16 @@ fn main() -> Result<()> {
     if let Some(config_dir) = probe_config_dir(&command, std::env::args_os())
         && !config_dir.trim().is_empty()
     {
+        // Set BOTH the new and legacy names so the flag wins regardless of
+        // which one a reader checks first: `env_with_legacy` reads
+        // VOLTD_CONFIG_DIR before ZEROCLAW_CONFIG_DIR, so a stale exported
+        // VOLTD_CONFIG_DIR could otherwise shadow this --config-dir flag.
         // SAFETY: this synchronous bootstrap runs before the Tokio runtime (and
         // therefore its worker threads) is constructed.
-        unsafe { std::env::set_var("ZEROCLAW_CONFIG_DIR", config_dir) };
+        unsafe {
+            std::env::set_var("VOLTD_CONFIG_DIR", &config_dir);
+            std::env::set_var("ZEROCLAW_CONFIG_DIR", &config_dir);
+        }
     }
 
     async_main(command)
