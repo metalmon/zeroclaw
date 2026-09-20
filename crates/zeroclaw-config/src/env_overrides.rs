@@ -480,6 +480,76 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn losing_duplicate_malformed_value_is_never_applied_or_validated() {
+        let _guard = super::env_test_lock().await;
+        // VOLTD_ wins the path collision, so ZEROCLAW_'s value here is
+        // dedup'd out in Pass 2 BEFORE `set_prop` (the value-typed parse)
+        // ever sees it. Pin that: a value that would fail to parse into
+        // `u64` if it were ever applied ("not-a-number" for
+        // `request_timeout_secs: u64`) must NOT cause a hard failure, and
+        // must not affect the winning VOLTD_ value.
+        //
+        // This is the true, documented behavior of this implementation: the
+        // *path* of every matching env var (winner or loser) is resolved
+        // and validated in Pass 1 (so an unknown/non-overridable *path* on
+        // a loser still hard-fails — see `voltd_unknown_path_hard_fails_like_legacy`
+        // and `schema_version_override_rejected`), but the *value* of a
+        // losing duplicate is never parsed or applied at all, because
+        // `set_prop` (where value-typed parsing happens) is only called
+        // once per path, for the Pass-2 winner.
+        let _v1 = EnvVarGuard::set("VOLTD_gateway__request_timeout_secs", "120");
+        let _v2 = EnvVarGuard::set("ZEROCLAW_gateway__request_timeout_secs", "not-a-number");
+
+        let mut config = Config::default();
+        let applied = apply_env_overrides(&mut config).expect(
+            "must NOT hard-fail: the losing ZEROCLAW_ duplicate's malformed value is \
+             dedup'd out before set_prop would ever parse/validate it",
+        );
+
+        assert!(applied.paths.contains("gateway.request_timeout_secs"));
+        assert_eq!(
+            config.gateway.request_timeout_secs, 120,
+            "VOLTD_ wins; the malformed ZEROCLAW_ value must never reach set_prop",
+        );
+    }
+
+    #[tokio::test]
+    async fn voltd_wins_regardless_of_env_var_set_order() {
+        let _guard = super::env_test_lock().await;
+
+        // Order 1: ZEROCLAW_ guard created first, then VOLTD_.
+        {
+            let _v_zc = EnvVarGuard::set("ZEROCLAW_gateway__request_timeout_secs", "999");
+            let _v_vd = EnvVarGuard::set("VOLTD_gateway__request_timeout_secs", "120");
+
+            let mut config = Config::default();
+            let applied = apply_env_overrides(&mut config).expect("apply succeeds");
+            assert!(applied.paths.contains("gateway.request_timeout_secs"));
+            assert_eq!(
+                config.gateway.request_timeout_secs, 120,
+                "VOLTD_ must win when ZEROCLAW_'s guard was created first \
+                 (precedence is rank-based, not insertion-order-based)",
+            );
+        }
+
+        // Order 2: VOLTD_ guard created first, then ZEROCLAW_ — the reverse.
+        {
+            let _v_vd = EnvVarGuard::set("VOLTD_gateway__request_timeout_secs", "120");
+            let _v_zc = EnvVarGuard::set("ZEROCLAW_gateway__request_timeout_secs", "999");
+
+            let mut config = Config::default();
+            let applied = apply_env_overrides(&mut config).expect("apply succeeds");
+            assert!(applied.paths.contains("gateway.request_timeout_secs"));
+            assert_eq!(
+                config.gateway.request_timeout_secs, 120,
+                "VOLTD_ must win when VOLTD_'s guard was created first too — \
+                 same outcome both ways proves rank-based precedence, not \
+                 HashMap iteration order or accidental insertion order",
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn voltd_unknown_path_hard_fails_like_legacy() {
         let _guard = super::env_test_lock().await;
         let _v = EnvVarGuard::set("VOLTD_no__such__field", "x");
