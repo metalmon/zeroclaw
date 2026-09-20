@@ -1,5 +1,5 @@
 [Unit]
-Description=ZeroClaw AI Hardware Agent
+Description=Volt Agent
 Documentation=https://github.com/zeroclaw/zeroclaw
 After=network-online.target
 Wants=network-online.target
@@ -9,7 +9,7 @@ Type=simple
 User=@@RPI_USER@@
 SupplementaryGroups=gpio spi i2c
 WorkingDirectory=/home/@@RPI_USER@@/zeroclaw
-ExecStart=/home/@@RPI_USER@@/zeroclaw/zeroclaw gateway start
+ExecStart=/home/@@RPI_USER@@/zeroclaw/voltd gateway start
 Restart=on-failure
 RestartSec=5
 EnvironmentFile=/home/@@RPI_USER@@/zeroclaw/.env

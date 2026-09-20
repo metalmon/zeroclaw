@@ -30,7 +30,7 @@ RPI_PORT="${RPI_PORT:-22}"
 RPI_DIR="${RPI_DIR:-/home/${RPI_USER}/zeroclaw}"
 TARGET="aarch64-unknown-linux-gnu"
 FEATURES="hardware,peripheral-rpi"
-BINARY="target/${TARGET}/release/zeroclaw"
+BINARY="target/${TARGET}/release/voltd"
 SSH_OPTS="-p ${RPI_PORT} -o StrictHostKeyChecking=no -o ConnectTimeout=10"
 # scp uses -P (uppercase) for port; ssh uses -p (lowercase)
 SCP_OPTS="-P ${RPI_PORT} -o StrictHostKeyChecking=no -o ConnectTimeout=10"
@@ -125,10 +125,10 @@ ls -lh "${BINARY}"
 
 # ── 2. Stop running service (if any) so binary can be overwritten ─────────────
 echo ""
-echo "==> Stopping zeroclaw service (if running)"
+echo "==> Stopping voltd service (if running)"
 # shellcheck disable=SC2029
 ${SSH_CMD} ${SSH_OPTS} "${RPI_USER}@${RPI_HOST}" \
-  "sudo systemctl stop zeroclaw 2>/dev/null || true"
+  "sudo systemctl stop voltd 2>/dev/null || true"
 
 # ── 3. Create remote directory ────────────────────────────────────────────────
 echo ""
@@ -138,8 +138,8 @@ ${SSH_CMD} ${SSH_OPTS} "${RPI_USER}@${RPI_HOST}" "mkdir -p ${RPI_DIR}"
 
 # ── 4. Deploy binary ──────────────────────────────────────────────────────────
 echo ""
-echo "==> Deploying binary to ${RPI_USER}@${RPI_HOST}:${RPI_DIR}/zeroclaw"
-${SCP_CMD} ${SCP_OPTS} "${BINARY}" "${RPI_USER}@${RPI_HOST}:${RPI_DIR}/zeroclaw"
+echo "==> Deploying binary to ${RPI_USER}@${RPI_HOST}:${RPI_DIR}/voltd"
+${SCP_CMD} ${SCP_OPTS} "${BINARY}" "${RPI_USER}@${RPI_HOST}:${RPI_DIR}/voltd"
 
 # ── 4. Create .env skeleton (if it doesn't exist) ────────────────────────────
 ENV_DEST="${RPI_DIR}/.env"
@@ -177,20 +177,20 @@ if [[ -n "${EXISTING_API_KEY}" ]]; then
 fi
 
 # ── 6. Deploy and enable systemd service ─────────────────────────────────────
-SERVICE_DEST="/etc/systemd/system/zeroclaw.service"
+SERVICE_DEST="/etc/systemd/system/voltd.service"
 echo ""
 echo "==> Installing systemd service (requires sudo on the Pi)"
 _RENDERED_SERVICE=$(mktemp)
-sed "s|@@RPI_USER@@|${RPI_USER}|g" scripts/zeroclaw.service > "${_RENDERED_SERVICE}"
-${SCP_CMD} ${SCP_OPTS} "${_RENDERED_SERVICE}" "${RPI_USER}@${RPI_HOST}:/tmp/zeroclaw.service"
+sed "s|@@RPI_USER@@|${RPI_USER}|g" scripts/voltd.service > "${_RENDERED_SERVICE}"
+${SCP_CMD} ${SCP_OPTS} "${_RENDERED_SERVICE}" "${RPI_USER}@${RPI_HOST}:/tmp/voltd.service"
 rm -f "${_RENDERED_SERVICE}"
 # shellcheck disable=SC2029
 ${SSH_CMD} ${SSH_OPTS} "${RPI_USER}@${RPI_HOST}" \
-  "sudo mv /tmp/zeroclaw.service ${SERVICE_DEST} && \
+  "sudo mv /tmp/voltd.service ${SERVICE_DEST} && \
    sudo systemctl daemon-reload && \
-   sudo systemctl enable zeroclaw && \
-   sudo systemctl restart zeroclaw && \
-   sudo systemctl status zeroclaw --no-pager || true"
+   sudo systemctl enable voltd && \
+   sudo systemctl restart voltd && \
+   sudo systemctl status voltd --no-pager || true"
 
 # ── 7. Runtime permissions ───────────────────────────────────────────────────
 echo ""
@@ -223,4 +223,4 @@ echo "    ZeroClaw is running at http://${RPI_HOST}:8080"
 echo "    POST /api/chat  — chat with the agent"
 echo "    GET  /health    — health check"
 echo ""
-echo "    To check logs: ssh ${RPI_USER}@${RPI_HOST} 'journalctl -u zeroclaw -f'"
+echo "    To check logs: ssh ${RPI_USER}@${RPI_HOST} 'journalctl -u voltd -f'"

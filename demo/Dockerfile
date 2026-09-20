@@ -41,10 +41,10 @@ RUN --mount=type=cache,id=zeroclaw-cargo-registry,target=/usr/local/cargo/regist
         --example esp32_sim \
         --features "hardware dev-sim" \
     && cargo build \
-        --bin zeroclaw \
+        --bin voltd \
         --no-default-features \
         --features "agent-runtime hardware dev-sim" \
-    && cp /build/target/debug/zeroclaw /tmp/zeroclaw \
+    && cp /build/target/debug/voltd /tmp/voltd \
     && cp /build/target/debug/examples/esp32_sim /tmp/esp32_sim
 
 # ─── Stage 2: runtime ──────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY --from=builder /tmp/zeroclaw /usr/local/bin/zeroclaw
+COPY --from=builder /tmp/voltd /usr/local/bin/voltd
 COPY --from=builder /tmp/esp32_sim /usr/local/bin/esp32_sim
 
 RUN mkdir -p /app/data/config /app/data/workspace

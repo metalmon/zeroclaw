@@ -31,4 +31,4 @@ echo
 echo "Note: shell scripts in demo/ are English-only (demo harness)."
 echo
 exec docker compose exec zeroclaw \
-  zeroclaw daemon --config-dir /app/data/config "$@"
+  voltd daemon --config-dir /app/data/config "$@"

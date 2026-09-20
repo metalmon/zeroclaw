@@ -21,16 +21,16 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::{Child, Command as TokioCommand};
 use zeroclaw_config::schema::Config;
 
-const SERVICE_LABEL: &str = "com.zeroclaw.daemon";
-const WINDOWS_TASK_NAME: &str = "ZeroClaw Daemon";
+const SERVICE_LABEL: &str = "com.volt.daemon";
+const WINDOWS_TASK_NAME: &str = "Volt Daemon";
 #[cfg(any(target_os = "linux", target_os = "macos", test))]
 const SERVICE_LOG_MAX_BYTES: u64 = 8 * 1024 * 1024;
 #[cfg(any(target_os = "linux", target_os = "macos", test))]
 const SERVICE_LOG_COMPACT_BYTES: u64 = 4 * 1024 * 1024;
 #[cfg(any(target_os = "linux", test))]
-const OPENRC_STDOUT_LOG: &str = "/var/log/zeroclaw/access.log";
+const OPENRC_STDOUT_LOG: &str = "/var/log/voltd/access.log";
 #[cfg(any(target_os = "linux", test))]
-const OPENRC_STDERR_LOG: &str = "/var/log/zeroclaw/error.log";
+const OPENRC_STDERR_LOG: &str = "/var/log/voltd/error.log";
 #[cfg(any(target_os = "macos", test))]
 const LAUNCHD_LOG_PENDING_BYTES: usize = 1024 * 1024;
 #[cfg(any(target_os = "macos", all(test, unix)))]
@@ -603,18 +603,18 @@ fn linux_service_base(config: &Config) -> String {
         .and_then(Path::file_name)
         .and_then(|name| name.to_str())
     else {
-        return "zeroclaw".to_string();
+        return "voltd".to_string();
     };
     let base = dir_name.strip_prefix('.').unwrap_or(dir_name);
-    if base == "zeroclaw" {
+    if base == "voltd" {
         return base.to_string();
     }
-    if let Some(suffix) = base.strip_prefix("zeroclaw-")
+    if let Some(suffix) = base.strip_prefix("voltd-")
         && !suffix.is_empty()
     {
         return base.to_string();
     }
-    "zeroclaw".to_string()
+    "voltd".to_string()
 }
 
 fn linux_systemd_unit(config: &Config) -> String {
@@ -627,7 +627,7 @@ fn linux_openrc_service(config: &Config) -> String {
 
 fn ensure_linux_default_install_scope(config: &Config, action: &str) -> Result<()> {
     let service = linux_service_base(config);
-    if service == "zeroclaw" {
+    if service == "voltd" {
         return Ok(());
     }
 
@@ -637,7 +637,7 @@ fn ensure_linux_default_install_scope(config: &Config, action: &str) -> Result<(
         .map(|path| path.display().to_string())
         .unwrap_or_else(|| config.config_path.display().to_string());
     bail!(
-        "Linux service {action} only manages the default zeroclaw service. \
+        "Linux service {action} only manages the default voltd service. \
          Config directory {config_dir} maps to named service {service}; \
          provide that unit manually, then use service status/start/stop/restart/logs to manage it."
     );
@@ -1138,8 +1138,8 @@ pub fn uninstall(config: &Config, init_system: InitSystem) -> Result<()> {
             .parent()
             .map_or_else(|| PathBuf::from("."), PathBuf::from);
         for wrapper in [
-            base_dir.join("zeroclaw-daemon.cmd"),
-            base_dir.join("logs").join("zeroclaw-daemon.cmd"),
+            base_dir.join("voltd-daemon.cmd"),
+            base_dir.join("logs").join("voltd-daemon.cmd"),
         ] {
             if wrapper.exists() {
                 fs::remove_file(&wrapper).ok();
@@ -1164,20 +1164,20 @@ fn uninstall_linux(config: &Config, init_system: InitSystem) -> Result<()> {
             println!("✅ Service uninstalled ({})", file.display().to_string());
         }
         InitSystem::Openrc => {
-            let init_script = Path::new("/etc/init.d/zeroclaw");
+            let init_script = Path::new("/etc/init.d/voltd");
             if init_script.exists() {
                 if let Err(err) =
-                    run_checked(Command::new("rc-update").args(["del", "zeroclaw", "default"]))
+                    run_checked(Command::new("rc-update").args(["del", "voltd", "default"]))
                 {
                     eprintln!(
-                        "⚠️  Warning: Could not remove zeroclaw from OpenRC default runlevel: {err}"
+                        "⚠️  Warning: Could not remove voltd from OpenRC default runlevel: {err}"
                     );
                 }
                 fs::remove_file(init_script).with_context(|| {
                     format!("Failed to remove {}", init_script.display().to_string())
                 })?;
             }
-            println!("✅ Service uninstalled (/etc/init.d/zeroclaw)");
+            println!("✅ Service uninstalled (/etc/init.d/voltd)");
         }
         InitSystem::Auto => unreachable!("Auto should be resolved before this point"),
     }
@@ -1294,7 +1294,7 @@ fn install_macos(config: &Config) -> Result<()> {
     if let Some(ref var_dir) = homebrew_var_dir {
         println!("   Homebrew var: {}", var_dir.display());
     }
-    println!("   Start with: zeroclaw service start");
+    println!("   Start with: voltd service start");
     Ok(())
 }
 
@@ -1386,12 +1386,12 @@ fn install_linux_systemd(config: &Config) -> Result<()> {
 
     fs::write(&file, unit)?;
     let _ = run_checked(Command::new("systemctl").args(["--user", "daemon-reload"]));
-    let _ = run_checked(Command::new("systemctl").args(["--user", "enable", "zeroclaw.service"]));
+    let _ = run_checked(Command::new("systemctl").args(["--user", "enable", "voltd.service"]));
     println!(
         "✅ Installed systemd user service: {}",
         file.display().to_string()
     );
-    println!("   Start with: zeroclaw service start");
+    println!("   Start with: voltd service start");
     warn_if_systemd_user_linger_disabled();
     Ok(())
 }
@@ -1740,7 +1740,7 @@ fn ensure_openrc_runtime_path_writable(path: &Path) -> Result<()> {
         };
         bail!(
             "OpenRC runtime user 'zeroclaw' cannot write {} ({details}). \
-             Re-run `sudo zeroclaw service install` and ensure ownership is zeroclaw:zeroclaw.",
+             Re-run `sudo voltd service install` and ensure ownership is zeroclaw:zeroclaw.",
             path.display().to_string(),
         );
     }
@@ -1776,7 +1776,7 @@ fn warn_if_binary_in_home(exe_path: &Path) {
         eprintln!(
             "⚠️  Warning: Binary path '{}' appears to be in a user home directory.\n\
              For system-wide OpenRC service, consider installing to /usr/local/bin:\n\
-             sudo cp '{}' /usr/local/bin/zeroclaw",
+             sudo cp '{}' /usr/local/bin/voltd",
             exe_path.display().to_string(),
             exe_path.display()
         );
@@ -1790,7 +1790,7 @@ fn generate_openrc_script(exe_path: &Path, config_dir: &Path) -> String {
     format!(
         r#"#!/sbin/openrc-run
 
-name="zeroclaw"
+name="voltd"
 description="ZeroClaw daemon"
 
 command="{exe}"
@@ -1823,7 +1823,7 @@ start_pre() {{
 }
 
 fn resolve_openrc_executable() -> Result<PathBuf> {
-    let preferred = Path::new("/usr/local/bin/zeroclaw");
+    let preferred = Path::new("/usr/local/bin/voltd");
     if preferred.exists() {
         return Ok(preferred.to_path_buf());
     }
@@ -1836,14 +1836,14 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
     if !is_root() {
         bail!(
             "OpenRC service installation requires root privileges.\n\
-             Please run with sudo: sudo zeroclaw service install"
+             Please run with sudo: sudo voltd service install"
         );
     }
 
     let exe = resolve_openrc_executable()?;
     if !openrc_executable_path_is_safe(&exe) {
         bail!(
-            "OpenRC service executable path contains unsupported shell characters: {}. Install ZeroClaw at /usr/local/bin/zeroclaw and retry",
+            "OpenRC service executable path contains unsupported shell characters: {}. Install ZeroClaw at /usr/local/bin/voltd and retry",
             exe.display()
         );
     }
@@ -1852,7 +1852,7 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
 
     let config_dir = Path::new("/etc/zeroclaw");
     let workspace_dir = config_dir.join("workspace");
-    let log_dir = Path::new("/var/log/zeroclaw");
+    let log_dir = Path::new("/var/log/voltd");
 
     if !config_dir.exists() {
         fs::create_dir_all(config_dir)
@@ -1972,7 +1972,7 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
     }
 
     let init_script = generate_openrc_script(&exe, config_dir);
-    let init_path = Path::new("/etc/init.d/zeroclaw");
+    let init_path = Path::new("/etc/init.d/voltd");
     fs::write(init_path, init_script)
         .with_context(|| format!("Failed to write {}", init_path.display().to_string()))?;
 
@@ -1987,10 +1987,10 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
         })?;
     }
 
-    run_checked(Command::new("rc-update").args(["add", "zeroclaw", "default"]))?;
-    println!("✅ Installed OpenRC service: /etc/init.d/zeroclaw");
+    run_checked(Command::new("rc-update").args(["add", "voltd", "default"]))?;
+    println!("✅ Installed OpenRC service: /etc/init.d/voltd");
     println!("   Config path: /etc/zeroclaw/config.toml");
-    println!("   Start with: sudo zeroclaw service start");
+    println!("   Start with: sudo voltd service start");
     let _ = config;
     Ok(())
 }
@@ -2008,7 +2008,7 @@ fn install_windows(config: &Config) -> Result<()> {
     // the config dir root so the logs dir holds only `.log` files. (Previously
     // it landed in logs/, where a `.cmd` next to the daemon's log files reads
     // as misplaced.)
-    let wrapper = base_dir.join("zeroclaw-daemon.cmd");
+    let wrapper = base_dir.join("voltd-daemon.cmd");
     let stdout_log = logs_dir.join("daemon.stdout.log");
     let stderr_log = logs_dir.join("daemon.stderr.log");
 
@@ -2043,7 +2043,7 @@ fn install_windows(config: &Config) -> Result<()> {
     println!("✅ Installed Windows scheduled task: {}", task_name);
     println!("   Wrapper: {}", wrapper.display().to_string());
     println!("   Logs: {}", logs_dir.display().to_string());
-    println!("   Start with: zeroclaw service start");
+    println!("   Start with: voltd service start");
     Ok(())
 }
 
@@ -2068,7 +2068,7 @@ fn linux_service_file(config: &Config) -> Result<PathBuf> {
         .join(".config")
         .join("systemd")
         .join("user")
-        .join("zeroclaw.service"))
+        .join("voltd.service"))
 }
 
 fn linux_systemd_unit_file(config: &Config) -> Result<PathBuf> {
@@ -2338,12 +2338,9 @@ mod bounded_service_log_tests {
         assert_eq!(openrc_log_path(true), Path::new(OPENRC_STDERR_LOG));
         assert_eq!(
             openrc_log_path(false),
-            Path::new("/var/log/zeroclaw/access.log")
+            Path::new("/var/log/voltd/access.log")
         );
-        assert_eq!(
-            openrc_log_path(true),
-            Path::new("/var/log/zeroclaw/error.log")
-        );
+        assert_eq!(openrc_log_path(true), Path::new("/var/log/voltd/error.log"));
     }
 
     #[test]
@@ -2480,55 +2477,55 @@ mod linux_service_tests {
     #[test]
     fn linux_service_base_derives_named_instance_from_config_dir() {
         assert_eq!(
-            linux_service_base(&config_at("/home/user/.zeroclaw-p100-104/config.toml")),
-            "zeroclaw-p100-104"
+            linux_service_base(&config_at("/home/user/.voltd-p100-104/config.toml")),
+            "voltd-p100-104"
         );
         assert_eq!(
-            linux_service_base(&config_at("/home/user/zeroclaw-prod/config.toml")),
-            "zeroclaw-prod"
+            linux_service_base(&config_at("/home/user/voltd-prod/config.toml")),
+            "voltd-prod"
         );
     }
 
     #[test]
     fn linux_service_base_falls_back_for_default_and_unrelated_dirs() {
         assert_eq!(
-            linux_service_base(&config_at("/home/user/.zeroclaw/config.toml")),
-            "zeroclaw"
+            linux_service_base(&config_at("/home/user/.voltd/config.toml")),
+            "voltd"
         );
         assert_eq!(
             linux_service_base(&config_at("/tmp/scratch/config.toml")),
-            "zeroclaw"
+            "voltd"
         );
         assert_eq!(
-            linux_service_base(&config_at("/home/user/.zeroclaw-/config.toml")),
-            "zeroclaw"
+            linux_service_base(&config_at("/home/user/.voltd-/config.toml")),
+            "voltd"
         );
-        assert_eq!(linux_service_base(&config_at("config.toml")), "zeroclaw");
+        assert_eq!(linux_service_base(&config_at("config.toml")), "voltd");
     }
 
     #[test]
     fn linux_service_control_args_use_named_instance() {
-        let config = config_at("/home/user/.zeroclaw-p100-104/config.toml");
+        let config = config_at("/home/user/.voltd-p100-104/config.toml");
 
         assert_eq!(
             linux_systemd_action_args(&config, "start"),
-            ["--user", "start", "zeroclaw-p100-104.service"]
+            ["--user", "start", "voltd-p100-104.service"]
         );
         assert_eq!(
             linux_openrc_action_args(&config, "status"),
-            ["zeroclaw-p100-104", "status"]
+            ["voltd-p100-104", "status"]
         );
     }
 
     #[test]
     fn linux_openrc_log_dir_uses_named_instance() {
         assert_eq!(
-            linux_openrc_log_dir(&config_at("/home/user/.zeroclaw/config.toml")),
-            PathBuf::from("/var/log/zeroclaw")
+            linux_openrc_log_dir(&config_at("/home/user/.voltd/config.toml")),
+            PathBuf::from("/var/log/voltd")
         );
         assert_eq!(
-            linux_openrc_log_dir(&config_at("/home/user/.zeroclaw-p100-104/config.toml")),
-            PathBuf::from("/var/log/zeroclaw-p100-104")
+            linux_openrc_log_dir(&config_at("/home/user/.voltd-p100-104/config.toml")),
+            PathBuf::from("/var/log/voltd-p100-104")
         );
     }
 
@@ -2536,32 +2533,32 @@ mod linux_service_tests {
     fn linux_install_scope_rejects_named_instances() {
         assert!(
             ensure_linux_default_install_scope(
-                &config_at("/home/user/.zeroclaw/config.toml"),
+                &config_at("/home/user/.voltd/config.toml"),
                 "install"
             )
             .is_ok()
         );
 
         let err = ensure_linux_default_install_scope(
-            &config_at("/home/user/.zeroclaw-p100-104/config.toml"),
+            &config_at("/home/user/.voltd-p100-104/config.toml"),
             "install",
         )
         .unwrap_err()
         .to_string();
-        assert!(err.contains("only manages the default zeroclaw service"));
-        assert!(err.contains("zeroclaw-p100-104"));
+        assert!(err.contains("only manages the default voltd service"));
+        assert!(err.contains("voltd-p100-104"));
     }
 
     #[test]
     fn linux_journalctl_args_use_named_instance() {
-        let config = config_at("/home/user/.zeroclaw-p100-104/config.toml");
+        let config = config_at("/home/user/.voltd-p100-104/config.toml");
 
         assert_eq!(
             linux_journalctl_args(&config, 50, true),
             [
                 "--user",
                 "-u",
-                "zeroclaw-p100-104.service",
+                "voltd-p100-104.service",
                 "-n",
                 "50",
                 "--no-pager",
@@ -2627,9 +2624,9 @@ mod linux_service_tests {
     #[test]
     fn linux_service_file_stays_default_for_install_path() {
         let file =
-            linux_service_file(&config_at("/home/user/.zeroclaw-p100-104/config.toml")).unwrap();
+            linux_service_file(&config_at("/home/user/.voltd-p100-104/config.toml")).unwrap();
         let path = file.to_string_lossy();
-        assert!(path.ends_with(".config/systemd/user/zeroclaw.service"));
+        assert!(path.ends_with(".config/systemd/user/voltd.service"));
     }
 }
 
@@ -2672,12 +2669,12 @@ mod service_helper_tests {
     fn linux_service_file_has_expected_suffix() {
         let file = linux_service_file(&Config::default()).unwrap();
         let path = file.to_string_lossy();
-        assert!(path.ends_with(".config/systemd/user/zeroclaw.service"));
+        assert!(path.ends_with(".config/systemd/user/voltd.service"));
     }
 
     #[test]
     fn windows_task_name_is_constant() {
-        assert_eq!(windows_task_name(), "ZeroClaw Daemon");
+        assert_eq!(windows_task_name(), "Volt Daemon");
     }
 
     #[cfg(target_os = "windows")]
@@ -2743,7 +2740,7 @@ mod service_helper_tests {
         let script = generate_openrc_script(&exe_path, Path::new("/etc/zeroclaw"));
 
         assert!(script.starts_with("#!/sbin/openrc-run"));
-        assert!(script.contains("name=\"zeroclaw\""));
+        assert!(script.contains("name=\"voltd\""));
         assert!(script.contains("description=\"ZeroClaw daemon\""));
         assert!(script.contains("command=\"/usr/local/bin/zeroclaw\""));
         assert!(script.contains("command_args=\"--config-dir /etc/zeroclaw daemon\""));

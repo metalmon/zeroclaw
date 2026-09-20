@@ -377,7 +377,7 @@ assert plugin_runtime_config_command in windows_job
 assert plugin_runtime_admission_command in windows_job
 assert "-p zeroclaw-gateway" in windows_job
 assert "--features plugins-wasm" in windows_job
-assert "--bin zeroclaw" in windows_job
+assert "--bin voltd" in windows_job
 assert "plugin_registry::" in windows_job
 for admission_filter in (
     "plugin_runtime::",
@@ -422,8 +422,8 @@ assert windows_job.index('plugin_runtime_config_status=${PIPESTATUS[0]}') < wind
 assert windows_job.index(plugin_runtime_admission_command) < windows_job.index('plugin_runtime_admission_status=${PIPESTATUS[0]}')
 assert windows_job.index('plugin_runtime_admission_status=${PIPESTATUS[0]}') < windows_job.index("-p zeroclaw-gateway")
 assert windows_job.index("-p zeroclaw-gateway") < windows_job.index('plugin_gateway_status=${PIPESTATUS[0]}')
-assert windows_job.index('plugin_gateway_status=${PIPESTATUS[0]}') < windows_job.index("--bin zeroclaw")
-assert windows_job.index("--bin zeroclaw") < windows_job.index('plugin_cli_status=${PIPESTATUS[0]}')
+assert windows_job.index('plugin_gateway_status=${PIPESTATUS[0]}') < windows_job.index("--bin voltd")
+assert windows_job.index("--bin voltd") < windows_job.index('plugin_cli_status=${PIPESTATUS[0]}')
 assert windows_job.index('plugin_cli_status=${PIPESTATUS[0]}') < windows_job.index(plugin_root_command)
 assert windows_job.index(plugin_root_command) < windows_job.index('plugin_root_status=${PIPESTATUS[0]}')
 scoped_case = windows_job.split("\n            scoped)\n", 1)[1].split(

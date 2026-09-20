@@ -8,7 +8,7 @@ This directory contains everything needed to cross-compile ZeroClaw and deploy i
 |------|---------|
 | `deploy-rpi.sh` | One-shot cross-compile and deploy script |
 | `rpi-config.toml` | Production config template deployed to `~/.zeroclaw/config.toml` |
-| `zeroclaw.service` | systemd unit file installed on the Pi |
+| `voltd.service` | systemd unit file installed on the Pi |
 | `99-act-led.rules` | udev rule for ACT LED sysfs access without sudo |
 
 ---
@@ -73,12 +73,12 @@ After the first deploy, you must set your API key on the Pi (see [First-Time Set
 ## What the Deploy Script Does
 
 1. **Cross-compile** — builds a release binary for `aarch64-unknown-linux-gnu` with `--features hardware,peripheral-rpi`.
-2. **Stop service** — runs `sudo systemctl stop zeroclaw` on the Pi (continues if not yet installed).
+2. **Stop service** — runs `sudo systemctl stop voltd` on the Pi (continues if not yet installed).
 3. **Create remote directory** — ensures `$RPI_DIR` exists on the Pi.
-4. **Copy binary** — SCPs the compiled binary to `$RPI_DIR/zeroclaw`.
+4. **Copy binary** — SCPs the compiled binary to `$RPI_DIR/voltd`.
 5. **Create `.env`** — writes an `.env` skeleton with an `ANTHROPIC_API_KEY=` placeholder to `$RPI_DIR/.env` with mode `600`. Skipped if the file already exists so an existing key is not overwritten.
 6. **Deploy config** — copies `rpi-config.toml` to `~/.zeroclaw/config.toml`, preserving any `api_key` already present in the file.
-7. **Install systemd service** — copies `zeroclaw.service` to `/etc/systemd/system/`, then enables and restarts it.
+7. **Install systemd service** — copies `voltd.service` to `/etc/systemd/system/`, then enables and restarts it.
 8. **Hardware permissions** — adds the deploy user to the `gpio` group, copies `99-act-led.rules` to `/etc/udev/rules.d/`, and resets the ACT LED trigger.
 
 ---
@@ -159,10 +159,10 @@ This allows toggling the Pi's green ACT LED without `sudo`.
 
 | Remote path | Source | Description |
 |------------|--------|-------------|
-| `~/zeroclaw/zeroclaw` | compiled binary | Main agent binary |
+| `~/zeroclaw/voltd` | compiled binary | Main agent binary |
 | `~/zeroclaw/.env` | created on first deploy | API key and environment variables |
 | `~/.zeroclaw/config.toml` | `rpi-config.toml` | Agent configuration |
-| `/etc/systemd/system/zeroclaw.service` | `zeroclaw.service` | systemd service unit |
+| `/etc/systemd/system/voltd.service` | `voltd.service` | systemd service unit |
 | `/etc/udev/rules.d/99-act-led.rules` | `99-act-led.rules` | ACT LED permissions |
 
 ---

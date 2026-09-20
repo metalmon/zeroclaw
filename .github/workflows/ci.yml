@@ -912,7 +912,7 @@ jobs:
             plugin_gateway_status=${PIPESTATUS[0]}
             cargo nextest run --locked --no-fail-fast \
               --features plugins-wasm-cranelift \
-              --bin zeroclaw \
+              --bin voltd \
               plugin_registry:: 2>&1 | tee "$plugin_cli_log"
             plugin_cli_status=${PIPESTATUS[0]}
             cargo nextest run --locked --no-fail-fast \

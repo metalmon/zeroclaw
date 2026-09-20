@@ -40,7 +40,7 @@ sys-locale = "0.3"
 name = "zeroclaw"
 # Workspace crates are publish = false during microkernel transition.
 publish = true
-default-run = "zeroclaw"
+default-run = "voltd"
 version.workspace = true
 edition.workspace = true
 authors = ["theonlyhennygod"]
@@ -65,11 +65,11 @@ include = [
 ]
 
 [[bin]]
-name = "zeroclaw"
+name = "voltd"
 path = "src/main.rs"
 
 [[bin]]
-name = "zeroclaw-acp-bridge"
+name = "volt-acp-bridge"
 path = "src/bin/zeroclaw-acp-bridge.rs"
 required-features = ["acp-bridge"]
 

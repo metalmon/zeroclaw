@@ -51,7 +51,7 @@ fn acp_stdio_session_new_omitted_cwd_returns_agent_workspace() {
 
     // Launch the real `zeroclaw acp` command against the isolated config/home.
     // stderr is discarded (logs go there); stdout carries only JSON-RPC frames.
-    let mut child = Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_voltd"))
         .arg("acp")
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")

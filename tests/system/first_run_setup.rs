@@ -420,7 +420,7 @@ fn submission(agent: &str, channels: Vec<SelectorChoice<ChannelQuickStart>>) -> 
 /// safe under parallel test execution — which is exactly why the loader is
 /// exercised in a child process rather than in-process.
 fn run_zeroclaw(install_root: &Path, args: &[&str]) -> std::process::Output {
-    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_zeroclaw"));
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_voltd"));
     for (key, _) in std::env::vars_os() {
         if key.to_string_lossy().starts_with("ZEROCLAW_") {
             command.env_remove(&key);

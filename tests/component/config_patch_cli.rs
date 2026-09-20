@@ -136,7 +136,7 @@ fn test_state(config: Config) -> AppState {
 }
 
 fn run_cli_patch_output(config_dir: &std::path::Path, patch_doc: &[u8]) -> Output {
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
     Command::new(bin)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
@@ -162,7 +162,7 @@ fn run_cli_patch_output(config_dir: &std::path::Path, patch_doc: &[u8]) -> Outpu
 /// Run `zeroclaw config patch - ` **without** `--json`, exercising the
 /// human-readable failure branch of `config_patch_fail_json_or_human`.
 fn run_cli_patch_output_human(config_dir: &std::path::Path, patch_doc: &[u8]) -> Output {
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
     Command::new(bin)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
@@ -715,7 +715,7 @@ fn config_patch_replace_on_dotted_resource_id_does_not_plant_phantom_sibling() {
 }
 
 fn run_cli_init(config_dir: &std::path::Path, section: &str) -> serde_json::Value {
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
     let output = Command::new(bin)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
@@ -734,7 +734,7 @@ fn run_cli_init(config_dir: &std::path::Path, section: &str) -> serde_json::Valu
 }
 
 fn run_cli_get(config_dir: &std::path::Path, path: &str) -> serde_json::Value {
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
     let output = Command::new(bin)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
@@ -754,7 +754,7 @@ fn run_cli_get(config_dir: &std::path::Path, path: &str) -> serde_json::Value {
 
 /// Run one non-interactive property write in a fresh CLI process.
 fn run_cli_set(config_dir: &std::path::Path, path: &str, value: &str) {
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
     let output = Command::new(bin)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")

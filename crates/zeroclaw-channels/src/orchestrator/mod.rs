@@ -423,10 +423,10 @@ struct ConfigFileStamp {
     len: u64,
 }
 
-const SYSTEMD_STATUS_ARGS: [&str; 3] = ["--user", "is-active", "zeroclaw.service"];
-const SYSTEMD_RESTART_ARGS: [&str; 3] = ["--user", "restart", "zeroclaw.service"];
-const OPENRC_STATUS_ARGS: [&str; 2] = ["zeroclaw", "status"];
-const OPENRC_RESTART_ARGS: [&str; 2] = ["zeroclaw", "restart"];
+const SYSTEMD_STATUS_ARGS: [&str; 3] = ["--user", "is-active", "voltd.service"];
+const SYSTEMD_RESTART_ARGS: [&str; 3] = ["--user", "restart", "voltd.service"];
+const OPENRC_STATUS_ARGS: [&str; 2] = ["voltd", "status"];
+const OPENRC_RESTART_ARGS: [&str; 2] = ["voltd", "restart"];
 
 #[derive(Clone, Copy)]
 #[allow(clippy::struct_excessive_bools)]
@@ -8932,7 +8932,7 @@ fn maybe_restart_managed_daemon_service() -> Result<bool> {
         let plist = home
             .join("Library")
             .join("LaunchAgents")
-            .join("com.zeroclaw.daemon.plist");
+            .join("com.volt.daemon.plist");
         if !plist.exists() {
             return Ok(false);
         }
@@ -8942,15 +8942,15 @@ fn maybe_restart_managed_daemon_service() -> Result<bool> {
             .output()
             .context("Failed to query launchctl list")?;
         let listed = String::from_utf8_lossy(&list_output.stdout);
-        if !listed.contains("com.zeroclaw.daemon") {
+        if !listed.contains("com.volt.daemon") {
             return Ok(false);
         }
 
         let _ = Command::new("launchctl")
-            .args(["stop", "com.zeroclaw.daemon"])
+            .args(["stop", "com.volt.daemon"])
             .output();
         let start_output = Command::new("launchctl")
-            .args(["start", "com.zeroclaw.daemon"])
+            .args(["start", "com.volt.daemon"])
             .output()
             .context("Failed to start launchd daemon service")?;
         if !start_output.status.success() {
@@ -8963,7 +8963,7 @@ fn maybe_restart_managed_daemon_service() -> Result<bool> {
 
     if cfg!(target_os = "linux") {
         // OpenRC (system-wide) takes precedence over systemd (user-level)
-        let openrc_init_script = PathBuf::from("/etc/init.d/zeroclaw");
+        let openrc_init_script = PathBuf::from("/etc/init.d/voltd");
         if openrc_init_script.exists()
             && let Ok(status_output) = Command::new("rc-service").args(OPENRC_STATUS_ARGS).output()
         {
@@ -8989,7 +8989,7 @@ fn maybe_restart_managed_daemon_service() -> Result<bool> {
             .join(".config")
             .join("systemd")
             .join("user")
-            .join("zeroclaw.service");
+            .join("voltd.service");
         if !unit_path.exists() {
             return Ok(false);
         }
@@ -32022,18 +32022,15 @@ This is an example JSON object for profile settings."#;
     fn maybe_restart_daemon_systemd_args_regression() {
         assert_eq!(
             SYSTEMD_STATUS_ARGS,
-            ["--user", "is-active", "zeroclaw.service"]
+            ["--user", "is-active", "voltd.service"]
         );
-        assert_eq!(
-            SYSTEMD_RESTART_ARGS,
-            ["--user", "restart", "zeroclaw.service"]
-        );
+        assert_eq!(SYSTEMD_RESTART_ARGS, ["--user", "restart", "voltd.service"]);
     }
 
     #[test]
     fn maybe_restart_daemon_openrc_args_regression() {
-        assert_eq!(OPENRC_STATUS_ARGS, ["zeroclaw", "status"]);
-        assert_eq!(OPENRC_RESTART_ARGS, ["zeroclaw", "restart"]);
+        assert_eq!(OPENRC_STATUS_ARGS, ["voltd", "status"]);
+        assert_eq!(OPENRC_RESTART_ARGS, ["voltd", "restart"]);
     }
 
     #[test]

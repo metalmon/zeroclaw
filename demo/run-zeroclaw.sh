@@ -35,4 +35,4 @@ echo "Note: shell scripts in demo/ are English-only (demo harness)."
 echo
 
 exec docker compose exec zeroclaw \
-  zeroclaw agent --config-dir /app/data/config --agent demo "$@"
+  voltd agent --config-dir /app/data/config --agent demo "$@"

@@ -78,15 +78,15 @@ build_kernel() {
     return
   fi
   if [[ -n "$FEATURES" ]]; then
-    echo "prepare-kernel: cargo build --profile $PROFILE --bin zeroclaw --target $triple --features $FEATURES" >&2
-    (cd "$REPO_ROOT" && cargo build --profile "$PROFILE" --bin zeroclaw --target "$triple" --features "$FEATURES")
+    echo "prepare-kernel: cargo build --profile $PROFILE --bin voltd --target $triple --features $FEATURES" >&2
+    (cd "$REPO_ROOT" && cargo build --profile "$PROFILE" --bin voltd --target "$triple" --features "$FEATURES")
   else
-    echo "prepare-kernel: cargo build --profile $PROFILE --bin zeroclaw --target $triple" >&2
-    (cd "$REPO_ROOT" && cargo build --profile "$PROFILE" --bin zeroclaw --target "$triple")
+    echo "prepare-kernel: cargo build --profile $PROFILE --bin voltd --target $triple" >&2
+    (cd "$REPO_ROOT" && cargo build --profile "$PROFILE" --bin voltd --target "$triple")
   fi
   local dir="release"
   [[ "$PROFILE" != "release" ]] && dir="$PROFILE"
-  echo "$REPO_ROOT/target/$triple/$dir/zeroclaw$exe"
+  echo "$REPO_ROOT/target/$triple/$dir/voltd$exe"
 }
 
 # Strip a copy of the kernel into place; re-sign on macOS (stripping
