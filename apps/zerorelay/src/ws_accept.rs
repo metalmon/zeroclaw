@@ -1,5 +1,5 @@
 //! The relay's connection entry point: read the HTTP request head, and either
-//! complete a `zeroclaw.relay.v1` WebSocket upgrade or refuse the connection.
+//! complete a `volt.relay.v1` WebSocket upgrade or refuse the connection.
 //!
 //! The relay plane is WebSocket-only. A non-upgrade request gets a plain 404 and
 //! the connection is closed - the relay serves no HTTP content of its own, so
@@ -53,7 +53,7 @@ where
     }
 
     let body = "this is a ZeroClaw relay endpoint; it speaks only the \
-                zeroclaw.relay.v1 WebSocket protocol. Enroll with zerocode.\n";
+                volt.relay.v1 WebSocket protocol. Enroll with zerocode.\n";
     let response = http_response("404 Not Found", "text/plain; charset=utf-8", body);
     stream.write_all(&response).await?;
     let _ = stream.shutdown().await;
@@ -237,7 +237,7 @@ mod tests {
         client.read_to_end(&mut buf).await.unwrap();
         let text = String::from_utf8_lossy(&buf);
         assert!(text.starts_with("HTTP/1.1 404 Not Found"), "got: {text}");
-        assert!(text.contains("zeroclaw.relay.v1"), "got: {text}");
+        assert!(text.contains("volt.relay.v1"), "got: {text}");
         assert!(matches!(task.await.unwrap(), Ok(Accepted::Rejected)));
     }
 

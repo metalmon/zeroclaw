@@ -1,7 +1,7 @@
 //! The ZeroClaw nominated relay: a standalone **blind forwarder**.
 //!
 //! Each party reaches the relay over an **outer** TLS + WebSocket session
-//! (`zeroclaw.relay.v1`). A daemon opens one persistent WS and registers a
+//! (`volt.relay.v1`). A daemon opens one persistent WS and registers a
 //! `node_id` through a signed Ed25519 handshake; many client connections are then
 //! multiplexed over that single WS by `conn_id`. A client opens its own WS, names
 //! a target `node_id`, and once paired the relay shuttles binary `DATA` messages

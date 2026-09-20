@@ -1,4 +1,4 @@
-//! Client-side relay wire frames for `zeroclaw.relay.v1`.
+//! Client-side relay wire frames for `volt.relay.v1`.
 //!
 //! Keep this small and dependency-light: zerocode is an RPC/wire client and must
 //! not link backend `zeroclaw-*` crates. The daemon and relay own their shared
@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-pub const SUBPROTOCOL: &str = "zeroclaw.relay.v1";
+pub const SUBPROTOCOL: &str = "volt.relay.v1";
 pub const MAX_CONTROL_FRAME: usize = 64 * 1024;
 pub const MAX_DATA_PAYLOAD: usize = 64 * 1024;
 /// Largest legal WebSocket message on the relay plane: a `DATA` message is an

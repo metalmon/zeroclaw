@@ -1,4 +1,4 @@
-//! Wire protocol `zeroclaw.relay.v1` for the ZeroClaw nominated relay.
+//! Wire protocol `volt.relay.v1` for the ZeroClaw nominated relay.
 //!
 //! The relay is a **blind forwarder**: it speaks an outer WebSocket session with
 //! each party (daemon and client) and pipes the *inner* client<->daemon mTLS
@@ -33,7 +33,7 @@
 use serde::{Deserialize, Serialize};
 
 /// The WebSocket subprotocol identifier offered/selected on every relay session.
-pub const SUBPROTOCOL: &str = "zeroclaw.relay.v1";
+pub const SUBPROTOCOL: &str = "volt.relay.v1";
 
 /// `Open.peer_hint` value for the narrow daemon enrollment route.
 pub const PEER_HINT_ENROLL: &str = "enroll";
