@@ -247,7 +247,7 @@ pub fn ensure_server_materials_protected(
         load_ca(&materials.ca_cert_path, &materials.ca_key_path, protection)?
     } else {
         let ca_key = rcgen::KeyPair::generate().context("generating CA key")?;
-        let ca_cert = ca_params("ZeroClaw WSS CA")?
+        let ca_cert = ca_params("Volt Agent WSS CA")?
             .self_signed(&ca_key)
             .context("self-signing CA certificate")?;
         write_public_pem(&materials.ca_cert_path, &ca_cert.pem())?;

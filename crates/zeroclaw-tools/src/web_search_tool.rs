@@ -573,7 +573,7 @@ impl WebSearchTool {
 
         let builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(self.timeout_secs))
-            .user_agent("ZeroClaw/1.0 (https://zeroclaw.ai)");
+            .user_agent("voltd/1.0 (https://zeroclaw.ai)");
         let builder =
             zeroclaw_config::schema::apply_runtime_proxy_to_builder(builder, "tool.web_search");
         let client = builder.build()?;
@@ -954,7 +954,7 @@ impl WebSearchTool {
 
         let builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(self.timeout_secs))
-            .user_agent("ZeroClaw/1.0");
+            .user_agent("voltd/1.0");
         let builder =
             zeroclaw_config::schema::apply_runtime_proxy_to_builder(builder, "tool.web_search");
         let client = builder.build()?;

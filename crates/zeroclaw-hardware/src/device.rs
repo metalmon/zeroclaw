@@ -409,7 +409,7 @@ impl DeviceRegistry {
                         DEBUG,
                         ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                             .with_attrs(::serde_json::json!({"port": info.port_path})),
-                        "skipping unknown device: no ZeroClaw firmware response"
+                        "skipping unknown device: no Volt Agent firmware response"
                     );
                     continue;
                 }

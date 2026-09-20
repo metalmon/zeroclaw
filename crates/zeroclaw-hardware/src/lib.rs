@@ -295,7 +295,7 @@ pub async fn boot(
         ::zeroclaw_log::record!(
             INFO,
             ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
-            "Say \"flash my pico\" to install ZeroClaw firmware automatically"
+            "Say \"flash my pico\" to install Volt Agent firmware automatically"
         );
     }
 

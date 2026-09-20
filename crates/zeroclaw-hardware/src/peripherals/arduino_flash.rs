@@ -116,7 +116,7 @@ pub fn flash_arduino_firmware(port: &str) -> Result<()> {
         let sketch_path = sketch_dir.to_string_lossy();
 
         // Compile
-        println!("Compiling ZeroClaw Arduino firmware...");
+        println!("Compiling Volt Agent Arduino firmware...");
         let compile = Command::new("arduino-cli")
             .args(["compile", "--fqbn", FQBN, &*sketch_path])
             .output()
@@ -145,7 +145,7 @@ pub fn flash_arduino_firmware(port: &str) -> Result<()> {
         Ok(())
     })?;
 
-    println!("ZeroClaw firmware flashed successfully.");
+    println!("Volt Agent firmware flashed successfully.");
     println!("The Arduino now supports: capabilities, gpio_read, gpio_write.");
     Ok(())
 }

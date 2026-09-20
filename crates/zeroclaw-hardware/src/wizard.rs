@@ -12,7 +12,7 @@ pub fn run_setup() -> Result<HardwareConfig> {
     println!(
         "  {} {}",
         style("ℹ").dim(),
-        style("ZeroClaw can talk to physical hardware (LEDs, sensors, motors).").dim()
+        style("Volt Agent can talk to physical hardware (LEDs, sensors, motors).").dim()
     );
     println!(
         "  {} {}",
@@ -73,7 +73,7 @@ pub fn run_setup() -> Result<HardwareConfig> {
     let recommended = recommended_wizard_default(&devices);
 
     let choice = Select::new()
-        .with_prompt("  How should ZeroClaw interact with the physical world?")
+        .with_prompt("  How should Volt Agent interact with the physical world?")
         .items(&options)
         .default(recommended)
         .interact()?;

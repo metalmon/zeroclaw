@@ -189,7 +189,7 @@ impl WebFetchTool {
             .timeout(Duration::from_secs(timeout_secs))
             .connect_timeout(Duration::from_secs(10))
             .redirect(redirect_policy)
-            .user_agent("ZeroClaw/0.1 (web_fetch)");
+            .user_agent("voltd/0.1 (web_fetch)");
         let client = pin_resolved_host(builder, target).build()?;
 
         Ok(RedirectGuardedClient {

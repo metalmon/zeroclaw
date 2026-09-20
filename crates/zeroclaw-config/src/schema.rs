@@ -9864,7 +9864,7 @@ const RISKY_CODEX_CLI_FLAGS: &[RiskyCodexCliFlag] = &[
         spellings: &["--cd", "-C"],
         display: "--cd / -C",
         value: RiskyCodexCliArgValue::AnyValue,
-        effect: "replace the ZeroClaw-validated Codex working root",
+        effect: "replace the Volt Agent-validated Codex working root",
     },
     // A named profile is layered over the base user config and can replace its
     // approval, sandbox, permission, and workspace boundary settings.
@@ -17769,7 +17769,7 @@ fn default_webauthn_rp_origin() -> String {
 }
 
 fn default_webauthn_rp_name() -> String {
-    "ZeroClaw".into()
+    "Volt Agent".into()
 }
 
 /// OTP validation strategy.
@@ -20000,7 +20000,7 @@ pub async fn ensure_bootstrap_files(workspace_dir: &Path) -> Result<()> {
         (
             "IDENTITY.md",
             "# IDENTITY.md — Who Am I?\n\n\
-             I am ZeroClaw, an autonomous AI agent.\n\n\
+             I am Volt Agent, an autonomous AI agent.\n\n\
              ## Traits\n\
              - Helpful, precise, and safety-conscious\n\
              - I prioritize clarity and correctness\n",
@@ -20008,7 +20008,7 @@ pub async fn ensure_bootstrap_files(workspace_dir: &Path) -> Result<()> {
         (
             "SOUL.md",
             "# SOUL.md — Who You Are\n\n\
-             You are ZeroClaw, an autonomous AI agent.\n\n\
+             You are Volt Agent, an autonomous AI agent.\n\n\
              ## Core Principles\n\
              - Be helpful and accurate\n\
              - Respect user intent and boundaries\n\
@@ -20966,7 +20966,7 @@ impl Config {
             warnings.push(crate::validation_warnings::ValidationWarning::new(
                 CODEX_CLI_EXTRA_ARGS_SECURITY_BOUNDARY_WARNING,
                 format!(
-                    "Codex CLI argument `{}` can {}. ZeroClaw allows this operator-controlled \
+                    "Codex CLI argument `{}` can {}. Volt Agent allows this operator-controlled \
                      argument without blocking; verify that the resulting trust boundary is \
                      intentional.",
                     risky_match.flag.display, risky_match.flag.effect

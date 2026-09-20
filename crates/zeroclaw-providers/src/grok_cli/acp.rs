@@ -561,7 +561,7 @@ where
         result: None,
         error: Some(JsonRpcError {
             code: METHOD_NOT_FOUND,
-            message: "Method not supported by the ZeroClaw ACP client".to_string(),
+            message: "Method not supported by the Volt Agent ACP client".to_string(),
             data: None,
         }),
         id,
@@ -594,7 +594,7 @@ where
         result: None,
         error: Some(JsonRpcError {
             code: METHOD_NOT_FOUND,
-            message: "Method not supported by the ZeroClaw ACP client".to_string(),
+            message: "Method not supported by the Volt Agent ACP client".to_string(),
             data: None,
         }),
         id,

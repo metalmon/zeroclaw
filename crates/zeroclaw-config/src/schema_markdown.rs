@@ -391,7 +391,7 @@ pub fn generate(root: &Value) -> String {
     let mut out = String::new();
     out.push_str("# Config Reference\n\n");
     out.push_str(
-        "ZeroClaw is configured via a TOML file. All fields are optional unless noted.\n\n",
+        "Volt Agent is configured via a TOML file. All fields are optional unless noted.\n\n",
     );
 
     let Some(props) = root.get("properties").and_then(Value::as_object) else {

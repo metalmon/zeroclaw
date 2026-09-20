@@ -61,7 +61,7 @@ impl DatasheetManager {
         let dest = self.datasheet_dir.join(&filename);
 
         let client = reqwest::Client::builder()
-            .user_agent("ZeroClaw/0.1 (datasheet downloader)")
+            .user_agent("voltd/0.1 (datasheet downloader)")
             .timeout(std::time::Duration::from_secs(30))
             .build()?;
 

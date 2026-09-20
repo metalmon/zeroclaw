@@ -1931,7 +1931,7 @@ pub async fn run_gateway(
     }
 
     let pfx = path_prefix.unwrap_or("");
-    println!("🦀 ZeroClaw Gateway listening on http://{display_addr}{pfx}");
+    println!("🦀 Volt Agent Gateway listening on http://{display_addr}{pfx}");
     if let Some(ref url) = tunnel_url {
         println!("  🌐 Public URL: {url}");
     }
@@ -2357,7 +2357,7 @@ pub async fn run_gateway(
                         });
                     }
                     _ = shutdown_signal.changed() => {
-                        ::zeroclaw_log::record!(INFO, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note), "ZeroClaw public gateway listener shutting down");
+                        ::zeroclaw_log::record!(INFO, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note), "Volt Agent public gateway listener shutting down");
                         break;
                     }
                 }
@@ -2378,7 +2378,7 @@ pub async fn run_gateway(
             ::zeroclaw_log::record!(
                 INFO,
                 ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
-                "ZeroClaw Gateway shutting down"
+                "Volt Agent Gateway shutting down"
             );
         })
         .await?;
@@ -2533,7 +2533,7 @@ pub async fn run_gateway(
                         });
                     }
                     _ = shutdown_signal.changed() => {
-                        ::zeroclaw_log::record!(INFO, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note), "ZeroClaw Gateway shutting down");
+                        ::zeroclaw_log::record!(INFO, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note), "Volt Agent Gateway shutting down");
                         break;
                     }
                 }
@@ -2549,7 +2549,7 @@ pub async fn run_gateway(
                 ::zeroclaw_log::record!(
                     INFO,
                     ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
-                    "ZeroClaw Gateway shutting down"
+                    "Volt Agent Gateway shutting down"
                 );
             })
             .await?;

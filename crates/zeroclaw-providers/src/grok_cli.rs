@@ -562,7 +562,7 @@ impl GrokCliModelProvider {
             if RESERVED_EXTRA_ARG_FLAGS.contains(&flag) {
                 anyhow::bail!(
                     "grok_cli extra_args must not include reserved flag `{flag}`. \
-                     ACP transport, prompt, model, session, cwd, and update policy are owned by ZeroClaw."
+                     ACP transport, prompt, model, session, cwd, and update policy are owned by Volt Agent."
                 );
             }
             if has_inline_value || VALUELESS_EXTRA_ARG_FLAGS.contains(&flag) {

@@ -426,7 +426,7 @@ pub fn build_spec() -> serde_json::Value {
     let mut spec = serde_json::json!({
         "openapi": "3.1.0",
         "info": {
-            "title": "ZeroClaw Gateway — Config CRUD",
+            "title": "Volt Agent Gateway — Config CRUD",
             "version": env!("CARGO_PKG_VERSION"),
             "description": "Per-property CRUD endpoints over the same `Config` mutation core that `zeroclaw config get/set/list/init/migrate` uses on the CLI. See https://github.com/zeroclaw-labs/zeroclaw/issues/6175 for the full surface and acceptance checklist.",
         },
@@ -585,7 +585,7 @@ pub fn build_spec() -> serde_json::Value {
     serde_json::json!({
         "openapi": "3.1.0",
         "info": {
-            "title": "ZeroClaw Gateway",
+            "title": "Volt Agent Gateway",
             "version": env!("CARGO_PKG_VERSION"),
             "description": "OpenAPI generation requires the `schema-export` feature; this build was compiled without it.",
         },

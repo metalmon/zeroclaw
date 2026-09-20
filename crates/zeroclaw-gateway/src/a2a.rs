@@ -164,9 +164,9 @@ pub(crate) fn build_catalog_card_with_endpoint(
     }
 
     AgentCard {
-        name: "ZeroClaw agents".to_string(),
+        name: "Volt Agent agents".to_string(),
         description: "Discovery catalog enumerating published A2A agents on \
-                      this ZeroClaw install. Not a runnable agent; each entry \
+                      this Volt Agent install. Not a runnable agent; each entry \
                       below serves its own A2A card and endpoint. Skills are \
                       aggregated from the published agents, each tagged with \
                       its owning alias."
@@ -243,7 +243,7 @@ fn agent_description(config: &Config, alias: &str) -> String {
     if let Some(desc) = identity_description(config, alias) {
         return desc;
     }
-    format!("ZeroClaw agent '{alias}'.")
+    format!("Volt Agent agent '{alias}'.")
 }
 
 /// Resolve a one-line description from the alias identity document, or `None`
@@ -943,7 +943,7 @@ mod tests {
     fn card_description_falls_back_to_neutral_default_without_identity() {
         let config = config_with_published_alias("researcher", true);
         let card = build_agent_card(&config, "researcher").expect("card");
-        assert_eq!(card.description, "ZeroClaw agent 'researcher'.");
+        assert_eq!(card.description, "Volt Agent agent 'researcher'.");
     }
 
     #[test]

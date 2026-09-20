@@ -278,8 +278,7 @@ async fn receive_loopback_code_inner(expected_state: &str, timeout: Duration) ->
 
     let code = parse_callback_code(path, expected_state)?;
 
-    let body =
-        "<html><body><h2>ZeroClaw login complete</h2><p>You can close this tab.</p></body></html>";
+    let body = "<html><body><h2>Volt Agent login complete</h2><p>You can close this tab.</p></body></html>";
     let response = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
         body.len(),

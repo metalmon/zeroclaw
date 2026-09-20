@@ -38,7 +38,7 @@ pub fn flash_nucleo_firmware() -> Result<()> {
         );
     }
 
-    println!("Building ZeroClaw Nucleo firmware...");
+    println!("Building Volt Agent Nucleo firmware...");
     let build = Command::new("cargo")
         .args(["build", "--release", "--target", TARGET])
         .current_dir(&firmware_dir)
@@ -83,7 +83,7 @@ pub fn flash_nucleo_firmware() -> Result<()> {
         );
     }
 
-    println!("ZeroClaw Nucleo firmware flashed successfully.");
+    println!("Volt Agent Nucleo firmware flashed successfully.");
     println!("The Nucleo now supports: ping, capabilities, gpio_read, gpio_write.");
     println!(
         "Add to config.toml: board = \"nucleo-f401re\", transport = \"serial\", path = \"/dev/ttyACM0\""

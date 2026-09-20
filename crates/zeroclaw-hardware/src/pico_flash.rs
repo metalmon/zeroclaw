@@ -37,7 +37,7 @@ impl Tool for PicoFlashTool {
     }
 
     fn description(&self) -> &str {
-        "Flash ZeroClaw firmware to a Raspberry Pi Pico in BOOTSEL mode. \
+        "Flash Volt Agent firmware to a Raspberry Pi Pico in BOOTSEL mode. \
          The Pico must be connected with the BOOTSEL button held (shows as RPI-RP2 drive in Finder). \
          After flashing the Pico reboots and the serial \
          connection is refreshed automatically — no restart needed."
@@ -137,7 +137,7 @@ impl Tool for PicoFlashTool {
                     output: String::new().into(),
                     error: Some(format!(
                         "UF2 copied to {} but serial port did not appear within {PORT_WAIT_SECS}s. \
-                         Unplug and replug the Pico, then restart ZeroClaw.",
+                         Unplug and replug the Pico, then restart Volt Agent.",
                         mount.display()
                     )),
                 });
@@ -221,7 +221,7 @@ impl Tool for PicoFlashTool {
                 let suffix = if reconnected {
                     "pico0 is ready — you can use gpio_write immediately."
                 } else {
-                    "Restart ZeroClaw to reconnect as pico0."
+                    "Restart Volt Agent to reconnect as pico0."
                 };
                 Ok(ToolResult {
                     success: true,
@@ -238,7 +238,7 @@ impl Tool for PicoFlashTool {
                 output: format!(
                     "Pico flashed successfully. \
                          Serial port did not reappear within {PORT_WAIT_SECS}s — \
-                         unplug and replug the Pico, then restart ZeroClaw to connect as pico0."
+                         unplug and replug the Pico, then restart Volt Agent to connect as pico0."
                 )
                 .into(),
                 error: None,

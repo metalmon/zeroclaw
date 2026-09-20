@@ -1224,7 +1224,7 @@ impl ImageGenerator {
              {text_elements}\n\
              \x20 <text x=\"512\" y=\"920\" text-anchor=\"middle\" \
              fill=\"rgba(255,255,255,0.5)\" font-family=\"{font}\" \
-             font-size=\"18\">ZeroClaw</text>\n\
+             font-size=\"18\">Volt Agent</text>\n\
              </svg>"
         )
     }
@@ -1641,7 +1641,7 @@ mod tests {
         assert!(svg.contains("1024"));
         assert!(svg.contains("#0A66C2"));
         assert!(svg.contains("Test Title"));
-        assert!(svg.contains("ZeroClaw"));
+        assert!(svg.contains("Volt Agent"));
     }
 
     #[test]
