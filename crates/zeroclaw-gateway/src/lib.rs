@@ -2587,7 +2587,7 @@ fn static_file_routes() -> Router<AppState> {
 }
 
 fn format_paircode_recovery_command(_host: &str, port: u16) -> String {
-    format!("zeroclaw gateway get-paircode --new --port {port}")
+    format!("voltd gateway get-paircode --new --port {port}")
 }
 
 fn already_paired_pairing_notice(host: &str, port: u16, path_prefix: &str) -> Vec<String> {
@@ -4743,7 +4743,7 @@ mod tests {
     fn paircode_recovery_command_includes_alternate_port() {
         assert_eq!(
             format_paircode_recovery_command("127.0.0.1", 42617),
-            "zeroclaw gateway get-paircode --new --port 42617"
+            "voltd gateway get-paircode --new --port 42617"
         );
     }
 
@@ -4754,7 +4754,7 @@ mod tests {
         // The CLI is left to fall back to its loopback default.
         assert_eq!(
             format_paircode_recovery_command("192.168.1.20", 42617),
-            "zeroclaw gateway get-paircode --new --port 42617"
+            "voltd gateway get-paircode --new --port 42617"
         );
     }
 

@@ -1123,7 +1123,7 @@ fn ensure_disk_at_current_version_blocks_stale() {
         .expect_err("V1 disk fails the gate")
         .to_string();
     assert!(
-        err.contains("zeroclaw config migrate"),
+        err.contains("voltd config migrate"),
         "error message must direct user to run migrate, got: {err}"
     );
 }

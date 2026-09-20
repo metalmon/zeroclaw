@@ -1253,7 +1253,7 @@ impl TelegramChannel {
             let mut cfg = config.write();
             if !cfg.channels.telegram.contains_key(&self.alias) {
                 anyhow::bail!(
-                    "Missing [channels.telegram.{}] section. Run `zeroclaw config set channels.telegram.<alias>.bot_token <token>` to configure.",
+                    "Missing [channels.telegram.{}] section. Run `voltd config set channels.telegram.<alias>.bot_token <token>` to configure.",
                     self.alias
                 );
             }
@@ -1298,15 +1298,15 @@ impl TelegramChannel {
             .is_some()
     }
 
-    /// Build the operator-facing `zeroclaw channel bind-telegram` command for
+    /// Build the operator-facing `voltd channel bind-telegram` command for
     /// this channel's alias. The CLI defaults to the `default` alias, so only
     /// non-default aliases need the explicit `--alias` flag — emitting it for
     /// the default case would just be noise.
     fn suggested_bind_command(alias: &str, identity: &str) -> String {
         if alias == "default" {
-            format!("zeroclaw channel bind-telegram {identity}")
+            format!("voltd channel bind-telegram {identity}")
         } else {
-            format!("zeroclaw channel bind-telegram {identity} --alias {alias}")
+            format!("voltd channel bind-telegram {identity} --alias {alias}")
         }
     }
 
@@ -6266,7 +6266,7 @@ mod tests {
         // stay byte-identical for existing default-alias users.
         assert_eq!(
             TelegramChannel::suggested_bind_command("default", "123456789"),
-            "zeroclaw channel bind-telegram 123456789"
+            "voltd channel bind-telegram 123456789"
         );
     }
 
@@ -6277,7 +6277,7 @@ mod tests {
         // asking for approval.
         assert_eq!(
             TelegramChannel::suggested_bind_command("alerts", "123456789"),
-            "zeroclaw channel bind-telegram 123456789 --alias alerts"
+            "voltd channel bind-telegram 123456789 --alias alerts"
         );
     }
 

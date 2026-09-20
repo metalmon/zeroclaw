@@ -311,7 +311,7 @@ pub fn migrate_to_current_salvaged(input: &str) -> ResilientLoad {
                     .with_outcome(::zeroclaw_log::EventOutcome::Failure)
                     .with_attrs(::serde_json::json!({ "error": format!("{err:#}") })),
                 "config could not be parsed or migrated; starting on defaults so it \
-                 can be repaired (gateway /api/config, `zeroclaw config migrate`)"
+                 can be repaired (gateway /api/config, `voltd config migrate`)"
             );
             return ResilientLoad {
                 config: Config::default(),
@@ -426,7 +426,7 @@ fn deserialize_resilient(value: toml::Value) -> ResilientLoad {
                 "SECURITY-CRITICAL config section `{path}` is invalid and was reset to \
                  its default so the daemon can boot; the running posture may be WEAKER \
                  than intended — repair `{path}` and reload before trusting this instance. \
-                 Run `zeroclaw config migrate` to see the precise parse error, or fix it \
+                 Run `voltd config migrate` to see the precise parse error, or fix it \
                  via the gateway config editor at `/api/config`"
             )
         );
@@ -802,7 +802,7 @@ pub fn ensure_disk_at_current_version(path: &Path) -> Result<()> {
         );
     }
     anyhow::bail!(
-        "config at {} is schema_version {from}; run `zeroclaw config migrate` to update before modifying",
+        "config at {} is schema_version {from}; run `voltd config migrate` to update before modifying",
         path.display().to_string(),
     );
 }

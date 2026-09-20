@@ -363,7 +363,7 @@ pub fn build_spec() -> serde_json::Value {
             "post": {
                 "tags": ["config"],
                 "summary": "Apply on-disk schema migration in place",
-                "description": "Mirrors `zeroclaw config migrate`. Backs up the previous file as `config.toml.bak` before writing.",
+                "description": "Mirrors `voltd config migrate`. Backs up the previous file as `config.toml.bak` before writing.",
                 "responses": {
                     "200": {
                         "description": "Migration applied (or already at the current schema version).",
@@ -376,7 +376,7 @@ pub fn build_spec() -> serde_json::Value {
             "get": {
                 "tags": ["version"],
                 "summary": "Check for a newer release",
-                "description": "Runs `zeroclaw update --check --json` server-side (1h cache, force-refreshable). Never fails the dashboard: on any error it still returns 200 with `is_newer: false` and an `error` string so the version badge degrades gracefully.",
+                "description": "Runs `voltd update --check --json` server-side (1h cache, force-refreshable). Never fails the dashboard: on any error it still returns 200 with `is_newer: false` and an `error` string so the version badge degrades gracefully.",
                 "parameters": [force_param, check_version_param],
                 "responses": {
                     "200": {
@@ -389,7 +389,7 @@ pub fn build_spec() -> serde_json::Value {
         "/api/version/upgrade": {
             "post": {
                 "tags": ["version"],
-                "summary": "Apply an upgrade via `zeroclaw update`",
+                "summary": "Apply an upgrade via `voltd update`",
                 "description": "Replaces the running binary and (opt-in) restarts the process. Gated by `gateway.allow_self_upgrade` (default off → 403). Single-flight: a concurrent call returns 409. Returns 202 with a `handoff_id`; poll `/api/version/upgrade/status` for progress. An empty body uses defaults (latest version, no auto-restart).",
                 "requestBody": {
                     "required": false,
@@ -428,7 +428,7 @@ pub fn build_spec() -> serde_json::Value {
         "info": {
             "title": "Volt Agent Gateway — Config CRUD",
             "version": env!("CARGO_PKG_VERSION"),
-            "description": "Per-property CRUD endpoints over the same `Config` mutation core that `zeroclaw config get/set/list/init/migrate` uses on the CLI. See https://github.com/zeroclaw-labs/zeroclaw/issues/6175 for the full surface and acceptance checklist.",
+            "description": "Per-property CRUD endpoints over the same `Config` mutation core that `voltd config get/set/list/init/migrate` uses on the CLI. See https://github.com/zeroclaw-labs/zeroclaw/issues/6175 for the full surface and acceptance checklist.",
         },
         "security": [{"bearerAuth": []}],
         "paths": paths,

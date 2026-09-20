@@ -837,7 +837,7 @@ fn reconcile_embedding_identity(
                         })),
                     "memory: embedding identity changed; stored vectors invalidated and \
                      embedding cache cleared (content retained). Semantic recall is \
-                     keyword-only until re-embedded — run `zeroclaw memory reindex`"
+                     keyword-only until re-embedded — run `voltd memory reindex`"
                 );
                 if auto_reindex && invalidated > 0 {
                     spawn_auto_reindex(mem);
@@ -866,14 +866,14 @@ fn reconcile_embedding_identity(
 /// Kick off the gated re-embed in the background after an identity
 /// migration, when `[memory] auto_reindex_on_identity_change` opts in.
 /// Outside an async runtime (no tokio context) the spawn is skipped and the
-/// operator is pointed at `zeroclaw memory reindex` instead.
+/// operator is pointed at `voltd memory reindex` instead.
 fn spawn_auto_reindex(mem: &SqliteMemory) {
     let Ok(handle) = tokio::runtime::Handle::try_current() else {
         ::zeroclaw_log::record!(
             WARN,
             ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
             "memory: auto_reindex_on_identity_change is set but no async runtime is \
-             available here; run `zeroclaw memory reindex` to re-embed"
+             available here; run `voltd memory reindex` to re-embed"
         );
         return;
     };
@@ -895,7 +895,7 @@ fn spawn_auto_reindex(mem: &SqliteMemory) {
                         .with_outcome(::zeroclaw_log::EventOutcome::Failure)
                         .with_attrs(::serde_json::json!({"error": format!("{e}")})),
                     "memory: background re-embed after embedding identity change failed; \
-                     run `zeroclaw memory reindex` to retry"
+                     run `voltd memory reindex` to retry"
                 );
             }
         }

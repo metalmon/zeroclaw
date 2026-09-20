@@ -390,7 +390,7 @@ impl SqliteMemory {
                             "error": format!("{e}"),
                         })),
                     "memory store: embedding failed; persisting row without a vector \
-                     (run `zeroclaw memory reindex` to backfill once the embedder recovers)"
+                     (run `voltd memory reindex` to backfill once the embedder recovers)"
                 );
                 None
             }

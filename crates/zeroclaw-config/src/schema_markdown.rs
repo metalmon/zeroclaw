@@ -264,9 +264,9 @@ pub fn field_table(
         let secret_mark = if is_secret { " 🔑" } else { "" };
         let full_path = format!("{prefix}.{key}");
         let set_cmd = if is_secret {
-            format!("zeroclaw config set {full_path}    # masked input, stored encrypted")
+            format!("voltd config set {full_path}    # masked input, stored encrypted")
         } else {
-            format!("zeroclaw config set {full_path} <value>")
+            format!("voltd config set {full_path} <value>")
         };
         // Env-var override form: `ZEROCLAW_` + dotted path with `.` -> `__`,
         // lowercase tail (config-tree override). Mirrors the runtime resolver in
@@ -292,7 +292,7 @@ pub fn field_table(
                 "Open [`/config/{section}`](http://127.0.0.1:42617/config/{section}) and set the `{full_path}` field.\n\n",
                 "#### zerocode\n\n",
                 "In the **Config** pane, set the `{full_path}` field.\n\n",
-                "#### zeroclaw config\n\n",
+                "#### voltd config\n\n",
                 "```sh\n{set_cmd}\n```\n\n",
                 "#### Environment variable\n\n",
                 "Export the override (POSIX shells; drop into `~/.bashrc`, `~/.zshrc`, `.env`, or a Dockerfile). Replace `<alias>` with the literal alias:\n\n",

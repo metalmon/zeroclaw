@@ -98,9 +98,9 @@ pub fn install_command(entry: &PluginRegistryEntry, registry_url: Option<&str>) 
     let source = install_source(entry);
     match registry_url {
         Some(registry_url) if !registry_url.trim().is_empty() => {
-            format!("zeroclaw plugin install {source} --registry {registry_url}")
+            format!("voltd plugin install {source} --registry {registry_url}")
         }
-        _ => format!("zeroclaw plugin install {source}"),
+        _ => format!("voltd plugin install {source}"),
     }
 }
 

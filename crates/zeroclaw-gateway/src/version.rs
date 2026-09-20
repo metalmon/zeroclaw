@@ -220,7 +220,7 @@ async fn run_cli_check(version: Option<&str>) -> anyhow::Result<CliCheck> {
     let output = tokio::time::timeout(CHECK_TIMEOUT, cmd.output())
         .await
         .context("version check timed out")?
-        .context("failed to spawn `zeroclaw update --check`")?;
+        .context("failed to spawn `voltd update --check`")?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -662,7 +662,7 @@ async fn run_upgrade(
     let mut child = match cmd.spawn() {
         Ok(c) => c,
         Err(e) => {
-            fail(&progress, format!("failed to start `zeroclaw update`: {e}"));
+            fail(&progress, format!("failed to start `voltd update`: {e}"));
             return;
         }
     };

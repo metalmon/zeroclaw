@@ -20628,7 +20628,7 @@ impl Config {
                         .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
                     &format!(
                         "Config at {} is schema_version {from_version}; auto-migrated to {} in memory. \
-                     Run `zeroclaw config migrate` to commit the migration to disk. \
+                     Run `voltd config migrate` to commit the migration to disk. \
                      V0.8.0 also replaced the env-var override grammar; see \
                      https://github.com/zeroclaw-labs/zeroclaw/blob/master/docs/book/src/reference/env-vars.md \
                      for the migration recipes.",
@@ -20681,7 +20681,7 @@ impl Config {
                 let (kind, family) = entry.split_once('.').unwrap_or(("models", entry.as_str()));
                 let reference = if kind == "models" {
                     "any agents.*.model_provider referencing them will fail to resolve; \
-                     run `zeroclaw providers` for valid family names"
+                     run `voltd providers` for valid family names"
                 } else {
                     "references to its aliases will fail to resolve"
                 };
@@ -20778,7 +20778,7 @@ impl Config {
                         .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
                         .with_attrs(::serde_json::json!({"error": format!("{e:#}")})),
                     "[system] config has validation errors — booting anyway so you \
-                     can fix them via /config or `zeroclaw config set`"
+                     can fix them via /config or `voltd config set`"
                 );
             }
             // Publish the effective post-decryption, post-env-override proxy
@@ -22279,7 +22279,7 @@ impl Config {
                 .is_some_and(|v| !v.trim().is_empty());
             if !has_uri && !has_api_key && !has_model {
                 ::zeroclaw_log::record!(WARN, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_outcome(::zeroclaw_log::EventOutcome::Unknown).with_attrs(::serde_json::json!({"model_provider": profile_name, "profile_name": profile_name})), "providers.models. is empty (no uri / api_key / model). \
-                     Skipping at runtime; run `zeroclaw quickstart` (or use the dashboard) \
+                     Skipping at runtime; run `voltd quickstart` (or use the dashboard) \
                      to make this model_provider usable.");
                 continue;
             }
@@ -22880,7 +22880,7 @@ impl Config {
                         validation_bail!(
                             DanglingReference,
                             format!("agents.{alias}.model_provider"),
-                            "agents.{alias}.model_provider = {mp:?} but {ty:?} is not a known provider family; check [providers.models.<family>.<alias>] in config.toml (valid families: `zeroclaw providers`)",
+                            "agents.{alias}.model_provider = {mp:?} but {ty:?} is not a known provider family; check [providers.models.<family>.<alias>] in config.toml (valid families: `voltd providers`)",
                         );
                     }
                     let exists = self

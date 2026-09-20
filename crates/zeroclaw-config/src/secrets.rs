@@ -74,7 +74,7 @@ pub trait KeySource: Debug + Send + Sync {
         anyhow::bail!(
             "The '{}' backend does not support automatic key generation. \
              Create the master key externally, then verify access with \
-             `zeroclaw quickstart`.",
+             `voltd quickstart`.",
             self.backend_name()
         )
     }
@@ -354,7 +354,7 @@ impl SecretStore {
                          or backup-restore where the key material was not \
                          preserved alongside `config.toml`.  Restore the \
                          original key material from backup, or re-encrypt \
-                         the affected secrets via `zeroclaw quickstart`."
+                         the affected secrets via `voltd quickstart`."
                 );
                 anyhow::Error::msg(format!(
                     "enc2: decryption failed (wrong key for '{}' backend, or tampered ciphertext): {e}",
