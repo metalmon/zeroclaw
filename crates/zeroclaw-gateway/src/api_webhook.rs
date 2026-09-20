@@ -8,7 +8,7 @@ use axum::response::{IntoResponse, Json, Response};
 /// Response header attached when a webhook is served via a deprecated bare path
 /// (`/<type>` instead of `/<type>/{alias}`). Signals operators to migrate to the
 /// alias-qualified path before bare-path routing is eventually removed.
-pub const DEPRECATION_HEADER: &str = "x-zeroclaw-deprecation";
+pub const DEPRECATION_HEADER: &str = "x-volt-deprecation";
 
 /// Outcome of resolving a webhook path's optional `<alias>` against the set of
 /// configured channel instances for a single channel type.

@@ -7147,7 +7147,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                             let mut out = full;
                             if let serde_json::Value::Object(ref mut map) = out {
                                 map.insert(
-                                    "x-zeroclaw-requested-path".into(),
+                                    "x-volt-requested-path".into(),
                                     serde_json::Value::String(prop_path.into()),
                                 );
                             }

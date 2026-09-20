@@ -18,6 +18,33 @@ use super::api::require_auth;
 use super::api_authz::{require_admin, seed_operator_admin_for_caller};
 use std::sync::Arc;
 
+// ── Header / JSON-key name constants (`X-Volt-*`, new; `X-ZeroClaw-*`, legacy) ──
+//
+// Emit the new `x-volt-*` names everywhere. On read, accept both — some REST
+// consumers built against the pre-rebrand names still need to work.
+
+/// Request header: skip the on-disk drift check and overwrite unconditionally.
+const X_VOLT_OVERRIDE_DRIFT: &str = "x-volt-override-drift";
+/// Legacy alias for [`X_VOLT_OVERRIDE_DRIFT`]; still accepted on read.
+const X_ZEROCLAW_OVERRIDE_DRIFT: &str = "x-zeroclaw-override-drift";
+
+/// JSON body key echoing the resolved `?path=` in `/api/config/schema` responses.
+const X_VOLT_REQUESTED_PATH: &str = "x-volt-requested-path";
+/// JSON body key carrying per-property schema metadata in the same response.
+const X_VOLT_PROP: &str = "x-volt-prop";
+
+/// Whether the request asked to skip the on-disk drift check. Reads the new
+/// `X-Volt-Override-Drift` header, falling back to the legacy
+/// `X-ZeroClaw-Override-Drift` name for callers that haven't migrated.
+fn override_drift_requested(headers: &HeaderMap) -> bool {
+    headers
+        .get(X_VOLT_OVERRIDE_DRIFT)
+        .or_else(|| headers.get(X_ZEROCLAW_OVERRIDE_DRIFT))
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
+
 // ── Request / response shapes ───────────────────────────────────────
 
 /// `?path=...` query parameter shared by GET / DELETE / OPTIONS-with-path.
@@ -2020,11 +2047,7 @@ pub async fn handle_patch(
     let _cfg_guard = Arc::clone(&state.config_write_lock).lock_owned().await;
     let working = state.config.read().clone();
 
-    let override_drift = headers
-        .get("x-zeroclaw-override-drift")
-        .and_then(|v| v.to_str().ok())
-        .map(|v| v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false);
+    let override_drift = override_drift_requested(&headers);
     if !override_drift {
         let drifted = compute_drift(&working).await;
         if !drifted.is_empty() {
@@ -2043,7 +2066,7 @@ pub async fn handle_patch(
                     ConfigApiCode::ConfigChangedExternally,
                     format!(
                         "on-disk config has drifted from in-memory state on \
-                         {} path(s) being patched: {}. Send `X-ZeroClaw-Override-Drift: true` \
+                         {} path(s) being patched: {}. Send `X-Volt-Override-Drift: true` \
                          to overwrite, or GET /api/config/drift to inspect first.",
                         conflicts.len(),
                         conflict_paths.join(", "),
@@ -2560,11 +2583,11 @@ pub async fn handle_options_prop(
     let mut body = whole_body.clone();
     if let serde_json::Value::Object(ref mut map) = body {
         map.insert(
-            "x-zeroclaw-requested-path".into(),
+            X_VOLT_REQUESTED_PATH.into(),
             serde_json::Value::String(q.path.clone()),
         );
         map.insert(
-            "x-zeroclaw-prop".into(),
+            X_VOLT_PROP.into(),
             serde_json::json!({
                 "path": q.path,
                 "kind": prop_kind_wire(info.kind),
@@ -2653,6 +2676,31 @@ mod tests {
         let mut response = StatusCode::OK.into_response();
         insert_etag(&mut response, "invalid\nheader");
         assert!(!response.headers().contains_key(header::ETAG));
+    }
+
+    #[test]
+    fn override_drift_requested_prefers_new_header_over_legacy() {
+        let mut headers = HeaderMap::new();
+        assert!(!override_drift_requested(&headers), "neither header set");
+
+        headers.insert(X_ZEROCLAW_OVERRIDE_DRIFT, HeaderValue::from_static("true"));
+        assert!(
+            override_drift_requested(&headers),
+            "legacy-only should be read"
+        );
+
+        headers.insert(X_VOLT_OVERRIDE_DRIFT, HeaderValue::from_static("false"));
+        assert!(
+            !override_drift_requested(&headers),
+            "new header present (even if false) should win over legacy true"
+        );
+
+        headers.remove(X_ZEROCLAW_OVERRIDE_DRIFT);
+        headers.insert(X_VOLT_OVERRIDE_DRIFT, HeaderValue::from_static("true"));
+        assert!(
+            override_drift_requested(&headers),
+            "new-only should be read"
+        );
     }
 
     // dirty_entry_for / CascadeReport::dirty_paths tests live in
