@@ -13,7 +13,6 @@
 // one row here.
 
 import { getProp } from './api';
-import { filterByAllow, channelAllowlist } from './allowlist';
 
 export interface AgentBoundChannel {
   /** Composite `<type>.<alias>` as it appears in `agents.<alias>.channels`. */
@@ -133,5 +132,5 @@ export async function agentBoundChannels(
     }
     out.push({ composite, type, alias, identity });
   }
-  return filterByAllow(out, (c) => c.type, channelAllowlist());
+  return out;
 }
