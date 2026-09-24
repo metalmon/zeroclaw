@@ -6,6 +6,7 @@
 // defaults to remote (`false`) rather than guessing from a shadow list.
 
 import { getCatalog } from "./api";
+import { filterByAllow, providerAllowlist } from "./allowlist";
 
 const localByName = new Map<string, boolean>();
 const displayByName = new Map<string, string>();
@@ -21,7 +22,8 @@ export function primeModelProviderCatalog(): Promise<void> {
   if (primePromise) return primePromise;
   primePromise = getCatalog()
     .then((res) => {
-      for (const p of res.providers) {
+      const providers = filterByAllow(res.providers, (p) => p.name, providerAllowlist());
+      for (const p of providers) {
         const key = normalize(p.name);
         localByName.set(key, p.local);
         displayByName.set(key, p.display_name);
