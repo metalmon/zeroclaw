@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Pin, Plus, Trash2 } from 'lucide-react';
 import { t } from '@/lib/i18n';
+import { HelpTip } from '@/components/ui';
 import type { PlannedToolCall, StepToolCall } from '@/lib/sops';
 import { loadCatalog, type CatalogEntry } from '@/components/ToolPicker';
 
@@ -45,14 +46,19 @@ function stringify(value: unknown): string {
 
 /// JSON textarea that keeps invalid intermediate text local and only
 /// propagates parseable values. The parse error stays visible until fixed.
-function JsonField({
+/// A blank buffer propagates `undefined` (not a parse error) so optional
+/// JSON fields (capability `with`, step `schema.input`/`.output`) can be
+/// cleared back to "unset" by emptying the textarea.
+export function JsonField({
   label,
+  help,
   value,
   onChange,
   placeholder,
   rows = 3,
 }: {
   label: string;
+  help?: string | null;
   value: unknown;
   onChange: (next: unknown) => void;
   placeholder?: string;
@@ -60,10 +66,15 @@ function JsonField({
 }) {
   const [text, setText] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
-  const shown = text ?? stringify(value);
+  // An unset optional field (`undefined`/`null`) shows a BLANK textarea, not
+  // `"{}"` — otherwise "not configured" reads as "configured empty object".
+  // The empty↔undefined round-trip in onChange (blank → undefined) then holds.
+  const shown = text ?? (value == null ? '' : stringify(value));
   return (
     <label className="block text-xs">
-      <span className="mb-1 block text-pc-text-muted">{label}</span>
+      <span className="mb-1 block text-pc-text-muted">
+        {help ? <HelpTip text={help}>{label}</HelpTip> : label}
+      </span>
       <textarea
         value={shown}
         rows={rows}
@@ -72,6 +83,11 @@ function JsonField({
         onChange={(e) => {
           const raw = e.target.value;
           setText(raw);
+          if (raw.trim() === '') {
+            onChange(undefined);
+            setParseError(null);
+            return;
+          }
           try {
             onChange(JSON.parse(raw));
             setParseError(null);
@@ -82,9 +98,13 @@ function JsonField({
         onBlur={() => {
           if (!parseError) setText(null);
         }}
-        className={`${INPUT_CLS} font-mono text-xs`}
+        className={`${INPUT_CLS} font-mono text-xs ${parseError ? 'border-status-error' : ''}`}
       />
-      {parseError ? <p className="mt-1 text-xs text-status-error">{parseError}</p> : null}
+      {parseError ? (
+        <p className="mt-1 text-xs text-status-error">
+          {t('sops.json_invalid')}: {parseError}
+        </p>
+      ) : null}
     </label>
   );
 }

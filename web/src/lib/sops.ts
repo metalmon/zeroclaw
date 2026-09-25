@@ -14,6 +14,7 @@ export function sopFieldHelp(schema: string, field: string): string | undefined 
 export const sopPriorities = enumMembers('SopPriority') as readonly SopPriority[];
 export const sopExecutionModes = enumMembers('SopExecutionMode') as readonly SopExecutionMode[];
 export const sopStepKinds = enumMembers('SopStepKind') as readonly SopStepKind[];
+export const sopAdmissionPolicies = enumMembers('SopAdmissionPolicy') as readonly SopAdmissionPolicy[];
 
 type ServerDefaultedSopFields = 'admission_policy' | 'max_pending_approvals';
 
@@ -24,6 +25,7 @@ export type SopTrigger = Schemas['SopTrigger'];
 export type SopPriority = Schemas['SopPriority'];
 export type SopExecutionMode = Schemas['SopExecutionMode'];
 export type SopStepKind = Schemas['SopStepKind'];
+export type SopAdmissionPolicy = Schemas['SopAdmissionPolicy'];
 export type StepRouting = Schemas['StepRouting'];
 export type SwitchRule = Schemas['SwitchRule'];
 export type StepFailure = Schemas['StepFailure'];

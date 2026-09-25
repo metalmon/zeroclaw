@@ -1,14 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, XCircle, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  XCircle,
+  Loader2,
+  Plus,
+  Save,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Badge, Card, PageHeader, HelpTip } from '@/components/ui';
 import SopCanvas from './SopCanvas';
 import MarkdownEditor from '@/components/MarkdownEditor';
 import ToolPicker from '@/components/ToolPicker';
-import { PlannedCallsEditor } from '@/components/SopCalls';
+import { PlannedCallsEditor, JsonField } from '@/components/SopCalls';
 import SopStepList from '@/components/SopStepList';
 import { plural, t, enumLabel } from '@/lib/i18n';
 import { loadAgentPickerSummaries } from '@/lib/agents';
+import { getMapKeys } from '@/lib/api';
 import {
   listSops,
   listRuns,
@@ -29,6 +40,7 @@ import {
   sopPriorities,
   sopExecutionModes,
   sopStepKinds,
+  sopAdmissionPolicies,
   type WireRole,
   type SopSummary,
   type SopGraph,
@@ -37,6 +49,8 @@ import {
   type SopStep,
   type SopTrigger,
   type StepFailure,
+  type StepSchema,
+  type StepToolScope,
   type StepToolCall,
   type TriggerSourceRegistry,
   type BoundTriggerSource,
@@ -291,6 +305,63 @@ function SelectField({
   );
 }
 
+/// Collapsible section wrapper shared by the step editor and the SOP header
+/// form, so both surfaces speak the same accordion visual language instead
+/// of each rolling its own disclosure widget.
+function StepSection({
+  title,
+  icon,
+  defaultOpen = false,
+  collapsible = true,
+  badge,
+  headerExtra,
+  children,
+}: {
+  title: string;
+  icon?: ReactNode;
+  defaultOpen?: boolean;
+  collapsible?: boolean;
+  badge?: ReactNode;
+  headerExtra?: ReactNode;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  if (!collapsible) {
+    return (
+      <div className="mt-3 border-t border-pc-border pt-3 first:mt-0 first:border-t-0 first:pt-0">
+        <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-pc-text">
+          {icon}
+          <span>{title}</span>
+          {badge}
+        </div>
+        <div className="space-y-2">{children}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3 border-t border-pc-border pt-2 first:mt-0 first:border-t-0 first:pt-0">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex flex-1 items-center gap-1.5 py-1 text-left text-xs font-semibold text-pc-text hover:text-pc-accent"
+        >
+          {open ? (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-pc-text-muted" aria-hidden />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-pc-text-muted" aria-hidden />
+          )}
+          {icon}
+          <span>{title}</span>
+          {badge}
+        </button>
+        {headerExtra}
+      </div>
+      {open ? <div className="space-y-2 pb-1 pt-1">{children}</div> : null}
+    </div>
+  );
+}
+
 function failureKind(f: StepFailure | undefined): 'fail' | 'retry' | 'goto' {
   if (f === undefined || f === 'fail') return 'fail';
   if ('retry' in f) return 'retry';
@@ -302,6 +373,7 @@ function StepEditor({
   index,
   count,
   capturedCalls,
+  approvalPolicyNames,
   onChange,
   onRemove,
   onMove,
@@ -312,6 +384,7 @@ function StepEditor({
   index: number;
   count: number;
   capturedCalls?: StepToolCall[];
+  approvalPolicyNames: string[];
   onChange: (patch: Partial<SopStep>) => void;
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
@@ -328,6 +401,33 @@ function StepEditor({
   };
   const setRouting = (patch: Partial<typeof routing>) =>
     onChange({ routing: { ...routing, ...patch } });
+
+  const scope = step.scope ?? {};
+  const [scopeOpen, setScopeOpen] = useState(
+    () => (scope.allow?.length ?? 0) > 0 || (scope.deny?.length ?? 0) > 0,
+  );
+  const setScope = (patch: Partial<StepToolScope>) => {
+    const merged = { ...(step.scope ?? {}), ...patch };
+    const allow = merged.allow && merged.allow.length > 0 ? merged.allow : undefined;
+    const deny = merged.deny && merged.deny.length > 0 ? merged.deny : undefined;
+    onChange({ scope: allow || deny ? { allow, deny } : undefined });
+  };
+  const setSchema = (patch: Partial<StepSchema>) => {
+    const merged = { ...(step.schema ?? {}), ...patch };
+    const hasInput = merged.input !== undefined && merged.input !== null;
+    const hasOutput = merged.output !== undefined && merged.output !== null;
+    onChange({ schema: hasInput || hasOutput ? merged : undefined });
+  };
+
+  const routingNonDefault =
+    (routing.depends_on?.length ?? 0) > 0 ||
+    routing.next != null ||
+    !!routing.when ||
+    (routing.switch?.length ?? 0) > 0;
+  const routingDefaultOpen = routingNonDefault || fkind !== 'fail';
+  const hitlDefaultOpen = step.kind === 'checkpoint' || (step.requires_confirmation ?? false);
+  const policyListId = `sop-policy-options-${step.number}`;
+
   return (
     <div
       ref={rowRef}
@@ -349,7 +449,17 @@ function StepEditor({
         />
         <select
           value={step.kind ?? 'execute'}
-          onChange={(e) => onChange({ kind: e.target.value as SopStep['kind'] })}
+          onChange={(e) => {
+            const kind = e.target.value as SopStep['kind'];
+            // Leaving the capability kind clears its now-orphaned config so it
+            // isn't silently serialized into the SOP (the Capability section is
+            // hidden for non-capability kinds).
+            onChange(
+              kind === 'capability'
+                ? { kind }
+                : { kind, capability: undefined, with: undefined },
+            );
+          }}
           className="rounded border border-pc-border bg-pc-surface px-1.5 py-1 text-xs text-pc-text"
           aria-label={t('sops.step_kind')}
           title={sopFieldHelp('SopStep', 'kind') ?? undefined}
@@ -387,34 +497,36 @@ function StepEditor({
           <Trash2 className="h-4 w-4" aria-hidden />
         </button>
       </div>
-      <div className="mb-2">
+
+      <StepSection title={t('sops.section_instructions')} collapsible={false}>
         <StepBodyEditor
           value={step.body}
           onChange={(next) => onChange({ body: next })}
         />
-      </div>
-      <div className="mb-2">
-        <span className="mb-1 block text-pc-text-muted text-sm">
-          <HelpTip text={sopFieldHelp('SopStep', 'agent')}>{t('sops.step_agent_label')}</HelpTip>
-        </span>
-        <select
-          value={step.agent ?? ''}
-          onChange={(e) => onChange({ agent: e.target.value === '' ? null : e.target.value })}
-          className="w-full rounded border border-pc-border bg-pc-surface px-2 py-1 text-sm text-pc-text"
-        >
-          <option value="">
-            {t('sops.step_agent_inherit')}
-            {parentAgent ? ` (${parentAgent})` : ''}
-          </option>
-          {agentAliases.map((alias) => (
-            <option key={alias} value={alias}>
-              {alias}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="mb-2 space-y-2 text-xs">
         <div>
+          <span className="mb-1 block text-pc-text-muted text-sm">
+            <HelpTip text={sopFieldHelp('SopStep', 'agent')}>{t('sops.step_agent_label')}</HelpTip>
+          </span>
+          <select
+            value={step.agent ?? ''}
+            onChange={(e) => onChange({ agent: e.target.value === '' ? null : e.target.value })}
+            className="w-full rounded border border-pc-border bg-pc-surface px-2 py-1 text-sm text-pc-text"
+          >
+            <option value="">
+              {t('sops.step_agent_inherit')}
+              {parentAgent ? ` (${parentAgent})` : ''}
+            </option>
+            {agentAliases.map((alias) => (
+              <option key={alias} value={alias}>
+                {alias}
+              </option>
+            ))}
+          </select>
+        </div>
+      </StepSection>
+
+      <StepSection title={t('sops.section_tools')} defaultOpen>
+        <div className="text-xs">
           <span className="mb-1 block text-pc-text-muted">
             <HelpTip text={sopFieldHelp('SopStep', 'suggested_tools')}>
               {t('sops.step_tools_label')}
@@ -423,158 +535,283 @@ function StepEditor({
           <ToolPicker
             value={step.suggested_tools ?? []}
             onChange={(next) => onChange({ suggested_tools: next })}
+            agent={step.agent ?? parentAgent ?? undefined}
           />
         </div>
-        <label className="flex items-center gap-1 text-pc-text-muted">
-          <input
-            type="checkbox"
-            checked={step.requires_confirmation ?? false}
-            onChange={(e) => onChange({ requires_confirmation: e.target.checked })}
-          />
-          <HelpTip text={sopFieldHelp('SopStep', 'requires_confirmation')}>
-            {t('sops.requires_confirmation')}
-          </HelpTip>
-        </label>
-      </div>
-      <div className="grid grid-cols-3 gap-2 border-t border-pc-border pt-2 text-xs">
-        <TextField
-          label={t('sops.routing_depends_on')}
-          value={(routing.depends_on ?? []).join(', ')}
-          placeholder="2, 3"
-          help={sopFieldHelp('StepRouting', 'depends_on')}
-          onChange={(v) =>
-            setRouting({
-              depends_on: v
-                .split(',')
-                .map((s) => parseInt(s.trim(), 10))
-                .filter((n) => Number.isFinite(n)),
-            })
-          }
-        />
-        <Field label={t('sops.routing_next')} help={sopFieldHelp('StepRouting', 'next')}>
-          <input
-            type="number"
-            value={routing.next ?? ''}
-            onChange={(e) =>
-              setRouting({ next: e.target.value ? parseInt(e.target.value, 10) : undefined })
-            }
-            placeholder="→"
-            className={INPUT_CLS}
-          />
-        </Field>
-        <TextField
-          label={t('sops.routing_when')}
-          value={routing.when ?? ''}
-          placeholder={t('sops.routing_when_placeholder')}
-          help={sopFieldHelp('StepRouting', 'when')}
-          onChange={(v) => setRouting({ when: v || undefined })}
-        />
-        <SelectField
-          label={t('sops.on_failure')}
-          value={fkind}
-          help={sopFieldHelp('SopStep', 'on_failure')}
-          onChange={(v) => setFailure(v as 'fail' | 'retry' | 'goto')}
+        <button
+          type="button"
+          onClick={() => setScopeOpen((o) => !o)}
+          className="text-xs text-pc-text-muted underline hover:text-pc-accent"
         >
-          <option value="fail">{t('sops.failure_fail')}</option>
-          <option value="retry">{t('sops.failure_retry')}</option>
-          <option value="goto">{t('sops.failure_goto')}</option>
-        </SelectField>
-        {fkind === 'retry' && step.on_failure && typeof step.on_failure === 'object' && 'retry' in step.on_failure ? (
-          <Field label={t('sops.failure_max')}>
-            <input
-              type="number"
-              value={step.on_failure.retry.max}
-              onChange={(e) =>
-                onChange({ on_failure: { retry: { max: parseInt(e.target.value, 10) || 1 } } })
-              }
-              className={INPUT_CLS}
-            />
-          </Field>
+          {t('sops.scope_precise_toggle')}
+        </button>
+        {scopeOpen ? (
+          <div className="space-y-2 rounded border border-pc-border p-2 text-xs">
+            {(step.scope?.allow?.length ?? 0) > 0 ? (
+              <p className="text-pc-text-faint">{t('sops.scope_overrides_hint')}</p>
+            ) : null}
+            <div>
+              <span className="mb-1 block text-pc-text-muted">
+                <HelpTip text={sopFieldHelp('StepToolScope', 'allow')}>
+                  {t('sops.scope_allow')}
+                </HelpTip>
+              </span>
+              <ToolPicker
+                id={`sop-scope-allow-${step.number}`}
+                value={scope.allow ?? []}
+                onChange={(next) => setScope({ allow: next })}
+                agent={step.agent ?? parentAgent ?? undefined}
+              />
+            </div>
+            <div>
+              <span className="mb-1 block text-pc-text-muted">
+                <HelpTip text={sopFieldHelp('StepToolScope', 'deny')}>
+                  {t('sops.scope_deny')}
+                </HelpTip>
+              </span>
+              <ToolPicker
+                id={`sop-scope-deny-${step.number}`}
+                value={scope.deny ?? []}
+                onChange={(next) => setScope({ deny: next })}
+                agent={step.agent ?? parentAgent ?? undefined}
+              />
+            </div>
+          </div>
         ) : null}
-        {fkind === 'goto' && step.on_failure && typeof step.on_failure === 'object' && 'goto' in step.on_failure ? (
-          <Field label={t('sops.failure_goto_step')}>
-            <input
-              type="number"
-              value={step.on_failure.goto.step}
-              onChange={(e) =>
-                onChange({ on_failure: { goto: { step: parseInt(e.target.value, 10) || 1 } } })
-              }
-              className={INPUT_CLS}
-            />
-          </Field>
-        ) : null}
-      </div>
-      <div className="mt-2 rounded border border-pc-border p-2">
-        <div className="mb-1 flex items-center justify-between">
-          <span className="text-xs font-medium text-pc-text">
-            <HelpTip text={sopFieldHelp('StepRouting', 'switch')}>{t('sops.switch_ports')}</HelpTip>
-          </span>
-          <button
-            type="button"
-            onClick={() =>
-              setRouting({
-                switch: [...(routing.switch ?? []), { name: `port ${(routing.switch?.length ?? 0) + 1}`, when: undefined, goto: undefined }],
-              })
-            }
-            className="rounded border border-pc-border px-2 py-0.5 text-xs text-pc-text hover:bg-pc-elevated"
-          >
-            <Plus className="mr-1 inline h-3 w-3" aria-hidden />
-            {t('sops.add_port')}
-          </button>
-        </div>
-        {(routing.switch ?? []).length === 0 ? (
-          <div className="text-xs text-pc-text-faint">{t('sops.no_ports')}</div>
-        ) : (
-          (routing.switch ?? []).map((rule, ri) => {
-            const setRule = (patch: Partial<typeof rule>) => {
-              const rules = [...(routing.switch ?? [])];
-              rules[ri] = { ...rules[ri]!, ...patch };
-              setRouting({ switch: rules });
-            };
-            return (
-              <div key={ri} className="mb-1 grid grid-cols-[1fr_1.4fr_4rem_1.5rem] items-center gap-1">
-                <input
-                  type="text"
-                  value={rule.name}
-                  onChange={(e) => setRule({ name: e.target.value })}
-                  placeholder={t('sops.port_name')}
-                  className="rounded border border-pc-border bg-pc-surface px-1.5 py-0.5 text-xs text-pc-text"
-                />
-                <input
-                  type="text"
-                  value={rule.when ?? ''}
-                  onChange={(e) => setRule({ when: e.target.value || undefined })}
-                  placeholder={t('sops.port_when')}
-                  className="rounded border border-pc-border bg-pc-surface px-1.5 py-0.5 text-xs text-pc-text"
-                />
-                <input
-                  type="number"
-                  value={rule.goto ?? ''}
-                  onChange={(e) => setRule({ goto: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-                  placeholder="→"
-                  className="rounded border border-pc-border bg-pc-surface px-1.5 py-0.5 text-xs text-pc-text"
-                />
-                <button
-                  type="button"
-                  onClick={() => setRouting({ switch: (routing.switch ?? []).filter((_, j) => j !== ri) })}
-                  className="text-status-error"
-                  aria-label={t('sops.remove_port')}
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                </button>
-              </div>
-            );
-          })
-        )}
-      </div>
-      <div className="mt-2">
         <PlannedCallsEditor
           calls={step.calls ?? []}
           captured={capturedCalls}
           agent={step.agent ?? parentAgent}
           onChange={(next) => onChange({ calls: next })}
         />
-      </div>
+      </StepSection>
+
+      <StepSection title={t('sops.section_routing')} defaultOpen={routingDefaultOpen}>
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <TextField
+            label={t('sops.routing_depends_on')}
+            value={(routing.depends_on ?? []).join(', ')}
+            placeholder="2, 3"
+            help={sopFieldHelp('StepRouting', 'depends_on')}
+            onChange={(v) =>
+              setRouting({
+                depends_on: v
+                  .split(',')
+                  .map((s) => parseInt(s.trim(), 10))
+                  .filter((n) => Number.isFinite(n)),
+              })
+            }
+          />
+          <Field label={t('sops.routing_next')} help={sopFieldHelp('StepRouting', 'next')}>
+            <input
+              type="number"
+              value={routing.next ?? ''}
+              onChange={(e) =>
+                setRouting({ next: e.target.value ? parseInt(e.target.value, 10) : undefined })
+              }
+              placeholder="→"
+              className={INPUT_CLS}
+            />
+          </Field>
+          <TextField
+            label={t('sops.routing_when')}
+            value={routing.when ?? ''}
+            placeholder={t('sops.routing_when_placeholder')}
+            help={sopFieldHelp('StepRouting', 'when')}
+            onChange={(v) => setRouting({ when: v || undefined })}
+          />
+          <SelectField
+            label={t('sops.on_failure')}
+            value={fkind}
+            help={sopFieldHelp('SopStep', 'on_failure')}
+            onChange={(v) => setFailure(v as 'fail' | 'retry' | 'goto')}
+          >
+            <option value="fail">{t('sops.failure_fail')}</option>
+            <option value="retry">{t('sops.failure_retry')}</option>
+            <option value="goto">{t('sops.failure_goto')}</option>
+          </SelectField>
+          {fkind === 'retry' && step.on_failure && typeof step.on_failure === 'object' && 'retry' in step.on_failure ? (
+            <Field label={t('sops.failure_max')}>
+              <input
+                type="number"
+                value={step.on_failure.retry.max}
+                onChange={(e) =>
+                  onChange({ on_failure: { retry: { max: parseInt(e.target.value, 10) || 1 } } })
+                }
+                className={INPUT_CLS}
+              />
+            </Field>
+          ) : null}
+          {fkind === 'goto' && step.on_failure && typeof step.on_failure === 'object' && 'goto' in step.on_failure ? (
+            <Field label={t('sops.failure_goto_step')}>
+              <input
+                type="number"
+                value={step.on_failure.goto.step}
+                onChange={(e) =>
+                  onChange({ on_failure: { goto: { step: parseInt(e.target.value, 10) || 1 } } })
+                }
+                className={INPUT_CLS}
+              />
+            </Field>
+          ) : null}
+        </div>
+        <div className="rounded border border-pc-border p-2">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs font-medium text-pc-text">
+              <HelpTip text={sopFieldHelp('StepRouting', 'switch')}>{t('sops.switch_ports')}</HelpTip>
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setRouting({
+                  switch: [...(routing.switch ?? []), { name: `port ${(routing.switch?.length ?? 0) + 1}`, when: undefined, goto: undefined }],
+                })
+              }
+              className="rounded border border-pc-border px-2 py-0.5 text-xs text-pc-text hover:bg-pc-elevated"
+            >
+              <Plus className="mr-1 inline h-3 w-3" aria-hidden />
+              {t('sops.add_port')}
+            </button>
+          </div>
+          {(routing.switch ?? []).length === 0 ? (
+            <div className="text-xs text-pc-text-faint">{t('sops.no_ports')}</div>
+          ) : (
+            (routing.switch ?? []).map((rule, ri) => {
+              const setRule = (patch: Partial<typeof rule>) => {
+                const rules = [...(routing.switch ?? [])];
+                rules[ri] = { ...rules[ri]!, ...patch };
+                setRouting({ switch: rules });
+              };
+              return (
+                <div key={ri} className="mb-1 grid grid-cols-[1fr_1.4fr_4rem_1.5rem] items-center gap-1">
+                  <input
+                    type="text"
+                    value={rule.name}
+                    onChange={(e) => setRule({ name: e.target.value })}
+                    placeholder={t('sops.port_name')}
+                    className="rounded border border-pc-border bg-pc-surface px-1.5 py-0.5 text-xs text-pc-text"
+                  />
+                  <input
+                    type="text"
+                    value={rule.when ?? ''}
+                    onChange={(e) => setRule({ when: e.target.value || undefined })}
+                    placeholder={t('sops.port_when')}
+                    className="rounded border border-pc-border bg-pc-surface px-1.5 py-0.5 text-xs text-pc-text"
+                  />
+                  <input
+                    type="number"
+                    value={rule.goto ?? ''}
+                    onChange={(e) => setRule({ goto: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                    placeholder="→"
+                    className="rounded border border-pc-border bg-pc-surface px-1.5 py-0.5 text-xs text-pc-text"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRouting({ switch: (routing.switch ?? []).filter((_, j) => j !== ri) })}
+                    className="text-status-error"
+                    aria-label={t('sops.remove_port')}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </StepSection>
+
+      <StepSection
+        title={t('sops.section_approval')}
+        defaultOpen={hitlDefaultOpen}
+        headerExtra={
+          <label
+            className="ml-auto flex shrink-0 items-center gap-1 text-xs font-normal text-pc-text-muted"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={step.requires_confirmation ?? false}
+              onChange={(e) => onChange({ requires_confirmation: e.target.checked })}
+            />
+            <HelpTip text={sopFieldHelp('SopStep', 'requires_confirmation')}>
+              {t('sops.requires_confirmation')}
+            </HelpTip>
+          </label>
+        }
+      >
+        <Field label={t('sops.step_policy_label')} help={sopFieldHelp('SopStep', 'policy')}>
+          <input
+            type="text"
+            list={policyListId}
+            value={step.policy ?? ''}
+            placeholder={t('sops.step_policy_placeholder')}
+            onChange={(e) => onChange({ policy: e.target.value === '' ? undefined : e.target.value })}
+            className={INPUT_CLS}
+          />
+          <datalist id={policyListId}>
+            {approvalPolicyNames.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+        </Field>
+        <Field label={t('sops.step_gate_prompt_label')} help={sopFieldHelp('SopStep', 'gate_prompt')}>
+          <textarea
+            value={step.gate_prompt ?? ''}
+            placeholder={t('sops.step_gate_prompt_placeholder')}
+            rows={3}
+            onChange={(e) =>
+              onChange({ gate_prompt: e.target.value === '' ? undefined : e.target.value })
+            }
+            className={INPUT_CLS}
+          />
+        </Field>
+        <TextField
+          label={t('sops.step_edit_label')}
+          value={step.edit ?? ''}
+          placeholder={t('sops.step_edit_placeholder')}
+          help={sopFieldHelp('SopStep', 'edit')}
+          onChange={(v) => onChange({ edit: v === '' ? undefined : v })}
+        />
+      </StepSection>
+
+      {step.kind === 'capability' ? (
+        <StepSection title={t('sops.section_capability')} collapsible={false}>
+          <TextField
+            label={t('sops.step_capability_label')}
+            value={step.capability ?? ''}
+            placeholder={t('sops.step_capability_placeholder')}
+            help={sopFieldHelp('SopStep', 'capability')}
+            onChange={(v) => onChange({ capability: v === '' ? undefined : v })}
+          />
+          {!step.capability ? (
+            <p className="text-xs text-status-warning">{t('sops.step_capability_required_hint')}</p>
+          ) : null}
+          <JsonField
+            label={t('sops.step_with_label')}
+            help={sopFieldHelp('SopStep', 'with')}
+            value={step.with}
+            onChange={(next) => onChange({ with: next })}
+            rows={4}
+          />
+        </StepSection>
+      ) : null}
+
+      <StepSection title={t('sops.section_schema')} defaultOpen={false}>
+        <JsonField
+          label={t('sops.step_schema_input')}
+          help={sopFieldHelp('StepSchema', 'input')}
+          value={step.schema?.input}
+          onChange={(next) => setSchema({ input: next })}
+          rows={4}
+        />
+        <JsonField
+          label={t('sops.step_schema_output')}
+          help={sopFieldHelp('StepSchema', 'output')}
+          value={step.schema?.output}
+          onChange={(next) => setSchema({ output: next })}
+          rows={4}
+        />
+      </StepSection>
     </div>
   );
 }
@@ -1241,6 +1478,71 @@ function DraftSidebar({
           </option>
         ))}
       </SelectField>
+      <StepSection title={t('sops.section_scheduling')} defaultOpen={false}>
+        <Field
+          label={t('sops.field_cooldown_secs')}
+          help={sopFieldHelp('Sop', 'cooldown_secs')}
+          hint={t('sops.field_cooldown_secs_hint')}
+        >
+          <input
+            type="number"
+            min={0}
+            value={draft.cooldown_secs}
+            onChange={(e) =>
+              onField({ cooldown_secs: Math.max(0, parseInt(e.target.value, 10) || 0) })
+            }
+            className={INPUT_CLS}
+          />
+        </Field>
+        <Field label={t('sops.field_max_concurrent')} help={sopFieldHelp('Sop', 'max_concurrent')}>
+          <input
+            type="number"
+            min={1}
+            value={draft.max_concurrent}
+            onChange={(e) =>
+              onField({ max_concurrent: Math.max(1, parseInt(e.target.value, 10) || 1) })
+            }
+            className={INPUT_CLS}
+          />
+        </Field>
+        <SelectField
+          label={t('sops.field_admission_policy')}
+          value={draft.admission_policy ?? 'parallel'}
+          help={sopFieldHelp('Sop', 'admission_policy')}
+          onChange={(v) => onField({ admission_policy: v as Sop['admission_policy'] })}
+        >
+          {sopAdmissionPolicies.map((p) => (
+            <option key={p} value={p}>
+              {t(`sops.admission_${p}`)}
+            </option>
+          ))}
+        </SelectField>
+        <Field
+          label={t('sops.field_max_pending_approvals')}
+          help={sopFieldHelp('Sop', 'max_pending_approvals')}
+          hint={t('sops.unlimited_hint')}
+        >
+          <input
+            type="number"
+            min={0}
+            value={draft.max_pending_approvals ?? 0}
+            onChange={(e) =>
+              onField({ max_pending_approvals: Math.max(0, parseInt(e.target.value, 10) || 0) })
+            }
+            className={INPUT_CLS}
+          />
+        </Field>
+        <label className="flex items-center gap-2 text-sm text-pc-text-muted">
+          <input
+            type="checkbox"
+            checked={draft.deterministic}
+            onChange={(e) => onField({ deterministic: e.target.checked })}
+          />
+          <HelpTip text={sopFieldHelp('Sop', 'deterministic')}>
+            {t('sops.field_deterministic')}
+          </HelpTip>
+        </label>
+      </StepSection>
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-pc-text">{t('sops.triggers')}</span>
@@ -1305,6 +1607,7 @@ function StepInspector({
   selectedStep,
   runCallsByStep,
   agentAliases,
+  approvalPolicyNames,
   onStep,
   onRemoveStep,
   onMoveStep,
@@ -1313,6 +1616,7 @@ function StepInspector({
   selectedStep: number | null;
   runCallsByStep: Map<number, StepToolCall[]>;
   agentAliases: string[];
+  approvalPolicyNames: string[];
   onStep: (i: number, patch: Partial<SopStep>) => void;
   onRemoveStep: (i: number) => void;
   onMoveStep: (i: number, dir: -1 | 1) => void;
@@ -1328,10 +1632,15 @@ function StepInspector({
   }
   return (
     <StepEditor
+      // Remount per selected step so section-local UI state (accordion open/
+      // closed, the scope-editor toggle) doesn't leak from the previously
+      // inspected step onto this one.
+      key={step.number}
       step={step}
       index={index}
       count={draft.steps.length}
       capturedCalls={runCallsByStep.get(step.number)}
+      approvalPolicyNames={approvalPolicyNames}
       onChange={(patch) => onStep(index, patch)}
       onRemove={() => onRemoveStep(index)}
       onMove={(dir) => onMoveStep(index, dir)}
@@ -1666,6 +1975,7 @@ export function SopEditor() {
   const [selectedTrigger, setSelectedTrigger] = useState<number | null>(null);
   const [triggerRegistry, setTriggerRegistry] = useState<TriggerSourceRegistry | null>(null);
   const [agentAliases, setAgentAliases] = useState<string[]>([]);
+  const [approvalPolicyNames, setApprovalPolicyNames] = useState<string[]>([]);
   const [latestOverlay, setLatestOverlay] = useState<RunOverlay | null>(null);
 
   // Load the draft the route addresses: an existing SOP by name for edit, or a
@@ -1726,6 +2036,21 @@ export function SopEditor() {
     loadAgentPickerSummaries()
       .then((list) => {
         if (active) setAgentAliases(list.map((a) => a.alias));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Named approval policies (`[sop.approval.policies.<name>]`) for the step
+  // policy combobox. Best-effort: an empty/failed load still leaves the
+  // input usable as free text.
+  useEffect(() => {
+    let active = true;
+    getMapKeys('sop.approval.policies')
+      .then((res) => {
+        if (active) setApprovalPolicyNames(res.keys);
       })
       .catch(() => {});
     return () => {
@@ -2016,6 +2341,7 @@ export function SopEditor() {
             selectedStep={selectedStep}
             runCallsByStep={runCallsByStep}
             agentAliases={agentAliases}
+            approvalPolicyNames={approvalPolicyNames}
             onStep={editorHandlers.onStep}
             onRemoveStep={editorHandlers.onRemoveStep}
             onMoveStep={editorHandlers.onMoveStep}
