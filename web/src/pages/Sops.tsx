@@ -403,9 +403,6 @@ function StepEditor({
     onChange({ routing: { ...routing, ...patch } });
 
   const scope = step.scope ?? {};
-  const [scopeOpen, setScopeOpen] = useState(
-    () => (scope.allow?.length ?? 0) > 0 || (scope.deny?.length ?? 0) > 0,
-  );
   const setScope = (patch: Partial<StepToolScope>) => {
     const merged = { ...(step.scope ?? {}), ...patch };
     const allow = merged.allow && merged.allow.length > 0 ? merged.allow : undefined;
@@ -435,7 +432,7 @@ function StepEditor({
     >
       <div className="mb-2 flex items-center gap-2">
         <HelpTip text={sopFieldHelp('SopStep', 'number')}>
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-pc-accent text-xs font-semibold text-[#0b1220]">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-pc-accent text-xs font-semibold text-pc-accent-foreground">
             {step.number}
           </span>
         </HelpTip>
@@ -538,52 +535,49 @@ function StepEditor({
             agent={step.agent ?? parentAgent ?? undefined}
           />
         </div>
-        <button
-          type="button"
-          onClick={() => setScopeOpen((o) => !o)}
-          className="text-xs text-pc-text-muted underline hover:text-pc-accent"
-        >
-          {t('sops.scope_precise_toggle')}
-        </button>
-        {scopeOpen ? (
-          <div className="space-y-2 rounded border border-pc-border p-2 text-xs">
-            {(step.scope?.allow?.length ?? 0) > 0 ? (
-              <p className="text-pc-text-faint">{t('sops.scope_overrides_hint')}</p>
-            ) : null}
-            <div>
-              <span className="mb-1 block text-pc-text-muted">
-                <HelpTip text={sopFieldHelp('StepToolScope', 'allow')}>
-                  {t('sops.scope_allow')}
-                </HelpTip>
-              </span>
-              <ToolPicker
-                id={`sop-scope-allow-${step.number}`}
-                value={scope.allow ?? []}
-                onChange={(next) => setScope({ allow: next })}
-                agent={step.agent ?? parentAgent ?? undefined}
-              />
-            </div>
-            <div>
-              <span className="mb-1 block text-pc-text-muted">
-                <HelpTip text={sopFieldHelp('StepToolScope', 'deny')}>
-                  {t('sops.scope_deny')}
-                </HelpTip>
-              </span>
-              <ToolPicker
-                id={`sop-scope-deny-${step.number}`}
-                value={scope.deny ?? []}
-                onChange={(next) => setScope({ deny: next })}
-                agent={step.agent ?? parentAgent ?? undefined}
-              />
-            </div>
-          </div>
-        ) : null}
         <PlannedCallsEditor
           calls={step.calls ?? []}
           captured={capturedCalls}
           agent={step.agent ?? parentAgent}
           onChange={(next) => onChange({ calls: next })}
         />
+      </StepSection>
+
+      <StepSection
+        title={t('sops.scope_precise_toggle')}
+        defaultOpen={(step.scope?.allow?.length ?? 0) > 0 || (step.scope?.deny?.length ?? 0) > 0}
+      >
+        <div className="space-y-2 text-xs">
+          {(step.scope?.allow?.length ?? 0) > 0 ? (
+            <p className="text-pc-text-faint">{t('sops.scope_overrides_hint')}</p>
+          ) : null}
+          <div>
+            <span className="mb-1 block text-pc-text-muted">
+              <HelpTip text={sopFieldHelp('StepToolScope', 'allow')}>
+                {t('sops.scope_allow')}
+              </HelpTip>
+            </span>
+            <ToolPicker
+              id={`sop-scope-allow-${step.number}`}
+              value={scope.allow ?? []}
+              onChange={(next) => setScope({ allow: next })}
+              agent={step.agent ?? parentAgent ?? undefined}
+            />
+          </div>
+          <div>
+            <span className="mb-1 block text-pc-text-muted">
+              <HelpTip text={sopFieldHelp('StepToolScope', 'deny')}>
+                {t('sops.scope_deny')}
+              </HelpTip>
+            </span>
+            <ToolPicker
+              id={`sop-scope-deny-${step.number}`}
+              value={scope.deny ?? []}
+              onChange={(next) => setScope({ deny: next })}
+              agent={step.agent ?? parentAgent ?? undefined}
+            />
+          </div>
+        </div>
       </StepSection>
 
       <StepSection title={t('sops.section_routing')} defaultOpen={routingDefaultOpen}>
@@ -1320,7 +1314,7 @@ function StepListRow({
       }`}
     >
       <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-pc-accent text-[11px] font-semibold text-[#0b1220]">
+        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-pc-accent text-[11px] font-semibold text-pc-accent-foreground">
           {step.number}
         </span>
         <span className="truncate text-sm text-pc-text">{step.title || t('sops.untitled')}</span>
@@ -1419,7 +1413,7 @@ function DraftSidebar({
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="inline-flex items-center gap-1 rounded bg-pc-accent px-2 py-1 text-sm text-[#0b1220] hover:bg-pc-accent-light disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded bg-pc-accent px-2 py-1 text-sm text-pc-accent-foreground hover:bg-pc-accent-light disabled:opacity-50"
           >
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -1747,7 +1741,7 @@ function ManualRunPanel({ name, sop }: { name: string; sop: Sop | null }) {
           type="button"
           onClick={onRun}
           disabled={running}
-          className="inline-flex items-center gap-1 rounded border border-pc-border bg-pc-accent px-3 py-1 text-sm font-medium text-[#0b1220] hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded border border-pc-border bg-pc-accent px-3 py-1 text-sm font-medium text-pc-accent-foreground hover:opacity-90 disabled:opacity-40"
         >
           {running ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
           {t('sops.run')}
@@ -1791,7 +1785,7 @@ export function SopsList() {
         actions={
           <Link
             to="/sops/new"
-            className="inline-flex items-center gap-1 rounded bg-pc-accent px-3 py-1.5 text-sm text-[#0b1220] hover:bg-pc-accent-light"
+            className="inline-flex items-center gap-1 rounded bg-pc-accent px-3 py-1.5 text-sm text-pc-accent-foreground hover:bg-pc-accent-light"
           >
             <Plus className="h-4 w-4" aria-hidden /> {t('sops.new')}
           </Link>

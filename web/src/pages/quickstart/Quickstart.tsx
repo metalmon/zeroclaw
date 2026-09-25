@@ -500,7 +500,7 @@ function Stepper({ steps }: { steps: { label: string; done: boolean }[] }) {
                   step.done
                     ? "bg-pc-accent/20 text-pc-accent"
                     : active
-                      ? "bg-pc-accent text-[#0b1220]"
+                      ? "bg-pc-accent text-pc-accent-foreground"
                       : "bg-pc-elevated text-pc-text-muted"
                 }`}
               >

@@ -17,6 +17,7 @@ import type {
 import type { components } from "./api-generated";
 import { clearToken, getToken, setToken } from "./auth";
 import { apiOrigin, basePath } from "./basePath";
+import { localizedFieldHelp } from "./fieldHelpLocalized";
 
 // ---------------------------------------------------------------------------
 // Base fetch wrapper
@@ -1065,6 +1066,31 @@ function resolveAndUnwrap(node: unknown, root: unknown): unknown {
   return cur;
 }
 
+// Same traversal as `resolveAndUnwrap`, but also returns the name of the
+// last named schema (`#/components/schemas/<Name>`) hopped through, e.g.
+// `A2aServerConfig`. That name is the `schema` key the codegen'd
+// `fieldDescriptions` / `fieldDescriptionsRu` catalogs are keyed by, so
+// callers can look up a field's help text in those catalogs by (name, field)
+// instead of only reading the live schema's inline `description`.
+function resolveAndUnwrapNamed(
+  node: unknown,
+  root: unknown,
+): { value: unknown; schemaName: string | null } {
+  let cur = node;
+  let schemaName: string | null = null;
+  for (let i = 0; i < 8; i++) {
+    const ref = (cur as { $ref?: unknown } | null)?.$ref;
+    if (typeof ref === "string" && ref.startsWith("#/")) {
+      const parts = ref.split("/");
+      schemaName = parts[parts.length - 1] || schemaName;
+    }
+    const next = unwrapOptional(resolveRef(cur, root));
+    if (next === cur) break;
+    cur = next;
+  }
+  return { value: cur, schemaName };
+}
+
 /** One property on an `object-array` element type, derived from the
  *  JSON Schema. Used by the per-row editor to render each row as a
  *  small sub-form without hand-coding the element shape. */
@@ -1213,8 +1239,15 @@ export function descriptionForPath(
   if (!schema) return null;
   let cur: unknown = schema;
   let last: unknown = null;
+  // Name of the schema owning the final segment's field (e.g.
+  // `A2aServerConfig`) plus the field's own snake_case key, when the walk
+  // lands on a named schema's `properties` entry. `null` for map-key /
+  // additionalProperties hops, where there's no fixed catalog schema name.
+  let lastSchemaName: string | null = null;
+  let lastField: string | null = null;
   for (const seg of kebabPath.split(".")) {
-    cur = resolveAndUnwrap(cur, schema);
+    const stepped = resolveAndUnwrapNamed(cur, schema);
+    cur = stepped.value;
     if (!cur || typeof cur !== "object") return null;
     const snake = seg.replace(/-/g, "_");
     const props = (cur as { properties?: Record<string, unknown> }).properties;
@@ -1222,10 +1255,14 @@ export function descriptionForPath(
       .additionalProperties;
     if (props && Object.prototype.hasOwnProperty.call(props, snake)) {
       last = props[snake];
+      lastSchemaName = stepped.schemaName;
+      lastField = snake;
     } else if (additional && typeof additional === "object") {
       // `HashMap<String, T>` parent: current segment is a user-supplied
       // map key (e.g. provider name); dive into the value schema.
       last = additional;
+      lastSchemaName = null;
+      lastField = null;
     } else {
       return null;
     }
@@ -1234,14 +1271,25 @@ export function descriptionForPath(
   // Wrapper carries the field's own `///` doc comment; the resolved
   // type's description is a fallback for fields that ref a typed config.
   const wrapDesc = (last as { description?: unknown } | null)?.description;
-  if (typeof wrapDesc === "string" && wrapDesc.length > 0) return wrapDesc;
   const resolved = resolveAndUnwrap(last, schema) as {
     description?: unknown;
   } | null;
   const innerDesc = resolved?.description;
-  return typeof innerDesc === "string" && innerDesc.length > 0
-    ? innerDesc
-    : null;
+  const enText =
+    typeof wrapDesc === "string" && wrapDesc.length > 0
+      ? wrapDesc
+      : typeof innerDesc === "string" && innerDesc.length > 0
+        ? innerDesc
+        : null;
+  // RU-aware: when the walk landed on a named schema's field, prefer the
+  // localized catalog entry (RU with EN fallback); otherwise (map-key
+  // hops with no fixed schema name) fall back to the live schema text as
+  // before.
+  if (lastSchemaName && lastField) {
+    const localized = localizedFieldHelp(lastSchemaName, lastField);
+    if (localized) return localized;
+  }
+  return enText;
 }
 
 // ── Templates + map-key creation (issue #6175) ───────────────────────

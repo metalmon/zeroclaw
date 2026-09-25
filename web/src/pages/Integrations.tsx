@@ -185,7 +185,7 @@ export default function Integrations() {
               className={[
                 'px-3 h-7 inline-flex items-center rounded-[var(--radius-md)] text-[13px] font-medium transition-colors cursor-pointer border',
                 active
-                  ? 'bg-pc-accent border-transparent text-[#0b1220]'
+                  ? 'bg-pc-accent border-transparent text-pc-accent-foreground'
                   : 'bg-transparent border-pc-border text-pc-text-secondary hover:bg-[var(--pc-hover)] hover:text-pc-text hover:border-pc-border-strong',
               ].join(' ')}
             >

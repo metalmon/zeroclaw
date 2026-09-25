@@ -582,7 +582,7 @@ export default function SopCanvas({
           <button
             type="button"
             onClick={onAddStep}
-            className="inline-flex items-center gap-1 rounded bg-pc-accent px-2 py-1 text-xs text-[#0b1220] hover:bg-pc-accent-light"
+            className="inline-flex items-center gap-1 rounded bg-pc-accent px-2 py-1 text-xs text-pc-accent-foreground hover:bg-pc-accent-light"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden /> {t('sops.add_step')}
           </button>

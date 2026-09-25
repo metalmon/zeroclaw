@@ -164,7 +164,7 @@ export default function RunDetail() {
                     type="button"
                     disabled={deciding}
                     onClick={() => handleDecide(true)}
-                    className="inline-flex items-center gap-1 rounded bg-pc-accent px-3 py-1.5 text-sm font-medium text-[#0b1220] hover:opacity-90 disabled:opacity-40"
+                    className="inline-flex items-center gap-1 rounded bg-pc-accent px-3 py-1.5 text-sm font-medium text-pc-accent-foreground hover:opacity-90 disabled:opacity-40"
                   >
                     {deciding ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

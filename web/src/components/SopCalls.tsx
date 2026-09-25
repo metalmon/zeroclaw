@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Pin, Plus, Trash2 } from 'lucide-react';
 import { t } from '@/lib/i18n';
+import { localizeToolArgDesc } from '@/lib/toolDescriptionsRu';
 import { HelpTip } from '@/components/ui';
 import type { PlannedToolCall, StepToolCall } from '@/lib/sops';
 import { loadCatalog, type CatalogEntry } from '@/components/ToolPicker';
@@ -238,12 +239,14 @@ function isBinding(value: unknown): value is string {
 /// holding a `{{…}}` binding always renders as a text input so the binding is
 /// editable regardless of the declared type.
 function SchemaField({
+  tool,
   name,
   prop,
   required,
   value,
   onChange,
 }: {
+  tool: string;
   name: string;
   prop: SchemaProp;
   required: boolean;
@@ -251,12 +254,13 @@ function SchemaField({
   onChange: (next: unknown) => void;
 }) {
   const type = primaryType(prop);
+  const description = localizeToolArgDesc(tool, name, prop.description);
   const label = (
     <span className="mb-1 block text-pc-text-muted">
       <span className="font-mono">{name}</span>
       {required ? <span className="text-status-error"> *</span> : null}
-      {prop.description ? (
-        <span className="ml-1 text-pc-text-faint">{prop.description}</span>
+      {description ? (
+        <span className="ml-1 text-pc-text-faint">{description}</span>
       ) : null}
     </span>
   );
@@ -362,10 +366,12 @@ function SchemaField({
 }
 
 function SchemaArgsEditor({
+  tool,
   parameters,
   args,
   onChange,
 }: {
+  tool: string;
   parameters: unknown;
   args: unknown;
   onChange: (next: unknown) => void;
@@ -411,6 +417,7 @@ function SchemaArgsEditor({
         return (
           <SchemaField
             key={name}
+            tool={tool}
             name={name}
             prop={prop}
             required={schema.required.includes(name)}
@@ -473,7 +480,7 @@ export function PlannedCallsEditor({
                 onToggle={() => setOpenIdx((cur) => (cur === i ? null : i))}
                 header={
                   <>
-                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-pc-accent text-[10px] font-semibold text-[#0b1220]">
+                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-pc-accent text-[10px] font-semibold text-pc-accent-foreground">
                       {i}
                     </span>
                     <span className="min-w-0 flex-1 truncate font-mono">
@@ -504,6 +511,7 @@ export function PlannedCallsEditor({
                   </button>
                 </div>
                 <SchemaArgsEditor
+                  tool={call.tool}
                   parameters={schemaParams}
                   args={call.args}
                   onChange={(next) => setCall(i, { args: next })}
@@ -562,7 +570,7 @@ export function CapturedCallList({ calls }: { calls: StepToolCall[] }) {
           onToggle={() => setOpenIdx((cur) => (cur === call.index ? null : call.index))}
           header={
             <>
-              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-pc-accent text-[10px] font-semibold text-[#0b1220]">
+              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-pc-accent text-[10px] font-semibold text-pc-accent-foreground">
                 {call.index}
               </span>
               <span className="min-w-0 flex-1 truncate font-mono">{call.tool}</span>

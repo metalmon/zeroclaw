@@ -24,6 +24,7 @@ import {
   type CatalogLoadWarning,
 } from '@/lib/toolCatalog';
 import { t } from '@/lib/i18n';
+import { localizeToolDesc } from '@/lib/toolDescriptionsRu';
 import { ToolCatalogWarningPanel } from './ToolCatalogWarningPanel';
 
 export { loadToolCatalog as loadCatalog, type CatalogEntry } from '@/lib/toolCatalog';
@@ -404,7 +405,7 @@ export default function ToolPicker({
                 <ToolRow
                   key={e.name}
                   name={e.name}
-                  description={e.description}
+                  description={localizeToolDesc(e.name, e.description) ?? e.description}
                   selected={selectedSet.has(e.name)}
                   disabled={disabled}
                   onToggle={() => toggle(e.name)}
@@ -423,7 +424,7 @@ export default function ToolPicker({
                 <ToolRow
                   key={e.name}
                   name={e.name}
-                  description={e.description}
+                  description={localizeToolDesc(e.name, e.description) ?? e.description}
                   selected={selectedSet.has(e.name)}
                   disabled={disabled}
                   onToggle={() => toggle(e.name)}

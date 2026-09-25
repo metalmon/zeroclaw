@@ -415,7 +415,7 @@ export default function AgentDrawer({
         <div className="flex items-center gap-2 px-5 py-4 border-t border-pc-border">
           <Link
             to={`/agent/${encodeURIComponent(agent.alias)}`}
-            className={`${ACTION_BASE} flex-1 bg-pc-accent border-transparent text-[#0b1220] hover:bg-pc-accent-light active:brightness-95`}
+            className={`${ACTION_BASE} flex-1 bg-pc-accent border-transparent text-pc-accent-foreground hover:bg-pc-accent-light active:brightness-95`}
           >
             <MessageSquare className="h-4 w-4" />
             {t('agent.open_chat')}

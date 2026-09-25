@@ -56,6 +56,13 @@
   --color-pc-accent-light: var(--pc-accent-light);
   --color-pc-accent-dim: var(--pc-accent-dim);
   --color-pc-accent-glow: var(--pc-accent-glow);
+  /* Ink for text/icons sitting on an accent-filled surface (badge numerals,
+     primary-button labels on bg-pc-accent). Already defined per-theme in
+     :root and themes.json (--pc-accent-foreground) — this just exposes it as
+     a Tailwind utility (text-pc-accent-foreground) so call sites stop
+     hardcoding a fixed dark hex that only reads correctly against the dark
+     theme's light accent. */
+  --color-pc-accent-foreground: var(--pc-accent-foreground);
 
   /* Status colors (fixed across themes) */
   --color-status-success: #00e68a;
