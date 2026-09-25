@@ -245,11 +245,43 @@ const LEGEND_WIRE_DASH: Partial<Record<FlowRole, string>> = {
   trigger: '4 3',
 };
 
+// The graph legend (flow-role/pin-class descriptions and labels, run-state
+// descriptions) is served by the daemon in English only — it is a static
+// Rust-side registry, not locale-aware. These tables translate the known
+// stable `key`s to catalog strings; an unrecognized key (future backend
+// addition not yet localized here) falls back to the raw backend text rather
+// than rendering blank.
+const FLOW_ROLE_LEGEND_KEY: Partial<Record<string, string>> = {
+  sequence: 'sops.legend_sequence',
+  dependency: 'sops.legend_dependency',
+  failure: 'sops.legend_failure',
+  switch: 'sops.legend_switch',
+  trigger: 'sops.legend_trigger',
+};
+const FLOW_ROLE_LABEL_KEY: Partial<Record<string, string>> = {
+  sequence: 'sops.role_label_sequence',
+  dependency: 'sops.role_label_dependency',
+  failure: 'sops.role_label_failure',
+  switch: 'sops.role_label_switch',
+  trigger: 'sops.role_label_trigger',
+};
+const RUN_STATE_DESC_KEY: Partial<Record<string, string>> = {
+  pending: 'sops.run_state_desc_pending',
+  active: 'sops.run_state_desc_active',
+  completed: 'sops.run_state_desc_completed',
+  failed: 'sops.run_state_desc_failed',
+  skipped: 'sops.run_state_desc_skipped',
+};
+
+function localize(table: Partial<Record<string, string>>, key: string, fallback: string): string {
+  const tk = table[key];
+  return tk ? t(tk) : fallback;
+}
+
 function CanvasLegend({ legend }: { legend: GraphLegend | null }) {
   const [open, setOpen] = useState(false);
   const flowRoles = legend?.flow_roles ?? [];
-  const dataDesc =
-    legend?.pin_classes.find((p) => p.key === 'data')?.description ?? t('sops.legend_data');
+  const dataDesc = t('sops.legend_data');
   return (
     <div className="absolute bottom-2 left-2 z-10">
       {open ? (
@@ -266,22 +298,25 @@ function CanvasLegend({ legend }: { legend: GraphLegend | null }) {
             </button>
           </div>
           <div className="space-y-1">
-            {flowRoles.map((row) => (
-              <div key={row.key} className="flex items-center gap-2" title={row.description}>
-                <svg width="28" height="8" aria-hidden>
-                  <line
-                    x1="0"
-                    y1="4"
-                    x2="28"
-                    y2="4"
-                    stroke={wireStroke(row.key as FlowRole)}
-                    strokeWidth="2"
-                    strokeDasharray={LEGEND_WIRE_DASH[row.key as FlowRole]}
-                  />
-                </svg>
-                <span className="text-pc-text-secondary">{row.description}</span>
-              </div>
-            ))}
+            {flowRoles.map((row) => {
+              const desc = localize(FLOW_ROLE_LEGEND_KEY, row.key, row.description);
+              return (
+                <div key={row.key} className="flex items-center gap-2" title={desc}>
+                  <svg width="28" height="8" aria-hidden>
+                    <line
+                      x1="0"
+                      y1="4"
+                      x2="28"
+                      y2="4"
+                      stroke={wireStroke(row.key as FlowRole)}
+                      strokeWidth="2"
+                      strokeDasharray={LEGEND_WIRE_DASH[row.key as FlowRole]}
+                    />
+                  </svg>
+                  <span className="text-pc-text-secondary">{desc}</span>
+                </div>
+              );
+            })}
             <div className="flex items-center gap-2" title={dataDesc}>
               <svg width="28" height="10" aria-hidden>
                 <line x1="0" y1="5" x2="28" y2="5" stroke={WIRE_STROKE.data} strokeWidth="2" strokeDasharray="2 3" />
@@ -378,11 +413,22 @@ export default function SopCanvas({
     };
   }, []);
 
-  const flowRoleDesc = useMemo(() => indexLegend(legend?.flow_roles), [legend]);
-  const flowRoleLabel = useMemo(() => indexLegendLabels(legend?.flow_roles), [legend]);
-  const pinClassDesc = useMemo(() => indexLegend(legend?.pin_classes), [legend]);
-  const runStateDesc = useMemo(() => indexLegend(legend?.run_states), [legend]);
-  const dataWireTitle = pinClassDesc.get('data') ?? t('sops.wire_kind_data');
+  const flowRoleDesc = useMemo(() => {
+    const raw = indexLegend(legend?.flow_roles);
+    for (const [k, v] of raw) raw.set(k, localize(FLOW_ROLE_LEGEND_KEY, k, v));
+    return raw;
+  }, [legend]);
+  const flowRoleLabel = useMemo(() => {
+    const raw = indexLegendLabels(legend?.flow_roles);
+    for (const [k, v] of raw) raw.set(k, localize(FLOW_ROLE_LABEL_KEY, k, v));
+    return raw;
+  }, [legend]);
+  const runStateDesc = useMemo(() => {
+    const raw = indexLegend(legend?.run_states);
+    for (const [k, v] of raw) raw.set(k, localize(RUN_STATE_DESC_KEY, k, v));
+    return raw;
+  }, [legend]);
+  const dataWireTitle = t('sops.wire_kind_data');
 
   // Abandon an in-progress wire draw (flow or data) and clear the ghost line.
   const cancelLink = useCallback(() => {

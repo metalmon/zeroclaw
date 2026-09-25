@@ -14,8 +14,8 @@ import { Badge } from '@/components/ui';
 import { CapturedCallList } from '@/components/SopCalls';
 
 function pinTypeLabel(pin: GraphPin): string {
-  if (pin.class === 'flow') return 'flow';
-  return pin.data_type ?? 'any';
+  if (pin.class === 'flow') return t('sops.pin_flow');
+  return pin.data_type ?? t('sops.pin_any');
 }
 
 export default function SopStepList({

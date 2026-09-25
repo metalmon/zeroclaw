@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Settings, Sun, Moon, Laptop, BookOpen, Check, Type, CaseSensitive } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
-import { t } from '@/lib/i18n';
+import { t, SUPPORTED_LOCALES } from '@/lib/i18n';
+import { useLocaleContext } from '@/App';
 import type { UiFont, MonoFont, ThemeMode } from '@/contexts/ThemeContext';
 import { uiFontStacks, monoFontStacks } from '@/contexts/ThemeContext';
 
@@ -74,6 +75,7 @@ export function SettingsModal({ open, onClose }: Props) {
     theme, uiFont, monoFont, uiFontSize, monoFontSize,
     setTheme, setUiFont, setMonoFont, setUiFontSize, setMonoFontSize,
   } = useTheme();
+  const { locale, setAppLocale } = useLocaleContext();
 
   type TabId = 'appearance' | 'typography';
   const [tab, setTab] = useState<TabId>('appearance');
@@ -230,6 +232,24 @@ export function SettingsModal({ open, onClose }: Props) {
                     </button>
                   );
                 })}
+              </div>
+
+              <SectionTitle>{t('settings.language')}</SectionTitle>
+              <div className="flex flex-wrap gap-1.5">
+                {SUPPORTED_LOCALES.map(opt => (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => setAppLocale(opt.code)}
+                    className={chip(
+                      locale === opt.code,
+                      'flex items-center gap-2 px-3 py-2 rounded-[var(--radius-md)] text-xs',
+                    )}
+                    aria-pressed={locale === opt.code}
+                  >
+                    {opt.name}
+                  </button>
+                ))}
               </div>
             </>
           )}

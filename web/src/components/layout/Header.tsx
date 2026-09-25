@@ -1,8 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, Settings, ChevronDown, Menu, Globe, Search, Rocket } from 'lucide-react';
-import { t, SUPPORTED_LOCALES } from '@/lib/i18n';
-import { useLocaleContext } from '@/App';
+import { LogOut, Settings, Menu, Search, Rocket } from 'lucide-react';
+import { t } from '@/lib/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { SettingsModal } from '@/components/SettingsModal';
 import ReloadDaemonButton from '@/components/sections/ReloadDaemonButton';
@@ -55,10 +54,7 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const { locale, setAppLocale } = useLocaleContext();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [langOpen, setLangOpen] = useState(false);
-  const langRef = useRef<HTMLDivElement>(null);
 
   // Fall back to a plain title for unknown routes rather than mislabeling
   // them as "Dashboard" — e.g. early /quickstart hits before the entry was
@@ -71,17 +67,6 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
       logout();
     }
   };
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (langRef.current && !langRef.current.contains(e.target as Node)) {
-        setLangOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   return (
     <>
@@ -159,68 +144,6 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
           >
             <Settings className="h-[20px] w-[20px] shrink-0" />
           </Button>
-
-          {/* Language switcher dropdown */}
-          <div ref={langRef} className="relative" style={{ zIndex: 9999 }}>
-            <Button
-              variant="ghost"
-              onClick={() => setLangOpen(!langOpen)}
-              aria-expanded={langOpen}
-              aria-label={t('settings.language')}
-              className="h-9 px-3 text-xs font-semibold gap-1.5"
-              style={{ background: 'var(--pc-bg-elevated)' }}
-            >
-              <Globe className="h-[20px] w-[20px] shrink-0" />
-              {locale.toUpperCase()}
-              <ChevronDown className="h-3 w-3 shrink-0" style={{ transform: langOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-            </Button>
-
-            {langOpen && (
-              <div
-                className="absolute right-0 top-full mt-1 rounded-xl border overflow-hidden shadow-lg"
-                style={{
-                  background: 'var(--pc-bg-elevated)',
-                  borderColor: 'var(--pc-border)',
-                  maxHeight: '360px',
-                  overflowY: 'auto',
-                  minWidth: '200px',
-                  zIndex: 9999,
-                }}
-              >
-                {SUPPORTED_LOCALES.map(({ code, name }) => (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => {
-                      setAppLocale(code);
-                      setLangOpen(false);
-                    }}
-                    className="w-full px-3 py-2 text-xs text-left flex items-center gap-2.5 transition-colors"
-                    style={{
-                      color: code === locale ? 'var(--pc-accent)' : 'var(--pc-text-secondary)',
-                      background: code === locale ? 'var(--pc-accent-glow)' : 'transparent',
-                      fontWeight: code === locale ? 600 : 400,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (code !== locale) {
-                        e.currentTarget.style.background = 'var(--pc-hover)';
-                        e.currentTarget.style.color = 'var(--pc-text-primary)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (code !== locale) {
-                        e.currentTarget.style.background = 'transparent';
-                        e.currentTarget.style.color = 'var(--pc-text-secondary)';
-                      }
-                    }}
-                  >
-                    <span className="flex-1">{name}</span>
-                    <span className="font-mono opacity-40">{code.toUpperCase()}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
           {/* Logout */}
           <Button

@@ -1448,17 +1448,27 @@ function DraftSidebar({
           label={t('sops.field_priority')}
           value={draft.priority}
           onChange={(v) => onField({ priority: v as Sop['priority'] })}
-          options={sopPriorities}
           help={sopFieldHelp('Sop', 'priority')}
-        />
+        >
+          {sopPriorities.map((p) => (
+            <option key={p} value={p}>
+              {t(`sops.priority_${p}`)}
+            </option>
+          ))}
+        </SelectField>
       </div>
       <SelectField
         label={t('sops.field_execution_mode')}
         value={draft.execution_mode}
         onChange={(v) => onField({ execution_mode: v as Sop['execution_mode'] })}
-        options={sopExecutionModes}
         help={sopFieldHelp('Sop', 'execution_mode')}
-      />
+      >
+        {sopExecutionModes.map((m) => (
+          <option key={m} value={m}>
+            {t(`sops.exec_${m}`)}
+          </option>
+        ))}
+      </SelectField>
       <SelectField
         label={t('sops.field_agent')}
         value={draft.agent ?? ''}
