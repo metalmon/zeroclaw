@@ -1365,7 +1365,7 @@ fn install_linux_systemd(config: &Config) -> Result<()> {
     let exe = std::env::current_exe().context("Failed to resolve current executable")?;
     let unit = format!(
         "[Unit]\n\
-         Description=Volt Agent daemon\n\
+         Description=«Вольт Агент» — служба\n\
          After=network.target\n\
          \n\
          [Service]\n\
@@ -1791,7 +1791,7 @@ fn generate_openrc_script(exe_path: &Path, config_dir: &Path) -> String {
         r#"#!/sbin/openrc-run
 
 name="voltd"
-description="Volt Agent daemon"
+description="«Вольт Агент» — служба"
 
 command="{exe}"
 command_args="--config-dir {config_dir} daemon"
@@ -1843,7 +1843,7 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
     let exe = resolve_openrc_executable()?;
     if !openrc_executable_path_is_safe(&exe) {
         bail!(
-            "OpenRC service executable path contains unsupported shell characters: {}. Install Volt Agent at /usr/local/bin/voltd and retry",
+            "OpenRC service executable path contains unsupported shell characters: {}. Install «Вольт Агент» at /usr/local/bin/voltd and retry",
             exe.display()
         );
     }
@@ -2741,7 +2741,7 @@ mod service_helper_tests {
 
         assert!(script.starts_with("#!/sbin/openrc-run"));
         assert!(script.contains("name=\"voltd\""));
-        assert!(script.contains("description=\"Volt Agent daemon\""));
+        assert!(script.contains("description=\"«Вольт Агент» — служба\""));
         assert!(script.contains("command=\"/usr/local/bin/zeroclaw\""));
         assert!(script.contains("command_args=\"--config-dir /etc/zeroclaw daemon\""));
         assert!(!script.contains("env ZEROCLAW_CONFIG_DIR"));
