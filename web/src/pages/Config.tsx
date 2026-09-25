@@ -266,7 +266,7 @@ export default function Config() {
       ) {
         channelExtraTabs.push({
           key: "bind",
-          label: "Bind identity",
+          label: t("config.channels.tab_bind"),
           render: () => (
             <BindChannelForm
               key={`${reloadKey}-${typeParam}-${aliasParam}-bind`}

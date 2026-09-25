@@ -3158,6 +3158,23 @@ export const ru: Record<string, string> = {
   'canvas.waiting_hint': 'Агент может выводить содержимое сюда через инструмент canvas',
   'canvas.waiting_prefix': 'Ожидание содержимого на холсте',
 
+  // Operator-bind form (authorize a user without a /bind message)
+  'channelbind.already_authorized': '{id} уже авторизован в {scope}.',
+  'channelbind.authorized': 'Пользователь {id} авторизован в {scope}. Теперь он может писать боту — без /bind.',
+  'channelbind.bind': 'Привязать',
+  'channelbind.bind_failed': 'Не удалось выполнить привязку.',
+  'channelbind.binding': 'Привязка…',
+  'channelbind.channel_label': 'Канал',
+  'channelbind.cli_label': 'Эквивалентная команда CLI',
+  'channelbind.copied': 'Скопировано',
+  'channelbind.copy': 'Копировать',
+  'channelbind.description': 'Добавьте id пользователя в список разрешенных для канала Telegram, WeChat или LINE. Он сможет сразу писать боту — без кода сопряжения и без /bind.',
+  'channelbind.done': 'Готово',
+  'channelbind.empty_state': 'Каналы Telegram, WeChat или LINE не настроены.',
+  'channelbind.error': 'Ошибка',
+  'channelbind.heading': 'Авторизация пользователя (без сообщения /bind)',
+  'channelbind.identity_label': 'Идентификатор (например, числовой id пользователя Telegram или @username)',
+
   // Config field editor — comments + validation
   'cfg.field.commentAdd': 'Добавить комментарий',
   'cfg.field.commentHide': 'Убрать комментарий',
