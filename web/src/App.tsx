@@ -183,7 +183,7 @@ function PairingDialog({
     try {
       await onPair(code);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Pairing failed");
+      setError(err instanceof Error ? err.message : t('pairing.failed'));
     } finally {
       setLoading(false);
     }
@@ -240,10 +240,10 @@ function PairingDialog({
           </h1>
           <p className="text-sm" style={{ color: "var(--pc-text-muted)" }}>
             {codeLoading
-              ? "Checking pairing status…"
+              ? t('pairing.checking_status')
               : displayCode
-                ? "Your pairing code — click Pair to connect"
-                : "This gateway is already paired — generate a code to add this device"}
+                ? t('pairing.your_code_hint')
+                : t('pairing.already_paired_hint')}
           </p>
         </div>
 
@@ -260,10 +260,7 @@ function PairingDialog({
           >
             {isLocalhost && !showCliFallback ? (
               <>
-                <p className="mb-3">
-                  No pairing code was generated because a device is already
-                  paired.
-                </p>
+                <p className="mb-3">{t('pairing.no_code_hint')}</p>
                 <button
                   type="button"
                   onClick={handleGenerate}
@@ -273,10 +270,10 @@ function PairingDialog({
                   {generating ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Generating…
+                      {t('pairing.generating')}
                     </span>
                   ) : (
-                    "Generate pairing code"
+                    t('pairing.generate_code')
                   )}
                 </button>
               </>
@@ -284,8 +281,8 @@ function PairingDialog({
               <>
                 <p className="mb-2">
                   {isLocalhost
-                    ? "Couldn't generate a code from the browser. On the machine running the gateway, run:"
-                    : "Pairing codes can only be generated on the machine running the gateway. Run:"}
+                    ? t('pairing.cli_fallback_localhost')
+                    : t('pairing.cli_fallback_remote')}
                 </p>
                 <code
                   className="block px-3 py-2 rounded-lg font-mono text-xs break-all select-all"
@@ -320,7 +317,7 @@ function PairingDialog({
               className="text-xs mt-2"
               style={{ color: "var(--pc-text-muted)" }}
             >
-              Enter this code below or on another device
+              {t('pairing.enter_code_hint')}
             </p>
           </div>
         )}
@@ -352,10 +349,10 @@ function PairingDialog({
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Pairing...
+                {t('pairing.pairing_progress')}
               </span>
             ) : (
-              "Pair"
+              t('pairing.pair_action')
             )}
           </button>
         </form>

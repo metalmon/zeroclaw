@@ -1946,6 +1946,18 @@ const translations: Record<Locale, Record<string, string>> = {
     'pairing.load_error': 'Failed to load devices',
     'pairing.generate_error': 'Failed to generate pairing code',
     'pairing.revoke_error': 'Failed to revoke device',
+    'pairing.checking_status': 'Checking pairing status…',
+    'pairing.your_code_hint': 'Your pairing code — click Pair to connect',
+    'pairing.already_paired_hint': 'This gateway is already paired — generate a code to add this device',
+    'pairing.no_code_hint': 'No pairing code was generated because a device is already paired.',
+    'pairing.generating': 'Generating…',
+    'pairing.generate_code': 'Generate pairing code',
+    'pairing.cli_fallback_localhost': "Couldn't generate a code from the browser. On the machine running the gateway, run:",
+    'pairing.cli_fallback_remote': 'Pairing codes can only be generated on the machine running the gateway. Run:',
+    'pairing.enter_code_hint': 'Enter this code below or on another device',
+    'pairing.pairing_progress': 'Pairing…',
+    'pairing.pair_action': 'Pair',
+    'pairing.failed': 'Pairing failed',
 
     // Roles (permission profiles + principal binding)
     'roles.title': 'Roles',
