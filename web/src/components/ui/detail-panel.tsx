@@ -31,8 +31,8 @@ interface DetailPanelProps {
 
 export function DetailPanel({ icon, title, subtitle, actions, onClose, children }: DetailPanelProps) {
   return (
-    <section className="relative flex h-full flex-1 flex-col overflow-hidden px-5 pb-5 text-foreground">
-      <header className="relative mt-2 flex min-h-14 shrink-0 items-center justify-between gap-4">
+    <section className="relative flex flex-col px-5 pb-5 pt-2 text-foreground">
+      <header className="relative flex min-h-12 shrink-0 items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           {icon}
           <div className="flex min-w-0 flex-col justify-center leading-tight">
@@ -52,7 +52,7 @@ export function DetailPanel({ icon, title, subtitle, actions, onClose, children 
           </button>
         </div>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pt-4">{children}</div>
+      <div className="flex flex-col gap-5 pt-3">{children}</div>
     </section>
   );
 }
@@ -78,9 +78,11 @@ export function DetailPanelSurface({ open, onClose, children }: DetailPanelSurfa
       />
       <aside
         className={cn(
-          // Sits below the 48px title bar (top-12) so its header is never clipped,
-          // and runs to the bottom of the viewport.
-          'fixed right-0 top-0 bottom-0 z-[61] w-full max-w-[min(92vw,520px)] border-l border-border bg-card shadow-md transition-transform duration-200 ease-out md:top-12',
+          'fixed z-[61] flex flex-col overflow-y-auto bg-card border-border shadow-xl transition-transform duration-200 ease-out',
+          // mobile: full-height right sheet
+          'inset-y-0 right-0 w-full max-w-[92vw] border-l',
+          // desktop: a panel sized to its content, floating below the title bar
+          'md:inset-y-auto md:right-4 md:top-16 md:w-[520px] md:max-w-[calc(100vw-5rem)] md:max-h-[calc(100dvh-5.5rem)] md:rounded-2xl md:border',
           open ? 'translate-x-0' : 'translate-x-full',
         )}
         role="dialog"

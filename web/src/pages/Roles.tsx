@@ -140,12 +140,12 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
         {t('roles.admin_toggle')}
       </label>
 
-      <div className="flex items-center gap-2 pt-1">
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
+          {t('roles.cancel')}
+        </Button>
         <Button onClick={onSave} disabled={saving}>
           {t('roles.save')}
-        </Button>
-        <Button variant="outline" onClick={onCancel} disabled={saving}>
-          {t('roles.cancel')}
         </Button>
       </div>
     </div>
