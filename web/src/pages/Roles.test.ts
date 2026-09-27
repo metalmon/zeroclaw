@@ -288,13 +288,17 @@ test('binding a pending principal to a profile calls the bind endpoint and clear
   // own bind picker too.
   const aliceRow = renderer.root.findAllByProps({ ariaLabel: 'alice' })[0];
   assert.ok(aliceRow, "alice's principal row is rendered");
-  const aliceSelect = aliceRow.findByType(Select);
+  // Binding now lives in the subject's detail panel, not inline in the row:
+  // click the row to open the panel, then drive its Select + Bind button.
+  await act(async () => { aliceRow.props.onSelect(); });
+
+  const aliceSelect = renderer.root.findByType(Select);
   await act(async () => { aliceSelect.props.onChange('crm'); });
 
-  const aliceBindButton = aliceRow
+  const aliceBindButton = renderer.root
     .findAllByType('button')
     .find((b) => nodeText(b).includes('Bind profile'));
-  assert.ok(aliceBindButton, "alice's Bind profile button is rendered");
+  assert.ok(aliceBindButton, "the Bind profile button is rendered");
   await act(async () => { aliceBindButton.props.onClick(); });
   await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Shield, ShieldCheck, Trash2, User, X } from 'lucide-react';
+import { ChevronRight, Plus, Shield, ShieldCheck, Trash2, User, X } from 'lucide-react';
 import { useRoles } from '@/hooks/useRoles';
 import { HttpError, type AuthzProfile, type AuthzPrincipalSummary } from '@/lib/api';
 import { Badge, Button, Card, ConfirmDialog, PageHeader, Select } from '@/components/ui';
@@ -9,7 +9,8 @@ import {
   SettingsSectionLabel,
   SettingsSelectableRow,
 } from '@/components/ui/settings-list';
-import { DetailPanel, DetailPanelSurface } from '@/components/ui/detail-panel';
+import { DetailPanel, DetailPanelSurface, DetailSectionTitle } from '@/components/ui/detail-panel';
+import { IconTile } from '@/components/ui/icon-tile';
 import { plural, t } from '@/lib/i18n';
 
 // Sentinel written into `allowed_agents` for "every agent" — matches the
@@ -152,6 +153,76 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
   );
 }
 
+// ── Principal detail (bind / unbind roles) ──────────────────────────────────
+
+function PrincipalDetail({
+  principal,
+  profiles,
+  bindValue,
+  onBindValueChange,
+  onBind,
+  onUnbind,
+}: {
+  principal: AuthzPrincipalSummary;
+  profiles: AuthzProfile[];
+  bindValue: string;
+  onBindValueChange: (value: string) => void;
+  onBind: () => void;
+  onUnbind: (profileId: string) => void;
+}) {
+  const unbound = profiles.filter((p) => !principal.profiles.includes(p.id));
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <DetailSectionTitle>{t('roles.title')}</DetailSectionTitle>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {principal.profiles.length === 0 && (
+            <span className="text-sm text-muted-foreground">{t('roles.no_principals')}</span>
+          )}
+          {principal.profiles.map((pid) => (
+            <Badge key={pid} tone="neutral">
+              {pid}
+              <button
+                type="button"
+                onClick={() => onUnbind(pid)}
+                aria-label={`${t('roles.unbind')} ${pid}`}
+                className="hover:text-status-error"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      </div>
+
+      {unbound.length > 0 && (
+        <div>
+          <DetailSectionTitle>{t('roles.bind_profile')}</DetailSectionTitle>
+          <div className="mt-2 flex items-center gap-2">
+            <Select
+              value={bindValue}
+              onChange={onBindValueChange}
+              options={unbound.map((p) => ({ value: p.id, label: p.id }))}
+              placeholder={t('roles.select_profile_placeholder')}
+              aria-label={t('roles.bind_profile')}
+              className="flex-1"
+            />
+            <Button size="sm" disabled={!bindValue} onClick={onBind}>
+              {t('roles.bind_profile')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {principal.legacyAllowedAgents.length > 0 && (
+        <p className="text-[11px] text-muted-foreground">
+          {t('roles.legacy_agents_hint')} {principal.legacyAllowedAgents.join(', ')}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function Roles() {
@@ -175,6 +246,7 @@ export default function Roles() {
   const [pendingDelete, setPendingDelete] = useState<AuthzProfile | null>(null);
   const [deleteAffected, setDeleteAffected] = useState<{ profileId: string; principals: string[] } | null>(null);
   const [bindSelection, setBindSelection] = useState<Record<string, string>>({});
+  const [editPrincipalId, setEditPrincipalId] = useState<string | null>(null);
 
   // PENDING first (they need attention), then everyone else, both
   // alphabetical within their bucket — keeps the unassigned-role rows from
@@ -188,17 +260,32 @@ export default function Roles() {
     });
   }, [principals]);
 
+  const editPrincipal = editPrincipalId
+    ? principals.find((p) => p.id === editPrincipalId) ?? null
+    : null;
+
   const openCreate = () => {
+    setEditPrincipalId(null);
     setFormError(null);
     setForm(emptyForm());
   };
   const openEdit = (profile: AuthzProfile) => {
+    setEditPrincipalId(null);
     setFormError(null);
     setForm(formFromProfile(profile));
   };
   const closeForm = () => {
     setForm(null);
     setFormError(null);
+  };
+  const openPrincipal = (id: string) => {
+    setForm(null);
+    setEditPrincipalId(id);
+  };
+  const closeDetail = () => {
+    setForm(null);
+    setFormError(null);
+    setEditPrincipalId(null);
   };
 
   const handleSave = async () => {
@@ -236,6 +323,7 @@ export default function Roles() {
     setActionError(null);
     try {
       const result = await deleteProfile(target.id);
+      if (form?.editingId === target.id) closeForm();
       if (result.affected_principals.length > 0) {
         setDeleteAffected({ profileId: target.id, principals: result.affected_principals });
       }
@@ -342,17 +430,13 @@ export default function Roles() {
                 isSelected={form?.editingId === profile.id}
                 onSelect={() => openEdit(profile)}
                 leading={
-                  <span
-                    className={`grid h-9 w-9 place-items-center rounded-lg ${
-                      profile.admin ? 'bg-status-success/10 text-status-success' : 'bg-secondary text-muted-foreground'
-                    }`}
-                  >
+                  <IconTile className={profile.admin ? 'bg-status-success/10 text-status-success' : undefined}>
                     {profile.admin ? (
                       <ShieldCheck className="h-[18px] w-[18px]" />
                     ) : (
                       <Shield className="h-[18px] w-[18px]" />
                     )}
-                  </span>
+                  </IconTile>
                 }
                 title={
                   <span className="flex items-center gap-2">
@@ -365,16 +449,7 @@ export default function Roles() {
                     </Badge>
                   </span>
                 }
-                trailing={
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setPendingDelete(profile)}
-                    aria-label={t('roles.delete')}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                }
+                trailingIcon={<ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
               />
             ))}
           </SettingsListBody>
@@ -392,15 +467,16 @@ export default function Roles() {
           <SettingsListBody>
             {sortedPrincipals.map((principal) => {
               const pending = principal.profiles.length === 0;
-              const unbound = profiles.filter((p) => !principal.profiles.includes(p.id));
               return (
                 <SettingsSelectableRow
                   key={principal.id}
                   ariaLabel={principal.id}
+                  isSelected={editPrincipalId === principal.id}
+                  onSelect={() => openPrincipal(principal.id)}
                   leading={
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-secondary text-muted-foreground">
-                      <User className="h-[18px] w-[18px]" />
-                    </span>
+                    <IconTile>
+                      <User className="h-[18px] w-[18px] text-muted-foreground" />
+                    </IconTile>
                   }
                   title={
                     <span className="flex items-center gap-2">
@@ -413,43 +489,7 @@ export default function Roles() {
                     principal.deviceIdCount,
                     'roles.device_count',
                   )}`}
-                  trailing={
-                    <div className="flex items-center gap-1.5 py-2">
-                      {principal.profiles.map((pid) => (
-                        <Badge key={pid} tone="neutral">
-                          {pid}
-                          <button
-                            type="button"
-                            onClick={() => void handleUnbind(principal.id, pid)}
-                            aria-label={`${t('roles.unbind')} ${pid}`}
-                            className="hover:text-status-error"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                      {unbound.length > 0 && (
-                        <>
-                          <Select
-                            value={bindSelection[principal.id] ?? ''}
-                            onChange={(v) => setBindSelection((prev) => ({ ...prev, [principal.id]: v }))}
-                            options={unbound.map((p) => ({ value: p.id, label: p.id }))}
-                            placeholder={t('roles.select_profile_placeholder')}
-                            aria-label={t('roles.bind_profile')}
-                            className="w-40"
-                          />
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={!bindSelection[principal.id]}
-                            onClick={() => void handleBind(principal.id)}
-                          >
-                            {t('roles.bind_profile')}
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  }
+                  trailingIcon={<ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
                 />
               );
             })}
@@ -458,23 +498,34 @@ export default function Roles() {
         </SettingsPageShell>
       </div>
 
-      {/* Right detail column — create / edit a role (master-detail). */}
-      <DetailPanelSurface open={form !== null}>
+      {/* Right detail column — create / edit a role, or manage a subject. */}
+      <DetailPanelSurface open={form !== null || editPrincipal !== null}>
         {form && (
           <DetailPanel
             icon={
-              <span
-                className="grid h-10 w-10 place-items-center rounded-lg text-brand-foreground"
-                style={{ backgroundImage: 'var(--gradient-brand)' }}
-              >
-                <ShieldCheck className="h-5 w-5" />
-              </span>
+              <IconTile className="text-brand-foreground [background-image:var(--gradient-brand)]">
+                <ShieldCheck className="h-[18px] w-[18px]" />
+              </IconTile>
             }
-            title={
-              <span className="font-mono">{form.editingId ?? t('roles.new_profile_title')}</span>
-            }
+            title={<span className="font-mono">{form.editingId ?? t('roles.new_profile_title')}</span>}
             subtitle={form.editingId ? t('nav.roles') : undefined}
-            onClose={closeForm}
+            onClose={closeDetail}
+            actions={
+              form.editingId ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t('roles.delete')}
+                  className="text-muted-foreground hover:text-status-error"
+                  onClick={() => {
+                    const p = profiles.find((pr) => pr.id === form.editingId);
+                    if (p) setPendingDelete(p);
+                  }}
+                >
+                  <Trash2 className="h-[18px] w-[18px]" />
+                </Button>
+              ) : undefined
+            }
           >
             <ProfileForm
               form={form}
@@ -483,7 +534,31 @@ export default function Roles() {
               formError={formError}
               onChange={setForm}
               onSave={() => void handleSave()}
-              onCancel={closeForm}
+              onCancel={closeDetail}
+            />
+          </DetailPanel>
+        )}
+        {editPrincipal && (
+          <DetailPanel
+            icon={
+              <IconTile>
+                <User className="h-[18px] w-[18px] text-muted-foreground" />
+              </IconTile>
+            }
+            title={<span className="font-mono">{editPrincipal.id}</span>}
+            subtitle={`${plural(editPrincipal.tokenHashCount, 'roles.token_count')} · ${plural(
+              editPrincipal.deviceIdCount,
+              'roles.device_count',
+            )}`}
+            onClose={closeDetail}
+          >
+            <PrincipalDetail
+              principal={editPrincipal}
+              profiles={profiles}
+              bindValue={bindSelection[editPrincipal.id] ?? ''}
+              onBindValueChange={(v) => setBindSelection((prev) => ({ ...prev, [editPrincipal.id]: v }))}
+              onBind={() => void handleBind(editPrincipal.id)}
+              onUnbind={(pid) => void handleUnbind(editPrincipal.id, pid)}
             />
           </DetailPanel>
         )}
