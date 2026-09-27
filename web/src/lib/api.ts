@@ -341,12 +341,13 @@ export class PairCodeForbiddenError extends Error {
  * gets a 403 — surfaced as {@link PairCodeForbiddenError} so the caller can fall
  * back to showing the equivalent CLI command instead of a raw error.
  */
-export async function generatePairCode(): Promise<{
+export async function generatePairCode(principal?: string): Promise<{
   pairing_code: string | null;
   pairing_required: boolean;
   message?: string;
 }> {
-  const response = await fetch(`${basePath}/admin/paircode/new`, { method: 'POST' });
+  const qs = principal ? `?principal=${encodeURIComponent(principal)}` : '';
+  const response = await fetch(`${basePath}/admin/paircode/new${qs}`, { method: 'POST' });
   if (response.status === 403) {
     throw new PairCodeForbiddenError();
   }
@@ -2594,5 +2595,35 @@ export async function loadAuthzPrincipals(): Promise<AuthzPrincipalSummary[]> {
         legacyAllowedAgents: entryAsStringArray(lookup("allowed_agents")),
       };
     }),
+  );
+}
+
+/** One `[[authz.principals]]` row as returned by the dedicated listing
+ *  endpoint below — id, bound profile ids, the derived admin bit, and (when
+ *  present) the device ids pinned to it. */
+export interface PrincipalSummary {
+  id: string;
+  profiles: string[];
+  admin: boolean;
+  device_ids?: string[];
+}
+
+interface PrincipalsListResponse {
+  principals: PrincipalSummary[];
+}
+
+/**
+ * `GET /api/authz/principals` — ADMIN-only listing of every configured
+ * principal (id, bound profiles, derived `admin` bit, device ids). Added
+ * alongside profile CRUD (crates/zeroclaw-gateway/src/api_authz.rs,
+ * `handle_list_principals`) specifically for pickers like the pairing-code
+ * role selector, so callers don't have to fall back to
+ * {@link loadAuthzPrincipals}'s per-id config-entity walk. Requires an admin
+ * caller — a non-admin/unpaired browser gets a 403, which callers should
+ * treat as "hide the picker", not a hard failure.
+ */
+export function getPrincipals(): Promise<PrincipalSummary[]> {
+  return apiFetch<PrincipalsListResponse>("/api/authz/principals").then(
+    (data) => data.principals,
   );
 }

@@ -1,8 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Smartphone, Trash2, X } from 'lucide-react';
-import { getAdminPairCode } from '@/lib/api';
-import { Button, Card, ConfirmDialog, PageHeader } from '@/components/ui';
+import {
+  getAdminPairCode,
+  generatePairCode,
+  getPrincipals,
+  type PrincipalSummary,
+} from '@/lib/api';
+import { Button, Card, ConfirmDialog, PageHeader, Select } from '@/components/ui';
 import { t, fmtDate } from '@/lib/i18n';
+
+/** Sentinel `<Select>` value for "mint an untagged code" — the current
+ *  pending-principal behavior. Never a real principal id (ids come from the
+ *  config-driven `authz.principals` table, which can't contain an empty
+ *  string as a natural key). */
+const NO_ROLE = '';
 
 interface Device {
   id: string;
@@ -23,6 +34,16 @@ export default function Pairing() {
   // True when /api/devices returned 401/403 — this browser isn't paired, so
   // the list can't be read (distinct from an empty registry).
   const [unauthorized, setUnauthorized] = useState(false);
+  // Configured principals (F4 authz), for the "which role does this device
+  // get" picker on pairing-code generation. Best-effort: an empty list just
+  // hides the picker (non-admin caller, endpoint predates this daemon build,
+  // or genuinely no principals configured yet) and generation falls back to
+  // the untagged pending-* behavior — it never blocks the page.
+  const [principals, setPrincipals] = useState<PrincipalSummary[]>([]);
+  const [selectedPrincipal, setSelectedPrincipal] = useState(NO_ROLE);
+  // The principal id the most recently generated code was tagged for (or
+  // null for an untagged code), shown next to the pairing code.
+  const [taggedFor, setTaggedFor] = useState<string | null>(null);
 
   const token = localStorage.getItem('zeroclaw_token') || '';
 
@@ -65,21 +86,31 @@ export default function Pairing() {
       });
   }, []);
 
+  // Load the principal picker's options. Best-effort: any failure (403 for a
+  // non-admin caller, 404 on a daemon build that predates this endpoint, or a
+  // network error) just leaves the list empty, which hides the selector below.
+  useEffect(() => {
+    getPrincipals()
+      .then(setPrincipals)
+      .catch(() => setPrincipals([]));
+  }, []);
+
   useEffect(() => { fetchDevices(); }, [fetchDevices]);
 
   const handleInitiatePairing = async () => {
     try {
-      const res = await fetch('/api/pairing/initiate', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const principal = selectedPrincipal || undefined;
+      const data = await generatePairCode(principal);
+      if (data.pairing_code) {
         setPairingCode(data.pairing_code);
+        setTaggedFor(principal ?? null);
       } else {
-        setError(t('pairing.generate_error'));
+        setError(data.message || t('pairing.generate_error'));
       }
     } catch (err) {
+      // PairCodeForbiddenError (non-loopback origin) and any other failure
+      // both land on the same generic message here — this page has no CLI
+      // fallback UI (unlike the pre-auth pairing screen in App.tsx).
       setError(t('pairing.generate_error'));
     }
   };
@@ -122,6 +153,28 @@ export default function Pairing() {
         }
       />
 
+      {principals.length > 0 && (
+        <Card className="flex flex-wrap items-center gap-3 p-4">
+          <label htmlFor="pairing-role-select" className="text-sm font-medium text-pc-text-secondary">
+            {t('pairing.role_label')}
+          </label>
+          <Select
+            id="pairing-role-select"
+            aria-label={t('pairing.role_label')}
+            className="max-w-xs"
+            value={selectedPrincipal}
+            onChange={setSelectedPrincipal}
+            options={[
+              { value: NO_ROLE, label: t('pairing.role_none') },
+              ...principals.map((p) => ({
+                value: p.id,
+                label: p.admin ? `${p.id} ${t('pairing.role_admin_marker')}` : p.id,
+              })),
+            ]}
+          />
+        </Card>
+      )}
+
       {error && (
         <Card className="flex items-start gap-2 text-sm border-status-error/25 bg-status-error/10 text-status-error">
           <span className="flex-1">{error}</span>
@@ -145,6 +198,11 @@ export default function Pairing() {
             {pairingCode}
           </div>
           <p className="text-xs text-pc-text-muted">{t('pairing.code_hint')}</p>
+          {taggedFor && (
+            <p className="mt-2 text-xs text-pc-text-secondary">
+              {t('pairing.tagged_for', { value: taggedFor })}
+            </p>
+          )}
         </Card>
       )}
 

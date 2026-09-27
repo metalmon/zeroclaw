@@ -2037,6 +2037,10 @@ const translations: Record<Locale, Record<string, string>> = {
     'pairing.pair_action': 'Pair',
     'pairing.failed': 'Pairing failed',
     'pairing.error_invalid_code': 'Invalid or expired pairing code. Generate a new one and try again.',
+    'pairing.role_label': 'Device role',
+    'pairing.role_none': '— no role —',
+    'pairing.role_admin_marker': '· admin',
+    'pairing.tagged_for': 'Code tagged for role: {value}',
 
     // Roles (permission profiles + principal binding)
     'roles.title': 'Roles',

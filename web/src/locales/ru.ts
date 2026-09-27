@@ -566,6 +566,10 @@ export const ru: Record<string, string> = {
   'pairing.unnamed': 'Без названия',
   'pairing.unpaired_hint': 'Требуется сопряжение, поэтому список устройств здесь недоступен. Сопрягите этот браузер с помощью кода (см. выше) — тогда появятся ваши сопряженные устройства.',
   'pairing.unpaired_title': 'Этот браузер еще не сопряжен',
+  'pairing.role_label': 'Роль устройства',
+  'pairing.role_none': '— без роли —',
+  'pairing.role_admin_marker': '· админ',
+  'pairing.tagged_for': 'Код для роли: {value}',
 
   // Roles
   'roles.title': 'Роли',
