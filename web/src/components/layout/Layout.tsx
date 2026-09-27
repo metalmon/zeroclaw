@@ -62,7 +62,7 @@ export default function Layout() {
 
       {/* Main area — offset by the fixed 56px rail on desktop, full-width on
           mobile. The rail is always slim, so the offset is constant. */}
-      <div className="flex flex-col flex-1 min-w-0 h-screen md:ml-14 ml-0">
+      <div className="flex flex-col flex-1 min-w-0 h-screen md:ml-60 ml-0">
         <Header
           onMenuToggle={() => setSidebarOpen((v) => !v)}
           onOpenPalette={openPalette}

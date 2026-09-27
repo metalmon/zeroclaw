@@ -1,7 +1,6 @@
 import { useLocation } from 'react-router-dom';
 import { basePath } from '../../lib/basePath';
 import { findActiveNavPath } from './sidebarNav';
-import { railAsideStyle, railLinkClassName, railNavClassName } from './sidebarRail';
 import { SidebarNavLink } from './SidebarNavLink';
 import {
   Activity,
@@ -23,8 +22,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { t } from '@/lib/i18n';
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useState } from 'react';
 import { getStatus } from '@/lib/api';
 import { useVersionCheck } from '@/hooks/useVersionCheck';
 import { UpgradeDialog } from '@/components/UpgradeDialog';
@@ -109,134 +107,6 @@ const navPaths = navGroups.flatMap((group) => group.items.map((item) => item.to)
 // nav needs no horizontal overflow handling at all: `overflow-y: auto`
 // alone leaves `scrollWidth === clientWidth`, so no `overflow-x` value
 // (hidden or clip) is applied to either the `<nav>` or the `<aside>`.
-function RailNavItem({
-  item,
-  activePath,
-  onClick,
-}: {
-  item: NavItem;
-  activePath: string | null;
-  onClick: () => void;
-}) {
-  const { to, icon: Icon, labelKey } = item;
-  const text = t(labelKey);
-  const linkRef = useRef<HTMLAnchorElement>(null);
-  // Tooltip anchor in viewport coords, derived from the DOM: `tooltipTop`
-  // is the vertical center of the NavLink (so the popover visually aligns
-  // with the icon) and `tooltipLeft` is the rail's right edge (the closest
-  // `<aside>`) plus the 8 px visual gap —
-  // i.e. the popover sits flush against the rail. Both are `null` together
-  // when the popover should not render. Deriving both from the rect means
-  // the rail's `w-14` width is no longer hard-coded into the popover's
-  // horizontal position.
-  // Hover and keyboard focus are tracked independently so a mouseleave does
-  // not hide a tooltip that should remain visible while the link is still
-  // `document.activeElement` (the "hover or keyboard focus" visibility
-  // contract). `tooltipVisible` is their union; the position state is only
-  // meaningful while it is true.
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const tooltipVisible = hovered || focused;
-  const [tooltipTop, setTooltipTop] = useState<number | null>(null);
-  const [tooltipLeft, setTooltipLeft] = useState<number | null>(null);
-
-  // Re-anchor the popover while it is visible so it tracks the NavLink across
-  // viewport scrolls and resize events, and compute the initial position when
-  // visibility flips to true (hover or focus). Cleanup on unmount / hide.
-  useEffect(() => {
-    if (!tooltipVisible) return;
-    const update = () => {
-      const linkRect = linkRef.current?.getBoundingClientRect();
-      // Anchor the popover to the rail's right edge (the closest `<aside>`),
-      // not the link's right edge. The rail is `w-14` (56 px) and the desired
-      // gap is 8 px; deriving from the rail's actual rect keeps the visual gap
-      // stable regardless of how the link is positioned within the rail
-      // (centered icon, full-width item, future layout changes, etc.) — i.e.
-      // the rail's `w-14` is no longer duplicated into the popover's
-      // horizontal position.
-      const railRect = linkRef.current
-        ?.closest('aside')
-        ?.getBoundingClientRect();
-      if (linkRect && railRect) {
-        setTooltipTop(linkRect.top + linkRect.height / 2);
-        setTooltipLeft(railRect.right + 8); // 8 px gap from the rail's right edge
-      }
-    };
-    update();
-    window.addEventListener('scroll', update, true);
-    window.addEventListener('resize', update);
-    return () => {
-      window.removeEventListener('scroll', update, true);
-      window.removeEventListener('resize', update);
-    };
-  }, [tooltipVisible]);
-
-  return (
-    <>
-      <SidebarNavLink
-        to={to}
-        activePath={activePath}
-        ref={linkRef}
-        onClick={onClick}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        title={text}
-        aria-label={text}
-        className={({ isActive }) =>
-          [
-            railLinkClassName,
-            'rounded-[var(--radius-md)] transition-colors duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]',
-            isActive
-              ? 'bg-primary/10 text-primary'
-              : 'text-muted-foreground hover:text-text-secondary hover:bg-[var(--color-hover)]',
-          ].join(' ')
-        }
-      >
-        {({ isActive }) => (
-          <>
-            {/* 2px left accent bar marking the active item against the rail edge. */}
-            {isActive && (
-              <span
-                aria-hidden="true"
-                className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary"
-              />
-            )}
-            <Icon
-              className={`h-[22px] w-[22px] shrink-0 transition-colors ${
-                isActive
-                  ? 'text-primary'
-                  : 'group-hover:text-text-secondary'
-              }`}
-            />
-          </>
-        )}
-      </SidebarNavLink>
-      {tooltipVisible &&
-        tooltipTop !== null &&
-        createPortal(
-          <span
-            role="tooltip"
-            className="pointer-events-none fixed z-9999 whitespace-nowrap rounded-[var(--radius-sm)] px-2 py-1 text-xs"
-            style={{
-              top: tooltipTop,
-              left: tooltipLeft ?? 0, // set alongside tooltipTop in the `update` closure
-              transform: 'translateY(-50%)',
-              background: 'var(--color-secondary)',
-              color: 'var(--color-foreground)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            {text}
-          </span>,
-          document.body,
-        )}
-    </>
-  );
-}
-
 // ── Mobile drawer item ──────────────────────────────────────────────────────
 // Full labelled row (icon + text) for the mobile drawer, with the same calm
 // active treatment as before: subtle accent tint, 2px left accent bar, accent
@@ -259,25 +129,19 @@ function DrawerNavItem({
       onClick={onClick}
       className={({ isActive }) =>
         [
-          'group relative flex items-center justify-start gap-3 px-3 py-2',
-          'rounded-[var(--radius-md)] text-sm font-medium transition-colors duration-150',
+          'group relative flex items-center gap-3 p-2',
+          'rounded-xl text-sm transition-colors duration-150',
           isActive
-            ? 'bg-primary/10 text-foreground'
-            : 'text-muted-foreground hover:text-text-secondary hover:bg-[var(--color-hover)]',
+            ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+            : 'text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground',
         ].join(' ')
       }
     >
       {({ isActive }) => (
         <>
-          {isActive && (
-            <span
-              aria-hidden="true"
-              className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary"
-            />
-          )}
           <Icon
-            className={`h-[22px] w-[22px] shrink-0 transition-colors ${
-              isActive ? 'text-primary' : 'group-hover:text-text-secondary'
+            className={`h-[18px] w-[18px] shrink-0 transition-colors ${
+              isActive ? '' : 'text-muted-foreground group-hover:text-sidebar-accent-foreground'
             }`}
           />
           <span className="whitespace-nowrap">{text}</span>
@@ -358,35 +222,25 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       {/* Desktop rail — permanent slim icon rail, always 56px. No collapse
           toggle: the rail is the navigation. Grouping is expressed as thin
           divider rules between the icon clusters. */}
+      {/* Desktop sidebar — persistent labelled column (Thunderbolt style):
+          seamless (same ground as content, no divider), rows are labelled with
+          the active item on a light tinted pill. Brand lives in the title bar. */}
       <aside
-        className="hidden md:flex fixed top-0 left-0 h-screen w-14 flex-col border-r z-50"
-        style={railAsideStyle}
+        className="hidden md:flex fixed top-0 left-0 h-screen w-60 flex-col bg-background z-50"
         aria-label={t('nav.aria.primary')}
       >
-        <RailLogo />
-        <nav className={railNavClassName} aria-label={t('nav.aria.primary')}>
+        <nav className="flex-1 overflow-y-auto pt-3 pb-2 px-2 space-y-0.5" aria-label={t('nav.aria.primary')}>
           {navGroups.map((group, index) => (
-            <div key={group.headingKey} className="space-y-1" role="group" aria-label={t(group.headingKey)}>
-              {/* Thin divider between clusters (skipped before the first). */}
-              {index > 0 && (
-                <div
-                  className="mx-auto my-2 h-px w-6"
-                  style={{ background: 'var(--color-separator)' }}
-                  role="presentation"
-                />
-              )}
-              {group.items.map((item) => (
-                <RailNavItem
-                  key={item.to}
-                  item={item}
-                  activePath={activePath}
-                  onClick={onClose}
-                />
-              ))}
-            </div>
+            <DrawerGroup
+              key={group.headingKey}
+              group={group}
+              index={index}
+              activePath={activePath}
+              onClick={onClose}
+            />
           ))}
         </nav>
-        <RailFooter version={version} hasUpdate={hasUpdate} onOpen={openUpgrade} />
+        <DrawerFooter version={version} hasUpdate={hasUpdate} onOpen={openUpgrade} />
       </aside>
 
       {/* Mobile drawer — labelled full version (icons + labels), slides in/out. */}
@@ -431,30 +285,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 // ── Logo / mark ─────────────────────────────────────────────────────────────
 
 // Compact mark for the slim rail — the logo image only, centered, no wordmark.
-function RailLogo() {
-  return (
-    <div
-      className="flex items-center justify-center border-b shrink-0"
-      style={{ borderColor: 'var(--color-border)', height: '56px' }}
-    >
-      <div className="relative shrink-0">
-        <div
-          className="absolute -inset-1.5 rounded-xl"
-          style={{ background: 'linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.15), rgba(var(--color-accent-rgb), 0.05))' }}
-        />
-        <img
-          src={`${basePath}/_app/logo.png`}
-          alt={t('sidebar.logo_alt')}
-          className="relative h-8 w-8 rounded-xl object-cover"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
 // Full mark + wordmark for the mobile drawer.
 function DrawerLogo() {
   return (
@@ -501,68 +331,6 @@ interface FooterProps {
 // the label. When an update is available the version row is replaced by a
 // pulsing download-arrow icon stacked above the version text — the dot was
 // too easy to miss against the muted `text-faint` colour.
-function RailFooter({ version, hasUpdate, onOpen }: FooterProps) {
-  const title = hasUpdate
-    ? t('sidebar.update_available')
-    : version
-      ? `${t('sidebar.gateway')} v${version}`
-      : t('sidebar.gateway');
-  return (
-    <div
-      className="border-t shrink-0 flex items-center justify-center"
-      style={{ borderColor: 'var(--color-border)', padding: '10px 0' }}
-    >
-      {(version || hasUpdate) && (
-        <button
-          type="button"
-          onClick={onOpen}
-          title={title}
-          aria-label={title}
-          className={[
-            'relative flex flex-col items-center justify-center gap-0.5 rounded px-1.5 py-1 cursor-pointer transition-colors',
-            hasUpdate
-              ? 'bg-primary/10 hover:bg-primary/20'
-              : 'hover:bg-card',
-          ].join(' ')}
-        >
-          {hasUpdate && (
-            <ArrowDownToLine
-              aria-hidden="true"
-              className="h-3.5 w-3.5 animate-bounce-soft"
-              style={{ color: 'var(--color-primary)' }}
-            />
-          )}
-          {/* Red badge dot — an unmistakable attention-grabber layered atop the
-              pulsing arrow so an available update is never missed at a glance. */}
-          {hasUpdate && (
-            <span
-              aria-hidden="true"
-              className="absolute rounded-full"
-              style={{
-                top: '2px',
-                right: '2px',
-                width: '7px',
-                height: '7px',
-                backgroundColor: 'var(--color-status-error)',
-                boxShadow: '0 0 0 1.5px var(--color-card)',
-              }}
-            />
-          )}
-          <span
-            style={{
-              fontSize: '9px',
-              color: hasUpdate ? 'var(--color-primary)' : 'var(--color-text-faint)',
-              fontWeight: hasUpdate ? 600 : undefined,
-            }}
-          >
-            {version ? `v${version}` : t('upgrade.title')}
-          </span>
-        </button>
-      )}
-    </div>
-  );
-}
-
 // Drawer footer — full labelled gateway line for mobile, clickable to upgrade.
 // When an update is available the dot is replaced by a soft-bouncing download
 // arrow rendered at body-text size so the affordance is unmistakable.
