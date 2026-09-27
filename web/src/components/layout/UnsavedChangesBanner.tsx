@@ -113,7 +113,7 @@ export default function UnsavedChangesBanner() {
           </Button>
           <Button
             size="sm"
-            variant="primary"
+            variant="default"
             onClick={() => void onSave()}
             disabled={saving}
           >

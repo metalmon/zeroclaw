@@ -570,7 +570,7 @@ export default function Cron() {
       <PageHeader
         title={t('cron.scheduled_tasks')}
         actions={
-          <Button variant="primary" size="md" onClick={openAddModal}>
+          <Button variant="default" size="default" onClick={openAddModal}>
             <Plus className="h-4 w-4" />{t('cron.add_job')}
           </Button>
         }
@@ -977,10 +977,10 @@ export default function Cron() {
               )}
             </div>
             <div className="flex justify-end gap-2 mt-6">
-              <Button variant="ghost" size="md" onClick={closeModal}>
+              <Button variant="ghost" size="default" onClick={closeModal}>
                 {t('cron.cancel')}
               </Button>
-              <Button variant="primary" size="md" onClick={handleSubmit} disabled={submitting}>
+              <Button variant="default" size="default" onClick={handleSubmit} disabled={submitting}>
                 {submitting
                   ? t(isEditing ? 'cron.saving' : 'cron.adding')
                   : t(isEditing ? 'cron.save' : 'cron.add_job')}

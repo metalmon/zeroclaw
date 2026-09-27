@@ -358,7 +358,7 @@ export default function Roles() {
                   <Button variant="ghost" size="sm" onClick={() => openEdit(profile)}>
                     {t('roles.edit')}
                   </Button>
-                  <Button variant="danger" size="sm" onClick={() => setPendingDelete(profile)}>
+                  <Button variant="destructive" size="sm" onClick={() => setPendingDelete(profile)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

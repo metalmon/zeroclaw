@@ -152,6 +152,14 @@
   --font-size: 15px;
   --font-size-mono: 14px;
   --font-chat-size: calc(var(--font-size) * 1.06);
+
+  /* Thunderbolt type + icon scale — referenced by ported TB components
+     (button/card/detail-panel) via var(), so their JSX works verbatim. */
+  --font-size-body: 0.875rem;
+  --font-size-sm: 0.75rem;
+  --font-size-xs: 0.625rem;
+  --icon-size-default: 1rem;
+  --icon-size-sm: 0.875rem;
 }
 
 html {

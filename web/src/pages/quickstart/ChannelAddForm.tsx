@@ -110,7 +110,7 @@ export function ChannelAddForm({
     <Card className="p-4 space-y-3 bg-secondary">
       <div className="flex gap-2">
         <Button
-          variant={mode === "existing" ? "primary" : "ghost"}
+          variant={mode === "existing" ? "default" : "ghost"}
           size="sm"
           disabled={reusable.length === 0}
           onClick={() =>
@@ -120,7 +120,7 @@ export function ChannelAddForm({
           {t("quickstart.use_existing")}
         </Button>
         <Button
-          variant={mode === "fresh" ? "primary" : "ghost"}
+          variant={mode === "fresh" ? "default" : "ghost"}
           size="sm"
           onClick={() =>
             dispatchChannelFields({ kind: "mode-changed", mode: "fresh" })

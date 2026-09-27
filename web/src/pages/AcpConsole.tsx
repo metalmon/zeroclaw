@@ -562,7 +562,7 @@ export default function AcpConsole() {
               <Plug className="h-3 w-3" />
               {status}
             </Badge>
-            <Button variant="ghost" size="md" onClick={connect} disabled={!hasEnabledAgent}>
+            <Button variant="ghost" size="default" onClick={connect} disabled={!hasEnabledAgent}>
               <RefreshCw className="h-4 w-4" />
               {t('acp.reconnect')}
             </Button>
@@ -660,7 +660,7 @@ export default function AcpConsole() {
               className="min-h-20 flex-1 resize-none rounded-[var(--radius-md)] border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
               placeholder={t('acp.prompt_placeholder')}
             />
-            <Button type="submit" size="md" disabled={!canSend} className="sm:w-32">
+            <Button type="submit" size="default" disabled={!canSend} className="sm:w-32">
               <Send className="h-4 w-4" />
               {t('acp.send')}
             </Button>

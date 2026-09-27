@@ -136,7 +136,7 @@ function PromptDialog({
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button variant="primary" onClick={() => onConfirm(value)}>
+          <Button variant="default" onClick={() => onConfirm(value)}>
             {confirmLabel}
           </Button>
         </div>

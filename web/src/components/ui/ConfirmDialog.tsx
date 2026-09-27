@@ -125,7 +125,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button
-            variant={danger ? 'danger' : 'primary'}
+            variant={danger ? 'destructive' : 'default'}
             onClick={onConfirm}
           >
             {confirmLabel}

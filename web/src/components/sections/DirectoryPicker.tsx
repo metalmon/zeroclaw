@@ -220,7 +220,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
           />
           <Button
             size="sm"
-            variant="primary"
+            variant="default"
             onClick={() => void handleCreate()}
             disabled={!newDirName.trim()}
           >
@@ -318,7 +318,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
           </Button>
           <Button
             size="sm"
-            variant="primary"
+            variant="default"
             onClick={() => onSelect(cwd ? `shared/${cwd}` : 'shared')}
             title={t('dir_picker.use_this_title')}
           >

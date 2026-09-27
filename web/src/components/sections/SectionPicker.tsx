@@ -190,7 +190,7 @@ export default function SectionPicker({
 
       {onBack && (
         <div>
-          <Button variant="ghost" size="md" onClick={onBack}>
+          <Button variant="ghost" size="default" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" />
             {t("common.back")}
           </Button>

@@ -273,7 +273,7 @@ export default function Canvas() {
               <History className="h-4 w-4" />
             </Button>
             <Button
-              variant={clearArmed ? 'danger' : 'ghost'}
+              variant={clearArmed ? 'destructive' : 'ghost'}
               size="sm"
               onClick={handleClear}
               onBlur={disarmClear}
@@ -315,7 +315,7 @@ export default function Canvas() {
           placeholder={t('canvas.canvas_id_placeholder')}
           className="h-9 px-3 rounded-[var(--radius-md)] text-sm border border-border bg-input text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
         />
-        <Button size="md" onClick={handleSwitchCanvas}>
+        <Button size="default" onClick={handleSwitchCanvas}>
           {t('canvas.switch')}
         </Button>
         {canvasList.length > 0 && (

@@ -78,7 +78,7 @@ export default function AgentsList() {
         description={t('agents_list.description')}
         actions={
           <Link to="/config/agents">
-            <Button variant="primary" size="md">
+            <Button variant="default" size="default">
               <Plus className="h-4 w-4" />
               {t('agents_list.new_agent')}
             </Button>
@@ -135,7 +135,7 @@ function EmptyState() {
         {t('agents_list.empty_hint')}
       </p>
       <Link to="/quickstart" className="inline-block">
-        <Button variant="primary" size="md">
+        <Button variant="default" size="default">
           <Plus className="h-4 w-4" />
           {t('agents_list.start_quickstart')}
         </Button>

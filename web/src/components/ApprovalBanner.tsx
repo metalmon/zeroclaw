@@ -71,7 +71,7 @@ export default function ApprovalBanner({ pending, onRespond }: ApprovalBannerPro
         <div className="flex items-center gap-2 justify-end">
           <Button
             size="sm"
-            variant="danger"
+            variant="destructive"
             onClick={() => onRespond('deny')}
           >
             <X className="h-3.5 w-3.5" />
@@ -88,7 +88,7 @@ export default function ApprovalBanner({ pending, onRespond }: ApprovalBannerPro
           </Button>
           <Button
             size="sm"
-            variant="primary"
+            variant="default"
             onClick={() => onRespond('approve')}
           >
             <Check className="h-3.5 w-3.5" />

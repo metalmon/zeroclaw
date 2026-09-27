@@ -264,7 +264,7 @@ export default function Pairing() {
                     </td>
                     <td className="px-5 py-3 text-right">
                       <Button
-                        variant="danger"
+                        variant="destructive"
                         size="sm"
                         onClick={() => setPendingRevoke(device)}
                         aria-label={t('pairing.actions')}

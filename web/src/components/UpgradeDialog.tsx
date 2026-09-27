@@ -593,7 +593,7 @@ export function UpgradeDialog({
           )}
 
           {view === 'info' && isNewer && allowSelfUpgrade && (
-            <Button variant="primary" onClick={() => setView('confirm')}>
+            <Button variant="default" onClick={() => setView('confirm')}>
               {t('upgrade.do_upgrade')}
             </Button>
           )}
@@ -608,7 +608,7 @@ export function UpgradeDialog({
               <Button variant="ghost" onClick={() => setView('info')}>
                 {t('upgrade.cancel')}
               </Button>
-              <Button variant="primary" onClick={() => void beginUpgrade()}>
+              <Button variant="default" onClick={() => void beginUpgrade()}>
                 {t('upgrade.confirm')}
               </Button>
             </>
@@ -625,7 +625,7 @@ export function UpgradeDialog({
               Once reconciled (reload armed) or on failure, show Close normally. */}
 
           {(view === 'failed' || (view === 'done' && (reconciled || !baselineVersion || pollTimedOut))) && (
-            <Button variant="primary" onClick={onClose}>
+            <Button variant="default" onClick={onClose}>
               {t('upgrade.close')}
             </Button>
           )}

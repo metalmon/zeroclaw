@@ -1591,8 +1591,8 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
                 )}
               </div>
               <Button
-                variant="primary"
-                size="md"
+                variant="default"
+                size="default"
                 onClick={() => void handleSave()}
                 disabled={saving || unsavedCount === 0}
                 className="flex-shrink-0"

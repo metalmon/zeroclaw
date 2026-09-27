@@ -92,7 +92,7 @@ export default function AliasPromptDialog({ label, suggestion, onConfirm, onCanc
           <Button variant="ghost" onClick={onCancel}>
             {t('common.cancel')}
           </Button>
-          <Button variant="primary" onClick={confirm}>
+          <Button variant="default" onClick={confirm}>
             {t('common.confirm')}
           </Button>
         </div>

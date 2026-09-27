@@ -465,7 +465,7 @@ export default function Quickstart() {
 
       <div className="flex justify-end pt-2">
         <Button
-          size="md"
+          size="default"
           className="px-6"
           disabled={busy || !allDone}
           onClick={() => void submit()}
@@ -949,7 +949,7 @@ function ChannelsList({
           onCancel={() => setAdding(false)}
         />
       ) : (
-        <Button variant="ghost" size="md" onClick={() => setAdding(true)}>
+        <Button variant="ghost" size="default" onClick={() => setAdding(true)}>
           <Plus className="h-3.5 w-3.5" />
           {t("quickstart.add_channel")}
         </Button>
@@ -1034,7 +1034,7 @@ function PeerGroupsList({
           onCancel={() => setAdding(false)}
         />
       ) : (
-        <Button variant="ghost" size="md" onClick={() => setAdding(true)}>
+        <Button variant="ghost" size="default" onClick={() => setAdding(true)}>
           <Plus className="h-3.5 w-3.5" />
           {t("quickstart.add_peer_group")}
         </Button>

@@ -638,7 +638,7 @@ export function AgentChatInner({
             {showToolActivity ? t('agent.tool_activity_hide') : t('agent.tool_activity_show')}
           </Button>
           <Button
-            variant="danger"
+            variant="destructive"
             size="sm"
             onClick={handleClearAll}
             aria-label={t('agent.clear_all')}
@@ -767,7 +767,7 @@ export function AgentChatInner({
           />
           <Button
             variant="ghost"
-            size="md"
+            size="default"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             className="flex-shrink-0 w-10 px-0"
@@ -799,8 +799,8 @@ export function AgentChatInner({
           />
           {typing ? (
             <Button
-              variant="danger"
-              size="md"
+              variant="destructive"
+              size="default"
               onClick={handleAbort}
               className="flex-shrink-0 w-10 px-0"
               aria-label={t('agent.stop')}
@@ -810,8 +810,8 @@ export function AgentChatInner({
             </Button>
           ) : (
             <Button
-              variant="primary"
-              size="md"
+              variant="default"
+              size="default"
               onClick={handleSend}
               disabled={!connected || !hydrated || !input.trim()}
               className="flex-shrink-0 w-10 px-0"

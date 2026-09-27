@@ -891,7 +891,7 @@ function AliasListView({
                 }}
               />
               <Button
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={() => void submit()}
                 className="flex-shrink-0"
@@ -1546,8 +1546,8 @@ function SectionOverview({
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-text-secondary">{sectionDesc(section.key, section.help)}</p>
         <Button
-          variant="primary"
-          size="md"
+          variant="default"
+          size="default"
           onClick={() => setShowPicker(true)}
           className="flex-shrink-0"
         >

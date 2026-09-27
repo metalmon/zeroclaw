@@ -196,8 +196,8 @@ export default function BindChannelForm({
 
           <div className="flex items-center gap-3">
             <Button
-              variant="primary"
-              size="md"
+              variant="default"
+              size="default"
               onClick={() => void onSubmit()}
               disabled={!canBind}
             >

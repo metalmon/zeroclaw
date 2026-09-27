@@ -202,7 +202,7 @@ export default function AddEntityDialog({
                 }}
               />
               <Button
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={() => void submit()}
                 disabled={submitting}
