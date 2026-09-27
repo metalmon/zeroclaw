@@ -9,7 +9,8 @@ import {
   SettingsSectionLabel,
   SettingsSelectableRow,
 } from '@/components/ui/settings-list';
-import { DetailPanel, DetailPanelSurface } from '@/components/ui/detail-panel';
+import { DetailPanel } from '@/components/ui/detail-panel';
+import { SlideInPanel } from '@/components/ui/slide-in-panel';
 import { plural, t } from '@/lib/i18n';
 
 // Sentinel written into `allowed_agents` for "every agent" — matches the
@@ -274,14 +275,8 @@ export default function Roles() {
   }
 
   return (
-    <>
-      <div
-        className={
-          form !== null
-            ? 'transition-[padding] duration-200 md:pr-[540px]'
-            : 'transition-[padding] duration-200'
-        }
-      >
+    <div className="flex h-full min-h-0">
+      <div className="min-w-0 flex-1 overflow-y-auto">
         <SettingsPageShell>
         <PageHeader
           title={t('roles.title')}
@@ -464,8 +459,8 @@ export default function Roles() {
         </SettingsPageShell>
       </div>
 
-      {/* Right detail drawer — create / edit a role (master-detail). */}
-      <DetailPanelSurface open={form !== null} onClose={closeForm}>
+      {/* Right detail column — create / edit a role (master-detail). */}
+      <SlideInPanel open={form !== null} width="min(92vw, 520px)">
         {form && (
           <DetailPanel
             icon={
@@ -493,7 +488,7 @@ export default function Roles() {
             />
           </DetailPanel>
         )}
-      </DetailPanelSurface>
+      </SlideInPanel>
 
       <ConfirmDialog
         open={pendingDelete !== null}
@@ -504,6 +499,6 @@ export default function Roles() {
         onConfirm={() => void confirmDelete()}
         onClose={() => setPendingDelete(null)}
       />
-    </>
+    </div>
   );
 }
