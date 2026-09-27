@@ -78,7 +78,9 @@ export function DetailPanelSurface({ open, onClose, children }: DetailPanelSurfa
       />
       <aside
         className={cn(
-          'fixed right-0 top-0 z-[61] h-screen w-full max-w-[min(92vw,520px)] border-l border-border bg-card shadow-md transition-transform duration-200 ease-out',
+          // Sits below the 48px title bar (top-12) so its header is never clipped,
+          // and runs to the bottom of the viewport.
+          'fixed right-0 top-0 bottom-0 z-[61] w-full max-w-[min(92vw,520px)] border-l border-border bg-card shadow-md transition-transform duration-200 ease-out md:top-12',
           open ? 'translate-x-0' : 'translate-x-full',
         )}
         role="dialog"

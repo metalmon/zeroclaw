@@ -275,7 +275,14 @@ export default function Roles() {
 
   return (
     <>
-      <SettingsPageShell>
+      <div
+        className={
+          form !== null
+            ? 'transition-[padding] duration-200 md:pr-[540px]'
+            : 'transition-[padding] duration-200'
+        }
+      >
+        <SettingsPageShell>
         <PageHeader
           title={t('roles.title')}
           description={t('roles.description')}
@@ -454,7 +461,8 @@ export default function Roles() {
             })}
           </SettingsListBody>
         )}
-      </SettingsPageShell>
+        </SettingsPageShell>
+      </div>
 
       {/* Right detail drawer — create / edit a role (master-detail). */}
       <DetailPanelSurface open={form !== null} onClose={closeForm}>
