@@ -183,7 +183,12 @@ function PairingDialog({
     try {
       await onPair(code);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t('pairing.failed'));
+      const raw = err instanceof Error ? err.message : "";
+      setError(
+        /invalid|expired/i.test(raw)
+          ? t('pairing.error_invalid_code')
+          : t('pairing.failed'),
+      );
     } finally {
       setLoading(false);
     }
@@ -210,9 +215,7 @@ function PairingDialog({
         // Non-loopback origin: the browser can't mint; show the CLI command.
         setShowCliFallback(true);
       } else {
-        setError(
-          err instanceof Error ? err.message : "Failed to generate pairing code",
-        );
+        setError(t('pairing.generate_error'));
       }
     } finally {
       setGenerating(false);

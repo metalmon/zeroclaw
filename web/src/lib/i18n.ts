@@ -2036,6 +2036,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'pairing.pairing_progress': 'Pairing…',
     'pairing.pair_action': 'Pair',
     'pairing.failed': 'Pairing failed',
+    'pairing.error_invalid_code': 'Invalid or expired pairing code. Generate a new one and try again.',
 
     // Roles (permission profiles + principal binding)
     'roles.title': 'Roles',

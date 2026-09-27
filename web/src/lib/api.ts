@@ -277,9 +277,19 @@ export async function pair(code: string): Promise<{ token: string }> {
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(
-      `Pairing failed (${response.status}): ${text || response.statusText}`,
-    );
+    // Surface the daemon's own error message (JSON `{ "error": "..." }`),
+    // not the raw body / "Pairing failed (400): {json}" wrapper — the pairing
+    // dialog localizes it. Keep the HTTP status attached for reason mapping.
+    let message = text || response.statusText;
+    try {
+      const parsed = JSON.parse(text) as { error?: string };
+      if (parsed?.error) message = String(parsed.error);
+    } catch {
+      /* not JSON — keep the raw text */
+    }
+    const err = new Error(message) as Error & { status?: number };
+    err.status = response.status;
+    throw err;
   }
 
   const data = (await response.json()) as { token: string };

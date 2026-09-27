@@ -554,6 +554,7 @@ export const ru: Record<string, string> = {
   'pairing.pairing_progress': 'Сопряжение…',
   'pairing.pair_action': 'Сопрячь',
   'pairing.failed': 'Не удалось выполнить сопряжение',
+  'pairing.error_invalid_code': 'Неверный или истекший код сопряжения. Создайте новый код и попробуйте снова.',
   'pairing.code_input_placeholder': 'Код из 6 цифр',
   'pairing.dismiss': 'Закрыть',
   'pairing.ip': 'IP',
