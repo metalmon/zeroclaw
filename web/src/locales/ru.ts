@@ -3333,6 +3333,10 @@ export const ru: Record<string, string> = {
 
   // Header
   'header.open_menu': 'Открыть меню',
+  'header.back': 'Назад',
+  'header.forward': 'Вперед',
+  'header.account': 'Аккаунт',
+  'header.session': 'Сеанс',
 
   // Personality files editor
   'personality.chars': 'символов',
