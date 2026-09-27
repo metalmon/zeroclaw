@@ -275,7 +275,7 @@ export default function Roles() {
 
   return (
     <div className="flex h-full min-h-0">
-      <div className="min-w-0 flex-1 overflow-y-auto">
+      <div className="no-scrollbar min-w-0 flex-1 overflow-y-auto">
         <SettingsPageShell>
         <PageHeader
           title={t('roles.title')}

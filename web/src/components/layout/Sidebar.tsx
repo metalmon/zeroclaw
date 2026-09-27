@@ -229,7 +229,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         className="hidden md:flex fixed top-0 left-0 h-screen w-60 flex-col bg-sidebar border-r border-sidebar-border z-50"
         aria-label={t('nav.aria.primary')}
       >
-        <nav className="flex-1 overflow-y-auto pt-3 pb-2 px-2 space-y-0.5" aria-label={t('nav.aria.primary')}>
+        <nav className="no-scrollbar flex-1 overflow-y-auto pt-3 pb-2 px-2 space-y-0.5" aria-label={t('nav.aria.primary')}>
           {navGroups.map((group, index) => (
             <DrawerGroup
               key={group.headingKey}
@@ -253,7 +253,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         aria-label={t('sidebar.mobile_menu')}
       >
         <DrawerLogo />
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5" aria-label={t('nav.aria.primary')}>
+        <nav className="no-scrollbar flex-1 overflow-y-auto py-3 px-2 space-y-0.5" aria-label={t('nav.aria.primary')}>
           {navGroups.map((group, index) => (
             <DrawerGroup
               key={group.headingKey}
