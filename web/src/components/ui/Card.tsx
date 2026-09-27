@@ -24,9 +24,10 @@ export function Card({
 }: CardProps & Omit<ComponentPropsWithoutRef<'div'>, keyof CardProps>) {
   const Tag = (as ?? 'div') as ElementType;
   const classes = [
-    'bg-card',
+    // Thunderbolt Card recipe: flat surface, warm border, large radius, no shadow.
+    'bg-card text-card-foreground',
     'border border-border',
-    'rounded-[var(--radius-lg)]',
+    'rounded-xl',
     padded ? 'p-4' : '',
     className,
   ]
