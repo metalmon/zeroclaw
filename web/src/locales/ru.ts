@@ -965,6 +965,9 @@ export const ru: Record<string, string> = {
   'skills.shadows': 'перекрывает',
   'skills.skill_md': 'SKILL.md',
   'skills.title': 'Навыки',
+  'skills.about': 'О навыке',
+  'skills.origin': 'Источник',
+  'skills.location': 'Расположение',
 
   // Runs
   'runs.title': 'Запуски СОП',
