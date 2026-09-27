@@ -352,7 +352,7 @@ export default function AgentWorkspaceExplorer() {
             )}
             {loading ? (
               <li className="px-3 py-6 flex items-center justify-center">
-                <div className="h-5 w-5 border-2 rounded-full animate-spin border-border border-t-pc-accent" />
+                <div className="h-5 w-5 border-2 rounded-full animate-spin border-border border-t-primary" />
               </li>
             ) : entries.length === 0 ? (
               <li className="px-3 py-3 text-xs italic text-text-faint">
@@ -445,7 +445,7 @@ export default function AgentWorkspaceExplorer() {
               </div>
               <div className="flex-1 overflow-auto p-4">
                 {viewerLoading ? (
-                  <div className="h-5 w-5 border-2 rounded-full animate-spin border-border border-t-pc-accent" />
+                  <div className="h-5 w-5 border-2 rounded-full animate-spin border-border border-t-primary" />
                 ) : viewerError ? (
                   <p className="text-sm text-status-error">
                     {viewerError}

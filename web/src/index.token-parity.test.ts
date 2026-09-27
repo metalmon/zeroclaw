@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -32,4 +32,34 @@ test("primary is the neutral ink; accent is a distinct beige mix (not primary)",
 
 test("no legacy pc- token remains in index.css", () => {
   assert.equal(/--pc-/.test(css), false);
+});
+
+function collectSrcFiles(dir: string, acc: string[]): void {
+  for (const entry of readdirSync(dir)) {
+    const p = join(dir, entry);
+    if (statSync(p).isDirectory()) {
+      if (entry !== "node_modules" && entry !== "dist") collectSrcFiles(p, acc);
+    } else if (
+      /\.(ts|tsx|css)$/.test(p) &&
+      !/\.test\./.test(p) &&
+      !p.includes("token-codemod")
+    ) {
+      acc.push(p);
+    }
+  }
+}
+
+test("no residual pc- design token or class anywhere in src", () => {
+  const files: string[] = [];
+  collectSrcFiles(here, files);
+  const offenders = files.filter((f) => {
+    const txt = readFileSync(f, "utf8");
+    // side-scoped classes (border-t-pc-*), var refs, and raw --pc- tokens
+    return /[a-z]-pc-[a-z]/.test(txt) || /var\(--pc-/.test(txt) || /--pc-[a-z]/.test(txt);
+  });
+  assert.deepEqual(
+    offenders.map((f) => f.slice(here.length + 1)),
+    [],
+    "these files still reference legacy pc- tokens/classes",
+  );
 });

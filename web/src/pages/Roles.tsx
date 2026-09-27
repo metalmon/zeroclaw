@@ -396,7 +396,6 @@ export default function Roles() {
                 <SettingsSelectableRow
                   key={principal.id}
                   ariaLabel={principal.id}
-                  onSelect={() => undefined}
                   leading={
                     <span className="grid h-9 w-9 place-items-center rounded-lg bg-secondary text-muted-foreground">
                       <User className="h-[18px] w-[18px]" />

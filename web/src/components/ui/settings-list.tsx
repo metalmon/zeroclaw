@@ -47,7 +47,8 @@ type SettingsSelectableRowProps = Omit<ComponentProps<typeof Card>, 'onSelect' |
   trailingIcon?: ReactNode;
   isSelected?: boolean;
   isDimmed?: boolean;
-  onSelect: () => void;
+  /** Omit for a non-interactive row (no toggle button is rendered). */
+  onSelect?: () => void;
   ariaLabel: string;
 };
 
@@ -65,37 +66,48 @@ export function SettingsSelectableRow({
   className,
   ...props
 }: SettingsSelectableRowProps) {
+  const body = (
+    <>
+      {leading && <span className="flex shrink-0 items-center justify-center">{leading}</span>}
+      <span className="min-w-0 flex-1">
+        <span className={cn('block truncate text-[15px] font-medium', isDimmed && 'text-muted-foreground')}>
+          {title}
+        </span>
+        {subtitle && (
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">{subtitle}</span>
+        )}
+      </span>
+      {trailingIcon && <span className="flex shrink-0 items-center">{trailingIcon}</span>}
+    </>
+  );
+  const bodyClass = cn(
+    'flex min-w-0 flex-1 items-center gap-3 rounded-l-[inherit] px-4 py-3 text-left',
+    !trailing && 'rounded-r-[inherit] pr-4',
+  );
+
   return (
     <Card
       padded={false}
       className={cn(
         'flex flex-row items-stretch gap-0 border-border p-0 transition-colors',
-        isSelected ? 'bg-accent' : 'hover:bg-secondary/50',
+        isSelected ? 'bg-accent' : onSelect ? 'hover:bg-secondary/50' : '',
         className,
       )}
       {...props}
     >
-      <button
-        type="button"
-        aria-label={ariaLabel}
-        aria-pressed={isSelected}
-        onClick={onSelect}
-        className={cn(
-          'flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-l-[inherit] px-4 py-3 text-left',
-          !trailing && 'rounded-r-[inherit] pr-4',
-        )}
-      >
-        {leading && <span className="flex shrink-0 items-center justify-center">{leading}</span>}
-        <span className="min-w-0 flex-1">
-          <span className={cn('block truncate text-[15px] font-medium', isDimmed && 'text-muted-foreground')}>
-            {title}
-          </span>
-          {subtitle && (
-            <span className="mt-0.5 block truncate text-xs text-muted-foreground">{subtitle}</span>
-          )}
-        </span>
-        {trailingIcon && <span className="flex shrink-0 items-center">{trailingIcon}</span>}
-      </button>
+      {onSelect ? (
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          aria-pressed={isSelected}
+          onClick={onSelect}
+          className={cn(bodyClass, 'cursor-pointer')}
+        >
+          {body}
+        </button>
+      ) : (
+        <div className={bodyClass}>{body}</div>
+      )}
       {trailing && <div className="flex shrink-0 items-center rounded-r-[inherit] pr-3">{trailing}</div>}
     </Card>
   );
