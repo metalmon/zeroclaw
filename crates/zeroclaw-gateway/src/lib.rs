@@ -4391,9 +4391,22 @@ pub struct AdminPaircodeQuery {
 async fn handle_admin_paircode_new(
     State(state): State<AppState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Query(params): Query<AdminPaircodeQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    require_localhost(&peer)?;
+    // Mint from loopback (unauthenticated bootstrap on the host) OR by an
+    // authenticated ADMIN over the network (managing devices/roles from the
+    // panel — bridged containers see the panel as a non-loopback peer).
+    if require_localhost(&peer).is_err()
+        && api_authz::require_admin(&state, &headers).await.is_err()
+    {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({
+                "error": "Minting a pairing code requires localhost or an admin token",
+            })),
+        ));
+    }
 
     if !state.pairing.require_pairing() {
         let body = serde_json::json!({
