@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/settings-list';
 import { DetailPanel, DetailPanelSurface, DetailSectionTitle } from '@/components/ui/detail-panel';
 import { IconTile } from '@/components/ui/icon-tile';
+import { ActionMenu } from '@/components/ui/action-menu';
 import { plural, t } from '@/lib/i18n';
 
 // Sentinel written into `allowed_agents` for "every agent" — matches the
@@ -512,18 +513,19 @@ export default function Roles() {
             onClose={closeDetail}
             actions={
               form.editingId ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t('roles.delete')}
-                  className="text-muted-foreground hover:text-status-error"
-                  onClick={() => {
-                    const p = profiles.find((pr) => pr.id === form.editingId);
-                    if (p) setPendingDelete(p);
-                  }}
-                >
-                  <Trash2 className="h-[18px] w-[18px]" />
-                </Button>
+                <ActionMenu
+                  items={[
+                    {
+                      label: t('roles.delete'),
+                      icon: <Trash2 />,
+                      danger: true,
+                      onClick: () => {
+                        const p = profiles.find((pr) => pr.id === form.editingId);
+                        if (p) setPendingDelete(p);
+                      },
+                    },
+                  ]}
+                />
               ) : undefined
             }
           >

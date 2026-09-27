@@ -845,6 +845,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'header.account': "Account",
     'header.session': "Session",
     'detail.close': "Close",
+    'common.more': "More actions",
     'logs.add_filter': "Add filter",
     'logs.any_category': "Any category",
     'logs.any_outcome': "Any outcome",

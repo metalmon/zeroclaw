@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/settings-list';
 import { DetailPanel, DetailPanelSurface, DetailSectionTitle } from '@/components/ui/detail-panel';
 import { IconTile } from '@/components/ui/icon-tile';
+import { ActionMenu } from '@/components/ui/action-menu';
 import { t, fmtDate } from '@/lib/i18n';
 
 const NO_ROLE = '';
@@ -243,15 +244,16 @@ export default function Pairing() {
             subtitle={selectedDevice.device_type || t('pairing.unknown')}
             onClose={() => setSelectedDeviceId(null)}
             actions={
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t('pairing.revoke')}
-                className="text-muted-foreground hover:text-status-error"
-                onClick={() => setPendingRevoke(selectedDevice)}
-              >
-                <Trash2 className="h-[18px] w-[18px]" />
-              </Button>
+              <ActionMenu
+                items={[
+                  {
+                    label: t('pairing.revoke'),
+                    icon: <Trash2 />,
+                    danger: true,
+                    onClick: () => setPendingRevoke(selectedDevice),
+                  },
+                ]}
+              />
             }
           >
             <div className="flex flex-col gap-5">

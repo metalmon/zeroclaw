@@ -150,7 +150,7 @@ export default function Runs() {
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4 px-6 py-6">
       <PageHeader
         title={t('runs.title')}
         description={t('runs.subtitle')}

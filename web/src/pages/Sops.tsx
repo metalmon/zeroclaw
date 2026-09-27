@@ -8,10 +8,13 @@ import {
   Plus,
   Save,
   Trash2,
+  Workflow,
   X,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Badge, Card, PageHeader, HelpTip } from '@/components/ui';
+import { Badge, Button, Card, PageHeader, HelpTip } from '@/components/ui';
+import { SettingsPageShell, SettingsListBody, SettingsSelectableRow } from '@/components/ui/settings-list';
+import { IconTile } from '@/components/ui/icon-tile';
 import SopCanvas from './SopCanvas';
 import MarkdownEditor from '@/components/MarkdownEditor';
 import ToolPicker from '@/components/ToolPicker';
@@ -1766,6 +1769,7 @@ function ManualRunPanel({ name, sop }: { name: string; sop: Sop | null }) {
 // mutation lives here; rows link to the addressable member view. Create is an
 // addressable action (/sops/new), not inline state.
 export function SopsList() {
+  const navigate = useNavigate();
   const [sops, setSops] = useState<SopSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1788,50 +1792,52 @@ export function SopsList() {
   }, []);
 
   return (
-    <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader
-        title={t('sops.title')}
-        description={t('sops.subtitle')}
-        actions={
-          <Link
-            to="/sops/new"
-            className="inline-flex items-center gap-1 rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-accent-light"
-          >
-            <Plus className="h-4 w-4" aria-hidden /> {t('sops.new')}
-          </Link>
-        }
-      />
-      {error ? (
-        <Card>
-          <div className="text-status-error">{error}</div>
-        </Card>
-      ) : loading ? (
-        <Card>
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
-        </Card>
-      ) : sops.length === 0 ? (
-        <Card>
-          <div className="text-muted-foreground">{t('sops.empty')}</div>
-        </Card>
-      ) : (
-        <Card className="p-2">
-          <ul className="space-y-1">
+    <div className="no-scrollbar h-full overflow-y-auto">
+      <SettingsPageShell>
+        <PageHeader
+          title={t('sops.title')}
+          description={t('sops.subtitle')}
+          actions={
+            <Link to="/sops/new">
+              <Button variant="default">
+                <Plus className="h-4 w-4" aria-hidden />
+                {t('sops.new')}
+              </Button>
+            </Link>
+          }
+        />
+        {error ? (
+          <Card padded={false} className="p-4 text-sm border-status-error/25 bg-status-error/10 text-status-error">
+            {error}
+          </Card>
+        ) : loading ? (
+          <Card padded={false} className="flex items-center justify-center p-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+          </Card>
+        ) : sops.length === 0 ? (
+          <Card padded={false} className="p-8 text-center text-sm text-muted-foreground">
+            {t('sops.empty')}
+          </Card>
+        ) : (
+          <SettingsListBody>
             {sops.map((s) => (
-              <li key={s.name}>
-                <Link
-                  to={`/sops/${encodeURIComponent(s.name)}`}
-                  className="block rounded px-3 py-2 text-sm text-foreground hover:bg-secondary"
-                >
-                  <div className="font-medium">{s.name}</div>
-                  {s.description ? (
-                    <div className="truncate text-xs text-muted-foreground">{s.description}</div>
-                  ) : null}
-                </Link>
-              </li>
+              <SettingsSelectableRow
+                key={s.name}
+                ariaLabel={s.name}
+                onSelect={() => navigate(`/sops/${encodeURIComponent(s.name)}`)}
+                leading={
+                  <IconTile>
+                    <Workflow className="h-[18px] w-[18px] text-muted-foreground" />
+                  </IconTile>
+                }
+                title={s.name}
+                subtitle={s.description || undefined}
+                trailingIcon={<ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+              />
             ))}
-          </ul>
-        </Card>
-      )}
+          </SettingsListBody>
+        )}
+      </SettingsPageShell>
     </div>
   );
 }

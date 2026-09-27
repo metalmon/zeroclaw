@@ -612,6 +612,7 @@ export const ru: Record<string, string> = {
 
   // Common
   'common.loading': 'Загрузка...',
+  'common.more': 'Действия',
   'common.error': 'Произошла ошибка.',
   'common.retry': 'Повторить',
   'common.cancel': 'Отмена',
