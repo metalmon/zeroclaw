@@ -9,8 +9,7 @@ import {
   SettingsSectionLabel,
   SettingsSelectableRow,
 } from '@/components/ui/settings-list';
-import { DetailPanel } from '@/components/ui/detail-panel';
-import { SlideInPanel } from '@/components/ui/slide-in-panel';
+import { DetailPanel, DetailPanelSurface } from '@/components/ui/detail-panel';
 import { plural, t } from '@/lib/i18n';
 
 // Sentinel written into `allowed_agents` for "every agent" — matches the
@@ -460,7 +459,7 @@ export default function Roles() {
       </div>
 
       {/* Right detail column — create / edit a role (master-detail). */}
-      <SlideInPanel open={form !== null} width="min(92vw, 520px)">
+      <DetailPanelSurface open={form !== null}>
         {form && (
           <DetailPanel
             icon={
@@ -488,7 +487,7 @@ export default function Roles() {
             />
           </DetailPanel>
         )}
-      </SlideInPanel>
+      </DetailPanelSurface>
 
       <ConfirmDialog
         open={pendingDelete !== null}
