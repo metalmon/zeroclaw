@@ -78,7 +78,7 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
   };
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-1 flex-col gap-5">
       {formError && (
         <p className="text-xs text-status-error" role="alert">
           {formError}
@@ -141,7 +141,7 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
         {t('roles.admin_toggle')}
       </label>
 
-      <div className="flex items-center justify-end gap-2 pt-1">
+      <div className="mt-auto flex items-center justify-end gap-2 pt-2">
         <Button variant="ghost" onClick={onCancel} disabled={saving}>
           {t('roles.cancel')}
         </Button>

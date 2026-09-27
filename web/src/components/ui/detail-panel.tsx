@@ -31,7 +31,7 @@ interface DetailPanelProps {
 
 export function DetailPanel({ icon, title, subtitle, actions, onClose, children }: DetailPanelProps) {
   return (
-    <section className="relative m-3 flex max-h-[calc(100dvh-5.5rem)] flex-col overflow-y-auto rounded-2xl border border-border bg-card px-5 pb-5 pt-3 text-foreground shadow-sm">
+    <section className="relative my-3 ml-3 flex min-h-[min(28rem,calc(100dvh-5.5rem))] max-h-[calc(100dvh-5.5rem)] flex-col overflow-y-auto rounded-l-2xl border-y border-l border-border bg-card px-5 pb-5 pt-3 text-foreground shadow-sm">
       <header className="relative flex min-h-12 shrink-0 items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           {icon}
@@ -52,7 +52,7 @@ export function DetailPanel({ icon, title, subtitle, actions, onClose, children 
           </button>
         </div>
       </header>
-      <div className="flex flex-col gap-5 pt-3">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col pt-3">{children}</div>
     </section>
   );
 }
