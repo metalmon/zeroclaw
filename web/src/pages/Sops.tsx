@@ -171,7 +171,7 @@ function DiagnosticsPanel({ graph }: { graph: SopGraph }) {
   if (graph.diagnostics.length === 0) return null;
   return (
     <Card className="mt-4">
-      <div className="mb-2 font-medium text-pc-text">{t('sops.diagnostics')}</div>
+      <div className="mb-2 font-medium text-foreground">{t('sops.diagnostics')}</div>
       <ul className="space-y-1 text-sm">
         {graph.diagnostics.map((d, i) => (
           <li key={i} className="flex items-start gap-2">
@@ -180,8 +180,8 @@ function DiagnosticsPanel({ graph }: { graph: SopGraph }) {
             ) : (
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" aria-hidden />
             )}
-            <span className="text-pc-text">
-              <span className="text-pc-text-muted">
+            <span className="text-foreground">
+              <span className="text-muted-foreground">
                 {t('sops.step')} {d.step}:
               </span>{' '}
               {d.message}
@@ -193,7 +193,7 @@ function DiagnosticsPanel({ graph }: { graph: SopGraph }) {
   );
 }
 
-const INPUT_CLS = 'w-full rounded border border-pc-border bg-pc-surface px-2 py-1 text-pc-text';
+const INPUT_CLS = 'w-full rounded border border-border bg-card px-2 py-1 text-foreground';
 
 function StepBodyEditor({
   value,
@@ -205,7 +205,7 @@ function StepBodyEditor({
   const [focused, setFocused] = useState(false);
   return (
     <div>
-      <span className="mb-1 block text-pc-text-muted text-sm">
+      <span className="mb-1 block text-muted-foreground text-sm">
         <HelpTip text={sopFieldHelp('SopStep', 'body')}>{t('sops.step_body_label')}</HelpTip>
       </span>
       <MarkdownEditor
@@ -234,11 +234,11 @@ function Field({
 }) {
   return (
     <label className="block text-sm">
-      <span className="mb-1 block text-pc-text-muted">
+      <span className="mb-1 block text-muted-foreground">
         {help ? <HelpTip text={help}>{label}</HelpTip> : label}
       </span>
       {children}
-      {hint ? <p className="mt-1 text-xs text-pc-text-faint">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-text-faint">{hint}</p> : null}
     </label>
   );
 }
@@ -328,8 +328,8 @@ function StepSection({
   const [open, setOpen] = useState(defaultOpen);
   if (!collapsible) {
     return (
-      <div className="mt-3 border-t border-pc-border pt-3 first:mt-0 first:border-t-0 first:pt-0">
-        <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-pc-text">
+      <div className="mt-3 border-t border-border pt-3 first:mt-0 first:border-t-0 first:pt-0">
+        <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-foreground">
           {icon}
           <span>{title}</span>
           {badge}
@@ -339,17 +339,17 @@ function StepSection({
     );
   }
   return (
-    <div className="mt-3 border-t border-pc-border pt-2 first:mt-0 first:border-t-0 first:pt-0">
+    <div className="mt-3 border-t border-border pt-2 first:mt-0 first:border-t-0 first:pt-0">
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex flex-1 items-center gap-1.5 py-1 text-left text-xs font-semibold text-pc-text hover:text-pc-accent"
+          className="flex flex-1 items-center gap-1.5 py-1 text-left text-xs font-semibold text-foreground hover:text-primary"
         >
           {open ? (
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-pc-text-muted" aria-hidden />
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-pc-text-muted" aria-hidden />
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           )}
           {icon}
           <span>{title}</span>
@@ -428,11 +428,11 @@ function StepEditor({
   return (
     <div
       ref={rowRef}
-      className="rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface p-3"
+      className="rounded-[var(--radius-lg)] border border-border bg-card p-3"
     >
       <div className="mb-2 flex items-center gap-2">
         <HelpTip text={sopFieldHelp('SopStep', 'number')}>
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-pc-accent text-xs font-semibold text-pc-accent-foreground">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-primary text-xs font-semibold text-primary-foreground">
             {step.number}
           </span>
         </HelpTip>
@@ -442,7 +442,7 @@ function StepEditor({
           onChange={(e) => onChange({ title: e.target.value })}
           placeholder={t('sops.step_title_placeholder')}
           title={sopFieldHelp('SopStep', 'title') ?? undefined}
-          className="flex-1 rounded border border-pc-border bg-pc-surface px-2 py-1 text-sm text-pc-text"
+          className="flex-1 rounded border border-border bg-card px-2 py-1 text-sm text-foreground"
         />
         <select
           value={step.kind ?? 'execute'}
@@ -457,7 +457,7 @@ function StepEditor({
                 : { kind, capability: undefined, with: undefined },
             );
           }}
-          className="rounded border border-pc-border bg-pc-surface px-1.5 py-1 text-xs text-pc-text"
+          className="rounded border border-border bg-card px-1.5 py-1 text-xs text-foreground"
           aria-label={t('sops.step_kind')}
           title={sopFieldHelp('SopStep', 'kind') ?? undefined}
         >
@@ -471,7 +471,7 @@ function StepEditor({
           type="button"
           onClick={() => onMove(-1)}
           disabled={index === 0}
-          className="rounded px-1.5 py-1 text-pc-text-muted hover:bg-pc-elevated disabled:opacity-30"
+          className="rounded px-1.5 py-1 text-muted-foreground hover:bg-secondary disabled:opacity-30"
           aria-label={t('sops.move_up')}
         >
           ↑
@@ -480,7 +480,7 @@ function StepEditor({
           type="button"
           onClick={() => onMove(1)}
           disabled={index === count - 1}
-          className="rounded px-1.5 py-1 text-pc-text-muted hover:bg-pc-elevated disabled:opacity-30"
+          className="rounded px-1.5 py-1 text-muted-foreground hover:bg-secondary disabled:opacity-30"
           aria-label={t('sops.move_down')}
         >
           ↓
@@ -488,7 +488,7 @@ function StepEditor({
         <button
           type="button"
           onClick={onRemove}
-          className="rounded px-1.5 py-1 text-status-error hover:bg-pc-elevated"
+          className="rounded px-1.5 py-1 text-status-error hover:bg-secondary"
           aria-label={t('sops.remove_step')}
         >
           <Trash2 className="h-4 w-4" aria-hidden />
@@ -501,13 +501,13 @@ function StepEditor({
           onChange={(next) => onChange({ body: next })}
         />
         <div>
-          <span className="mb-1 block text-pc-text-muted text-sm">
+          <span className="mb-1 block text-muted-foreground text-sm">
             <HelpTip text={sopFieldHelp('SopStep', 'agent')}>{t('sops.step_agent_label')}</HelpTip>
           </span>
           <select
             value={step.agent ?? ''}
             onChange={(e) => onChange({ agent: e.target.value === '' ? null : e.target.value })}
-            className="w-full rounded border border-pc-border bg-pc-surface px-2 py-1 text-sm text-pc-text"
+            className="w-full rounded border border-border bg-card px-2 py-1 text-sm text-foreground"
           >
             <option value="">
               {t('sops.step_agent_inherit')}
@@ -524,7 +524,7 @@ function StepEditor({
 
       <StepSection title={t('sops.section_tools')} defaultOpen>
         <div className="text-xs">
-          <span className="mb-1 block text-pc-text-muted">
+          <span className="mb-1 block text-muted-foreground">
             <HelpTip text={sopFieldHelp('SopStep', 'suggested_tools')}>
               {t('sops.step_tools_label')}
             </HelpTip>
@@ -549,10 +549,10 @@ function StepEditor({
       >
         <div className="space-y-2 text-xs">
           {(step.scope?.allow?.length ?? 0) > 0 ? (
-            <p className="text-pc-text-faint">{t('sops.scope_overrides_hint')}</p>
+            <p className="text-text-faint">{t('sops.scope_overrides_hint')}</p>
           ) : null}
           <div>
-            <span className="mb-1 block text-pc-text-muted">
+            <span className="mb-1 block text-muted-foreground">
               <HelpTip text={sopFieldHelp('StepToolScope', 'allow')}>
                 {t('sops.scope_allow')}
               </HelpTip>
@@ -565,7 +565,7 @@ function StepEditor({
             />
           </div>
           <div>
-            <span className="mb-1 block text-pc-text-muted">
+            <span className="mb-1 block text-muted-foreground">
               <HelpTip text={sopFieldHelp('StepToolScope', 'deny')}>
                 {t('sops.scope_deny')}
               </HelpTip>
@@ -649,9 +649,9 @@ function StepEditor({
             </Field>
           ) : null}
         </div>
-        <div className="rounded border border-pc-border p-2">
+        <div className="rounded border border-border p-2">
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs font-medium text-pc-text">
+            <span className="text-xs font-medium text-foreground">
               <HelpTip text={sopFieldHelp('StepRouting', 'switch')}>{t('sops.switch_ports')}</HelpTip>
             </span>
             <button
@@ -661,14 +661,14 @@ function StepEditor({
                   switch: [...(routing.switch ?? []), { name: `port ${(routing.switch?.length ?? 0) + 1}`, when: undefined, goto: undefined }],
                 })
               }
-              className="rounded border border-pc-border px-2 py-0.5 text-xs text-pc-text hover:bg-pc-elevated"
+              className="rounded border border-border px-2 py-0.5 text-xs text-foreground hover:bg-secondary"
             >
               <Plus className="mr-1 inline h-3 w-3" aria-hidden />
               {t('sops.add_port')}
             </button>
           </div>
           {(routing.switch ?? []).length === 0 ? (
-            <div className="text-xs text-pc-text-faint">{t('sops.no_ports')}</div>
+            <div className="text-xs text-text-faint">{t('sops.no_ports')}</div>
           ) : (
             (routing.switch ?? []).map((rule, ri) => {
               const setRule = (patch: Partial<typeof rule>) => {
@@ -683,21 +683,21 @@ function StepEditor({
                     value={rule.name}
                     onChange={(e) => setRule({ name: e.target.value })}
                     placeholder={t('sops.port_name')}
-                    className="rounded border border-pc-border bg-pc-surface px-1.5 py-0.5 text-xs text-pc-text"
+                    className="rounded border border-border bg-card px-1.5 py-0.5 text-xs text-foreground"
                   />
                   <input
                     type="text"
                     value={rule.when ?? ''}
                     onChange={(e) => setRule({ when: e.target.value || undefined })}
                     placeholder={t('sops.port_when')}
-                    className="rounded border border-pc-border bg-pc-surface px-1.5 py-0.5 text-xs text-pc-text"
+                    className="rounded border border-border bg-card px-1.5 py-0.5 text-xs text-foreground"
                   />
                   <input
                     type="number"
                     value={rule.goto ?? ''}
                     onChange={(e) => setRule({ goto: e.target.value ? parseInt(e.target.value, 10) : undefined })}
                     placeholder="→"
-                    className="rounded border border-pc-border bg-pc-surface px-1.5 py-0.5 text-xs text-pc-text"
+                    className="rounded border border-border bg-card px-1.5 py-0.5 text-xs text-foreground"
                   />
                   <button
                     type="button"
@@ -719,7 +719,7 @@ function StepEditor({
         defaultOpen={hitlDefaultOpen}
         headerExtra={
           <label
-            className="ml-auto flex shrink-0 items-center gap-1 text-xs font-normal text-pc-text-muted"
+            className="ml-auto flex shrink-0 items-center gap-1 text-xs font-normal text-muted-foreground"
             onClick={(e) => e.stopPropagation()}
           >
             <input
@@ -895,7 +895,7 @@ function TriggerFieldInput({
       };
       return (
         <fieldset className="block text-sm">
-          <legend className="mb-1 block text-pc-text-muted">
+          <legend className="mb-1 block text-muted-foreground">
             {help ? (
               <HelpTip text={help}>{triggerFieldLabel(name)}</HelpTip>
             ) : (
@@ -906,7 +906,7 @@ function TriggerFieldInput({
             {options.map((opt) => (
               <label
                 key={opt}
-                className="inline-flex items-center gap-1.5 rounded border border-pc-border px-2 py-1 text-xs text-pc-text"
+                className="inline-flex items-center gap-1.5 rounded border border-border px-2 py-1 text-xs text-foreground"
               >
                 <input
                   type="checkbox"
@@ -917,7 +917,7 @@ function TriggerFieldInput({
               </label>
             ))}
           </div>
-          {hint ? <p className="mt-1 text-xs text-pc-text-faint">{hint}</p> : null}
+          {hint ? <p className="mt-1 text-xs text-text-faint">{hint}</p> : null}
         </fieldset>
       );
     }
@@ -1029,7 +1029,7 @@ function ConditionBuilder({
         <button
           type="button"
           onClick={() => setRaw(false)}
-          className="text-xs text-pc-text-muted underline hover:text-pc-accent"
+          className="text-xs text-muted-foreground underline hover:text-primary"
         >
           {t('sops.condition_use_builder')}
         </button>
@@ -1039,14 +1039,14 @@ function ConditionBuilder({
 
   return (
     <fieldset className="space-y-2">
-      <legend className="mb-1 block text-sm text-pc-text-muted">
+      <legend className="mb-1 block text-sm text-muted-foreground">
         <HelpTip text={sopFieldHelp('SopTrigger', 'condition')}>
           {t('sops.trigger_condition')}
         </HelpTip>
       </legend>
       <div className="grid grid-cols-[1.4fr_auto_1.4fr] items-end gap-2">
         {isDirect ? (
-          <div className="text-xs text-pc-text-faint">{t('sops.condition_direct_payload')}</div>
+          <div className="text-xs text-text-faint">{t('sops.condition_direct_payload')}</div>
         ) : isOpen ? (
           <Field label={t('sops.condition_field')}>
             <input
@@ -1126,7 +1126,7 @@ function ConditionBuilder({
         <button
           type="button"
           onClick={() => setRaw(true)}
-          className="text-xs text-pc-text-muted underline hover:text-pc-accent"
+          className="text-xs text-muted-foreground underline hover:text-primary"
         >
           {t('sops.condition_use_raw')}
         </button>
@@ -1173,7 +1173,7 @@ function ChannelTriggerFields({
           <span>{t('sops.trigger_unconfigured')}</span>
           <Link
             to={selected.setup_path}
-            className="underline hover:text-pc-accent"
+            className="underline hover:text-primary"
           >
             {t('sops.trigger_setup_link')}
           </Link>
@@ -1222,8 +1222,8 @@ function TriggerEditor({
 
   return (
     <div
-      className={`space-y-2 rounded border bg-pc-surface p-2 ${
-        selected ? 'border-pc-accent' : 'border-pc-border'
+      className={`space-y-2 rounded border bg-card p-2 ${
+        selected ? 'border-primary' : 'border-border'
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -1238,7 +1238,7 @@ function TriggerEditor({
         <button
           type="button"
           onClick={onRemove}
-          className="mt-5 inline-flex items-center rounded border border-pc-border p-1 text-pc-text-muted hover:bg-pc-elevated"
+          className="mt-5 inline-flex items-center rounded border border-border p-1 text-muted-foreground hover:bg-secondary"
           aria-label={t('sops.remove_trigger')}
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -1251,7 +1251,7 @@ function TriggerEditor({
           onChange={(patch) => onChange({ ...trigger, ...patch })}
         />
       ) : source === MANUAL_SOURCE ? (
-        <p className="text-xs text-pc-text-muted">{t('sops.trigger_manual_hint')}</p>
+        <p className="text-xs text-muted-foreground">{t('sops.trigger_manual_hint')}</p>
       ) : (
         <div className="space-y-2">
           {boundFields.map((field) => (
@@ -1310,24 +1310,24 @@ function StepListRow({
   return (
     <div
       className={`flex items-center gap-2 rounded border px-2 py-1.5 ${
-        selected ? 'border-pc-accent ring-1 ring-pc-accent' : 'border-pc-border'
+        selected ? 'border-primary ring-1 ring-primary' : 'border-border'
       }`}
     >
       <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-pc-accent text-[11px] font-semibold text-pc-accent-foreground">
+        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary text-[11px] font-semibold text-primary-foreground">
           {step.number}
         </span>
-        <span className="truncate text-sm text-pc-text">{step.title || t('sops.untitled')}</span>
+        <span className="truncate text-sm text-foreground">{step.title || t('sops.untitled')}</span>
         {step.kind === 'checkpoint' ? <Badge tone="warn">⏸</Badge> : null}
         {step.calls && step.calls.length > 0 ? (
-          <span className="shrink-0 text-[11px] text-pc-text-muted">⚙ {step.calls.length}</span>
+          <span className="shrink-0 text-[11px] text-muted-foreground">⚙ {step.calls.length}</span>
         ) : null}
       </button>
       <button
         type="button"
         onClick={() => onMove(-1)}
         disabled={index === 0}
-        className="rounded px-1 text-pc-text-muted hover:bg-pc-elevated disabled:opacity-30"
+        className="rounded px-1 text-muted-foreground hover:bg-secondary disabled:opacity-30"
         aria-label={t('sops.move_up')}
       >
         ↑
@@ -1336,7 +1336,7 @@ function StepListRow({
         type="button"
         onClick={() => onMove(1)}
         disabled={index === count - 1}
-        className="rounded px-1 text-pc-text-muted hover:bg-pc-elevated disabled:opacity-30"
+        className="rounded px-1 text-muted-foreground hover:bg-secondary disabled:opacity-30"
         aria-label={t('sops.move_down')}
       >
         ↓
@@ -1344,7 +1344,7 @@ function StepListRow({
       <button
         type="button"
         onClick={onRemove}
-        className="rounded px-1 text-status-error hover:bg-pc-elevated"
+        className="rounded px-1 text-status-error hover:bg-secondary"
         aria-label={t('sops.remove_step')}
       >
         <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -1398,14 +1398,14 @@ function DraftSidebar({
           wrapping onto the Cancel/Save buttons; flex-shrink-0 keeps those
           buttons at full, always-readable size. */}
       <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 truncate font-medium text-pc-text" title={t('sops.editor_title')}>
+        <div className="min-w-0 truncate font-medium text-foreground" title={t('sops.editor_title')}>
           {t('sops.editor_title')}
         </div>
         <div className="flex flex-shrink-0 gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex items-center gap-1 rounded border border-pc-border px-2 py-1 text-sm text-pc-text hover:bg-pc-elevated"
+            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-sm text-foreground hover:bg-secondary"
           >
             <X className="h-4 w-4" aria-hidden /> {t('sops.cancel')}
           </button>
@@ -1413,7 +1413,7 @@ function DraftSidebar({
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="inline-flex items-center gap-1 rounded bg-pc-accent px-2 py-1 text-sm text-pc-accent-foreground hover:bg-pc-accent-light disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded bg-primary px-2 py-1 text-sm text-primary-foreground hover:bg-accent-light disabled:opacity-50"
           >
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -1536,7 +1536,7 @@ function DraftSidebar({
             className={INPUT_CLS}
           />
         </Field>
-        <label className="flex items-center gap-2 text-sm text-pc-text-muted">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <input
             type="checkbox"
             checked={draft.deterministic}
@@ -1549,17 +1549,17 @@ function DraftSidebar({
       </StepSection>
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-pc-text">{t('sops.triggers')}</span>
+          <span className="text-sm font-medium text-foreground">{t('sops.triggers')}</span>
           <button
             type="button"
             onClick={onAddTrigger}
-            className="inline-flex items-center gap-1 rounded border border-pc-border px-2 py-1 text-xs text-pc-text hover:bg-pc-elevated"
+            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-foreground hover:bg-secondary"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden /> {t('sops.add_trigger')}
           </button>
         </div>
         {draft.triggers.length === 0 ? (
-          <p className="text-xs text-pc-text-muted">{t('sops.trigger_none')}</p>
+          <p className="text-xs text-muted-foreground">{t('sops.trigger_none')}</p>
         ) : (
           draft.triggers.map((trigger, i) => (
             <TriggerEditor
@@ -1576,17 +1576,17 @@ function DraftSidebar({
       </div>
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-pc-text">{t('sops.steps')}</span>
+          <span className="text-sm font-medium text-foreground">{t('sops.steps')}</span>
           <button
             type="button"
             onClick={onAddStep}
-            className="inline-flex items-center gap-1 rounded border border-pc-border px-2 py-1 text-xs text-pc-text hover:bg-pc-elevated"
+            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-foreground hover:bg-secondary"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden /> {t('sops.add_step')}
           </button>
         </div>
         {draft.steps.length === 0 ? (
-          <p className="text-xs text-pc-text-muted">{t('sops.no_steps')}</p>
+          <p className="text-xs text-muted-foreground">{t('sops.no_steps')}</p>
         ) : (
           draft.steps.map((s, i) => (
             <StepListRow
@@ -1630,7 +1630,7 @@ function StepInspector({
   if (!step) {
     return (
       <Card>
-        <p className="text-sm text-pc-text-muted">{t('sops.inspector_empty')}</p>
+        <p className="text-sm text-muted-foreground">{t('sops.inspector_empty')}</p>
       </Card>
     );
   }
@@ -1744,14 +1744,14 @@ function ManualRunPanel({ name, sop }: { name: string; sop: Sop | null }) {
         onChange={(e) => setPayload(e.target.value)}
         placeholder={t('sops.run_payload_placeholder')}
         rows={4}
-        className="w-full rounded border border-pc-border bg-pc-surface px-2 py-1 font-mono text-xs text-pc-text"
+        className="w-full rounded border border-border bg-card px-2 py-1 font-mono text-xs text-foreground"
       />
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={onRun}
           disabled={running}
-          className="inline-flex items-center gap-1 rounded border border-pc-border bg-pc-accent px-3 py-1 text-sm font-medium text-pc-accent-foreground hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded border border-border bg-primary px-3 py-1 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
         >
           {running ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
           {t('sops.run')}
@@ -1795,7 +1795,7 @@ export function SopsList() {
         actions={
           <Link
             to="/sops/new"
-            className="inline-flex items-center gap-1 rounded bg-pc-accent px-3 py-1.5 text-sm text-pc-accent-foreground hover:bg-pc-accent-light"
+            className="inline-flex items-center gap-1 rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-accent-light"
           >
             <Plus className="h-4 w-4" aria-hidden /> {t('sops.new')}
           </Link>
@@ -1807,11 +1807,11 @@ export function SopsList() {
         </Card>
       ) : loading ? (
         <Card>
-          <Loader2 className="h-5 w-5 animate-spin text-pc-text-muted" aria-hidden />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
         </Card>
       ) : sops.length === 0 ? (
         <Card>
-          <div className="text-pc-text-muted">{t('sops.empty')}</div>
+          <div className="text-muted-foreground">{t('sops.empty')}</div>
         </Card>
       ) : (
         <Card className="p-2">
@@ -1820,11 +1820,11 @@ export function SopsList() {
               <li key={s.name}>
                 <Link
                   to={`/sops/${encodeURIComponent(s.name)}`}
-                  className="block rounded px-3 py-2 text-sm text-pc-text hover:bg-pc-elevated"
+                  className="block rounded px-3 py-2 text-sm text-foreground hover:bg-secondary"
                 >
                   <div className="font-medium">{s.name}</div>
                   {s.description ? (
-                    <div className="truncate text-xs text-pc-text-muted">{s.description}</div>
+                    <div className="truncate text-xs text-muted-foreground">{s.description}</div>
                   ) : null}
                 </Link>
               </li>
@@ -1885,7 +1885,7 @@ export function SopView() {
         title={name}
         description={viewSop?.description || t('sops.subtitle')}
         actions={
-          <Link to="/sops" className="text-sm text-pc-accent hover:underline">
+          <Link to="/sops" className="text-sm text-primary hover:underline">
             {t('sops.back_to_list')}
           </Link>
         }
@@ -1908,27 +1908,27 @@ export function SopView() {
               type="button"
               onClick={() => setLayer((l) => (l === 'visual' ? 'fields' : 'visual'))}
               disabled={!graph}
-              className="rounded border border-pc-border px-2 py-1 text-sm text-pc-text hover:bg-pc-elevated disabled:opacity-40"
+              className="rounded border border-border px-2 py-1 text-sm text-foreground hover:bg-secondary disabled:opacity-40"
             >
               {layer === 'visual' ? t('sops.layer_fields') : t('sops.layer_visual')}
             </button>
             <Link
               to={`/sops/${encodeURIComponent(name)}/edit`}
-              className="rounded border border-pc-border px-2 py-1 text-sm text-pc-text hover:bg-pc-elevated"
+              className="rounded border border-border px-2 py-1 text-sm text-foreground hover:bg-secondary"
             >
               {t('sops.edit')}
             </Link>
             <button
               type="button"
               onClick={onDelete}
-              className="inline-flex items-center gap-1 rounded border border-pc-border px-2 py-1 text-sm text-status-error hover:bg-pc-elevated"
+              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-sm text-status-error hover:bg-secondary"
             >
               <Trash2 className="h-4 w-4" aria-hidden /> {t('sops.delete')}
             </button>
           </div>
         </div>
         {loading ? (
-          <Loader2 className="h-5 w-5 animate-spin text-pc-text-muted" aria-hidden />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
         ) : graph ? (
           <>
             {layer === 'visual' && viewSop ? (
@@ -2310,7 +2310,7 @@ export function SopEditor() {
     return (
       <div className="p-6">
         <Card>
-          <Loader2 className="h-5 w-5 animate-spin text-pc-text-muted" aria-hidden />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
         </Card>
       </div>
     );

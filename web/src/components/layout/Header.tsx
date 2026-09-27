@@ -70,7 +70,7 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
 
   return (
     <>
-      <header className="h-14 flex items-center justify-between px-6 border-b animate-fade-in relative" style={{ background: 'var(--pc-bg-surface)', borderColor: 'var(--pc-border)', backdropFilter: 'blur(12px)', zIndex: 100 }}>
+      <header className="h-14 flex items-center justify-between px-6 border-b animate-fade-in relative" style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)', backdropFilter: 'blur(12px)', zIndex: 100 }}>
         <div className="flex items-center gap-3 min-w-0">
           {/* Hamburger — opens the mobile drawer; hidden on desktop where the
               slim rail is always present. */}
@@ -86,7 +86,7 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
           {/* Page title — the primary on-screen label for the current section
               now that the rail is icon-only. Truncates (rather than pushing the
               action cluster) so the right-side icons never get squeezed. */}
-          <h1 className="h-9 leading-9 text-lg font-semibold tracking-tight truncate min-w-0" style={{ color: 'var(--pc-text-primary)' }}>{pageTitle}</h1>
+          <h1 className="h-9 leading-9 text-lg font-semibold tracking-tight truncate min-w-0" style={{ color: 'var(--color-foreground)' }}>{pageTitle}</h1>
         </div>
 
         {/* Right-side controls. shrink-0 so the title yields first and these
@@ -115,12 +115,12 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
           <button
             type="button"
             onClick={onOpenPalette}
-            className="hidden sm:flex h-9 items-center gap-2 rounded-[var(--radius-md)] border border-pc-border bg-pc-input pl-2.5 pr-2 text-sm text-pc-text-muted transition-colors hover:border-pc-border-strong hover:text-pc-text-secondary hover:bg-[var(--pc-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-surface"
+            className="hidden sm:flex h-9 items-center gap-2 rounded-[var(--radius-md)] border border-border bg-input pl-2.5 pr-2 text-sm text-muted-foreground transition-colors hover:border-border-strong hover:text-text-secondary hover:bg-[var(--color-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-card"
             aria-label={t('nav.cmdk.placeholder')}
           >
             <Search className="h-[20px] w-[20px] shrink-0" aria-hidden="true" />
             <span className="hidden md:inline w-32 text-left">{t('nav.cmdk.placeholder')}</span>
-            <kbd className="ml-1 flex items-center gap-0.5 rounded-[var(--radius-sm)] border border-pc-border bg-pc-elevated px-1.5 py-0.5 text-[11px] font-mono text-pc-text-faint">
+            <kbd className="ml-1 flex items-center gap-0.5 rounded-[var(--radius-sm)] border border-border bg-secondary px-1.5 py-0.5 text-[11px] font-mono text-text-faint">
               <span className="text-[13px] leading-none">⌘</span>K
             </kbd>
           </button>

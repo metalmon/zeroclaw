@@ -103,11 +103,11 @@ function BoolSwitch({
       style={{
         background: value
           ? "var(--color-status-success-alpha-08)"
-          : "var(--pc-bg-elevated)",
+          : "var(--color-secondary)",
         border: "1px solid",
         borderColor: value
           ? "var(--color-status-success-alpha-20)"
-          : "var(--pc-border)",
+          : "var(--color-border)",
       }}
     >
       <span
@@ -115,7 +115,7 @@ function BoolSwitch({
         style={{
           background: value
             ? "var(--color-status-success)"
-            : "var(--pc-border)",
+            : "var(--color-border)",
         }}
       >
         <span
@@ -126,7 +126,7 @@ function BoolSwitch({
       <span
         className="text-xs font-medium pr-2"
         style={{
-          color: value ? "var(--color-status-success)" : "var(--pc-text-muted)",
+          color: value ? "var(--color-status-success)" : "var(--color-muted-foreground)",
         }}
       >
         {value ? "true" : "false"}
@@ -801,16 +801,16 @@ function AgentEmptyAliasFallback({
     <div
       className="text-xs px-3 py-2 rounded border"
       style={{
-        color: "var(--pc-text-muted)",
-        borderColor: "var(--pc-border)",
-        background: "var(--pc-bg-surface-subtle)",
+        color: "var(--color-muted-foreground)",
+        borderColor: "var(--color-border)",
+        background: "var(--color-surface-subtle)",
       }}
     >
       {t("fieldform.no_alias_configured_prefix")}{label}{t("fieldform.no_alias_configured_suffix")}{" "}
       <Link
         to={path}
         className="inline-flex items-center gap-1 underline"
-        style={{ color: "var(--pc-text-link)" }}
+        style={{ color: "var(--color-text-link)" }}
       >
         {t("fieldform.configure_prefix")}{label} <ExternalLink className="h-3 w-3" />
       </Link>
@@ -1364,8 +1364,8 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
           <div
             className="h-8 w-8 border-2 rounded-full animate-spin"
             style={{
-              borderColor: "var(--pc-border)",
-              borderTopColor: "var(--pc-accent)",
+              borderColor: "var(--color-border)",
+              borderTopColor: "var(--color-primary)",
             }}
           />
         </div>
@@ -1407,7 +1407,7 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
             {title ? (
               <h2
                 className="text-lg font-semibold"
-                style={{ color: "var(--pc-text-primary)" }}
+                style={{ color: "var(--color-foreground)" }}
               >
                 {title}
               </h2>
@@ -1446,15 +1446,15 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
         {entries.length === 0 ? (
           <div
             className="surface-panel p-6 text-center text-sm"
-            style={{ color: "var(--pc-text-muted)" }}
+            style={{ color: "var(--color-muted-foreground)" }}
           >
             {t("fieldform.no_fields_under")}{" "}
-            <code style={{ color: "var(--pc-text-faint)" }}>{prefix}</code>.
+            <code style={{ color: "var(--color-text-faint)" }}>{prefix}</code>.
           </div>
         ) : (
           <form
             className="surface-panel divide-y"
-            style={{ borderColor: "var(--pc-border)" }}
+            style={{ borderColor: "var(--color-border)" }}
             onSubmit={(e) => {
               e.preventDefault();
               void handleSave().catch(() => undefined);
@@ -1463,14 +1463,14 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
             {visibleEntries.length === 0 ? (
               <div
                 className="px-4 py-6 text-sm text-center"
-                style={{ color: "var(--pc-text-muted)" }}
+                style={{ color: "var(--color-muted-foreground)" }}
               >
                 {filter.trim().length === 0 ? (
                   <>{t("fieldform.no_configurable_settings")}</>
                 ) : (
                   <>
                     {t("fieldform.no_fields_match")}{" "}
-                    <code style={{ color: "var(--pc-text-faint)" }}>
+                    <code style={{ color: "var(--color-text-faint)" }}>
                       {filter}
                     </code>
                     .
@@ -1521,11 +1521,11 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
           <div
             key={g.parent}
             className="surface-panel p-4"
-            style={{ borderColor: "var(--pc-border)" }}
+            style={{ borderColor: "var(--color-border)" }}
           >
             <h3
               className="text-sm font-semibold mb-3"
-              style={{ color: "var(--pc-text-primary)" }}
+              style={{ color: "var(--color-foreground)" }}
             >
               {t("fieldform.tool_permissions_title")}
             </h3>
@@ -1561,10 +1561,10 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
                 : "sticky bottom-0 left-0 right-0 -mx-6 px-6 py-3 border-t backdrop-blur z-10"
             }
             style={{
-              borderColor: "var(--pc-border)",
+              borderColor: "var(--color-border)",
               background: inlineSaveBar
-                ? "var(--pc-bg-elevated)"
-                : "color-mix(in srgb, var(--pc-bg-base) 88%, transparent)",
+                ? "var(--color-secondary)"
+                : "color-mix(in srgb, var(--color-background) 88%, transparent)",
             }}
           >
             <div className="flex items-center justify-between gap-3">
@@ -1578,14 +1578,14 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
                     ✓ {savedAt}
                   </span>
                 ) : unsavedCount > 0 ? (
-                  <span style={{ color: "var(--pc-text-secondary)" }}>
+                  <span style={{ color: "var(--color-text-secondary)" }}>
                     {unsavedCount}{" "}
                     {unsavedCount === 1
                       ? t("fieldform.unsaved_change")
                       : t("fieldform.unsaved_changes")}
                   </span>
                 ) : (
-                  <span style={{ color: "var(--pc-text-faint)" }}>
+                  <span style={{ color: "var(--color-text-faint)" }}>
                     {t("fieldform.no_unsaved_changes")}
                   </span>
                 )}
@@ -1865,13 +1865,13 @@ function FieldRow({
         <div className="min-w-0 flex-1">
           <code
             className="text-xs font-mono line-through break-all"
-            style={{ color: "var(--pc-text-muted)" }}
+            style={{ color: "var(--color-muted-foreground)" }}
           >
             {entry.path}
           </code>
           <p
             className="text-xs mt-0.5"
-            style={{ color: "var(--pc-text-muted)" }}
+            style={{ color: "var(--color-muted-foreground)" }}
           >
             {t("fieldform.staged_for_removal")}
           </p>
@@ -1895,7 +1895,7 @@ function FieldRow({
         <div className="flex-1 min-w-0">
           <label
             className="block text-sm font-medium font-sans break-words"
-            style={{ color: "var(--pc-text-primary)" }}
+            style={{ color: "var(--color-foreground)" }}
             htmlFor={entry.path}
             title={`${entry.path}${entry.type_hint ? ` — ${entry.type_hint}` : ""}`}
           >
@@ -1909,7 +1909,7 @@ function FieldRow({
               </Badge>
             )}
             {entry.is_secret && (
-              <span className="ml-2 text-xs font-sans text-pc-text-muted">
+              <span className="ml-2 text-xs font-sans text-muted-foreground">
                 🔒 {entry.populated ? t("fieldform.secret_set") : t("fieldform.secret_unset")}
               </span>
             )}
@@ -1919,14 +1919,14 @@ function FieldRow({
               leaf above is now the primary label. */}
           <code
             className="block text-[11px] font-mono break-all mt-0.5"
-            style={{ color: "var(--pc-text-faint)" }}
+            style={{ color: "var(--color-text-faint)" }}
           >
             {entry.path}
           </code>
           {description && (
             <p
               className="text-xs mt-0.5"
-              style={{ color: "var(--pc-text-secondary)" }}
+              style={{ color: "var(--color-text-secondary)" }}
             >
               {description}
             </p>
@@ -2031,7 +2031,7 @@ function FieldRow({
               className="input-electric w-full px-3 py-2 text-sm"
               placeholder={t("fieldform.model_input_unreachable_placeholder")}
             />
-            <p className="text-xs" style={{ color: "var(--pc-text-muted)" }}>
+            <p className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
               {t("fieldform.model_catalog_unreachable_help")}{" "}
               <code>{modelFallbackExample(entry.path)}</code>).
             </p>
@@ -2047,7 +2047,7 @@ function FieldRow({
               placeholder={t("fieldform.fetching_models_placeholder")}
               disabled
             />
-            <p className="text-xs" style={{ color: "var(--pc-text-muted)" }}>
+            <p className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
               {t("fieldform.fetching_models_help")}
             </p>
           </>
@@ -2219,7 +2219,7 @@ function FieldRow({
               autoFocus={comment.length === 0}
               onChange={(e) => onCommentChange(e.target.value)}
               placeholder={t("cfg.field.commentPlaceholder")}
-              className="input-electric flex-1 px-3 py-1.5 text-xs text-pc-text-secondary"
+              className="input-electric flex-1 px-3 py-1.5 text-xs text-text-secondary"
             />
             <button
               type="button"
@@ -2238,7 +2238,7 @@ function FieldRow({
           <button
             type="button"
             onClick={() => setShowComment(true)}
-            className="ml-3 inline-flex items-center gap-1 text-xs text-pc-text-faint hover:text-pc-text-secondary transition-colors"
+            className="ml-3 inline-flex items-center gap-1 text-xs text-text-faint hover:text-text-secondary transition-colors"
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
             {t("cfg.field.commentAdd")}
@@ -2304,7 +2304,7 @@ function ArrayFieldEditor({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
+        <span className="text-xs" style={{ color: "var(--color-text-faint)" }}>
           {plural(rows.length, "fieldform.entries_count")}
           {isOptional && rows.length === 0
             ? t("fieldform.saves_as_null")
@@ -2312,7 +2312,7 @@ function ArrayFieldEditor({
         </span>
         <div
           className="inline-flex rounded-md overflow-hidden border text-xs"
-          style={{ borderColor: "var(--pc-border)" }}
+          style={{ borderColor: "var(--color-border)" }}
         >
           <button
             type="button"
@@ -2321,12 +2321,12 @@ function ArrayFieldEditor({
             style={{
               background:
                 mode === "rows"
-                  ? "var(--pc-bg-surface-elevated)"
+                  ? "var(--color-surface-elevated)"
                   : "transparent",
               color:
                 mode === "rows"
-                  ? "var(--pc-text-primary)"
-                  : "var(--pc-text-muted)",
+                  ? "var(--color-foreground)"
+                  : "var(--color-muted-foreground)",
             }}
             aria-pressed={mode === "rows"}
           >
@@ -2339,12 +2339,12 @@ function ArrayFieldEditor({
             style={{
               background:
                 mode === "text"
-                  ? "var(--pc-bg-surface-elevated)"
+                  ? "var(--color-surface-elevated)"
                   : "transparent",
               color:
                 mode === "text"
-                  ? "var(--pc-text-primary)"
-                  : "var(--pc-text-muted)",
+                  ? "var(--color-foreground)"
+                  : "var(--color-muted-foreground)",
             }}
             aria-pressed={mode === "text"}
           >
@@ -2358,7 +2358,7 @@ function ArrayFieldEditor({
           {rows.length === 0 ? (
             <p
               className="text-xs italic px-1 py-2"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             >
               {t("fieldform.no_entries_add_one")}
             </p>
@@ -2490,7 +2490,7 @@ function ObjectArrayEditor({
   if (!elementProps || elementProps.length === 0) {
     return (
       <div className="space-y-1.5">
-        <p className="text-xs" style={{ color: "var(--pc-text-muted)" }}>
+        <p className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
           {t("fieldform.element_shape_unavailable")}
         </p>
         <textarea
@@ -2508,7 +2508,7 @@ function ObjectArrayEditor({
   return (
     <div className="space-y-2" id={inputId}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
+        <span className="text-xs" style={{ color: "var(--color-text-faint)" }}>
           {plural(rows.length, "fieldform.entries_count")}
         </span>
         <button
@@ -2522,7 +2522,7 @@ function ObjectArrayEditor({
       {rows.length === 0 ? (
         <p
           className="text-xs italic px-1 py-2"
-          style={{ color: "var(--pc-text-faint)" }}
+          style={{ color: "var(--color-text-faint)" }}
         >
           {t("fieldform.no_entries_create_one")}
         </p>
@@ -2533,20 +2533,20 @@ function ObjectArrayEditor({
               key={rowIdx}
               className="rounded-md border p-3 space-y-2"
               style={{
-                borderColor: "var(--pc-border)",
-                background: "var(--pc-bg-base)",
+                borderColor: "var(--color-border)",
+                background: "var(--color-background)",
               }}
             >
               <div className="flex items-center justify-between">
                 <span
                   className="text-xs font-mono"
-                  style={{ color: "var(--pc-text-faint)" }}
+                  style={{ color: "var(--color-text-faint)" }}
                 >
                   [{rowIdx}]
                   {typeof row.name === "string" && row.name.length > 0 && (
                     <span
                       className="ml-2"
-                      style={{ color: "var(--pc-text-secondary)" }}
+                      style={{ color: "var(--color-text-secondary)" }}
                     >
                       {row.name}
                     </span>
@@ -2597,13 +2597,13 @@ function ObjectArrayField({
     <div>
       <label
         className="block text-xs font-mono"
-        style={{ color: "var(--pc-text-secondary)" }}
+        style={{ color: "var(--color-text-secondary)" }}
       >
         {meta.key}
         {meta.optional && (
           <span
             className="ml-1.5 text-[10px]"
-            style={{ color: "var(--pc-text-faint)" }}
+            style={{ color: "var(--color-text-faint)" }}
           >
             {t("fieldform.optional_label")}
           </span>
@@ -2612,7 +2612,7 @@ function ObjectArrayField({
       {meta.description && (
         <p
           className="text-[11px] mt-0.5"
-          style={{ color: "var(--pc-text-muted)" }}
+          style={{ color: "var(--color-muted-foreground)" }}
         >
           {meta.description}
         </p>
@@ -2747,12 +2747,12 @@ function KeyValueChipEditor({
   return (
     <div className="space-y-1.5 mt-1">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
+        <span className="text-xs" style={{ color: "var(--color-text-faint)" }}>
           {plural(pairs.length, "fieldform.entries_count")}
         </span>
         <div
           className="inline-flex rounded-md overflow-hidden border text-xs"
-          style={{ borderColor: "var(--pc-border)" }}
+          style={{ borderColor: "var(--color-border)" }}
         >
           <button
             type="button"
@@ -2761,12 +2761,12 @@ function KeyValueChipEditor({
             style={{
               background:
                 mode === "rows"
-                  ? "var(--pc-bg-surface-elevated)"
+                  ? "var(--color-surface-elevated)"
                   : "transparent",
               color:
                 mode === "rows"
-                  ? "var(--pc-text-primary)"
-                  : "var(--pc-text-muted)",
+                  ? "var(--color-foreground)"
+                  : "var(--color-muted-foreground)",
             }}
             aria-pressed={mode === "rows"}
           >
@@ -2779,12 +2779,12 @@ function KeyValueChipEditor({
             style={{
               background:
                 mode === "text"
-                  ? "var(--pc-bg-surface-elevated)"
+                  ? "var(--color-surface-elevated)"
                   : "transparent",
               color:
                 mode === "text"
-                  ? "var(--pc-text-primary)"
-                  : "var(--pc-text-muted)",
+                  ? "var(--color-foreground)"
+                  : "var(--color-muted-foreground)",
             }}
             aria-pressed={mode === "text"}
           >
@@ -2831,7 +2831,7 @@ function KeyValueChipEditor({
           {pairs.length === 0 ? (
             <p
               className="text-[11px] italic"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             >
               {t("fieldform.no_entries")}
             </p>
@@ -2846,7 +2846,7 @@ function KeyValueChipEditor({
                     className="input-electric flex-1 px-2 py-1 text-sm font-mono"
                     placeholder={t("fieldform.key_placeholder")}
                   />
-                  <span style={{ color: "var(--pc-text-faint)" }}>=</span>
+                  <span style={{ color: "var(--color-text-faint)" }}>=</span>
                   <input
                     type="text"
                     value={v}
@@ -2903,11 +2903,11 @@ function DriftDiff({ drift }: { drift: DriftEntry }) {
     >
       <span>
         {t("fieldform.drift_in_memory")}{" "}
-        <code style={{ color: "var(--pc-text-secondary)" }}>{inMem}</code>
+        <code style={{ color: "var(--color-text-secondary)" }}>{inMem}</code>
       </span>
       <span>
         {t("fieldform.drift_on_disk")}{" "}
-        <code style={{ color: "var(--pc-text-secondary)" }}>{onDisk}</code>
+        <code style={{ color: "var(--color-text-secondary)" }}>{onDisk}</code>
       </span>
     </div>
   );

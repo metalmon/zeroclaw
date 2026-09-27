@@ -126,7 +126,7 @@ export default function RunDetail() {
         actions={
           <Link
             to="/runs"
-            className="inline-flex items-center gap-1 rounded border border-pc-border px-2 py-1 text-sm text-pc-text hover:bg-pc-elevated"
+            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-sm text-foreground hover:bg-secondary"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden /> {t('run_detail.back')}
           </Link>
@@ -144,12 +144,12 @@ export default function RunDetail() {
           <Badge tone={runStatusBadge(overlay.status)}>
             {t(`sops.run_status.${overlay.status}`)}
           </Badge>
-          <span className="tabular-nums text-sm text-pc-text-secondary">
+          <span className="tabular-nums text-sm text-text-secondary">
             {t('run_detail.progress')} {overlay.current_step}/{overlay.total_steps}
           </span>
           <Link
             to={`/sops/${encodeURIComponent(sop)}`}
-            className="text-sm text-pc-accent hover:underline"
+            className="text-sm text-primary hover:underline"
           >
             {t('run_detail.open_sop')}
           </Link>
@@ -164,7 +164,7 @@ export default function RunDetail() {
                     type="button"
                     disabled={deciding}
                     onClick={() => handleDecide(true)}
-                    className="inline-flex items-center gap-1 rounded bg-pc-accent px-3 py-1.5 text-sm font-medium text-pc-accent-foreground hover:opacity-90 disabled:opacity-40"
+                    className="inline-flex items-center gap-1 rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
                   >
                     {deciding ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -177,7 +177,7 @@ export default function RunDetail() {
                     type="button"
                     disabled={deciding}
                     onClick={() => handleDecide(false)}
-                    className="inline-flex items-center gap-1 rounded border border-pc-border px-3 py-1.5 text-sm text-status-error hover:bg-pc-elevated disabled:opacity-40"
+                    className="inline-flex items-center gap-1 rounded border border-border px-3 py-1.5 text-sm text-status-error hover:bg-secondary disabled:opacity-40"
                   >
                     <X className="h-4 w-4" aria-hidden />
                     {t('sops.deny')}
@@ -210,7 +210,7 @@ export default function RunDetail() {
         </Card>
       ) : !error ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin text-pc-text-muted" aria-hidden />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
         </div>
       ) : null}
 

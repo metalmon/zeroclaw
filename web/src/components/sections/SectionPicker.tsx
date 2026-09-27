@@ -111,8 +111,8 @@ export default function SectionPicker({
         <div
           className="h-8 w-8 border-2 rounded-full animate-spin"
           style={{
-            borderColor: "var(--pc-border)",
-            borderTopColor: "var(--pc-accent)",
+            borderColor: "var(--color-border)",
+            borderTopColor: "var(--color-primary)",
           }}
         />
       </div>
@@ -121,7 +121,7 @@ export default function SectionPicker({
 
   return (
     <div className="flex flex-col gap-4">
-      {help && <p className="text-sm text-pc-text-secondary">{help}</p>}
+      {help && <p className="text-sm text-text-secondary">{help}</p>}
 
       {error && (
         <div className="rounded-[var(--radius-md)] border border-status-error/25 bg-status-error/10 p-3 text-sm text-status-error animate-fade-in">
@@ -139,15 +139,15 @@ export default function SectionPicker({
         }}
         onKeyDown={handleKey}
         placeholder={t("section_picker.filter_placeholder")}
-        className="w-full px-3 py-2.5 text-sm rounded-[var(--radius-md)] bg-pc-input border border-pc-border text-pc-text placeholder:text-pc-text-faint focus-visible:outline-none focus-visible:border-pc-border-strong focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]"
+        className="w-full px-3 py-2.5 text-sm rounded-[var(--radius-md)] bg-input border border-border text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
       />
 
       <div
-        className="rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface divide-y divide-pc-border overflow-y-auto"
+        className="rounded-[var(--radius-lg)] border border-border bg-card divide-y divide-border overflow-y-auto"
         style={{ maxHeight: "60vh" }}
       >
         {filtered.length === 0 ? (
-          <div className="px-4 py-6 text-sm text-center text-pc-text-muted">
+          <div className="px-4 py-6 text-sm text-center text-muted-foreground">
             {t("section_picker.no_matches")}
           </div>
         ) : (
@@ -159,20 +159,20 @@ export default function SectionPicker({
               onMouseEnter={() => setHighlightIdx(idx)}
               className={[
                 "w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors",
-                idx === highlightIdx ? "bg-pc-accent/10" : "bg-transparent",
+                idx === highlightIdx ? "bg-primary/10" : "bg-transparent",
               ].join(" ")}
             >
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-pc-text">
+                <div className="text-sm font-medium text-foreground">
                   {item.label}
                   {item.label !== item.key && (
-                    <code className="ml-2 text-xs text-pc-text-faint">
+                    <code className="ml-2 text-xs text-text-faint">
                       {item.key}
                     </code>
                   )}
                 </div>
                 {item.description && (
-                  <div className="text-xs mt-0.5 text-pc-text-muted">
+                  <div className="text-xs mt-0.5 text-muted-foreground">
                     {item.description}
                   </div>
                 )}

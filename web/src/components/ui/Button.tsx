@@ -12,8 +12,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const base =
   'inline-flex items-center justify-center gap-1.5 font-medium whitespace-nowrap ' +
   'rounded-[var(--radius-md)] border transition-colors duration-150 ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] ' +
-  'focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] ' +
+  'focus-visible:ring-offset-2 focus-visible:ring-offset-background ' +
   'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none ' +
   'cursor-pointer select-none';
 
@@ -27,13 +27,13 @@ const variants: Record<ButtonVariant, string> = {
   // This is the one place the brand color leads; everyday accent chrome stays
   // neutral. White foreground stays legible across the gradient in every theme.
   primary:
-    '[background-image:var(--pc-accent-gradient)] border-transparent text-white ' +
+    '[background-image:var(--gradient-brand)] border-transparent text-white ' +
     'hover:opacity-90 active:brightness-95',
   // Transparent until hovered — the calm default for secondary actions.
-  // `--pc-hover` has no @theme utility, so the hover bg uses an arbitrary value.
+  // `--color-hover` has no @theme utility, so the hover bg uses an arbitrary value.
   ghost:
-    'bg-transparent border-pc-border text-pc-text-secondary ' +
-    'hover:bg-[var(--pc-hover)] hover:text-pc-text hover:border-pc-border-strong',
+    'bg-transparent border-border text-text-secondary ' +
+    'hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong',
   // Tinted destructive action.
   danger:
     'bg-status-error/10 border-status-error/25 text-status-error ' +

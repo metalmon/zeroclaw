@@ -299,15 +299,15 @@ export function UpgradeDialog({
       className="fixed inset-0 z-50 flex items-center justify-center"
       onClick={handleBackdropClick}
     >
-      <div className="absolute inset-0 bg-pc-base/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
       <div
         ref={panelRef}
-        className="relative w-full max-w-md mx-4 rounded-[var(--radius-xl)] border border-pc-border bg-pc-base shadow-[var(--pc-shadow-md)] animate-fade-in"
+        className="relative w-full max-w-md mx-4 rounded-[var(--radius-xl)] border border-border bg-background shadow-[var(--color-shadow-md)] animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 pt-5 pb-4 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 id={titleId} className="text-sm font-semibold text-pc-text">
+            <h2 id={titleId} className="text-sm font-semibold text-foreground">
               {t('upgrade.title')}
             </h2>
             {/* Manual re-check: bypass the server-side 1h cache. Only meaningful
@@ -321,7 +321,7 @@ export function UpgradeDialog({
                 disabled={loading}
                 title={t('upgrade.recheck')}
                 aria-label={t('upgrade.recheck')}
-                className="inline-flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-pc-text-muted hover:text-pc-text hover:bg-pc-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
               </button>
@@ -331,7 +331,7 @@ export function UpgradeDialog({
           {/* ── Version summary (always shown except terminal states) ── */}
           {(view === 'info' || view === 'confirm') &&
             (loading && info == null ? (
-              <div className="text-xs text-pc-text-muted">{t('upgrade.checking')}</div>
+              <div className="text-xs text-muted-foreground">{t('upgrade.checking')}</div>
             ) : !checkUpdatesEnabled && info == null ? (
               // `gateway.check_updates=false` and no manual re-check has been
               // triggered yet. Render an explicit "checks disabled" state
@@ -341,42 +341,42 @@ export function UpgradeDialog({
               // disabled polling has not established that they're up to date).
               // The refresh button in the header remains active so a manual
               // one-shot re-check can still be run on demand.
-              <div className="text-xs text-pc-text-muted">
+              <div className="text-xs text-muted-foreground">
                 {t('upgrade.checks_disabled')}
               </div>
             ) : hasError ? (
-              <div className="text-xs text-pc-text-muted">
-                <div className="text-pc-text">{t('upgrade.check_failed')}</div>
+              <div className="text-xs text-muted-foreground">
+                <div className="text-foreground">{t('upgrade.check_failed')}</div>
                 <div className="mt-1 font-mono break-words">{info?.error}</div>
               </div>
             ) : (
               <>
                 <dl className="text-xs grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-                  <dt className="text-pc-text-muted">{t('upgrade.current')}</dt>
-                  <dd className="text-pc-text font-mono">{info?.current_version}</dd>
-                  <dt className="text-pc-text-muted">{t('upgrade.latest')}</dt>
-                  <dd className="text-pc-text font-mono">
+                  <dt className="text-muted-foreground">{t('upgrade.current')}</dt>
+                  <dd className="text-foreground font-mono">{info?.current_version}</dd>
+                  <dt className="text-muted-foreground">{t('upgrade.latest')}</dt>
+                  <dd className="text-foreground font-mono">
                     {info?.latest_version ?? '—'}
-                    {published && <span className="text-pc-text-muted"> · {published}</span>}
+                    {published && <span className="text-muted-foreground"> · {published}</span>}
                   </dd>
                 </dl>
                 {!isNewer && (
-                  <div className="text-xs text-pc-text-muted">{t('upgrade.up_to_date')}</div>
+                  <div className="text-xs text-muted-foreground">{t('upgrade.up_to_date')}</div>
                 )}
                 {isNewer && info?.release_notes && view === 'info' && (
                   <div className="flex flex-col gap-1">
-                    <div className="text-xs font-medium text-pc-text">{t('upgrade.notes')}</div>
-                    <div className="max-h-48 overflow-auto rounded-[var(--radius-md)] border border-pc-border bg-pc-surface px-3 py-2 text-xs leading-relaxed text-pc-text-muted whitespace-pre-wrap">
+                    <div className="text-xs font-medium text-foreground">{t('upgrade.notes')}</div>
+                    <div className="max-h-48 overflow-auto rounded-[var(--radius-md)] border border-border bg-card px-3 py-2 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
                       {info.release_notes}
                     </div>
                   </div>
                 )}
                 {isNewer && !allowSelfUpgrade && (
-                  <div className="text-xs text-pc-text-muted">{t('upgrade.disabled')}</div>
+                  <div className="text-xs text-muted-foreground">{t('upgrade.disabled')}</div>
                 )}
                 {isNewer && allowSelfUpgrade && canAutoRestart && view === 'info' && (
                   <div className="flex flex-col gap-1">
-                    <label className="flex items-center gap-2 text-xs text-pc-text-muted">
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
                       <input
                         type="checkbox"
                         checked={autoRestart}
@@ -385,17 +385,17 @@ export function UpgradeDialog({
                       {t('upgrade.auto_restart')}
                     </label>
                     {autoRestart && restartMode === 'self_respawn' && (
-                      <div className="text-[11px] text-pc-text-muted pl-6">
+                      <div className="text-[11px] text-muted-foreground pl-6">
                         {t('upgrade.self_respawn_note')}
                       </div>
                     )}
                   </div>
                 )}
                 {isNewer && allowSelfUpgrade && !canAutoRestart && view === 'info' && (
-                  <div className="text-xs text-pc-text-muted">
+                  <div className="text-xs text-muted-foreground">
                     {t('upgrade.manual_note')}
                     {restartHint && (
-                      <code className="ml-1 font-mono text-pc-text">{restartHint}</code>
+                      <code className="ml-1 font-mono text-foreground">{restartHint}</code>
                     )}
                   </div>
                 )}
@@ -404,7 +404,7 @@ export function UpgradeDialog({
 
           {/* ── Confirm ── */}
           {view === 'confirm' && (
-            <div className="text-xs text-pc-text-muted rounded-[var(--radius-md)] border border-pc-border bg-pc-surface px-3 py-2">
+            <div className="text-xs text-muted-foreground rounded-[var(--radius-md)] border border-border bg-card px-3 py-2">
               {t('upgrade.confirm_body')}
             </div>
           )}
@@ -416,22 +416,22 @@ export function UpgradeDialog({
             const lastLine = status?.log_tail?.[status.log_tail.length - 1];
             return (
               <div className="flex flex-col gap-2.5">
-                <div className="text-xs text-pc-text flex items-center gap-2">
+                <div className="text-xs text-foreground flex items-center gap-2">
                   <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
                   {t('upgrade.upgrading')}
                 </div>
 
                 {/* Progress bar */}
-                <div className="h-1 w-full overflow-hidden rounded-full bg-pc-surface">
+                <div className="h-1 w-full overflow-hidden rounded-full bg-card">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${pct}%`, background: 'var(--pc-accent)' }}
+                    style={{ width: `${pct}%`, background: 'var(--color-primary)' }}
                   />
                 </div>
 
                 {/* Live last-line ticker */}
                 {lastLine && (
-                  <div className="font-mono text-[11px] text-pc-text-muted truncate" title={lastLine}>
+                  <div className="font-mono text-[11px] text-muted-foreground truncate" title={lastLine}>
                     {lastLine}
                   </div>
                 )}
@@ -450,17 +450,17 @@ export function UpgradeDialog({
                         {done ? (
                           <Check
                             className="h-3.5 w-3.5 shrink-0"
-                            style={{ color: 'var(--pc-accent)' }}
+                            style={{ color: 'var(--color-primary)' }}
                           />
                         ) : active ? (
-                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-pc-text" />
+                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-foreground" />
                         ) : (
                           <Loader2
-                            className="h-3.5 w-3.5 shrink-0 animate-spin text-pc-text-muted opacity-30"
+                            className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground opacity-30"
                             aria-hidden="true"
                           />
                         )}
-                        <span className={done || active ? 'text-pc-text' : 'text-pc-text-muted'}>
+                        <span className={done || active ? 'text-foreground' : 'text-muted-foreground'}>
                           {t(key)}
                         </span>
                       </li>
@@ -471,10 +471,10 @@ export function UpgradeDialog({
                 {/* Full log (collapsed) */}
                 {status?.log_tail && status.log_tail.length > 0 && (
                   <details className="text-xs">
-                    <summary className="cursor-pointer text-pc-text-muted">
+                    <summary className="cursor-pointer text-muted-foreground">
                       {t('upgrade.log')}
                     </summary>
-                    <pre className="mt-1 max-h-40 overflow-auto rounded-[var(--radius-md)] border border-pc-border bg-pc-surface px-3 py-2 text-[11px] leading-relaxed text-pc-text-muted whitespace-pre-wrap">
+                    <pre className="mt-1 max-h-40 overflow-auto rounded-[var(--radius-md)] border border-border bg-card px-3 py-2 text-[11px] leading-relaxed text-muted-foreground whitespace-pre-wrap">
                       {status.log_tail.join('\n')}
                     </pre>
                   </details>
@@ -498,29 +498,29 @@ export function UpgradeDialog({
               <div className="flex flex-col items-center gap-3 py-6">
                 <Loader2
                   className="h-10 w-10 animate-spin"
-                  style={{ color: 'var(--pc-accent)' }}
+                  style={{ color: 'var(--color-primary)' }}
                 />
-                <div className="text-sm font-medium text-pc-text text-center">
+                <div className="text-sm font-medium text-foreground text-center">
                   {t('upgrade.restarting')}
                 </div>
-                <div className="text-xs text-pc-text-muted text-center max-w-[20rem]">
+                <div className="text-xs text-muted-foreground text-center max-w-[20rem]">
                   {t('upgrade.restart_waiting')}
                   {targetVersion && (
                     <>
                       {' '}
-                      <span className="font-mono text-pc-text">v{targetVersion}</span>
+                      <span className="font-mono text-foreground">v{targetVersion}</span>
                     </>
                   )}
                 </div>
                 {/* Indeterminate progress bar — the wait isn't a percentage,
                     so a sweeping bar is more honest than a fake fill. */}
-                <div className="h-1 w-full overflow-hidden rounded-full bg-pc-surface">
+                <div className="h-1 w-full overflow-hidden rounded-full bg-card">
                   <div
                     className="h-full w-1/3 rounded-full animate-progress-sweep"
-                    style={{ background: 'var(--pc-accent)' }}
+                    style={{ background: 'var(--color-primary)' }}
                   />
                 </div>
-                <div className="text-[11px] text-pc-text-muted font-mono">
+                <div className="text-[11px] text-muted-foreground font-mono">
                   {t('upgrade.restart_elapsed')} {elapsedSec}s / {deadlineSec}s
                 </div>
               </div>
@@ -529,7 +529,7 @@ export function UpgradeDialog({
 
           {/* ── Done ── */}
           {view === 'done' && (
-            <div className="text-xs text-pc-text flex flex-col gap-1">
+            <div className="text-xs text-foreground flex flex-col gap-1">
               <div>
                 ✓ {t('upgrade.done')}
                 {reconciled && targetVersion && (
@@ -541,17 +541,17 @@ export function UpgradeDialog({
                 )}
               </div>
               {reconciled && (
-                <div className="text-pc-text-muted flex items-center gap-1.5">
+                <div className="text-muted-foreground flex items-center gap-1.5">
                   <Loader2 className="h-3 w-3 animate-spin" />
                   {t('upgrade.reloading')}
                 </div>
               )}
               {!reconciled && (
-                <div className="text-pc-text-muted flex flex-col gap-1">
+                <div className="text-muted-foreground flex flex-col gap-1">
                   <div>
                     {t('upgrade.restart_to_apply')}
                     {restartHint && (
-                      <code className="ml-1 font-mono text-pc-text">{restartHint}</code>
+                      <code className="ml-1 font-mono text-foreground">{restartHint}</code>
                     )}
                   </div>
                   {baselineVersion && !pollTimedOut && (
@@ -561,7 +561,7 @@ export function UpgradeDialog({
                     </div>
                   )}
                   {pollTimedOut && (
-                    <div className="text-pc-text-muted">
+                    <div className="text-muted-foreground">
                       {t('upgrade.poll_timed_out')}
                     </div>
                   )}
@@ -572,21 +572,21 @@ export function UpgradeDialog({
 
           {/* ── Failed ── */}
           {view === 'failed' && (
-            <div className="text-xs text-pc-text-muted">
-              <div className="text-pc-text">✗ {t('upgrade.failed')}</div>
+            <div className="text-xs text-muted-foreground">
+              <div className="text-foreground">✗ {t('upgrade.failed')}</div>
               {error && <div className="mt-1 font-mono break-words">{error}</div>}
             </div>
           )}
         </div>
 
         {/* ── Footer ── */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-pc-border">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
           {view === 'info' && info?.release_url && (
             <a
               href={info.release_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="mr-auto text-xs text-pc-accent hover:underline"
+              className="mr-auto text-xs text-primary hover:underline"
             >
               {t('upgrade.open_release')}
             </a>

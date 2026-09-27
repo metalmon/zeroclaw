@@ -23,9 +23,9 @@ export function PageHeader({ title, description, actions, className = '' }: Page
   return (
     <div className={classes}>
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold leading-tight text-pc-text">{title}</h1>
+        <h1 className="text-xl font-semibold leading-tight text-foreground">{title}</h1>
         {description != null && (
-          <p className="mt-1 text-sm text-pc-text-secondary">{description}</p>
+          <p className="mt-1 text-sm text-text-secondary">{description}</p>
         )}
       </div>
       {actions != null && (

@@ -94,13 +94,13 @@ export default function AgentsList() {
       )}
 
       {state.loading && state.agents.length === 0 ? (
-        <div className="rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface p-8 text-center text-sm text-pc-text-muted">
+        <div className="rounded-[var(--radius-lg)] border border-border bg-card p-8 text-center text-sm text-muted-foreground">
           {t('common.loading')}
         </div>
       ) : state.agents.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface overflow-hidden">
+        <div className="rounded-[var(--radius-lg)] border border-border bg-card overflow-hidden">
           {state.agents.map((agent) => (
             <AgentCard
               key={agent.alias}
@@ -124,14 +124,14 @@ export default function AgentsList() {
 
 function EmptyState() {
   return (
-    <div className="rounded-[var(--radius-lg)] border border-dashed border-pc-border bg-pc-surface p-12 text-center">
-      <div className="h-12 w-12 rounded-[var(--radius-lg)] mx-auto mb-4 flex items-center justify-center bg-pc-accent/10">
-        <Bot className="h-6 w-6 text-pc-accent" />
+    <div className="rounded-[var(--radius-lg)] border border-dashed border-border bg-card p-12 text-center">
+      <div className="h-12 w-12 rounded-[var(--radius-lg)] mx-auto mb-4 flex items-center justify-center bg-primary/10">
+        <Bot className="h-6 w-6 text-primary" />
       </div>
-      <p className="text-base font-medium mb-1 text-pc-text">
+      <p className="text-base font-medium mb-1 text-foreground">
         {t('agents_list.empty_title')}
       </p>
-      <p className="text-sm mb-4 text-pc-text-muted">
+      <p className="text-sm mb-4 text-muted-foreground">
         {t('agents_list.empty_hint')}
       </p>
       <Link to="/quickstart" className="inline-block">

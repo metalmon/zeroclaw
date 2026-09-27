@@ -45,14 +45,14 @@ export interface AgentDrawerProps {
 // into config.
 const CHIP_CLASS =
   'inline-block font-mono text-[10px] px-2 py-0.5 rounded-full ' +
-  'bg-pc-elevated text-pc-text-secondary hover:text-pc-text transition-colors';
+  'bg-secondary text-text-secondary hover:text-foreground transition-colors';
 
 const ACTION_BASE =
   'inline-flex items-center justify-center gap-1.5 h-9 px-3.5 text-sm ' +
   'font-medium whitespace-nowrap rounded-[var(--radius-md)] border ' +
   'transition-colors duration-150 select-none ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] ' +
-  'focus-visible:ring-offset-2 focus-visible:ring-offset-pc-surface';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] ' +
+  'focus-visible:ring-offset-2 focus-visible:ring-offset-card';
 
 // A labelled group: a muted caption + icon over a wrapped set of facts. Reused
 // for each config dimension so the drawer reads as scannable sections.
@@ -67,11 +67,11 @@ function DetailGroup({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-pc-text-faint">
+      <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-text-faint">
         <Icon className="h-3 w-3 flex-shrink-0" />
         {label}
       </span>
-      <div className="flex flex-wrap items-center gap-1.5 text-sm text-pc-text-secondary">
+      <div className="flex flex-wrap items-center gap-1.5 text-sm text-text-secondary">
         {children}
       </div>
     </div>
@@ -125,25 +125,25 @@ export default function AgentDrawer({
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-pc-base/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
 
       {/* Panel: full-screen on mobile, right-side drawer on >= sm. */}
       <div
         ref={panelRef}
-        className="relative h-full w-full sm:max-w-md flex flex-col bg-pc-base border-l border-pc-border shadow-[var(--pc-shadow-md)] animate-slide-in-right overflow-hidden"
+        className="relative h-full w-full sm:max-w-md flex flex-col bg-background border-l border-border shadow-[var(--color-shadow-md)] animate-slide-in-right overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header: identity + close */}
-        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-pc-border">
+        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="h-10 w-10 rounded-[var(--radius-md)] flex-shrink-0 flex items-center justify-center bg-pc-accent/10">
-              <Bot className="h-5 w-5 text-pc-accent" />
+            <div className="h-10 w-10 rounded-[var(--radius-md)] flex-shrink-0 flex items-center justify-center bg-primary/10">
+              <Bot className="h-5 w-5 text-primary" />
             </div>
             <div className="min-w-0">
               <EntityLink
                 kind="agent"
                 id={agent.alias}
-                className="block text-base font-semibold truncate text-pc-text hover:underline"
+                className="block text-base font-semibold truncate text-foreground hover:underline"
                 title={t('agent.open_config', { value: `agents.${agent.alias}` })}
               >
                 {agent.alias}
@@ -152,13 +152,13 @@ export default function AgentDrawer({
                 <EntityLink
                   kind="model-provider"
                   id={agent.modelProvider}
-                  className="block text-xs truncate font-mono text-pc-text-muted hover:text-pc-text-secondary hover:underline"
+                  className="block text-xs truncate font-mono text-muted-foreground hover:text-text-secondary hover:underline"
                   title={t('agent.open_config', { value: `providers.models.${agent.modelProvider}` })}
                 >
                   {agent.modelProvider}
                 </EntityLink>
               ) : (
-                <p className="text-xs truncate text-pc-text-muted">
+                <p className="text-xs truncate text-muted-foreground">
                   {t('agent.no_model_provider')}
                 </p>
               )}
@@ -170,7 +170,7 @@ export default function AgentDrawer({
             onClick={onClose}
             aria-label={t('agent.close')}
             title={t('agent.close')}
-            className="h-8 w-8 flex-shrink-0 rounded-[var(--radius-md)] flex items-center justify-center text-pc-text-muted transition-colors hover:bg-[var(--pc-hover)] hover:text-pc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base"
+            className="h-8 w-8 flex-shrink-0 rounded-[var(--radius-md)] flex items-center justify-center text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <X className="h-4 w-4" />
           </button>
@@ -180,14 +180,14 @@ export default function AgentDrawer({
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5">
           {/* Status */}
           <div className="flex items-center justify-between gap-3">
-            <span className="text-[11px] uppercase tracking-wide text-pc-text-faint">
+            <span className="text-[11px] uppercase tracking-wide text-text-faint">
               {t('common.status')}
             </span>
             <button
               type="button"
               onClick={() => onToggle(agent)}
               disabled={toggling}
-              className="rounded-full transition-opacity disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base"
+              className="rounded-full transition-opacity disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               aria-pressed={agent.enabled}
               aria-label={agent.enabled ? t('agent.disable') : t('agent.enable')}
               title={agent.enabled ? t('agent.disable') : t('agent.enable')}
@@ -202,7 +202,7 @@ export default function AgentDrawer({
           {/* Configuration facts */}
           <DetailGroup icon={Wifi} label={t('agent.section.channels')}>
             {channelCount === 0 ? (
-              <span className="text-pc-text-muted">{t('agent.none_bound')}</span>
+              <span className="text-muted-foreground">{t('agent.none_bound')}</span>
             ) : (
               agent.channels.map((ch) => (
                 <EntityLink
@@ -223,24 +223,24 @@ export default function AgentDrawer({
               <EntityLink
                 kind="risk-profile"
                 id={agent.riskProfile}
-                className="inline-flex items-center gap-1 hover:text-pc-text hover:underline"
+                className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
                 title={t('agent.risk_profile_title')}
               >
                 {agent.riskProfile}
               </EntityLink>
             ) : (
               <span
-                className="text-pc-text-muted"
+                className="text-muted-foreground"
                 title={t('agent.risk_profile_title')}
               >
                 {t('agent.no_risk_profile')}
               </span>
             )}
-            <span className="text-pc-text-faint">·</span>
+            <span className="text-text-faint">·</span>
             <EntityLink
               kind="memory-backend"
               id=""
-              className="inline-flex items-center gap-1 hover:text-pc-text hover:underline"
+              className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
               title={
                 agent.memoryBackend
                   ? t('agent.memory_backend_title', { value: agent.memoryBackend })
@@ -252,11 +252,11 @@ export default function AgentDrawer({
             </EntityLink>
             {agent.runtimeProfile && (
               <>
-                <span className="text-pc-text-faint">·</span>
+                <span className="text-text-faint">·</span>
                 <EntityLink
                   kind="runtime-profile"
                   id={agent.runtimeProfile}
-                  className="inline-flex items-center gap-1 hover:text-pc-text hover:underline"
+                  className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
                   title={t('agent.runtime_profile_title')}
                 >
                   <Zap className="h-3 w-3 flex-shrink-0" />
@@ -347,42 +347,42 @@ export default function AgentDrawer({
           )}
 
           {/* Activity stats: sessions / memories / spend */}
-          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-pc-border">
+          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-border">
             <div className="min-w-0">
-              <div className="flex items-center gap-1 text-[11px] text-pc-text-faint">
+              <div className="flex items-center gap-1 text-[11px] text-text-faint">
                 <MessageSquare className="h-3 w-3 flex-shrink-0" />
                 {t('agent.stat.sessions')}
               </div>
-              <div className="mt-0.5 text-sm text-pc-text">
+              <div className="mt-0.5 text-sm text-foreground">
                 {agent.sessionCount === 0 ? (
-                  <span className="text-pc-text-muted">{t('agent.stat.none')}</span>
+                  <span className="text-muted-foreground">{t('agent.stat.none')}</span>
                 ) : (
                   <Link
                     to={`/?tab=sessions&agent=${encodeURIComponent(agent.alias)}`}
-                    className="hover:text-pc-accent hover:underline"
+                    className="hover:text-primary hover:underline"
                     title={t('agent.show_sessions_title', { value: agent.alias })}
                   >
                     {agent.sessionCount}
                   </Link>
                 )}
               </div>
-              <div className="text-[11px] text-pc-text-muted truncate">
+              <div className="text-[11px] text-muted-foreground truncate">
                 {formatRelative(agent.lastActivity)}
               </div>
             </div>
 
             <div className="min-w-0">
-              <div className="flex items-center gap-1 text-[11px] text-pc-text-faint">
+              <div className="flex items-center gap-1 text-[11px] text-text-faint">
                 <Brain className="h-3 w-3 flex-shrink-0" />
                 {t('agent.stat.memories')}
               </div>
-              <div className="mt-0.5 text-sm text-pc-text">
+              <div className="mt-0.5 text-sm text-foreground">
                 {agent.memoryCount === 0 ? (
-                  <span className="text-pc-text-muted">{t('agent.stat.none')}</span>
+                  <span className="text-muted-foreground">{t('agent.stat.none')}</span>
                 ) : (
                   <Link
                     to={`/?tab=memories&agent=${encodeURIComponent(agent.alias)}`}
-                    className="hover:text-pc-accent hover:underline"
+                    className="hover:text-primary hover:underline"
                     title={t('agent.show_memories_title', { value: agent.alias })}
                   >
                     {agent.memoryCount}
@@ -399,11 +399,11 @@ export default function AgentDrawer({
                   : t('agent.cost_tracked_title')
               }
             >
-              <div className="flex items-center gap-1 text-[11px] text-pc-text-faint">
+              <div className="flex items-center gap-1 text-[11px] text-text-faint">
                 <DollarSign className="h-3 w-3 flex-shrink-0" />
                 {t('agent.stat.this_month')}
               </div>
-              <div className="mt-0.5 text-sm text-pc-text">
+              <div className="mt-0.5 text-sm text-foreground">
                 {formatUsd(agent.monthCostUsd)}
               </div>
             </div>
@@ -412,17 +412,17 @@ export default function AgentDrawer({
 
         {/* Sticky footer actions. Routes are <Link>s styled to match the Button
             primitive (Button renders a native <button>, so it can't navigate). */}
-        <div className="flex items-center gap-2 px-5 py-4 border-t border-pc-border">
+        <div className="flex items-center gap-2 px-5 py-4 border-t border-border">
           <Link
             to={`/agent/${encodeURIComponent(agent.alias)}`}
-            className={`${ACTION_BASE} flex-1 bg-pc-accent border-transparent text-pc-accent-foreground hover:bg-pc-accent-light active:brightness-95`}
+            className={`${ACTION_BASE} flex-1 bg-primary border-transparent text-primary-foreground hover:bg-accent-light active:brightness-95`}
           >
             <MessageSquare className="h-4 w-4" />
             {t('agent.open_chat')}
           </Link>
           <Link
             to={`/config/agents/${encodeURIComponent(agent.alias)}`}
-            className={`${ACTION_BASE} bg-transparent border-pc-border text-pc-text-secondary hover:bg-[var(--pc-hover)] hover:text-pc-text hover:border-pc-border-strong`}
+            className={`${ACTION_BASE} bg-transparent border-border text-text-secondary hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong`}
           >
             <Pencil className="h-4 w-4" />
             {t('agent.edit')}

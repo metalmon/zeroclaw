@@ -58,9 +58,9 @@ function ContextBar({ contextMaxTokens, contextInputTokens }: {
   const label = `ctx: ${fmtTokens(used).padStart(7)} / ${fmtTokens(max).padStart(7)}  [${bar}]  ${pct.toFixed(0)}%`;
 
   return (
-    <div className="px-4 py-1.5 border-b text-[11px] font-mono flex items-center gap-2" style={{ borderColor: 'var(--pc-border)', background: 'var(--pc-bg-surface)' }}>
-      <BarChart2 className="h-3 w-3 shrink-0" style={{ color: 'var(--pc-text-muted)' }} />
-      <span style={{ color: 'var(--pc-text-secondary)' }}>{label}</span>
+    <div className="px-4 py-1.5 border-b text-[11px] font-mono flex items-center gap-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-card)' }}>
+      <BarChart2 className="h-3 w-3 shrink-0" style={{ color: 'var(--color-muted-foreground)' }} />
+      <span style={{ color: 'var(--color-text-secondary)' }}>{label}</span>
     </div>
   );
 }
@@ -537,26 +537,26 @@ export function AgentChatInner({
         <div
           className="absolute inset-2 z-50 flex items-center justify-center pointer-events-none rounded-[var(--radius-md)]"
           style={{
-            border: '2px dashed var(--pc-accent)',
-            background: 'color-mix(in srgb, var(--pc-accent) 10%, transparent)',
+            border: '2px dashed var(--color-primary)',
+            background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)',
           }}
         >
           <span
             className="px-3 py-1.5 text-sm font-medium rounded-[var(--radius-md)]"
-            style={{ background: 'var(--pc-bg-surface)', color: 'var(--pc-accent)' }}
+            style={{ background: 'var(--color-card)', color: 'var(--color-primary)' }}
           >
             {t('agent.drop_to_attach')}
           </span>
         </div>
       )}
       {/* Header with model selector */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-pc-border bg-pc-surface">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card">
         <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-pc-accent" />
-          <span className="text-sm font-medium text-pc-text">{agentAlias}</span>
+          <Bot className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">{agentAlias}</span>
           <Link
             to={`/agent/${encodeURIComponent(agentAlias)}/workspace`}
-            className="inline-flex items-center gap-1 px-2 h-6 rounded-[var(--radius-md)] text-xs font-medium text-pc-text-secondary transition-colors hover:text-pc-text hover:bg-[var(--pc-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]"
+            className="inline-flex items-center gap-1 px-2 h-6 rounded-[var(--radius-md)] text-xs font-medium text-text-secondary transition-colors hover:text-foreground hover:bg-[var(--color-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
             title={t('agentchat.open_workspace')}
           >
             <FolderOpen className="h-3.5 w-3.5" />
@@ -572,7 +572,7 @@ export function AgentChatInner({
               type="button"
               onClick={() => setShowModelDropdown((v) => !v)}
               disabled={modelLoading || typing || (availableModels.length === 0 && currentModel === null)}
-              className="flex items-center gap-2 px-3 h-7 rounded-[var(--radius-md)] text-xs font-medium border border-pc-border bg-pc-elevated text-pc-text-secondary transition-colors hover:text-pc-text hover:border-pc-border-strong disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]"
+              className="flex items-center gap-2 px-3 h-7 rounded-[var(--radius-md)] text-xs font-medium border border-border bg-secondary text-text-secondary transition-colors hover:text-foreground hover:border-border-strong disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
             >
               <span className="max-w-[180px] truncate">
                 {modelLoading
@@ -583,7 +583,7 @@ export function AgentChatInner({
             </button>
 
             {showModelDropdown && availableModels.length > 0 && (
-              <div className="absolute right-0 mt-1.5 rounded-[var(--radius-md)] border border-pc-border bg-pc-elevated shadow-[var(--pc-shadow-md)] z-50 py-1 min-w-[200px] max-h-60 overflow-y-auto">
+              <div className="absolute right-0 mt-1.5 rounded-[var(--radius-md)] border border-border bg-secondary shadow-[var(--color-shadow-md)] z-50 py-1 min-w-[200px] max-h-60 overflow-y-auto">
                 {availableModels.map((model) => {
                   const isActive = model === currentModel;
                   return (
@@ -593,8 +593,8 @@ export function AgentChatInner({
                       onClick={() => handleModelSwitch(model)}
                       className={`w-full text-left px-3 py-2 text-xs transition-colors ${
                         isActive
-                          ? 'text-pc-accent bg-pc-accent/10'
-                          : 'text-pc-text hover:bg-[var(--pc-hover)]'
+                          ? 'text-primary bg-primary/10'
+                          : 'text-foreground hover:bg-[var(--color-hover)]'
                       }`}
                     >
                       {model}
@@ -617,7 +617,7 @@ export function AgentChatInner({
 
       {/* Chat toolbar */}
       {messages.length > 0 && (
-        <div className="flex items-center justify-end gap-2 px-4 py-2 border-b border-pc-border bg-pc-surface">
+        <div className="flex items-center justify-end gap-2 px-4 py-2 border-b border-border bg-card">
           <Button
             variant="ghost"
             size="sm"
@@ -654,9 +654,9 @@ export function AgentChatInner({
         className={`flex-1 overflow-y-auto p-4 ${compact ? 'space-y-1.5' : 'space-y-4'}`}
       >
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in text-pc-text-muted">
-            <div className="h-14 w-14 rounded-[var(--radius-lg)] flex items-center justify-center mb-4 bg-pc-accent/10">
-              <Bot className="h-7 w-7 text-pc-accent" />
+          <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in text-muted-foreground">
+            <div className="h-14 w-14 rounded-[var(--radius-lg)] flex items-center justify-center mb-4 bg-primary/10">
+              <Bot className="h-7 w-7 text-primary" />
             </div>
             {/* Until the transcript lands, an empty list means "still loading",
                 not "empty conversation" — saying the latter misreports a
@@ -664,11 +664,11 @@ export function AgentChatInner({
                 history in it. */}
             {hydrated ? (
               <>
-                <p className="text-base font-semibold mb-1 text-pc-text">{t('agentchat.empty_title')}</p>
-                <p className="text-sm text-pc-text-muted">{t('agent.start_conversation')}</p>
+                <p className="text-base font-semibold mb-1 text-foreground">{t('agentchat.empty_title')}</p>
+                <p className="text-sm text-muted-foreground">{t('agent.start_conversation')}</p>
               </>
             ) : (
-              <p className="text-sm text-pc-text-muted">{t('agent.session_loading')}</p>
+              <p className="text-sm text-muted-foreground">{t('agent.session_loading')}</p>
             )}
           </div>
         )}
@@ -689,24 +689,24 @@ export function AgentChatInner({
 
         {typing && (
           <div className="flex items-start gap-3 animate-fade-in">
-            <div className="flex-shrink-0 w-8 h-8 rounded-[var(--radius-md)] flex items-center justify-center border border-pc-border bg-pc-elevated">
-              <Bot className="h-4 w-4 text-pc-accent" />
+            <div className="flex-shrink-0 w-8 h-8 rounded-[var(--radius-md)] flex items-center justify-center border border-border bg-secondary">
+              <Bot className="h-4 w-4 text-primary" />
             </div>
             {streamingContent || streamingThinking ? (
-              <div className="rounded-[var(--radius-lg)] px-4 py-3 border border-pc-border bg-pc-elevated text-pc-text max-w-[75%]">
+              <div className="rounded-[var(--radius-lg)] px-4 py-3 border border-border bg-secondary text-foreground max-w-[75%]">
                 {streamingThinking && (
                   <details className="mb-2" open={!streamingContent}>
-                    <summary className="text-xs cursor-pointer select-none text-pc-text-muted">{t('agentchat.thinking')}{!streamingContent && '...'}</summary>
-                    <pre className="text-xs mt-1 whitespace-pre-wrap break-words leading-relaxed overflow-auto max-h-60 p-2 rounded-[var(--radius-sm)] text-pc-text-muted bg-pc-code">{streamingThinking}</pre>
+                    <summary className="text-xs cursor-pointer select-none text-muted-foreground">{t('agentchat.thinking')}{!streamingContent && '...'}</summary>
+                    <pre className="text-xs mt-1 whitespace-pre-wrap break-words leading-relaxed overflow-auto max-h-60 p-2 rounded-[var(--radius-sm)] text-muted-foreground bg-code">{streamingThinking}</pre>
                   </details>
                 )}
                 {streamingContent && <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{streamingContent}</p>}
               </div>
             ) : (
-              <div className="rounded-[var(--radius-lg)] px-4 py-3 border border-pc-border bg-pc-elevated flex items-center gap-1.5">
-                <span className="bounce-dot w-1.5 h-1.5 rounded-full bg-pc-accent" />
-                <span className="bounce-dot w-1.5 h-1.5 rounded-full bg-pc-accent" />
-                <span className="bounce-dot w-1.5 h-1.5 rounded-full bg-pc-accent" />
+              <div className="rounded-[var(--radius-lg)] px-4 py-3 border border-border bg-secondary flex items-center gap-1.5">
+                <span className="bounce-dot w-1.5 h-1.5 rounded-full bg-primary" />
+                <span className="bounce-dot w-1.5 h-1.5 rounded-full bg-primary" />
+                <span className="bounce-dot w-1.5 h-1.5 rounded-full bg-primary" />
               </div>
             )}
           </div>
@@ -721,17 +721,17 @@ export function AgentChatInner({
       )}
 
       {/* Input area */}
-      <div className="border-t border-pc-border bg-pc-surface p-4">
+      <div className="border-t border-border bg-card p-4">
         {/* Slash-command autocomplete popover (#7137) */}
         {showCommandHint && matchedCommands.length > 0 && (
           <div className="relative max-w-4xl mx-auto">
             <div
               className="absolute bottom-1 left-0 rounded-xl border shadow-lg z-50 py-1 min-w-[260px] overflow-hidden"
-              style={{ background: 'var(--pc-bg-elevated)', borderColor: 'var(--pc-border)' }}
+              style={{ background: 'var(--color-secondary)', borderColor: 'var(--color-border)' }}
             >
               <div
                 className="px-3 py-1 text-[10px] uppercase tracking-wide"
-                style={{ color: 'var(--pc-text-faint)' }}
+                style={{ color: 'var(--color-text-faint)' }}
               >
                 {t('agent.cmd_hint_title')}
               </div>
@@ -741,12 +741,12 @@ export function AgentChatInner({
                   type="button"
                   onMouseDown={(e) => { e.preventDefault(); applyCommandHint(spec); }}
                   className="w-full text-left px-3 py-2 text-xs transition-colors flex items-center gap-2"
-                  style={{ color: 'var(--pc-text-primary)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--pc-bg-surface)'; }}
+                  style={{ color: 'var(--color-foreground)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-card)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <span className="font-mono font-medium" style={{ color: 'var(--pc-accent)' }}>{spec.usage}</span>
-                  <span className="truncate" style={{ color: 'var(--pc-text-muted)' }}>{t(spec.descriptionKey)}</span>
+                  <span className="font-mono font-medium" style={{ color: 'var(--color-primary)' }}>{spec.usage}</span>
+                  <span className="truncate" style={{ color: 'var(--color-muted-foreground)' }}>{t(spec.descriptionKey)}</span>
                 </button>
               ))}
             </div>
@@ -794,7 +794,7 @@ export function AgentChatInner({
                   ? t('agent.running')
                   : t('agent.type_message')}
             disabled={!connected || typing || !hydrated}
-            className="flex-1 px-4 text-sm resize-none rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-muted transition-colors focus:outline-none focus:border-pc-accent focus:ring-2 focus:ring-pc-accent/30 disabled:opacity-40"
+            className="flex-1 px-4 text-sm resize-none rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 disabled:opacity-40"
             style={{ minHeight: '40px', maxHeight: '200px', paddingTop: '9px', paddingBottom: '9px' }}
           />
           {typing ? (
@@ -826,13 +826,13 @@ export function AgentChatInner({
             <span
               className="status-dot"
               style={typing
-                ? { background: 'var(--pc-accent)', boxShadow: '0 0 6px var(--pc-accent)' }
+                ? { background: 'var(--color-primary)', boxShadow: '0 0 6px var(--color-primary)' }
                 : connected
                   ? { background: 'var(--color-status-success)', boxShadow: '0 0 6px var(--color-status-success)' }
                   : { background: 'var(--color-status-error)', boxShadow: '0 0 6px var(--color-status-error)' }
               }
             />
-            <span className="text-[10px]" style={{ color: 'var(--pc-text-faint)' }}>
+            <span className="text-[10px]" style={{ color: 'var(--color-text-faint)' }}>
               {typing
                 ? t('agent.running')
                 : connected
@@ -900,33 +900,33 @@ const MessageItem = memo(function MessageItem({
             msg.notice
               ? 'bg-status-warning/10 border-status-warning/30'
               : msg.role === 'user'
-              ? 'bg-pc-accent/15 border-pc-accent/30'
-              : 'bg-pc-elevated border-pc-border'
+              ? 'bg-primary/15 border-primary/30'
+              : 'bg-secondary border-border'
           }`}
         >
           {msg.notice ? (
             <AlertCircle className="h-4 w-4 text-status-warning" />
           ) : msg.role === 'user' ? (
-            <User className="h-4 w-4 text-pc-accent" />
+            <User className="h-4 w-4 text-primary" />
           ) : (
-            <Bot className="h-4 w-4 text-pc-accent" />
+            <Bot className="h-4 w-4 text-primary" />
           )}
         </div>
       )}
       <div className="relative max-w-[75%]">
         <div
-          className={`${compact ? 'rounded-[var(--radius-md)] px-3 py-1.5 border' : 'rounded-[var(--radius-lg)] px-4 py-3 border'} text-pc-text ${
+          className={`${compact ? 'rounded-[var(--radius-md)] px-3 py-1.5 border' : 'rounded-[var(--radius-lg)] px-4 py-3 border'} text-foreground ${
             msg.notice
               ? 'bg-status-warning/5 border-status-warning/30'
               : msg.role === 'user'
-              ? 'bg-pc-accent/10 border-pc-accent/20'
-              : 'bg-pc-elevated border-pc-border'
+              ? 'bg-primary/10 border-primary/20'
+              : 'bg-secondary border-border'
           }`}
         >
           {msg.thinking && (
             <details className="mb-2">
-              <summary className="text-xs cursor-pointer select-none text-pc-text-muted">{t('agentchat.thinking')}</summary>
-              <pre className="text-xs mt-1 whitespace-pre-wrap break-words leading-relaxed overflow-auto max-h-60 p-2 rounded-[var(--radius-sm)] text-pc-text-muted bg-pc-code">{msg.thinking}</pre>
+              <summary className="text-xs cursor-pointer select-none text-muted-foreground">{t('agentchat.thinking')}</summary>
+              <pre className="text-xs mt-1 whitespace-pre-wrap break-words leading-relaxed overflow-auto max-h-60 p-2 rounded-[var(--radius-sm)] text-muted-foreground bg-code">{msg.thinking}</pre>
             </details>
           )}
           {msg.toolCall ? (
@@ -937,7 +937,7 @@ const MessageItem = memo(function MessageItem({
             <p className={`${compact ? 'text-xs' : 'text-sm'} whitespace-pre-wrap break-words leading-relaxed`}>{cleanContent}</p>
           )}
           {!compact && (
-            <p className="text-[10px] mt-1.5 text-pc-text-faint">
+            <p className="text-[10px] mt-1.5 text-text-faint">
               {fmtTime(msg.timestamp)}
             </p>
           )}
@@ -946,7 +946,7 @@ const MessageItem = memo(function MessageItem({
           <button
             onClick={() => onCopy(msg.id, cleanContent)}
             aria-label={t('agent.copy_message')}
-            className="p-1 rounded-[var(--radius-sm)] text-pc-text-muted hover:text-pc-text transition-colors"
+            className="p-1 rounded-[var(--radius-sm)] text-muted-foreground hover:text-foreground transition-colors"
           >
             {isCopied ? (
               <Check className="h-3.5 w-3.5 text-status-success" />
@@ -957,7 +957,7 @@ const MessageItem = memo(function MessageItem({
           <button
             onClick={() => onDelete(msg.id)}
             aria-label={t('agent.delete_message')}
-            className="p-1 rounded-[var(--radius-sm)] text-pc-text-muted hover:text-status-error transition-colors"
+            className="p-1 rounded-[var(--radius-sm)] text-muted-foreground hover:text-status-error transition-colors"
           >
             <X className="h-3.5 w-3.5" />
           </button>

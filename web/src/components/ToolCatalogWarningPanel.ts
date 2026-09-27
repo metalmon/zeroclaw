@@ -55,7 +55,7 @@ export function ToolCatalogWarningPanel({
           title: t('tool_picker.retry_catalog'),
           'aria-label': t('tool_picker.retry_catalog'),
           className:
-            'inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-status-warning/30 text-status-warning transition-colors hover:bg-status-warning/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed',
+            'inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-status-warning/30 text-status-warning transition-colors hover:bg-status-warning/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed',
         },
         createElement(RefreshCw, { className: 'h-3.5 w-3.5' }),
       ),

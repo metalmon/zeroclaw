@@ -270,7 +270,7 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         title={t('agent.sessions')}
-        className="flex items-center gap-2 px-3 h-7 rounded-[var(--radius-md)] text-xs font-medium border border-pc-border bg-pc-elevated text-pc-text-secondary transition-colors hover:text-pc-text hover:border-pc-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]"
+        className="flex items-center gap-2 px-3 h-7 rounded-[var(--radius-md)] text-xs font-medium border border-border bg-secondary text-text-secondary transition-colors hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
       >
         <MessagesSquare className="h-3.5 w-3.5" />
         <span className="max-w-[160px] truncate">{activeLabel}</span>
@@ -282,32 +282,32 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
           id={panelId}
           role="group"
           aria-label={t('agent.sessions')}
-          className="absolute right-0 mt-1.5 rounded-[var(--radius-md)] border border-pc-border bg-pc-elevated shadow-[var(--pc-shadow-md)] z-50 py-1 w-[300px] max-h-80 overflow-y-auto"
+          className="absolute right-0 mt-1.5 rounded-[var(--radius-md)] border border-border bg-secondary shadow-[var(--color-shadow-md)] z-50 py-1 w-[300px] max-h-80 overflow-y-auto"
         >
           {storesConversations ? (
             <button
               type="button"
               onClick={handleNew}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-pc-text transition-colors hover:bg-[var(--pc-hover)]"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-[var(--color-hover)]"
             >
-              <Plus className="h-3.5 w-3.5 text-pc-accent" />
+              <Plus className="h-3.5 w-3.5 text-primary" />
               {t('agent.session_new')}
             </button>
           ) : (
             // `null` means storage is not confirmed yet (capability request
             // pending, or hydration failed); only an explicit `false` proves
             // the gateway keeps no conversations. Say which one it is.
-            <p className="px-3 py-2 text-xs text-pc-text-muted">
+            <p className="px-3 py-2 text-xs text-muted-foreground">
               {sessionPersistence === false
                 ? t('agent.sessions_not_stored')
                 : t('agent.sessions_unavailable')}
             </p>
           )}
 
-          <div className="my-1 border-t border-pc-border" />
+          <div className="my-1 border-t border-border" />
 
           {loading && (
-            <p className="px-3 py-2 text-xs text-pc-text-muted">{t('agent.sessions_loading')}</p>
+            <p className="px-3 py-2 text-xs text-muted-foreground">{t('agent.sessions_loading')}</p>
           )}
 
           {loadFailed && !loading && (
@@ -338,7 +338,7 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
                     aria-label={t('agent.session_rename')}
                     aria-invalid={renameFailed}
                     aria-describedby={renameFailed ? `session-rename-error-${row.id}` : undefined}
-                    className="w-full px-2 h-7 rounded-[var(--radius-md)] text-xs border border-pc-border bg-pc-surface text-pc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]"
+                    className="w-full px-2 h-7 rounded-[var(--radius-md)] text-xs border border-border bg-card text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
                   />
                   {renameFailed && (
                     <p
@@ -354,7 +354,7 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
                       type="button"
                       onClick={resetRowActions}
                       aria-label={t('agent.session_rename_cancel')}
-                      className="p-1 rounded-[var(--radius-md)] text-pc-text-muted transition-colors hover:bg-[var(--pc-hover)] hover:text-pc-text"
+                      className="p-1 rounded-[var(--radius-md)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -362,7 +362,7 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
                       type="button"
                       onClick={() => void commitRename(row.id)}
                       aria-label={t('agent.session_rename_save')}
-                      className="p-1 rounded-[var(--radius-md)] text-pc-accent transition-colors hover:bg-[var(--pc-hover)]"
+                      className="p-1 rounded-[var(--radius-md)] text-primary transition-colors hover:bg-[var(--color-hover)]"
                     >
                       <Check className="h-3.5 w-3.5" />
                     </button>
@@ -378,14 +378,14 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
                   {/* Name the target: in a list of similar-looking rows a bare
                       "Delete this conversation?" does not tell the operator
                       which one they are about to destroy. */}
-                  <span className="text-xs text-pc-text truncate" title={rowLabel(row)}>
+                  <span className="text-xs text-foreground truncate" title={rowLabel(row)}>
                     {t('agent.session_delete_confirm').replace('{name}', rowLabel(row))}
                   </span>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       onClick={resetRowActions}
-                      className="px-2 h-6 rounded-[var(--radius-md)] text-[11px] text-pc-text-secondary transition-colors hover:bg-[var(--pc-hover)]"
+                      className="px-2 h-6 rounded-[var(--radius-md)] text-[11px] text-text-secondary transition-colors hover:bg-[var(--color-hover)]"
                     >
                       {t('agent.session_delete_cancel')}
                     </button>
@@ -413,7 +413,7 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
               <div
                 key={row.id}
                 className={`group flex items-center gap-1 pr-2 transition-colors ${
-                  isActive ? 'bg-pc-accent/10' : takenElsewhere ? '' : 'hover:bg-[var(--pc-hover)]'
+                  isActive ? 'bg-primary/10' : takenElsewhere ? '' : 'hover:bg-[var(--color-hover)]'
                 }`}
               >
                 <button
@@ -427,11 +427,11 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
                   className="flex-1 min-w-0 text-left px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span
-                    className={`block text-xs truncate ${isActive ? 'text-pc-accent' : 'text-pc-text'}`}
+                    className={`block text-xs truncate ${isActive ? 'text-primary' : 'text-foreground'}`}
                   >
                     {rowLabel(row)}
                   </span>
-                  <span className="block text-[11px] text-pc-text-muted truncate">
+                  <span className="block text-[11px] text-muted-foreground truncate">
                     {takenElsewhere
                       ? t('agent.session_open_elsewhere')
                       : row.persisted
@@ -458,7 +458,7 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
                       // deleting would collide.
                       aria-label={`${t('agent.session_rename')}: ${rowLabel(row)}`}
                       title={t('agent.session_rename')}
-                      className="p-1 rounded-[var(--radius-md)] text-pc-text-muted opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-pc-text"
+                      className="p-1 rounded-[var(--radius-md)] text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -475,7 +475,7 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
                       disabled={takenElsewhere}
                       aria-label={`${t('agent.session_delete')}: ${rowLabel(row)}`}
                       title={takenElsewhere ? t('agent.session_open_elsewhere') : t('agent.session_delete')}
-                      className={`p-1 rounded-[var(--radius-md)] text-pc-text-muted opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 ${
+                      className={`p-1 rounded-[var(--radius-md)] text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 ${
                         takenElsewhere ? 'cursor-not-allowed' : 'hover:text-status-error'
                       }`}
                     >

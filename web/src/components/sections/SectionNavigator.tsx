@@ -338,7 +338,7 @@ export default function SectionNavigator({
     const ents = entitiesBySection[section.key];
     if (ents === "loading" || ents === undefined) {
       return (
-        <div className="pl-7 pr-3 py-1.5 text-xs text-pc-text-faint">
+        <div className="pl-7 pr-3 py-1.5 text-xs text-text-faint">
           {t('common.loading')}
         </div>
       );
@@ -352,7 +352,7 @@ export default function SectionNavigator({
     }
     if (ents.length === 0) {
       return (
-        <div className="pl-7 pr-3 py-1.5 text-xs text-pc-text-faint italic">
+        <div className="pl-7 pr-3 py-1.5 text-xs text-text-faint italic">
           {t('section_nav.empty')}
         </div>
       );
@@ -370,10 +370,10 @@ export default function SectionNavigator({
           className={[
             "w-full flex items-center gap-2 rounded-[var(--radius-sm)] mx-1.5 pl-5 pr-2.5 py-1.5",
             "text-sm text-left transition-colors truncate",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-inset",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-inset",
             sel
-              ? "bg-pc-accent/10 text-pc-accent font-medium"
-              : "text-pc-text-secondary hover:bg-pc-elevated/60 hover:text-pc-text",
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-text-secondary hover:bg-secondary/60 hover:text-foreground",
           ].join(" ")}
           title={displayEntityLabel(e.label)}
         >
@@ -384,17 +384,17 @@ export default function SectionNavigator({
   };
 
   return (
-    <aside className={`w-full md:w-[300px] flex-shrink-0 border-r border-pc-border flex flex-col min-h-0 ${className}`}>
+    <aside className={`w-full md:w-[300px] flex-shrink-0 border-r border-border flex flex-col min-h-0 ${className}`}>
       {/* Search box */}
-      <div className="p-3 border-b border-pc-border">
+      <div className="p-3 border-b border-border">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-pc-text-faint pointer-events-none" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-faint pointer-events-none" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('section_nav.search_placeholder')}
-            className="w-full pl-8 pr-3 py-2 text-sm rounded-[var(--radius-md)] bg-pc-input border border-pc-border text-pc-text placeholder:text-pc-text-faint focus-visible:outline-none focus-visible:border-pc-border-strong focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]"
+            className="w-full pl-8 pr-3 py-2 text-sm rounded-[var(--radius-md)] bg-input border border-border text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
           />
         </div>
       </div>
@@ -424,14 +424,14 @@ export default function SectionNavigator({
                       className={[
                         "mx-1.5 flex items-center justify-between gap-2 rounded-[var(--radius-sm)]",
                         "px-2.5 py-1.5 text-sm text-left transition-colors",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-inset",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-inset",
                         active
-                          ? "bg-pc-accent/10 text-pc-accent font-medium"
-                          : "text-pc-text-secondary hover:bg-pc-elevated/60 hover:text-pc-text",
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-text-secondary hover:bg-secondary/60 hover:text-foreground",
                       ].join(" ")}
                     >
                       <span className="truncate">{sectionLabel(h.section.key, h.section.label)}</span>
-                      <span className="text-[10px] uppercase tracking-wider text-pc-text-faint flex-shrink-0">
+                      <span className="text-[10px] uppercase tracking-wider text-text-faint flex-shrink-0">
                         {sectionGroupLabel(h.section.group)}
                       </span>
                     </button>
@@ -449,15 +449,15 @@ export default function SectionNavigator({
                     className={[
                       "mx-1.5 flex items-center justify-between gap-2 rounded-[var(--radius-sm)]",
                       "px-2.5 py-1.5 text-sm text-left transition-colors",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-inset",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-inset",
                       sel
-                        ? "bg-pc-accent/10 text-pc-accent font-medium"
-                        : "text-pc-text-secondary hover:bg-pc-elevated/60 hover:text-pc-text",
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-text-secondary hover:bg-secondary/60 hover:text-foreground",
                     ].join(" ")}
                     title={`${sectionLabel(h.section.key, h.section.label)} · ${displayEntityLabel(h.entity.label)}`}
                   >
                     <span className="truncate">{displayEntityLabel(h.entity.label)}</span>
-                    <span className="text-[10px] text-pc-text-faint flex-shrink-0 truncate max-w-[40%]">
+                    <span className="text-[10px] text-text-faint flex-shrink-0 truncate max-w-[40%]">
                       {sectionLabel(h.section.key, h.section.label)}
                     </span>
                   </button>
@@ -465,7 +465,7 @@ export default function SectionNavigator({
               })}
             </div>
           ) : (
-            <div className="px-3 py-6 text-sm text-center text-pc-text-muted">
+            <div className="px-3 py-6 text-sm text-center text-muted-foreground">
               {t('section_nav.no_matches')}
             </div>
           )
@@ -473,7 +473,7 @@ export default function SectionNavigator({
           // Grouped collapsible mode.
           grouped.map(({ groupName, items }) => (
             <div key={groupName} role="group" aria-label={sectionGroupLabel(groupName)} className="mb-1">
-              <div className="px-3 pt-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-pc-text-faint">
+              <div className="px-3 pt-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-faint">
                 {sectionGroupLabel(groupName)}
               </div>
               {items.map((s) => {
@@ -495,8 +495,8 @@ export default function SectionNavigator({
                         "group mx-1.5 flex items-center gap-1 rounded-[var(--radius-sm)]",
                         "transition-colors",
                         active
-                          ? "bg-pc-accent/10"
-                          : "hover:bg-pc-elevated/60",
+                          ? "bg-primary/10"
+                          : "hover:bg-secondary/60",
                       ].join(" ")}
                     >
                       {hasKids ? (
@@ -505,7 +505,7 @@ export default function SectionNavigator({
                           onClick={() => toggle(s.key)}
                           aria-label={isOpen ? t('section_nav.collapse') : t('section_nav.expand')}
                           aria-expanded={isOpen}
-                          className="flex-shrink-0 p-1.5 text-pc-text-muted hover:text-pc-text"
+                          className="flex-shrink-0 p-1.5 text-muted-foreground hover:text-foreground"
                         >
                           {isOpen ? (
                             <ChevronDown className="h-3.5 w-3.5" />
@@ -535,10 +535,10 @@ export default function SectionNavigator({
                         }
                         className={[
                           "flex-1 min-w-0 text-left text-sm py-1.5 pr-1 transition-colors truncate rounded-[var(--radius-sm)]",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-inset",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-inset",
                           active || sectionSelected
-                            ? "text-pc-accent font-medium"
-                            : "text-pc-text-secondary group-hover:text-pc-text",
+                            ? "text-primary font-medium"
+                            : "text-text-secondary group-hover:text-foreground",
                         ].join(" ")}
                       >
                         <span className="truncate">{sectionLabel(s.key, s.label)}</span>
@@ -552,7 +552,7 @@ export default function SectionNavigator({
                           // Always visible on touch (no hover); hover-reveal on
                           // desktop only. Was opacity-0 unconditionally, so the
                           // add affordance never appeared on mobile.
-                          className="flex-shrink-0 p-1.5 mr-0.5 rounded-[var(--radius-sm)] text-pc-text-faint opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-pc-accent hover:bg-pc-accent/10 transition-opacity"
+                          className="flex-shrink-0 p-1.5 mr-0.5 rounded-[var(--radius-sm)] text-text-faint opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-primary hover:bg-primary/10 transition-opacity"
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </button>

@@ -160,7 +160,7 @@ export default function Integrations() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 border-2 rounded-full animate-spin border-pc-border" style={{ borderTopColor: 'var(--pc-accent)' }} />
+        <div className="h-8 w-8 border-2 rounded-full animate-spin border-border" style={{ borderTopColor: 'var(--color-primary)' }} />
       </div>
     );
   }
@@ -185,8 +185,8 @@ export default function Integrations() {
               className={[
                 'px-3 h-7 inline-flex items-center rounded-[var(--radius-md)] text-[13px] font-medium transition-colors cursor-pointer border',
                 active
-                  ? 'bg-pc-accent border-transparent text-pc-accent-foreground'
-                  : 'bg-transparent border-pc-border text-pc-text-secondary hover:bg-[var(--pc-hover)] hover:text-pc-text hover:border-pc-border-strong',
+                  ? 'bg-primary border-transparent text-primary-foreground'
+                  : 'bg-transparent border-border text-text-secondary hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong',
               ].join(' ')}
             >
               {labelFor(cat)}
@@ -198,13 +198,13 @@ export default function Integrations() {
       {/* Grouped Integration Cards */}
       {Object.keys(grouped).length === 0 ? (
         <Card className="p-10 text-center">
-          <Puzzle className="h-10 w-10 mx-auto mb-3 text-pc-text-faint" />
-          <p className="text-sm text-pc-text-muted">{t('integrations.empty')}</p>
+          <Puzzle className="h-10 w-10 mx-auto mb-3 text-text-faint" />
+          <p className="text-sm text-muted-foreground">{t('integrations.empty')}</p>
         </Card>
       ) : (
         Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
           <div key={category}>
-            <h3 className="text-[11px] font-medium uppercase tracking-wider mb-3 text-pc-text-faint">
+            <h3 className="text-[11px] font-medium uppercase tracking-wider mb-3 text-text-faint">
               {labelFor(category)}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -220,10 +220,10 @@ export default function Integrations() {
                   <>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h4 className="text-sm font-medium truncate text-pc-text">
+                        <h4 className="text-sm font-medium truncate text-foreground">
                           {integration.name}
                         </h4>
-                        <p className="text-sm mt-1 line-clamp-2 text-pc-text-muted">
+                        <p className="text-sm mt-1 line-clamp-2 text-muted-foreground">
                           {integration.description}
                         </p>
                       </div>
@@ -233,7 +233,7 @@ export default function Integrations() {
                       </Badge>
                     </div>
                     {href && (
-                      <div className="flex items-center gap-1 text-[13px] font-medium text-pc-accent">
+                      <div className="flex items-center gap-1 text-[13px] font-medium text-primary">
                         {ctaLabel}
                         <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                       </div>
@@ -250,10 +250,10 @@ export default function Integrations() {
                     aria-label={`${ctaLabel}: ${integration.name}`}
                     className={[
                       'group p-5 w-full text-left flex flex-col gap-3 cursor-pointer',
-                      'bg-pc-surface border border-pc-border rounded-[var(--radius-lg)]',
-                      'transition-colors hover:bg-[var(--pc-hover)] hover:border-pc-border-strong',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]',
-                      'focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base',
+                      'bg-card border border-border rounded-[var(--radius-lg)]',
+                      'transition-colors hover:bg-[var(--color-hover)] hover:border-border-strong',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]',
+                      'focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                     ].join(' ')}
                   >
                     {body}
@@ -261,7 +261,7 @@ export default function Integrations() {
                 ) : (
                   <div
                     key={integration.name}
-                    className="p-5 w-full text-left flex flex-col gap-3 bg-pc-surface border border-pc-border rounded-[var(--radius-lg)]"
+                    className="p-5 w-full text-left flex flex-col gap-3 bg-card border border-border rounded-[var(--radius-lg)]"
                   >
                     {body}
                   </div>

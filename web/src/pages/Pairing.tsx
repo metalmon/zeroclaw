@@ -136,7 +136,7 @@ export default function Pairing() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 border-2 rounded-full animate-spin border-pc-border border-t-pc-accent" />
+        <div className="h-8 w-8 border-2 rounded-full animate-spin border-border border-t-pc-accent" />
       </div>
     );
   }
@@ -155,7 +155,7 @@ export default function Pairing() {
 
       {principals.length > 0 && (
         <Card className="flex flex-wrap items-center gap-3 p-4">
-          <label htmlFor="pairing-role-select" className="text-sm font-medium text-pc-text-secondary">
+          <label htmlFor="pairing-role-select" className="text-sm font-medium text-text-secondary">
             {t('pairing.role_label')}
           </label>
           <Select
@@ -191,15 +191,15 @@ export default function Pairing() {
 
       {pairingCode && (
         <Card className="p-6 text-center">
-          <p className="text-xs uppercase tracking-wider mb-2 text-pc-text-muted">
+          <p className="text-xs uppercase tracking-wider mb-2 text-muted-foreground">
             {t('pairing.pairing_code')}
           </p>
-          <div className="text-4xl font-mono font-bold tracking-[0.4em] py-4 text-pc-text">
+          <div className="text-4xl font-mono font-bold tracking-[0.4em] py-4 text-foreground">
             {pairingCode}
           </div>
-          <p className="text-xs text-pc-text-muted">{t('pairing.code_hint')}</p>
+          <p className="text-xs text-muted-foreground">{t('pairing.code_hint')}</p>
           {taggedFor && (
-            <p className="mt-2 text-xs text-pc-text-secondary">
+            <p className="mt-2 text-xs text-text-secondary">
               {t('pairing.tagged_for', { value: taggedFor })}
             </p>
           )}
@@ -207,15 +207,15 @@ export default function Pairing() {
       )}
 
       <Card padded={false} className="overflow-hidden">
-        <div className="px-5 py-4 border-b border-pc-border">
-          <h3 className="text-sm font-semibold text-pc-text">
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-semibold text-foreground">
             {t('pairing.paired_devices')}
             {unauthorized ? '' : ` (${devices.length})`}
           </h3>
         </div>
         {unauthorized ? (
-          <div className="p-8 text-center text-sm text-pc-text-muted">
-            <p className="font-medium text-pc-text-secondary">
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            <p className="font-medium text-text-secondary">
               {t('pairing.unpaired_title')}
             </p>
             <p className="mt-1">
@@ -223,14 +223,14 @@ export default function Pairing() {
             </p>
           </div>
         ) : devices.length === 0 ? (
-          <div className="p-8 text-center text-sm text-pc-text-muted">
+          <div className="p-8 text-center text-sm text-muted-foreground">
             {t('pairing.no_devices')}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-pc-border text-left text-xs uppercase tracking-wider text-pc-text-muted">
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-5 py-3 font-medium">{t('pairing.name')}</th>
                   <th className="px-5 py-3 font-medium">{t('pairing.type')}</th>
                   <th className="px-5 py-3 font-medium">{t('pairing.paired')}</th>
@@ -241,25 +241,25 @@ export default function Pairing() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-pc-border">
+              <tbody className="divide-y divide-border">
                 {devices.map((device) => (
                   <tr
                     key={device.id}
-                    className="transition-colors hover:bg-pc-elevated/50"
+                    className="transition-colors hover:bg-secondary/50"
                   >
-                    <td className="px-5 py-3 text-pc-text">
+                    <td className="px-5 py-3 text-foreground">
                       {device.name || t('pairing.unnamed')}
                     </td>
-                    <td className="px-5 py-3 text-pc-text-secondary">
+                    <td className="px-5 py-3 text-text-secondary">
                       {device.device_type || t('pairing.unknown')}
                     </td>
-                    <td className="px-5 py-3 text-xs text-pc-text-muted">
+                    <td className="px-5 py-3 text-xs text-muted-foreground">
                       {fmtDate(device.paired_at)}
                     </td>
-                    <td className="px-5 py-3 text-xs text-pc-text-muted">
+                    <td className="px-5 py-3 text-xs text-muted-foreground">
                       {fmtDate(device.last_seen, { dateStyle: 'medium', timeStyle: 'medium' })}
                     </td>
-                    <td className="px-5 py-3 font-mono text-xs text-pc-text-secondary">
+                    <td className="px-5 py-3 font-mono text-xs text-text-secondary">
                       {device.ip_address || '-'}
                     </td>
                     <td className="px-5 py-3 text-right">

@@ -24,8 +24,8 @@ export function Card({
 }: CardProps & Omit<ComponentPropsWithoutRef<'div'>, keyof CardProps>) {
   const Tag = (as ?? 'div') as ElementType;
   const classes = [
-    'bg-pc-surface',
-    'border border-pc-border',
+    'bg-card',
+    'border border-border',
     'rounded-[var(--radius-lg)]',
     padded ? 'p-4' : '',
     className,

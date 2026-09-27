@@ -188,10 +188,10 @@ function RailNavItem({
           [
             railLinkClassName,
             'rounded-[var(--radius-md)] transition-colors duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]',
             isActive
-              ? 'bg-pc-accent/10 text-pc-accent'
-              : 'text-pc-text-muted hover:text-pc-text-secondary hover:bg-[var(--pc-hover)]',
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-text-secondary hover:bg-[var(--color-hover)]',
           ].join(' ')
         }
       >
@@ -201,14 +201,14 @@ function RailNavItem({
             {isActive && (
               <span
                 aria-hidden="true"
-                className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-pc-accent"
+                className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary"
               />
             )}
             <Icon
               className={`h-[22px] w-[22px] shrink-0 transition-colors ${
                 isActive
-                  ? 'text-pc-accent'
-                  : 'group-hover:text-pc-text-secondary'
+                  ? 'text-primary'
+                  : 'group-hover:text-text-secondary'
               }`}
             />
           </>
@@ -224,9 +224,9 @@ function RailNavItem({
               top: tooltipTop,
               left: tooltipLeft ?? 0, // set alongside tooltipTop in the `update` closure
               transform: 'translateY(-50%)',
-              background: 'var(--pc-bg-elevated)',
-              color: 'var(--pc-text-primary)',
-              border: '1px solid var(--pc-border)',
+              background: 'var(--color-secondary)',
+              color: 'var(--color-foreground)',
+              border: '1px solid var(--color-border)',
             }}
           >
             {text}
@@ -262,8 +262,8 @@ function DrawerNavItem({
           'group relative flex items-center justify-start gap-3 px-3 py-2',
           'rounded-[var(--radius-md)] text-sm font-medium transition-colors duration-150',
           isActive
-            ? 'bg-pc-accent/10 text-pc-text'
-            : 'text-pc-text-muted hover:text-pc-text-secondary hover:bg-[var(--pc-hover)]',
+            ? 'bg-primary/10 text-foreground'
+            : 'text-muted-foreground hover:text-text-secondary hover:bg-[var(--color-hover)]',
         ].join(' ')
       }
     >
@@ -272,12 +272,12 @@ function DrawerNavItem({
           {isActive && (
             <span
               aria-hidden="true"
-              className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-pc-accent"
+              className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary"
             />
           )}
           <Icon
             className={`h-[22px] w-[22px] shrink-0 transition-colors ${
-              isActive ? 'text-pc-accent' : 'group-hover:text-pc-text-secondary'
+              isActive ? 'text-primary' : 'group-hover:text-text-secondary'
             }`}
           />
           <span className="whitespace-nowrap">{text}</span>
@@ -303,7 +303,7 @@ function DrawerGroup({ group, index, activePath, onClick }: {
       <h2
         id={headingId}
         className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider select-none"
-        style={{ color: 'var(--pc-text-faint)' }}
+        style={{ color: 'var(--color-text-faint)' }}
       >
         {heading}
       </h2>
@@ -371,7 +371,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               {index > 0 && (
                 <div
                   className="mx-auto my-2 h-px w-6"
-                  style={{ background: 'var(--pc-separator)' }}
+                  style={{ background: 'var(--color-separator)' }}
                   role="presentation"
                 />
               )}
@@ -395,7 +395,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           'md:hidden fixed top-0 left-0 h-screen w-60 flex flex-col border-r z-50 transition-transform duration-200 ease-out',
           open ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
-        style={{ background: 'var(--pc-bg-sidebar)', borderColor: 'var(--pc-border)' }}
+        style={{ background: 'var(--color-sidebar)', borderColor: 'var(--color-border)' }}
         aria-label={t('sidebar.mobile_menu')}
       >
         <DrawerLogo />
@@ -435,12 +435,12 @@ function RailLogo() {
   return (
     <div
       className="flex items-center justify-center border-b shrink-0"
-      style={{ borderColor: 'var(--pc-border)', height: '56px' }}
+      style={{ borderColor: 'var(--color-border)', height: '56px' }}
     >
       <div className="relative shrink-0">
         <div
           className="absolute -inset-1.5 rounded-xl"
-          style={{ background: 'linear-gradient(135deg, rgba(var(--pc-accent-rgb), 0.15), rgba(var(--pc-accent-rgb), 0.05))' }}
+          style={{ background: 'linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.15), rgba(var(--color-accent-rgb), 0.05))' }}
         />
         <img
           src={`${basePath}/_app/logo.png`}
@@ -460,12 +460,12 @@ function DrawerLogo() {
   return (
     <div
       className="flex items-center border-b shrink-0 overflow-hidden"
-      style={{ borderColor: 'var(--pc-border)', height: '56px', padding: '0 16px', gap: '12px' }}
+      style={{ borderColor: 'var(--color-border)', height: '56px', padding: '0 16px', gap: '12px' }}
     >
       <div className="relative shrink-0">
         <div
           className="absolute -inset-1.5 rounded-xl"
-          style={{ background: 'linear-gradient(135deg, rgba(var(--pc-accent-rgb), 0.15), rgba(var(--pc-accent-rgb), 0.05))' }}
+          style={{ background: 'linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.15), rgba(var(--color-accent-rgb), 0.05))' }}
         />
         <img
           src={`${basePath}/_app/logo.png`}
@@ -478,7 +478,7 @@ function DrawerLogo() {
       </div>
       <span
         className="text-sm font-semibold tracking-wide whitespace-nowrap"
-        style={{ color: 'var(--pc-text-primary)' }}
+        style={{ color: 'var(--color-foreground)' }}
       >
         {t('sidebar.brand')}
       </span>
@@ -510,7 +510,7 @@ function RailFooter({ version, hasUpdate, onOpen }: FooterProps) {
   return (
     <div
       className="border-t shrink-0 flex items-center justify-center"
-      style={{ borderColor: 'var(--pc-border)', padding: '10px 0' }}
+      style={{ borderColor: 'var(--color-border)', padding: '10px 0' }}
     >
       {(version || hasUpdate) && (
         <button
@@ -521,15 +521,15 @@ function RailFooter({ version, hasUpdate, onOpen }: FooterProps) {
           className={[
             'relative flex flex-col items-center justify-center gap-0.5 rounded px-1.5 py-1 cursor-pointer transition-colors',
             hasUpdate
-              ? 'bg-pc-accent/10 hover:bg-pc-accent/20'
-              : 'hover:bg-pc-surface',
+              ? 'bg-primary/10 hover:bg-primary/20'
+              : 'hover:bg-card',
           ].join(' ')}
         >
           {hasUpdate && (
             <ArrowDownToLine
               aria-hidden="true"
               className="h-3.5 w-3.5 animate-bounce-soft"
-              style={{ color: 'var(--pc-accent)' }}
+              style={{ color: 'var(--color-primary)' }}
             />
           )}
           {/* Red badge dot — an unmistakable attention-grabber layered atop the
@@ -544,14 +544,14 @@ function RailFooter({ version, hasUpdate, onOpen }: FooterProps) {
                 width: '7px',
                 height: '7px',
                 backgroundColor: 'var(--color-status-error)',
-                boxShadow: '0 0 0 1.5px var(--pc-bg-surface)',
+                boxShadow: '0 0 0 1.5px var(--color-card)',
               }}
             />
           )}
           <span
             style={{
               fontSize: '9px',
-              color: hasUpdate ? 'var(--pc-accent)' : 'var(--pc-text-faint)',
+              color: hasUpdate ? 'var(--color-primary)' : 'var(--color-text-faint)',
               fontWeight: hasUpdate ? 600 : undefined,
             }}
           >
@@ -570,7 +570,7 @@ function DrawerFooter({ version, hasUpdate, onOpen }: FooterProps) {
   return (
     <div
       className="px-5 py-4 border-t text-[10px] uppercase tracking-wider"
-      style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-faint)' }}
+      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-faint)' }}
     >
       <button
         type="button"
@@ -580,7 +580,7 @@ function DrawerFooter({ version, hasUpdate, onOpen }: FooterProps) {
           'flex items-center gap-1.5 cursor-pointer transition-opacity uppercase tracking-wider',
           hasUpdate ? 'opacity-100' : 'hover:opacity-80',
         ].join(' ')}
-        style={hasUpdate ? { color: 'var(--pc-accent)' } : undefined}
+        style={hasUpdate ? { color: 'var(--color-primary)' } : undefined}
       >
         {hasUpdate && (
           <ArrowDownToLine

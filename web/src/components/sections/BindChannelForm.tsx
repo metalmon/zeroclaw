@@ -135,23 +135,23 @@ export default function BindChannelForm({
   return (
     <Card className="max-w-2xl space-y-4 p-4">
       <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-pc-text">
+        <h3 className="text-sm font-semibold text-foreground">
           {t("channelbind.heading")}
         </h3>
-        <p className="text-xs text-pc-text-muted">
+        <p className="text-xs text-muted-foreground">
           {t("channelbind.description")}
         </p>
       </div>
 
       {!prescoped && channels.length === 0 ? (
-        <p className="text-xs text-pc-text-faint">
+        <p className="text-xs text-text-faint">
           {t("channelbind.empty_state")}
         </p>
       ) : (
         <>
           {!prescoped && (
             <label className="block space-y-1">
-              <span className="text-xs text-pc-text-muted">
+              <span className="text-xs text-muted-foreground">
                 {t("channelbind.channel_label")}
               </span>
               <Select
@@ -163,7 +163,7 @@ export default function BindChannelForm({
           )}
 
           <label className="block space-y-1">
-            <span className="text-xs text-pc-text-muted">
+            <span className="text-xs text-muted-foreground">
               {t("channelbind.identity_label")}
             </span>
             <input
@@ -180,11 +180,11 @@ export default function BindChannelForm({
 
           {cliCommand ? (
             <div className="space-y-1">
-              <span className="text-xs text-pc-text-muted">
+              <span className="text-xs text-muted-foreground">
                 {t("channelbind.cli_label")}
               </span>
               <div className="flex items-center gap-2">
-                <code className="flex-1 overflow-x-auto rounded border border-pc-border bg-pc-base px-2 py-1.5 font-mono text-xs text-pc-text-muted">
+                <code className="flex-1 overflow-x-auto rounded border border-border bg-background px-2 py-1.5 font-mono text-xs text-muted-foreground">
                   {cliCommand}
                 </code>
                 <Button variant="ghost" size="sm" onClick={copyCli}>
@@ -216,7 +216,7 @@ export default function BindChannelForm({
           {status.kind === "ok" || status.kind === "err" ? (
             <p
               className={`text-xs ${
-                status.kind === "ok" ? "text-pc-text-muted" : "text-pc-text"
+                status.kind === "ok" ? "text-muted-foreground" : "text-foreground"
               }`}
             >
               {status.msg}

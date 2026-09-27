@@ -334,11 +334,11 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         role="dialog"
         aria-modal="true"
         aria-label={t('nav.cmdk.title')}
-        className="relative w-full max-w-xl overflow-hidden rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface shadow-[var(--pc-shadow-md)]"
+        className="relative w-full max-w-xl overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card shadow-[var(--color-shadow-md)]"
       >
         {/* Search input */}
-        <div className="flex items-center gap-2.5 border-b border-pc-border px-3.5">
-          <Search className="h-4 w-4 shrink-0 text-pc-text-muted" aria-hidden="true" />
+        <div className="flex items-center gap-2.5 border-b border-border px-3.5">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
@@ -348,10 +348,10 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
             aria-label={t('nav.cmdk.placeholder')}
             autoComplete="off"
             spellCheck={false}
-            className="h-12 w-full bg-transparent text-sm text-pc-text placeholder:text-pc-text-faint outline-none border-none"
+            className="h-12 w-full bg-transparent text-sm text-foreground placeholder:text-text-faint outline-none border-none"
           />
           {loadingConfig && (
-            <span className="shrink-0 text-[11px] text-pc-text-faint whitespace-nowrap">
+            <span className="shrink-0 text-[11px] text-text-faint whitespace-nowrap">
               {t('nav.cmdk.loading_settings')}
             </span>
           )}
@@ -365,7 +365,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
           className="max-h-[min(50vh,360px)] overflow-y-auto p-1.5"
         >
           {results.length === 0 ? (
-            <div className="px-3 py-6 text-center text-sm text-pc-text-muted">
+            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
               {t('nav.cmdk.empty')}
             </div>
           ) : (
@@ -375,7 +375,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   <div
                     key={row.key}
                     role="presentation"
-                    className="px-3 pt-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-pc-text-faint"
+                    className="px-3 pt-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-faint"
                   >
                     {kindHeader(row.kind)}
                   </div>
@@ -396,44 +396,44 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   onMouseMove={() => setSelected(i)}
                   className={[
                     'flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-left text-sm transition-colors',
-                    isSel ? 'bg-pc-accent/10 text-pc-text' : 'text-pc-text-secondary',
+                    isSel ? 'bg-primary/10 text-foreground' : 'text-text-secondary',
                   ].join(' ')}
                 >
                   <Icon
-                    className={`h-4 w-4 shrink-0 ${isSel ? 'text-pc-accent' : 'text-pc-text-muted'}`}
+                    className={`h-4 w-4 shrink-0 ${isSel ? 'text-primary' : 'text-muted-foreground'}`}
                     aria-hidden="true"
                   />
                   <span className="flex-1 truncate">{d.label}</span>
-                  <span className="max-w-[40%] truncate text-[11px] uppercase tracking-wider text-pc-text-faint">
+                  <span className="max-w-[40%] truncate text-[11px] uppercase tracking-wider text-text-faint">
                     {d.sublabel}
                   </span>
                   {isSel && (
-                    <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-pc-text-muted" aria-hidden="true" />
+                    <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                   )}
                 </button>
               );
             })
           )}
           {extraCount > 0 && (
-            <div className="px-3 py-2 text-center text-[11px] text-pc-text-faint">
+            <div className="px-3 py-2 text-center text-[11px] text-text-faint">
               {t('nav.cmdk.more', { value: extraCount })}
             </div>
           )}
         </div>
 
         {/* Footer hint */}
-        <div className="flex items-center gap-3 border-t border-pc-border px-3.5 py-2 text-[11px] text-pc-text-faint">
+        <div className="flex items-center gap-3 border-t border-border px-3.5 py-2 text-[11px] text-text-faint">
           <span className="flex items-center gap-1">
-            <kbd className="rounded-[var(--radius-sm)] border border-pc-border bg-pc-elevated px-1.5 py-0.5 font-mono">↑</kbd>
-            <kbd className="rounded-[var(--radius-sm)] border border-pc-border bg-pc-elevated px-1.5 py-0.5 font-mono">↓</kbd>
+            <kbd className="rounded-[var(--radius-sm)] border border-border bg-secondary px-1.5 py-0.5 font-mono">↑</kbd>
+            <kbd className="rounded-[var(--radius-sm)] border border-border bg-secondary px-1.5 py-0.5 font-mono">↓</kbd>
             {t('nav.cmdk.hint.navigate')}
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded-[var(--radius-sm)] border border-pc-border bg-pc-elevated px-1.5 py-0.5 font-mono">↵</kbd>
+            <kbd className="rounded-[var(--radius-sm)] border border-border bg-secondary px-1.5 py-0.5 font-mono">↵</kbd>
             {t('nav.cmdk.hint.open')}
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded-[var(--radius-sm)] border border-pc-border bg-pc-elevated px-1.5 py-0.5 font-mono">esc</kbd>
+            <kbd className="rounded-[var(--radius-sm)] border border-border bg-secondary px-1.5 py-0.5 font-mono">esc</kbd>
             {t('nav.cmdk.hint.dismiss')}
           </span>
         </div>

@@ -34,7 +34,7 @@ export function MarkdownEditor({
   return (
     <div
       className="overflow-hidden rounded-md border"
-      style={{ borderColor: 'var(--pc-border)' }}
+      style={{ borderColor: 'var(--color-border)' }}
     >
       <CodeMirror
         value={value}

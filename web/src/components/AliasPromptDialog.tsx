@@ -43,22 +43,22 @@ export default function AliasPromptDialog({ label, suggestion, onConfirm, onCanc
       className="fixed inset-0 z-50 flex items-center justify-center"
       onClick={onCancel}
     >
-      <div className="absolute inset-0 bg-pc-base/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
       <div
         ref={panelRef}
-        className="relative w-full max-w-sm mx-4 rounded-[var(--radius-xl)] border border-pc-border bg-pc-base shadow-[var(--pc-shadow-md)] animate-fade-in"
+        className="relative w-full max-w-sm mx-4 rounded-[var(--radius-xl)] border border-border bg-background shadow-[var(--color-shadow-md)] animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-pc-border">
-          <h2 className="text-sm font-semibold text-pc-text">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-sm font-semibold text-foreground">
             {t('alias_prompt.name_this_prefix')}{label}{t('alias_prompt.name_this_suffix')}
           </h2>
           <button
             type="button"
             onClick={onCancel}
             aria-label={t('common.close')}
-            className="h-8 w-8 rounded-[var(--radius-md)] flex items-center justify-center text-pc-text-muted transition-colors hover:bg-[var(--pc-hover)] hover:text-pc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base"
+            className="h-8 w-8 rounded-[var(--radius-md)] flex items-center justify-center text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <X size={16} />
           </button>
@@ -66,12 +66,12 @@ export default function AliasPromptDialog({ label, suggestion, onConfirm, onCanc
 
         {/* Body */}
         <div className="px-6 py-5 flex flex-col gap-3">
-          <p className="text-xs text-pc-text-muted">
+          <p className="text-xs text-muted-foreground">
             {t('alias_prompt.description_prefix')}{' '}
-            <span className="text-pc-text-secondary">{t('alias_prompt.example_work')}</span>,{' '}
-            <span className="text-pc-text-secondary">{t('alias_prompt.example_personal')}</span>,{' '}
+            <span className="text-text-secondary">{t('alias_prompt.example_work')}</span>,{' '}
+            <span className="text-text-secondary">{t('alias_prompt.example_personal')}</span>,{' '}
             {t('alias_prompt.or')}{' '}
-            <span className="text-pc-text-secondary">{t('alias_prompt.example_default')}</span>
+            <span className="text-text-secondary">{t('alias_prompt.example_default')}</span>
             {t('alias_prompt.description_suffix')}
           </p>
           <input
@@ -88,7 +88,7 @@ export default function AliasPromptDialog({ label, suggestion, onConfirm, onCanc
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-pc-border">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
           <Button variant="ghost" onClick={onCancel}>
             {t('common.cancel')}
           </Button>

@@ -208,8 +208,8 @@ export default function Config() {
         <div
           className="h-8 w-8 border-2 rounded-full animate-spin"
           style={{
-            borderColor: "var(--pc-border)",
-            borderTopColor: "var(--pc-accent)",
+            borderColor: "var(--color-border)",
+            borderTopColor: "var(--color-primary)",
           }}
         />
       </div>
@@ -626,14 +626,14 @@ export default function Config() {
           // pane; the navigator on the left is the call to action.
           <div className="flex h-full items-center justify-center">
             <div className="text-center max-w-sm">
-              <Sparkles className="h-8 w-8 mx-auto mb-3 text-pc-text-faint" />
+              <Sparkles className="h-8 w-8 mx-auto mb-3 text-text-faint" />
               {/* i18n: reuse existing keys if present; otherwise these are
                   the proposed new keys cfg.empty.title / cfg.empty.body
                   (reported back to the owner of i18n.ts). */}
-              <p className="text-sm font-medium text-pc-text-secondary">
+              <p className="text-sm font-medium text-text-secondary">
                 {t("config.empty_title")}
               </p>
-              <p className="text-xs mt-1 text-pc-text-muted">
+              <p className="text-xs mt-1 text-muted-foreground">
                 {t("config.empty_body")}
               </p>
             </div>
@@ -671,18 +671,18 @@ export default function Config() {
               {crumbs.map((crumb, i) => (
                 <span key={i} className="flex items-center gap-1.5">
                   {i > 0 && (
-                    <ChevronRight className="h-4 w-4 text-pc-text-faint" />
+                    <ChevronRight className="h-4 w-4 text-text-faint" />
                   )}
                   {crumb.url && i < crumbs.length - 1 ? (
                     <button
                       type="button"
                       onClick={() => navigate(crumb.url!)}
-                      className="text-pc-text-secondary transition-colors hover:text-pc-text"
+                      className="text-text-secondary transition-colors hover:text-foreground"
                     >
                       {crumb.label}
                     </button>
                   ) : (
-                    <span className="font-semibold text-pc-text">
+                    <span className="font-semibold text-foreground">
                       {crumb.label}
                     </span>
                   )}
@@ -707,8 +707,8 @@ export default function Config() {
 function ConfigAliasHelpBox() {
   return (
     <div
-      className="rounded-[var(--radius-md)] border border-pc-border px-3 py-2 text-xs text-pc-text-secondary"
-      style={{ background: "var(--pc-bg-surface-subtle)" }}
+      className="rounded-[var(--radius-md)] border border-border px-3 py-2 text-xs text-text-secondary"
+      style={{ background: "var(--color-surface-subtle)" }}
     >
       <p className="mb-1">
         <strong>{t("config.alias_help_term")}</strong>{" "}
@@ -822,7 +822,7 @@ function AliasListView({
       </Button>
 
       {sectionHelp && (
-        <p className="text-sm leading-relaxed text-pc-text-secondary">
+        <p className="text-sm leading-relaxed text-text-secondary">
           {sectionHelp}
         </p>
       )}
@@ -840,13 +840,13 @@ function AliasListView({
           <div
             className="h-8 w-8 border-2 rounded-full animate-spin"
             style={{
-              borderColor: "var(--pc-border)",
-              borderTopColor: "var(--pc-accent)",
+              borderColor: "var(--color-border)",
+              borderTopColor: "var(--color-primary)",
             }}
           />
         </div>
       ) : (
-        <Card padded={false} className="divide-y divide-pc-border overflow-hidden">
+        <Card padded={false} className="divide-y divide-border overflow-hidden">
           {aliases.map((alias) => (
             <AliasRow
               key={alias}
@@ -1149,7 +1149,7 @@ function AgentPeerGroupsTab({
 
   if (loading) {
     return (
-      <p className="text-sm" style={{ color: "var(--pc-text-muted)" }}>
+      <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
         {t("config.loading_peer_groups")}
       </p>
     );
@@ -1172,9 +1172,9 @@ function AgentPeerGroupsTab({
 
       <div
         className="flex items-center gap-2 rounded-xl p-3"
-        style={{ background: "var(--pc-bg-elevated)" }}
+        style={{ background: "var(--color-secondary)" }}
       >
-        <span className="text-xs" style={{ color: "var(--pc-text-muted)" }}>
+        <span className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
           {t("config.add_agent_to")}
         </span>
         <select
@@ -1205,7 +1205,7 @@ function AgentPeerGroupsTab({
         <Link
           to="/config/peer_groups"
           className="text-xs ml-auto hover:underline"
-          style={{ color: "var(--pc-text-muted)" }}
+          style={{ color: "var(--color-muted-foreground)" }}
         >
           {t("config.create_new")}
         </Link>
@@ -1215,8 +1215,8 @@ function AgentPeerGroupsTab({
         <p
           className="text-sm rounded-xl p-4 text-center"
           style={{
-            color: "var(--pc-text-muted)",
-            background: "var(--pc-bg-elevated)",
+            color: "var(--color-muted-foreground)",
+            background: "var(--color-secondary)",
           }}
         >
           {agentAlias}
@@ -1227,16 +1227,16 @@ function AgentPeerGroupsTab({
           <div
             key={pg}
             className="rounded-xl border"
-            style={{ borderColor: "var(--pc-border)" }}
+            style={{ borderColor: "var(--color-border)" }}
           >
             <div
               className="flex items-center justify-between px-4 py-2 border-b"
-              style={{ borderColor: "var(--pc-border)" }}
+              style={{ borderColor: "var(--color-border)" }}
             >
               <Link
                 to={`/config/peer_groups/${encodeURIComponent(pg)}`}
                 className="text-sm font-mono hover:underline"
-                style={{ color: "var(--pc-text-primary)" }}
+                style={{ color: "var(--color-foreground)" }}
               >
                 peer_groups.{pg}
               </Link>
@@ -1376,15 +1376,15 @@ function AliasRow({
   if (mode === "confirm-delete") {
     const blocked = plan != null && !plan.allowed;
     return (
-      <div className="w-full flex flex-col gap-2 px-4 py-3 bg-pc-elevated/40">
+      <div className="w-full flex flex-col gap-2 px-4 py-3 bg-secondary/40">
         <div className="flex items-center justify-between gap-3">
-          <span className="font-medium text-pc-text text-sm">{alias}</span>
+          <span className="font-medium text-foreground text-sm">{alias}</span>
           <button type="button" onClick={() => setMode("idle")} title={t("common.cancel")} className="btn-icon flex-shrink-0">
             <X className="h-4 w-4" />
           </button>
         </div>
         {plan == null ? (
-          <span className="text-xs text-pc-text-muted">{t("config.delete_checking")}</span>
+          <span className="text-xs text-muted-foreground">{t("config.delete_checking")}</span>
         ) : blocked ? (
           <div className="text-xs text-status-error">
             {plan.blockers.length > 0 && (
@@ -1407,20 +1407,20 @@ function AliasRow({
             ) : null}
           </div>
         ) : (
-          <div className="text-xs text-pc-text-secondary space-y-1">
+          <div className="text-xs text-text-secondary space-y-1">
             {plan.scrubs.length > 0 ? (
               <div>
                 <div>{t("config.delete_scrubs")}</div>
                 <ul className="mt-0.5 space-y-0.5">
                   {plan.scrubs.map((s) => (
                     <li key={s.path}>
-                      <code className="text-pc-text-faint">{s.path}</code>
+                      <code className="text-text-faint">{s.path}</code>
                     </li>
                   ))}
                 </ul>
               </div>
             ) : !plan.cascades_owned_state ? (
-              <div className="text-pc-text-muted">{t("config.delete_no_refs")}</div>
+              <div className="text-muted-foreground">{t("config.delete_no_refs")}</div>
             ) : null}
             {plan.cascades_owned_state ? <div>{t("config.delete_owned_state")}</div> : null}
           </div>
@@ -1435,7 +1435,7 @@ function AliasRow({
             >
               {busy ? t("config.delete_deleting") : t("config.delete_confirm")}
             </button>
-            <button type="button" onClick={() => setMode("idle")} disabled={busy} className="text-xs px-2 py-1 text-pc-text-muted">
+            <button type="button" onClick={() => setMode("idle")} disabled={busy} className="text-xs px-2 py-1 text-muted-foreground">
               {t("common.cancel")}
             </button>
           </div>
@@ -1445,19 +1445,19 @@ function AliasRow({
   }
 
   return (
-    <div className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-pc-elevated/50">
+    <div className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-secondary/50">
       <button
         type="button"
         onClick={onSelect}
         className="flex-1 min-w-0 flex items-center justify-between gap-3 text-left"
       >
         <div className="min-w-0">
-          <span className="font-medium text-pc-text">{alias}</span>
-          <code className="block text-xs mt-0.5 text-pc-text-faint">
+          <span className="font-medium text-foreground">{alias}</span>
+          <code className="block text-xs mt-0.5 text-text-faint">
             {mapPath}.{alias}
           </code>
         </div>
-        <ChevronRight className="h-4 w-4 flex-shrink-0 text-pc-text-muted" />
+        <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
       </button>
       <button type="button" onClick={startRename} title={t("config.rename_alias_title")} className="btn-icon flex-shrink-0">
         <Pencil className="h-4 w-4" />
@@ -1544,7 +1544,7 @@ function SectionOverview({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-pc-text-secondary">{sectionDesc(section.key, section.help)}</p>
+        <p className="text-sm text-text-secondary">{sectionDesc(section.key, section.help)}</p>
         <Button
           variant="primary"
           size="md"
@@ -1613,8 +1613,8 @@ function ConfiguredOnlyPicker({
         <div
           className="h-8 w-8 border-2 rounded-full animate-spin"
           style={{
-            borderColor: "var(--pc-border)",
-            borderTopColor: "var(--pc-accent)",
+            borderColor: "var(--color-border)",
+            borderTopColor: "var(--color-primary)",
           }}
         />
       </div>
@@ -1631,7 +1631,7 @@ function ConfiguredOnlyPicker({
 
   if (items.length === 0) {
     return (
-      <Card className="p-8 text-center text-sm text-pc-text-muted">
+      <Card className="p-8 text-center text-sm text-muted-foreground">
         {t("config.nothing_configured_pre")} <strong>{sectionLabel(section.key, section.label)}</strong>{" "}
         {t("config.nothing_configured_mid")}{" "}
         <strong>{t("config.add_with_plus")}</strong>{" "}
@@ -1641,19 +1641,19 @@ function ConfiguredOnlyPicker({
   }
 
   return (
-    <Card padded={false} className="divide-y divide-pc-border overflow-hidden">
+    <Card padded={false} className="divide-y divide-border overflow-hidden">
       {items.map((item) => (
         <button
           key={item.key}
           type="button"
           onClick={() => onPickType(item.key)}
-          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-pc-elevated/50"
+          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
         >
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-pc-text">
+            <div className="text-sm font-medium text-foreground">
               {item.label}
             </div>
-            <code className="block text-xs mt-0.5 text-pc-text-faint">
+            <code className="block text-xs mt-0.5 text-text-faint">
               {item.key}
             </code>
           </div>
@@ -1663,7 +1663,7 @@ function ConfiguredOnlyPicker({
                 {badgeLabel(item.badge)}
               </Badge>
             )}
-            <ChevronRight className="h-4 w-4 text-pc-text-muted" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
         </button>
       ))}

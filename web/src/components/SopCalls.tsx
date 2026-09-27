@@ -18,7 +18,7 @@ import { HelpTip } from '@/components/ui';
 import type { PlannedToolCall, StepToolCall } from '@/lib/sops';
 import { loadCatalog, type CatalogEntry } from '@/components/ToolPicker';
 
-const INPUT_CLS = 'w-full rounded border border-pc-border bg-pc-surface px-2 py-1 text-pc-text';
+const INPUT_CLS = 'w-full rounded border border-border bg-card px-2 py-1 text-foreground';
 
 /// Shared, cached load of the tool catalog (built-in agent tools + CLI tools).
 /// `loadCatalog` is process-cached, so every mounted editor resolves instantly
@@ -73,7 +73,7 @@ export function JsonField({
   const shown = text ?? (value == null ? '' : stringify(value));
   return (
     <label className="block text-xs">
-      <span className="mb-1 block text-pc-text-muted">
+      <span className="mb-1 block text-muted-foreground">
         {help ? <HelpTip text={help}>{label}</HelpTip> : label}
       </span>
       <textarea
@@ -122,20 +122,20 @@ function Accordion({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded border border-pc-border">
+    <div className="rounded border border-border">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-xs text-pc-text hover:bg-pc-elevated"
+        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-xs text-foreground hover:bg-secondary"
       >
         {open ? (
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-pc-text-muted" aria-hidden />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
         ) : (
-          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-pc-text-muted" aria-hidden />
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
         )}
         {header}
       </button>
-      {open ? <div className="space-y-2 border-t border-pc-border p-2">{children}</div> : null}
+      {open ? <div className="space-y-2 border-t border-border p-2">{children}</div> : null}
     </div>
   );
 }
@@ -160,7 +160,7 @@ function ToolSelect({
 
   return (
     <label className="block flex-1 text-xs">
-      <span className="mb-1 block text-pc-text-muted">{t('sops.call_tool')}</span>
+      <span className="mb-1 block text-muted-foreground">{t('sops.call_tool')}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -256,11 +256,11 @@ function SchemaField({
   const type = primaryType(prop);
   const description = localizeToolArgDesc(tool, name, prop.description);
   const label = (
-    <span className="mb-1 block text-pc-text-muted">
+    <span className="mb-1 block text-muted-foreground">
       <span className="font-mono">{name}</span>
       {required ? <span className="text-status-error"> *</span> : null}
       {description ? (
-        <span className="ml-1 text-pc-text-faint">{description}</span>
+        <span className="ml-1 text-text-faint">{description}</span>
       ) : null}
     </span>
   );
@@ -405,12 +405,12 @@ function SchemaArgsEditor({
 
   const names = Object.keys(schema.properties);
   if (names.length === 0) {
-    return <div className="text-xs text-pc-text-faint">{t('sops.arg_none')}</div>;
+    return <div className="text-xs text-text-faint">{t('sops.arg_none')}</div>;
   }
 
   return (
     <div className="space-y-2">
-      <span className="block text-xs text-pc-text-muted">{t('sops.call_args')}</span>
+      <span className="block text-xs text-muted-foreground">{t('sops.call_args')}</span>
       {names.map((name) => {
         const prop = schema.properties[name];
         if (!prop) return null;
@@ -451,23 +451,23 @@ export function PlannedCallsEditor({
     onChange(calls.map((c, j) => (j === i ? { ...c, ...patch } : c)));
   };
   return (
-    <div className="rounded border border-pc-border p-2">
+    <div className="rounded border border-border p-2">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-xs font-medium text-pc-text">{t('sops.planned_calls')}</span>
+        <span className="text-xs font-medium text-foreground">{t('sops.planned_calls')}</span>
         <button
           type="button"
           onClick={() => {
             onChange([...calls, { tool: '', args: {} }]);
             setOpenIdx(calls.length);
           }}
-          className="rounded border border-pc-border px-2 py-0.5 text-xs text-pc-text hover:bg-pc-elevated"
+          className="rounded border border-border px-2 py-0.5 text-xs text-foreground hover:bg-secondary"
         >
           <Plus className="mr-1 inline h-3 w-3" aria-hidden />
           {t('sops.add_call')}
         </button>
       </div>
       {calls.length === 0 ? (
-        <div className="text-xs text-pc-text-faint">{t('sops.no_calls')}</div>
+        <div className="text-xs text-text-faint">{t('sops.no_calls')}</div>
       ) : (
         <div className="space-y-1">
           {calls.map((call, i) => {
@@ -480,14 +480,14 @@ export function PlannedCallsEditor({
                 onToggle={() => setOpenIdx((cur) => (cur === i ? null : i))}
                 header={
                   <>
-                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-pc-accent text-[10px] font-semibold text-pc-accent-foreground">
+                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-primary text-[10px] font-semibold text-primary-foreground">
                       {i}
                     </span>
                     <span className="min-w-0 flex-1 truncate font-mono">
                       {call.tool || t('sops.call_untitled')}
                     </span>
                     {call.pinned !== undefined && call.pinned !== null ? (
-                      <Pin className="h-3 w-3 shrink-0 text-pc-accent" aria-hidden />
+                      <Pin className="h-3 w-3 shrink-0 text-primary" aria-hidden />
                     ) : null}
                   </>
                 }
@@ -504,7 +504,7 @@ export function PlannedCallsEditor({
                       onChange(calls.filter((_, j) => j !== i));
                       setOpenIdx(null);
                     }}
-                    className="rounded px-1.5 py-1 text-status-error hover:bg-pc-elevated"
+                    className="rounded px-1.5 py-1 text-status-error hover:bg-secondary"
                     aria-label={t('sops.remove_call')}
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -516,15 +516,15 @@ export function PlannedCallsEditor({
                   args={call.args}
                   onChange={(next) => setCall(i, { args: next })}
                 />
-                <p className="text-xs text-pc-text-faint">{t('sops.call_binding_hint')}</p>
+                <p className="text-xs text-text-faint">{t('sops.call_binding_hint')}</p>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-pc-text-muted">{t('sops.call_pinned')}</span>
+                  <span className="text-xs text-muted-foreground">{t('sops.call_pinned')}</span>
                   <div className="flex gap-2">
                     {sample?.output_data !== undefined && sample?.output_data !== null ? (
                       <button
                         type="button"
                         onClick={() => setCall(i, { pinned: sample.output_data })}
-                        className="rounded border border-pc-border px-2 py-0.5 text-xs text-pc-text hover:bg-pc-elevated"
+                        className="rounded border border-border px-2 py-0.5 text-xs text-foreground hover:bg-secondary"
                       >
                         <Pin className="mr-1 inline h-3 w-3" aria-hidden />
                         {t('sops.pin_from_run')}
@@ -534,7 +534,7 @@ export function PlannedCallsEditor({
                       <button
                         type="button"
                         onClick={() => setCall(i, { pinned: null })}
-                        className="rounded border border-pc-border px-2 py-0.5 text-xs text-pc-text-muted hover:bg-pc-elevated"
+                        className="rounded border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary"
                       >
                         {t('sops.unpin')}
                       </button>
@@ -570,7 +570,7 @@ export function CapturedCallList({ calls }: { calls: StepToolCall[] }) {
           onToggle={() => setOpenIdx((cur) => (cur === call.index ? null : call.index))}
           header={
             <>
-              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-pc-accent text-[10px] font-semibold text-pc-accent-foreground">
+              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-primary text-[10px] font-semibold text-primary-foreground">
                 {call.index}
               </span>
               <span className="min-w-0 flex-1 truncate font-mono">{call.tool}</span>
@@ -579,13 +579,13 @@ export function CapturedCallList({ calls }: { calls: StepToolCall[] }) {
               >
                 {call.success ? t('sops.call_ok') : t('sops.call_failed')}
               </span>
-              <span className="shrink-0 text-[10px] text-pc-text-faint">{call.duration_ms}ms</span>
+              <span className="shrink-0 text-[10px] text-text-faint">{call.duration_ms}ms</span>
             </>
           }
         >
           <div className="text-xs">
-            <span className="mb-1 block text-pc-text-muted">{t('sops.call_args')}</span>
-            <pre className="max-h-40 overflow-auto rounded bg-pc-bg-base p-2 font-mono text-xs text-pc-text">
+            <span className="mb-1 block text-muted-foreground">{t('sops.call_args')}</span>
+            <pre className="max-h-40 overflow-auto rounded bg-background p-2 font-mono text-xs text-foreground">
               {stringify(call.args)}
             </pre>
           </div>
@@ -593,15 +593,15 @@ export function CapturedCallList({ calls }: { calls: StepToolCall[] }) {
             <div className="text-xs text-status-error">{call.error}</div>
           ) : null}
           <div className="text-xs">
-            <span className="mb-1 block text-pc-text-muted">{t('sops.call_output')}</span>
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-pc-bg-base p-2 font-mono text-xs text-pc-text">
+            <span className="mb-1 block text-muted-foreground">{t('sops.call_output')}</span>
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background p-2 font-mono text-xs text-foreground">
               {call.output}
             </pre>
           </div>
           {call.output_data !== undefined && call.output_data !== null ? (
             <div className="text-xs">
-              <span className="mb-1 block text-pc-text-muted">{t('sops.call_output_data')}</span>
-              <pre className="max-h-40 overflow-auto rounded bg-pc-bg-base p-2 font-mono text-xs text-pc-text">
+              <span className="mb-1 block text-muted-foreground">{t('sops.call_output_data')}</span>
+              <pre className="max-h-40 overflow-auto rounded bg-background p-2 font-mono text-xs text-foreground">
                 {stringify(call.output_data)}
               </pre>
             </div>

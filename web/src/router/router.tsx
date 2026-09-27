@@ -30,7 +30,7 @@ function RouteFallback() {
     <div className="min-h-[60vh] flex items-center justify-center">
       <div
         className="h-8 w-8 border-2 rounded-full animate-spin"
-        style={{ borderColor: 'var(--pc-border)', borderTopColor: 'var(--pc-accent)' }}
+        style={{ borderColor: 'var(--color-border)', borderTopColor: 'var(--color-primary)' }}
       />
     </div>
   );

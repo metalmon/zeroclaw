@@ -121,17 +121,17 @@ export function Select({
         onKeyDown={onKeyDown}
         className="input-electric flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm"
       >
-        <span className={selected ? "truncate" : "truncate text-pc-text-faint"}>
+        <span className={selected ? "truncate" : "truncate text-text-faint"}>
           {selected ? selected.label : (placeholder ?? "")}
         </span>
-        <ChevronsUpDown className="h-4 w-4 shrink-0 text-pc-text-muted" />
+        <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
       </button>
       {open && (
         <ul
           ref={listRef}
           id={listboxId}
           role="listbox"
-          className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-[var(--radius-md)] border border-pc-border bg-pc-surface p-1 shadow-[var(--pc-shadow-md)]"
+          className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card p-1 shadow-[var(--color-shadow-md)]"
         >
           {options.map((o, i) => {
             const sel = o.value === value;
@@ -148,12 +148,12 @@ export function Select({
                   className={[
                     "flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-left text-sm transition-colors",
                     act
-                      ? "bg-pc-accent/10 text-pc-text"
-                      : "text-pc-text-secondary hover:bg-pc-elevated/60",
+                      ? "bg-primary/10 text-foreground"
+                      : "text-text-secondary hover:bg-secondary/60",
                   ].join(" ")}
                 >
                   <Check
-                    className={`h-3.5 w-3.5 shrink-0 ${sel ? "text-pc-accent" : "opacity-0"}`}
+                    className={`h-3.5 w-3.5 shrink-0 ${sel ? "text-primary" : "opacity-0"}`}
                   />
                   <span className="truncate">{o.label}</span>
                 </button>

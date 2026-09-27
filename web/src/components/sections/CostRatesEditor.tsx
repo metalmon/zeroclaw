@@ -172,7 +172,7 @@ function SingleResourceEditor({
   if (!exists) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-sm" style={{ color: 'var(--pc-text-secondary)' }}>
+        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           {t('cost_rates.no_entry_yet_for')}{' '}
           <code className="font-mono">{composite(category, providerType, fixedResource)}</code>.
           {' '}{t('cost_rates.no_entry_fallback_prefix')} <code>cost.usd_per_1k_input</code>.
@@ -193,7 +193,7 @@ function SingleResourceEditor({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm" style={{ color: 'var(--pc-text-secondary)' }}>
+      <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
         {t('cost_rates.rate_sheet_for')}{' '}
         <code className="font-mono">{composite(category, providerType, fixedResource)}</code>{' '}
         {t('cost_rates.path_label')} <code className="font-mono">{fullPath}</code>.
@@ -303,12 +303,12 @@ function ResourceListEditor({
 
       <div
         className="surface-panel divide-y"
-        style={{ borderColor: 'var(--pc-border)' }}
+        style={{ borderColor: 'var(--color-border)' }}
       >
         {resources.length === 0 ? (
           <div
             className="p-4 text-sm text-center"
-            style={{ color: 'var(--pc-text-muted)' }}
+            style={{ color: 'var(--color-muted-foreground)' }}
           >
             {t('cost_rates.no_rates_under')}{' '}
             <code className="font-mono">{basePath}</code>. {t('cost_rates.add_one_below')}
@@ -365,7 +365,7 @@ function ResourceListEditor({
           </div>
           {suggestions.filter((s) => !resources.includes(s)).length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
+              <span className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
                 {t('cost_rates.from_label')} <code className="font-mono">providers.{category}.{providerType}</code>:
               </span>
               {suggestions
@@ -377,9 +377,9 @@ function ResourceListEditor({
                     onClick={() => setNewResource(s)}
                     className="text-xs font-mono px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
                     style={{
-                      background: 'var(--pc-bg-elevated)',
-                      color: 'var(--pc-text-secondary)',
-                      border: '1px solid var(--pc-border)',
+                      background: 'var(--color-secondary)',
+                      color: 'var(--color-text-secondary)',
+                      border: '1px solid var(--color-border)',
                     }}
                   >
                     {s}
@@ -392,7 +392,7 @@ function ResourceListEditor({
 
       <p
         className="text-xs"
-        style={{ color: 'var(--pc-text-faint)' }}
+        style={{ color: 'var(--color-text-faint)' }}
       >
         {t('cost_rates.resource_id_help')} {t('cost_rates.rates_emit_at')}{' '}
         <code className="font-mono">{basePath}.&lt;resource&gt;</code>.
@@ -441,13 +441,13 @@ function ResourceRow({
           <div className="min-w-0">
             <span
               className="font-mono"
-              style={{ color: 'var(--pc-text-primary)', fontWeight: 500 }}
+              style={{ color: 'var(--color-foreground)', fontWeight: 500 }}
             >
               {composite(category, providerType, resource)}
             </span>
             <code
               className="block text-xs mt-0.5"
-              style={{ color: 'var(--pc-text-faint)' }}
+              style={{ color: 'var(--color-text-faint)' }}
             >
               {fullPath}
             </code>
@@ -455,7 +455,7 @@ function ResourceRow({
           <ChevronRight
             className="h-4 w-4 flex-shrink-0 transition-transform"
             style={{
-              color: 'var(--pc-text-muted)',
+              color: 'var(--color-muted-foreground)',
               transform: isOpen ? 'rotate(90deg)' : 'none',
             }}
           />
@@ -496,7 +496,7 @@ function ResourceRow({
       {isOpen && (
         <div
           className="px-4 pb-3"
-          style={{ borderTop: '1px solid var(--pc-border)' }}
+          style={{ borderTop: '1px solid var(--color-border)' }}
         >
           <FieldForm
             key={`${reloadKey}-${fullPath}`}
@@ -515,7 +515,7 @@ function InlineSpinner() {
     <div className="flex items-center justify-center py-8">
       <div
         className="h-6 w-6 border-2 rounded-full animate-spin"
-        style={{ borderColor: 'var(--pc-border)', borderTopColor: 'var(--pc-accent)' }}
+        style={{ borderColor: 'var(--color-border)', borderTopColor: 'var(--color-primary)' }}
       />
     </div>
   );

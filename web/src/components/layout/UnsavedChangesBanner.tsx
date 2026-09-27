@@ -89,12 +89,12 @@ export default function UnsavedChangesBanner() {
   return (
     <div className="border-b border-status-warning/25 bg-status-warning/[0.08] px-4 py-2 flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="text-sm text-pc-text">
+        <div className="text-sm text-foreground">
           <span className="font-semibold text-status-warning">
             {plural(dirtyCount, 'unsaved_banner.unsaved_changes_count')}
           </span>
           {sectionList && (
-            <span className="text-pc-text-secondary"> {t('unsaved_banner.in_sections_prefix')}{sectionList}</span>
+            <span className="text-text-secondary"> {t('unsaved_banner.in_sections_prefix')}{sectionList}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -128,7 +128,7 @@ export default function UnsavedChangesBanner() {
         </p>
       )}
       {warnings.length > 0 && (
-        <ul className="text-xs flex flex-col gap-0.5 text-pc-text-secondary">
+        <ul className="text-xs flex flex-col gap-0.5 text-text-secondary">
           {warnings.map((w, i) => (
             <li key={`${w.path}-${i}`}>
               ⚠ {w.path}: {validationWarningMessage(w)}

@@ -87,14 +87,14 @@ export class ErrorBoundary extends Component<
             </h2>
             <p
               className="text-sm mb-4"
-              style={{ color: "var(--pc-text-muted)" }}
+              style={{ color: "var(--color-muted-foreground)" }}
             >
               A render error occurred. Check the browser console for details.
             </p>
             <pre
               className="text-xs rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all font-mono"
               style={{
-                background: "var(--pc-bg-base)",
+                background: "var(--color-background)",
                 color: "var(--color-status-error)",
               }}
             >
@@ -225,7 +225,7 @@ function PairingDialog({
   return (
     <div
       className="min-h-screen flex items-center justify-center"
-      style={{ background: "var(--pc-bg-base)" }}
+      style={{ background: "var(--color-background)" }}
     >
       {/* Ambient glow */}
       <div className="relative surface-panel p-8 w-full max-w-md animate-fade-in-scale">
@@ -241,7 +241,7 @@ function PairingDialog({
           <h1 className="text-2xl font-bold mb-2 text-gradient-blue">
             {t('product.name')}
           </h1>
-          <p className="text-sm" style={{ color: "var(--pc-text-muted)" }}>
+          <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
             {codeLoading
               ? t('pairing.checking_status')
               : displayCode
@@ -256,9 +256,9 @@ function PairingDialog({
           <div
             className="mb-6 p-4 rounded-2xl border text-center text-sm"
             style={{
-              background: "var(--pc-bg-elevated)",
-              borderColor: "var(--pc-border)",
-              color: "var(--pc-text-muted)",
+              background: "var(--color-secondary)",
+              borderColor: "var(--color-border)",
+              color: "var(--color-muted-foreground)",
             }}
           >
             {isLocalhost && !showCliFallback ? (
@@ -290,8 +290,8 @@ function PairingDialog({
                 <code
                   className="block px-3 py-2 rounded-lg font-mono text-xs break-all select-all"
                   style={{
-                    background: "var(--pc-bg-code)",
-                    color: "var(--pc-text-primary)",
+                    background: "var(--color-code)",
+                    color: "var(--color-foreground)",
                   }}
                 >
                   {cliRecoveryCommand}
@@ -306,19 +306,19 @@ function PairingDialog({
           <div
             className="mb-6 p-4 rounded-2xl text-center border"
             style={{
-              background: "var(--pc-accent-glow)",
-              borderColor: "var(--pc-accent-dim)",
+              background: "var(--color-accent-glow)",
+              borderColor: "var(--color-accent-dim)",
             }}
           >
             <div
               className="text-4xl font-mono font-bold tracking-[0.4em] py-2"
-              style={{ color: "var(--pc-text-primary)" }}
+              style={{ color: "var(--color-foreground)" }}
             >
               {displayCode}
             </div>
             <p
               className="text-xs mt-2"
-              style={{ color: "var(--pc-text-muted)" }}
+              style={{ color: "var(--color-muted-foreground)" }}
             >
               {t('pairing.enter_code_hint')}
             </p>
@@ -413,17 +413,17 @@ function AppContent() {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
-        style={{ background: "var(--pc-bg-base)" }}
+        style={{ background: "var(--color-background)" }}
       >
         <div className="flex flex-col items-center gap-4 animate-fade-in">
           <div
             className="h-10 w-10 border-2 rounded-full animate-spin"
             style={{
-              borderColor: "var(--pc-border)",
-              borderTopColor: "var(--pc-accent)",
+              borderColor: "var(--color-border)",
+              borderTopColor: "var(--color-primary)",
             }}
           />
-          <p className="text-sm" style={{ color: "var(--pc-text-muted)" }}>
+          <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
             Connecting...
           </p>
         </div>

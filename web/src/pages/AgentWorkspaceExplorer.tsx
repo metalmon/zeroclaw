@@ -109,17 +109,17 @@ function PromptDialog({
       className="fixed inset-0 z-50 flex items-center justify-center"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-pc-base/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
       <div
         ref={panelRef}
-        className="relative w-full max-w-sm mx-4 rounded-[var(--radius-xl)] border border-pc-border bg-pc-base shadow-[var(--pc-shadow-md)] animate-fade-in"
+        className="relative w-full max-w-sm mx-4 rounded-[var(--radius-xl)] border border-border bg-background shadow-[var(--color-shadow-md)] animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 pt-5 pb-4 flex flex-col gap-3">
-          <h2 id={titleId} className="text-sm font-semibold text-pc-text">
+          <h2 id={titleId} className="text-sm font-semibold text-foreground">
             {title}
           </h2>
-          {message && <p className="text-xs text-pc-text-muted">{message}</p>}
+          {message && <p className="text-xs text-muted-foreground">{message}</p>}
           <input
             ref={inputRef}
             type="text"
@@ -132,7 +132,7 @@ function PromptDialog({
             className="input-electric w-full px-3 py-2 text-sm"
           />
         </div>
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-pc-border">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
           </Button>
@@ -300,10 +300,10 @@ export default function AgentWorkspaceExplorer() {
             {t('workspace.back_to_chat_prefix')} ({alias})
           </Button>
         </Link>
-        <h1 className="text-lg font-semibold text-pc-text">
+        <h1 className="text-lg font-semibold text-foreground">
           {t('workspace.title')}
         </h1>
-        <code className="text-xs font-mono truncate text-pc-text-muted">
+        <code className="text-xs font-mono truncate text-muted-foreground">
           agents/{alias}/workspace/{cwd}
         </code>
         <div className="ml-auto inline-flex items-center gap-2">
@@ -337,13 +337,13 @@ export default function AgentWorkspaceExplorer() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card padded={false} className="overflow-hidden lg:col-span-1">
-          <ul className="max-h-[70vh] overflow-y-auto divide-y divide-pc-border">
+          <ul className="max-h-[70vh] overflow-y-auto divide-y divide-border">
             {parent !== null && (
               <li>
                 <button
                   type="button"
                   onClick={() => setCwd(parent)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-pc-text-secondary hover:bg-[var(--pc-hover)] transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-text-secondary hover:bg-[var(--color-hover)] transition-colors"
                 >
                   <ArrowUp className="h-3.5 w-3.5 flex-shrink-0" />
                   {t('workspace.up_one_level')}
@@ -352,10 +352,10 @@ export default function AgentWorkspaceExplorer() {
             )}
             {loading ? (
               <li className="px-3 py-6 flex items-center justify-center">
-                <div className="h-5 w-5 border-2 rounded-full animate-spin border-pc-border border-t-pc-accent" />
+                <div className="h-5 w-5 border-2 rounded-full animate-spin border-border border-t-pc-accent" />
               </li>
             ) : entries.length === 0 ? (
-              <li className="px-3 py-3 text-xs italic text-pc-text-faint">
+              <li className="px-3 py-3 text-xs italic text-text-faint">
                 {t('workspace.empty')}
               </li>
             ) : (
@@ -364,7 +364,7 @@ export default function AgentWorkspaceExplorer() {
                 const isSelected = selected === full && entry.kind === 'file';
                 return (
                   <li key={`${entry.kind}-${entry.name}`}>
-                    <div className={`flex items-stretch transition-colors ${isSelected ? 'bg-pc-accent/10' : 'hover:bg-[var(--pc-hover)]'}`}>
+                    <div className={`flex items-stretch transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-[var(--color-hover)]'}`}>
                       <button
                         type="button"
                         onClick={() => {
@@ -374,23 +374,23 @@ export default function AgentWorkspaceExplorer() {
                             void openFile(entry.name);
                           }
                         }}
-                        className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left text-pc-text min-w-0"
+                        className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left text-foreground min-w-0"
                       >
                         {entry.kind === 'dir' ? (
-                          <FolderOpen className="h-3.5 w-3.5 flex-shrink-0 text-pc-accent" />
+                          <FolderOpen className="h-3.5 w-3.5 flex-shrink-0 text-primary" />
                         ) : (
-                          <FileText className="h-3.5 w-3.5 flex-shrink-0 text-pc-text-muted" />
+                          <FileText className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                         )}
                         <span className="flex-1 min-w-0 truncate">{entry.name}</span>
                         {entry.kind === 'file' && typeof entry.size === 'number' && (
-                          <span className="text-xs flex-shrink-0 text-pc-text-faint">
+                          <span className="text-xs flex-shrink-0 text-text-faint">
                             {formatBytes(entry.size)}
                           </span>
                         )}
                       </button>
                       {entry.protected ? (
                         <span
-                          className="px-2 flex items-center text-pc-text-faint"
+                          className="px-2 flex items-center text-text-faint"
                           title={t('workspace.protected_title')}
                         >
                           <Lock className="h-3.5 w-3.5" />
@@ -402,7 +402,7 @@ export default function AgentWorkspaceExplorer() {
                             onClick={() => setRenaming(entry.name)}
                             disabled={busy === full}
                             title={t('workspace.rename_move_title')}
-                            className="px-2 text-pc-text-muted hover:text-pc-text transition-colors disabled:opacity-30"
+                            className="px-2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
@@ -411,7 +411,7 @@ export default function AgentWorkspaceExplorer() {
                             onClick={() => setPendingDelete({ name: entry.name, kind: entry.kind })}
                             disabled={busy === full}
                             title={t('common.delete')}
-                            className="px-2 text-pc-text-muted hover:text-status-error transition-colors disabled:opacity-30"
+                            className="px-2 text-muted-foreground hover:text-status-error transition-colors disabled:opacity-30"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -432,31 +432,31 @@ export default function AgentWorkspaceExplorer() {
         >
           {selected ? (
             <>
-              <div className="flex items-center gap-2 px-4 py-2 border-b border-pc-border text-xs text-pc-text-secondary bg-pc-elevated">
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-border text-xs text-text-secondary bg-secondary">
                 <FileText className="h-3.5 w-3.5 flex-shrink-0" />
-                <code className="flex-1 min-w-0 truncate font-mono text-pc-text">
+                <code className="flex-1 min-w-0 truncate font-mono text-foreground">
                   {selected}
                 </code>
                 {viewer && (
-                  <span className="text-pc-text-faint">
+                  <span className="text-text-faint">
                     {formatBytes(viewer.size)} · {viewer.encoding}
                   </span>
                 )}
               </div>
               <div className="flex-1 overflow-auto p-4">
                 {viewerLoading ? (
-                  <div className="h-5 w-5 border-2 rounded-full animate-spin border-pc-border border-t-pc-accent" />
+                  <div className="h-5 w-5 border-2 rounded-full animate-spin border-border border-t-pc-accent" />
                 ) : viewerError ? (
                   <p className="text-sm text-status-error">
                     {viewerError}
                   </p>
                 ) : viewer ? (
                   viewer.is_text ? (
-                    <pre className="text-xs font-mono whitespace-pre-wrap break-words text-pc-text">
+                    <pre className="text-xs font-mono whitespace-pre-wrap break-words text-foreground">
                       {viewer.content}
                     </pre>
                   ) : (
-                    <p className="text-sm text-pc-text-muted">
+                    <p className="text-sm text-muted-foreground">
                       {t('workspace.binary_file_prefix')} ({formatBytes(viewer.size)}).{' '}
                       {t('workspace.binary_file_suffix')}
                     </p>
@@ -465,7 +465,7 @@ export default function AgentWorkspaceExplorer() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-sm text-pc-text-faint">
+            <div className="flex-1 flex items-center justify-center text-sm text-text-faint">
               {t('workspace.select_file_hint')}
             </div>
           )}

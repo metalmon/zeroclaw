@@ -69,7 +69,7 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
 
   return (
     <Card className="space-y-4">
-      <h3 className="text-sm font-semibold text-pc-text">
+      <h3 className="text-sm font-semibold text-foreground">
         {form.editingId ? t('roles.edit_profile_title') : t('roles.new_profile_title')}
       </h3>
 
@@ -80,7 +80,7 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
       )}
 
       <div className="space-y-1">
-        <label htmlFor="roles-profile-id" className="text-xs font-medium text-pc-text-secondary">
+        <label htmlFor="roles-profile-id" className="text-xs font-medium text-text-secondary">
           {t('roles.profile_id')}
         </label>
         <input
@@ -90,16 +90,16 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
           disabled={form.editingId !== null}
           placeholder={t('roles.profile_id_placeholder')}
           onChange={(e) => onChange({ ...form, id: e.target.value })}
-          className="w-full max-w-sm rounded-[var(--radius-md)] border border-pc-border bg-pc-base px-3 py-1.5 text-sm text-pc-text disabled:opacity-50"
+          className="w-full max-w-sm rounded-[var(--radius-md)] border border-border bg-background px-3 py-1.5 text-sm text-foreground disabled:opacity-50"
         />
         {form.editingId !== null && (
-          <p className="text-[11px] text-pc-text-muted">{t('roles.profile_id_immutable_hint')}</p>
+          <p className="text-[11px] text-muted-foreground">{t('roles.profile_id_immutable_hint')}</p>
         )}
       </div>
 
       <div className="space-y-1.5">
-        <span className="text-xs font-medium text-pc-text-secondary">{t('roles.allowed_agents')}</span>
-        <label className="flex items-center gap-2 text-sm text-pc-text">
+        <span className="text-xs font-medium text-text-secondary">{t('roles.allowed_agents')}</span>
+        <label className="flex items-center gap-2 text-sm text-foreground">
           <input
             type="checkbox"
             checked={form.allAgents}
@@ -109,11 +109,11 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
         </label>
         {!form.allAgents && (
           agents.length === 0 ? (
-            <p className="text-xs text-pc-text-muted">{t('roles.no_agents_configured')}</p>
+            <p className="text-xs text-muted-foreground">{t('roles.no_agents_configured')}</p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-40 overflow-y-auto rounded-[var(--radius-md)] border border-pc-border p-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-40 overflow-y-auto rounded-[var(--radius-md)] border border-border p-2">
               {agents.map((agent) => (
-                <label key={agent} className="flex items-center gap-2 text-sm text-pc-text-secondary">
+                <label key={agent} className="flex items-center gap-2 text-sm text-text-secondary">
                   <input
                     type="checkbox"
                     checked={form.allowedAgents.has(agent)}
@@ -127,7 +127,7 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
         )}
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-pc-text">
+      <label className="flex items-center gap-2 text-sm text-foreground">
         <input
           type="checkbox"
           checked={form.admin}
@@ -264,7 +264,7 @@ export default function Roles() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 border-2 rounded-full animate-spin border-pc-border border-t-pc-accent" />
+        <div className="h-8 w-8 border-2 rounded-full animate-spin border-border border-t-pc-accent" />
       </div>
     );
   }
@@ -329,24 +329,24 @@ export default function Roles() {
 
       {/* Permission profiles */}
       <Card padded={false} className="overflow-hidden">
-        <div className="px-5 py-4 border-b border-pc-border">
-          <h3 className="text-sm font-semibold text-pc-text">
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-semibold text-foreground">
             {t('roles.profiles_heading')} ({profiles.length})
           </h3>
         </div>
         {profiles.length === 0 ? (
-          <div className="p-8 text-center text-sm text-pc-text-muted">{t('roles.no_profiles')}</div>
+          <div className="p-8 text-center text-sm text-muted-foreground">{t('roles.no_profiles')}</div>
         ) : (
-          <ul className="divide-y divide-pc-border">
+          <ul className="divide-y divide-border">
             {profiles.map((profile) => (
               <li key={profile.id} className="flex items-center justify-between gap-3 px-5 py-3">
                 <div className="min-w-0 flex items-center gap-2 flex-wrap">
                   {profile.admin ? (
-                    <ShieldCheck className="h-4 w-4 shrink-0 text-pc-accent" aria-hidden="true" />
+                    <ShieldCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
                   ) : (
-                    <Shield className="h-4 w-4 shrink-0 text-pc-text-muted" aria-hidden="true" />
+                    <Shield className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   )}
-                  <span className="font-mono text-sm text-pc-text truncate">{profile.id}</span>
+                  <span className="font-mono text-sm text-foreground truncate">{profile.id}</span>
                   {profile.admin && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
                   <Badge tone="neutral">
                     {profile.allowed_agents.includes(ALL_AGENTS)
@@ -370,25 +370,25 @@ export default function Roles() {
 
       {/* Principal binding */}
       <Card padded={false} className="overflow-hidden">
-        <div className="px-5 py-4 border-b border-pc-border">
-          <h3 className="text-sm font-semibold text-pc-text">
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-semibold text-foreground">
             {t('roles.principals_heading')} ({principals.length})
           </h3>
         </div>
         {principals.length === 0 ? (
-          <div className="p-8 text-center text-sm text-pc-text-muted">{t('roles.no_principals')}</div>
+          <div className="p-8 text-center text-sm text-muted-foreground">{t('roles.no_principals')}</div>
         ) : (
-          <ul className="divide-y divide-pc-border">
+          <ul className="divide-y divide-border">
             {sortedPrincipals.map((principal) => {
               const pending = principal.profiles.length === 0;
               const unbound = profiles.filter((p) => !principal.profiles.includes(p.id));
               return (
                 <li key={principal.id} className="px-5 py-3 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-sm text-pc-text">{principal.id}</span>
+                    <span className="font-mono text-sm text-foreground">{principal.id}</span>
                     {isPrincipalAdmin(principal, profiles) && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
                     {pending && <Badge tone="warn">{t('roles.pending_badge')}</Badge>}
-                    <span className="text-[11px] text-pc-text-muted">
+                    <span className="text-[11px] text-muted-foreground">
                       {plural(principal.tokenHashCount, 'roles.token_count')} · {plural(principal.deviceIdCount, 'roles.device_count')}
                     </span>
                   </div>
@@ -428,7 +428,7 @@ export default function Roles() {
                     )}
                   </div>
                   {principal.legacyAllowedAgents.length > 0 && (
-                    <p className="text-[11px] text-pc-text-muted">
+                    <p className="text-[11px] text-muted-foreground">
                       {t('roles.legacy_agents_hint')} {principal.legacyAllowedAgents.join(', ')}
                     </p>
                   )}

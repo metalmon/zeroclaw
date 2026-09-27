@@ -130,15 +130,15 @@ function SeverityFilterToggle({
       title={active ? `${t('doctor.hide_prefix')}${label}` : `${t('doctor.show_prefix')}${label}`}
       className={[
         'inline-flex items-center gap-2 rounded-[var(--radius-md)] border px-2.5 py-1 transition-colors duration-150 cursor-pointer select-none',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         active
-          ? 'border-pc-accent bg-pc-accent/10 text-pc-text'
-          : 'border-pc-border bg-transparent text-pc-text-muted opacity-60 hover:opacity-100 hover:border-pc-border-strong',
+          ? 'border-primary bg-primary/10 text-foreground'
+          : 'border-border bg-transparent text-muted-foreground opacity-60 hover:opacity-100 hover:border-border-strong',
       ].join(' ')}
     >
       {icon}
-      <span className="text-sm font-medium text-pc-text">
-        {count} <span className="font-normal text-pc-text-muted">{label}</span>
+      <span className="text-sm font-medium text-foreground">
+        {count} <span className="font-normal text-muted-foreground">{label}</span>
       </span>
     </button>
   );
@@ -258,9 +258,9 @@ export default function Doctor() {
       {/* Loading state */}
       {loading && (
         <Card className="flex flex-col items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-pc-accent mb-4" />
-          <p className="text-sm text-pc-text-secondary">{t('doctor.running_desc')}</p>
-          <p className="text-[13px] mt-1 text-pc-text-faint">{t('doctor.running_hint')}</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-sm text-text-secondary">{t('doctor.running_desc')}</p>
+          <p className="text-[13px] mt-1 text-text-faint">{t('doctor.running_hint')}</p>
         </Card>
       )}
 
@@ -307,7 +307,7 @@ export default function Doctor() {
 
           {/* All severities toggled off → nothing to show. */}
           {filtered.length === 0 && results.length > 0 && (
-            <Card className="text-sm text-center text-pc-text-muted py-8">
+            <Card className="text-sm text-center text-muted-foreground py-8">
               {t('doctor.no_filter_match')}
             </Card>
           )}
@@ -317,7 +317,7 @@ export default function Doctor() {
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([category, items]) => (
               <div key={category}>
-                <h3 className="text-sm font-semibold uppercase tracking-wider mb-3 capitalize text-pc-text-muted">
+                <h3 className="text-sm font-semibold uppercase tracking-wider mb-3 capitalize text-muted-foreground">
                   {doctorCategoryLabel(category)}
                 </h3>
                 <div className="space-y-2">
@@ -334,13 +334,13 @@ export default function Doctor() {
                       >
                         {severityIcon(result.severity)}
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm text-pc-text">{result.message}</p>
+                          <p className="text-sm text-foreground">{result.message}</p>
                         </div>
                         {target && (
                           <button
                             type="button"
                             onClick={() => setFixTarget(target)}
-                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-pc-border bg-transparent px-2.5 text-[13px] font-medium text-pc-text-secondary transition-colors duration-150 hover:bg-[var(--pc-hover)] hover:text-pc-text hover:border-pc-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base cursor-pointer"
+                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2.5 text-[13px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background cursor-pointer"
                           >
                             {target.label}
                             <ArrowRight className="h-3.5 w-3.5" />
@@ -349,7 +349,7 @@ export default function Doctor() {
                         {link && (
                           <Link
                             to={link[0]}
-                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-pc-border bg-transparent px-2.5 text-[13px] font-medium text-pc-text-secondary transition-colors duration-150 hover:bg-[var(--pc-hover)] hover:text-pc-text hover:border-pc-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base"
+                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2.5 text-[13px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                           >
                             {link[1]}
                             <ArrowRight className="h-3.5 w-3.5" />
@@ -381,13 +381,13 @@ export default function Doctor() {
       {/* Empty state */}
       {!results && !loading && !error && (
         <Card className="flex flex-col items-center justify-center py-16">
-          <div className="h-16 w-16 rounded-[var(--radius-lg)] flex items-center justify-center mb-4 bg-pc-elevated border border-pc-border">
-            <Stethoscope className="h-8 w-8 text-pc-accent" />
+          <div className="h-16 w-16 rounded-[var(--radius-lg)] flex items-center justify-center mb-4 bg-secondary border border-border">
+            <Stethoscope className="h-8 w-8 text-primary" />
           </div>
-          <p className="text-lg font-semibold mb-1 text-pc-text">
+          <p className="text-lg font-semibold mb-1 text-foreground">
             {t('doctor.system_diagnostics')}
           </p>
-          <p className="text-sm text-pc-text-muted">{t('doctor.empty_hint')}</p>
+          <p className="text-sm text-muted-foreground">{t('doctor.empty_hint')}</p>
         </Card>
       )}
     </div>

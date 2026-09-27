@@ -522,7 +522,7 @@ export default function AcpConsole() {
       <PageHeader
         title={
           <span className="inline-flex items-center gap-2.5">
-            <Terminal className="h-5 w-5 text-pc-accent" />
+            <Terminal className="h-5 w-5 text-primary" />
             {t('acp.title')}
           </span>
         }
@@ -535,7 +535,7 @@ export default function AcpConsole() {
               value={selectedAgentAlias ?? ''}
               onChange={(event) => setSelectedAgentAlias(event.target.value || null)}
               disabled={agentsLoading || !hasEnabledAgent || busy}
-              className="h-9 min-w-0 max-w-full rounded-[var(--radius-md)] border border-pc-border bg-pc-input px-3 text-[13px] font-medium text-pc-text-secondary disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pc-accent/40 focus-visible:border-pc-accent/40"
+              className="h-9 min-w-0 max-w-full rounded-[var(--radius-md)] border border-border bg-input px-3 text-[13px] font-medium text-text-secondary disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
               aria-label={t('acp.agent_select_label')}
               title={t('acp.agent_select_label')}
             >
@@ -591,7 +591,7 @@ export default function AcpConsole() {
       )}
 
       {!agentsLoading && !hasEnabledAgent && (
-        <div className="rounded-[var(--radius-md)] border border-pc-border bg-pc-surface px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-sm text-pc-text-secondary">
+        <div className="rounded-[var(--radius-md)] border border-border bg-card px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-sm text-text-secondary">
           <span>
             {agents.length === 0
               ? t('acp.agent.none_configured')
@@ -607,9 +607,9 @@ export default function AcpConsole() {
       )}
 
       <main className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Card padded={false} className="overflow-hidden flex min-h-[560px] flex-col shadow-[var(--pc-shadow-sm)]">
-          <div className="border-b border-pc-border px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium text-pc-text-secondary">
+        <Card padded={false} className="overflow-hidden flex min-h-[560px] flex-col shadow-[var(--color-shadow-sm)]">
+          <div className="border-b border-border px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
               <Terminal className="h-4 w-4" />
               {t('acp.transcript')}
             </div>
@@ -623,7 +623,7 @@ export default function AcpConsole() {
 
           <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
             {messages.length === 0 && !streamingText ? (
-              <div className="h-full min-h-80 flex items-center justify-center text-sm text-pc-text-muted">
+              <div className="h-full min-h-80 flex items-center justify-center text-sm text-muted-foreground">
                 {t('acp.empty_transcript')}
               </div>
             ) : (
@@ -647,7 +647,7 @@ export default function AcpConsole() {
           </div>
 
           <form
-            className="border-t border-pc-border bg-pc-surface p-4 flex flex-col gap-3 sm:flex-row"
+            className="border-t border-border bg-card p-4 flex flex-col gap-3 sm:flex-row"
             onSubmit={(event) => {
               event.preventDefault();
               void sendPrompt();
@@ -657,7 +657,7 @@ export default function AcpConsole() {
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               rows={3}
-              className="min-h-20 flex-1 resize-none rounded-[var(--radius-md)] border border-pc-border bg-pc-input px-3 py-2 text-sm text-pc-text placeholder:text-pc-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pc-accent/40 focus-visible:border-pc-accent/40"
+              className="min-h-20 flex-1 resize-none rounded-[var(--radius-md)] border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
               placeholder={t('acp.prompt_placeholder')}
             />
             <Button type="submit" size="md" disabled={!canSend} className="sm:w-32">
@@ -668,16 +668,16 @@ export default function AcpConsole() {
         </Card>
 
         <aside className="flex min-h-0 flex-col gap-4">
-          <Card padded={false} className="overflow-hidden shadow-[var(--pc-shadow-sm)]">
-            <div className="border-b border-pc-border px-4 py-3 flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-pc-accent" />
-              <h2 className="text-sm font-semibold text-pc-text">
+          <Card padded={false} className="overflow-hidden shadow-[var(--color-shadow-sm)]">
+            <div className="border-b border-border px-4 py-3 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">
                 {t('acp.permissions')}
               </h2>
             </div>
             <div className="p-4 space-y-3">
               {permissions.length === 0 ? (
-                <p className="text-sm text-pc-text-muted">
+                <p className="text-sm text-muted-foreground">
                   {t('acp.permissions_empty')}
                 </p>
               ) : (
@@ -687,17 +687,17 @@ export default function AcpConsole() {
                     className="rounded-[var(--radius-md)] border border-status-warning/20 bg-status-warning/5 p-3 space-y-3"
                   >
                     <div>
-                      <div className="text-sm font-medium text-pc-text">
+                      <div className="text-sm font-medium text-foreground">
                         {permission.title}
                       </div>
                       {permission.sessionId && (
-                        <div className="text-xs mt-1 font-mono text-pc-text-muted">
+                        <div className="text-xs mt-1 font-mono text-muted-foreground">
                           {permission.sessionId}
                         </div>
                       )}
                     </div>
                     {permission.detail && (
-                      <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-[var(--radius-sm)] bg-pc-code p-2 text-xs text-pc-text-secondary">
+                      <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-[var(--radius-sm)] bg-code p-2 text-xs text-text-secondary">
                         {permission.detail}
                       </pre>
                     )}
@@ -724,15 +724,15 @@ export default function AcpConsole() {
             </div>
           </Card>
 
-          <Card padded={false} className="overflow-hidden flex min-h-0 flex-1 flex-col shadow-[var(--pc-shadow-sm)]">
-            <div className="border-b border-pc-border px-4 py-3">
-              <h2 className="text-sm font-semibold text-pc-text">
+          <Card padded={false} className="overflow-hidden flex min-h-0 flex-1 flex-col shadow-[var(--color-shadow-sm)]">
+            <div className="border-b border-border px-4 py-3">
+              <h2 className="text-sm font-semibold text-foreground">
                 {t('acp.protocol_log')}
               </h2>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {events.length === 0 ? (
-                <p className="text-sm text-pc-text-muted">
+                <p className="text-sm text-muted-foreground">
                   {t('acp.protocol_waiting')}
                 </p>
               ) : (
@@ -740,7 +740,7 @@ export default function AcpConsole() {
                   {events.map((event, index) => (
                     <li
                       key={`${event}-${index}`}
-                      className="rounded-[var(--radius-sm)] bg-pc-code px-2 py-1.5 font-mono text-xs text-pc-text-secondary"
+                      className="rounded-[var(--radius-sm)] bg-code px-2 py-1.5 font-mono text-xs text-text-secondary"
                     >
                       {event}
                     </li>
@@ -758,10 +758,10 @@ export default function AcpConsole() {
 function StatusTile({ label, value }: { label: string; value: string }) {
   return (
     <Card>
-      <div className="text-[11px] font-medium uppercase tracking-wide text-pc-text-faint">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-text-faint">
         {label}
       </div>
-      <div className="mt-1 truncate text-sm font-medium text-pc-text" title={value}>
+      <div className="mt-1 truncate text-sm font-medium text-foreground" title={value}>
         {value}
       </div>
     </Card>
@@ -771,11 +771,11 @@ function StatusTile({ label, value }: { label: string; value: string }) {
 // Calm per-kind treatment for transcript rows. The user turn carries a faint
 // accent tint; everything else sits on neutral surfaces keyed by tokens.
 const TRANSCRIPT_TONE: Record<ConsoleMessageKind, { labelKey: string; className: string }> = {
-  user: { labelKey: 'acp.role_you', className: 'bg-pc-accent/[0.06] border-pc-accent/25' },
-  assistant: { labelKey: 'acp.role_agent', className: 'bg-pc-elevated border-pc-border' },
-  thought: { labelKey: 'acp.role_thought', className: 'bg-pc-surface border-pc-border' },
-  tool: { labelKey: 'acp.role_tool', className: 'bg-pc-code border-pc-border' },
-  system: { labelKey: 'acp.role_system', className: 'bg-pc-surface border-pc-border' },
+  user: { labelKey: 'acp.role_you', className: 'bg-primary/[0.06] border-primary/25' },
+  assistant: { labelKey: 'acp.role_agent', className: 'bg-secondary border-border' },
+  thought: { labelKey: 'acp.role_thought', className: 'bg-card border-border' },
+  tool: { labelKey: 'acp.role_tool', className: 'bg-code border-border' },
+  system: { labelKey: 'acp.role_system', className: 'bg-card border-border' },
 };
 
 function TranscriptMessage({ message }: { message: ConsoleMessage }) {
@@ -784,18 +784,18 @@ function TranscriptMessage({ message }: { message: ConsoleMessage }) {
   return (
     <article className={`rounded-[var(--radius-md)] border p-3 ${tone.className}`}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-pc-text-muted">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {message.title ?? t(tone.labelKey)}
         </div>
-        <time className="text-[11px] font-mono text-pc-text-faint">
+        <time className="text-[11px] font-mono text-text-faint">
           {message.timestamp}
         </time>
       </div>
-      <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-pc-text">
+      <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
         {message.content}
       </div>
       {message.detail && (
-        <pre className="mt-3 max-h-60 overflow-auto whitespace-pre-wrap rounded-[var(--radius-sm)] bg-pc-base p-2 text-xs text-pc-text-secondary">
+        <pre className="mt-3 max-h-60 overflow-auto whitespace-pre-wrap rounded-[var(--radius-sm)] bg-background p-2 text-xs text-text-secondary">
           {message.detail}
         </pre>
       )}

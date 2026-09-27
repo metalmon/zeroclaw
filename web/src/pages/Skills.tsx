@@ -121,7 +121,7 @@ export default function Skills() {
       <div className="flex items-center justify-center h-64">
         <div
           className="h-8 w-8 border-2 rounded-full animate-spin"
-          style={{ borderColor: 'var(--pc-border)', borderTopColor: 'var(--pc-accent)' }}
+          style={{ borderColor: 'var(--color-border)', borderTopColor: 'var(--color-primary)' }}
         />
       </div>
     );
@@ -149,7 +149,7 @@ export default function Skills() {
           <div className="relative max-w-md flex-1">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4"
-              style={{ color: 'var(--pc-text-faint)' }}
+              style={{ color: 'var(--color-text-faint)' }}
             />
             <input
               type="text"
@@ -175,10 +175,10 @@ export default function Skills() {
 
       {/* Section header */}
       <div className="flex items-center gap-2">
-        <BookOpen className="h-5 w-5" style={{ color: 'var(--pc-accent)' }} />
+        <BookOpen className="h-5 w-5" style={{ color: 'var(--color-primary)' }} />
         <span
           className="text-sm font-semibold uppercase tracking-wider"
-          style={{ color: 'var(--pc-text-primary)' }}
+          style={{ color: 'var(--color-foreground)' }}
         >
           {t('skills.title')} ({filtered.length})
         </span>
@@ -201,7 +201,7 @@ export default function Skills() {
               <li
                 key={`${d.origin}/${d.name}`}
                 className="text-xs"
-                style={{ color: 'var(--pc-text-muted)' }}
+                style={{ color: 'var(--color-muted-foreground)' }}
               >
                 <span className="font-mono">{d.name}</span> ({d.origin}) — {d.reason}
               </li>
@@ -213,7 +213,7 @@ export default function Skills() {
       {/* Empty state — only when there are no skills AND nothing was dropped;
           the dropped banner above already explains the "all skipped" case. */}
       {filtered.length === 0 && dropped.length === 0 && (
-        <p className="text-sm" style={{ color: 'var(--pc-text-muted)' }}>
+        <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
           {t('skills.empty')}
         </p>
       )}

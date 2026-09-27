@@ -240,7 +240,7 @@ export default function ToolPicker({
       {/* Selected chips */}
       <div className="flex flex-wrap gap-1.5" aria-label={t('tool_picker.selected_tools')}>
         {value.length === 0 ? (
-          <span className="text-xs text-pc-text-faint py-0.5">
+          <span className="text-xs text-text-faint py-0.5">
             {t('tool_picker.no_tools_selected')}
           </span>
         ) : (
@@ -253,7 +253,7 @@ export default function ToolPicker({
                   // min-h keeps the whole chip a comfortable touch target.
                   'inline-flex min-h-[44px] items-center gap-1 rounded-[var(--radius-md)] pl-2.5 pr-1 text-xs font-medium border',
                   known
-                    ? 'border-pc-accent/30 bg-pc-accent/10 text-pc-accent'
+                    ? 'border-primary/30 bg-primary/10 text-primary'
                     : 'border-status-warning/30 bg-status-warning/10 text-status-warning',
                 ].join(' ')}
                 title={
@@ -268,7 +268,7 @@ export default function ToolPicker({
                   onClick={() => removeChip(name)}
                   disabled={disabled}
                   aria-label={`${t('tool_picker.remove_prefix')}${name}`}
-                  className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center self-stretch rounded-full hover:bg-pc-accent/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center self-stretch rounded-full hover:bg-primary/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -280,7 +280,7 @@ export default function ToolPicker({
 
       {/* Search box */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-pc-text-faint pointer-events-none" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-faint pointer-events-none" />
         <input
           id={id}
           type="text"
@@ -292,7 +292,7 @@ export default function ToolPicker({
           onChange={(e) => setSearch(e.target.value)}
           disabled={disabled || loading || error !== null}
           placeholder={t('tool_picker.search_placeholder')}
-          className="w-full h-9 pl-9 pr-3 text-sm rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-9 pl-9 pr-3 text-sm rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </div>
 
@@ -314,7 +314,7 @@ export default function ToolPicker({
                     ? t('tool_picker.deselect_all_aria_prefix')
                     : t('tool_picker.select_all_aria_prefix')
                 }${t('tool_picker.group_agent')}`}
-                className="text-[10px] font-medium text-pc-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]/40 rounded cursor-pointer"
+                className="text-[10px] font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40 rounded cursor-pointer"
               >
                 {agentAllSelected
                   ? t('tool_picker.deselect_all')
@@ -331,7 +331,7 @@ export default function ToolPicker({
                     ? t('tool_picker.deselect_all_aria_prefix')
                     : t('tool_picker.select_all_aria_prefix')
                 }${t('tool_picker.group_cli')}`}
-                className="text-[10px] font-medium text-pc-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]/40 rounded cursor-pointer"
+                className="text-[10px] font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40 rounded cursor-pointer"
               >
                 {cliAllSelected
                   ? t('tool_picker.deselect_all')
@@ -352,10 +352,10 @@ export default function ToolPicker({
 
       {/* Catalog list */}
       {loading ? (
-        <div className="flex items-center gap-2 px-3 py-4 text-xs text-pc-text-muted">
+        <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
           <div
-            className="h-4 w-4 border-2 rounded-full animate-spin border-pc-border"
-            style={{ borderTopColor: 'var(--pc-accent)' }}
+            className="h-4 w-4 border-2 rounded-full animate-spin border-border"
+            style={{ borderTopColor: 'var(--color-primary)' }}
           />
           {t('tool_picker.loading')}
         </div>
@@ -371,7 +371,7 @@ export default function ToolPicker({
           aria-multiselectable="true"
           aria-label={t('tool_picker.available_tools')}
           onKeyDown={onListboxKeyDown}
-          className="max-h-64 overflow-y-auto rounded-[var(--radius-md)] border border-pc-border bg-pc-surface divide-y divide-pc-border/60"
+          className="max-h-64 overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card divide-y divide-border/60"
         >
           {/* Unknown-but-selected entries float to the top so the operator
               can see (and keep or drop) tools the catalog no longer lists. */}
@@ -397,7 +397,7 @@ export default function ToolPicker({
 
           {agentEntries.length > 0 && (
             <ToolGroup
-              icon={<Wrench className="h-3.5 w-3.5 text-pc-accent" />}
+              icon={<Wrench className="h-3.5 w-3.5 text-primary" />}
               label={t('tool_picker.group_agent')}
               count={agentEntries.length}
             >
@@ -416,7 +416,7 @@ export default function ToolPicker({
 
           {cliEntries.length > 0 && (
             <ToolGroup
-              icon={<Terminal className="h-3.5 w-3.5 text-pc-text-muted" />}
+              icon={<Terminal className="h-3.5 w-3.5 text-muted-foreground" />}
               label={t('tool_picker.group_cli')}
               count={cliEntries.length}
             >
@@ -436,7 +436,7 @@ export default function ToolPicker({
           {agentEntries.length === 0 &&
             cliEntries.length === 0 &&
             unknownSelected.length === 0 && (
-              <p className="px-3 py-4 text-xs text-center text-pc-text-muted">
+              <p className="px-3 py-4 text-xs text-center text-muted-foreground">
                 {search.trim()
                   ? `${t('tool_picker.no_match_prefix')}"${search.trim()}"${t('tool_picker.no_match_suffix')}`
                   : t('tool_picker.no_tools_available')}
@@ -461,14 +461,14 @@ function ToolGroup({
 }) {
   return (
     <div>
-      <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-pc-elevated border-b border-pc-border/60">
+      <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-secondary border-b border-border/60">
         {icon}
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-pc-text-faint">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-text-faint">
           {label}
         </span>
-        <span className="text-[10px] text-pc-text-faint">({count})</span>
+        <span className="text-[10px] text-text-faint">({count})</span>
       </div>
-      <div className="divide-y divide-pc-border/40">{children}</div>
+      <div className="divide-y divide-border/40">{children}</div>
     </div>
   );
 }
@@ -506,9 +506,9 @@ function ToolRow({
         }
       }}
       className={[
-        'flex min-h-[44px] items-start gap-2.5 px-3 py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--pc-focus)]/40',
+        'flex min-h-[44px] items-start gap-2.5 px-3 py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-focus)]/40',
         disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-        selected ? 'bg-pc-accent/10' : 'hover:bg-pc-elevated/60',
+        selected ? 'bg-primary/10' : 'hover:bg-secondary/60',
       ].join(' ')}
     >
       <input
@@ -518,14 +518,14 @@ function ToolRow({
         disabled={disabled}
         tabIndex={-1}
         aria-hidden="true"
-        className="mt-0.5 accent-pc-accent pointer-events-none"
+        className="mt-0.5 accent-primary pointer-events-none"
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span
             className={[
               'font-mono text-xs truncate',
-              selected ? 'text-pc-accent' : 'text-pc-text',
+              selected ? 'text-primary' : 'text-foreground',
             ].join(' ')}
           >
             {name}
@@ -536,7 +536,7 @@ function ToolRow({
             </span>
           )}
         </div>
-        <p className="text-xs mt-0.5 text-pc-text-muted">
+        <p className="text-xs mt-0.5 text-muted-foreground">
           {truncate(description)}
         </p>
       </div>
