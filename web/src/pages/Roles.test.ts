@@ -286,9 +286,7 @@ test('binding a pending principal to a profile calls the bind endpoint and clear
   // alice's <li> row specifically — bob also has an unbound profile (he's
   // only bound to "ops" of the two configured profiles) and so renders his
   // own bind picker too.
-  const aliceRow = renderer.root
-    .findAllByType('li')
-    .find((li) => nodeText(li).includes('alice'));
+  const aliceRow = renderer.root.findAllByProps({ ariaLabel: 'alice' })[0];
   assert.ok(aliceRow, "alice's principal row is rendered");
   const aliceSelect = aliceRow.findByType(Select);
   await act(async () => { aliceSelect.props.onChange('crm'); });

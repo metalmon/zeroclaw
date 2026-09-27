@@ -1,8 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Plus, Shield, ShieldCheck, Trash2, X } from 'lucide-react';
+import { Plus, Shield, ShieldCheck, Trash2, User, X } from 'lucide-react';
 import { useRoles } from '@/hooks/useRoles';
 import { HttpError, type AuthzProfile, type AuthzPrincipalSummary } from '@/lib/api';
 import { Badge, Button, Card, ConfirmDialog, PageHeader, Select } from '@/components/ui';
+import {
+  SettingsPageShell,
+  SettingsListBody,
+  SettingsSectionLabel,
+  SettingsSelectableRow,
+} from '@/components/ui/settings-list';
+import { DetailPanel, DetailPanelSurface } from '@/components/ui/detail-panel';
 import { plural, t } from '@/lib/i18n';
 
 // Sentinel written into `allowed_agents` for "every agent" — matches the
@@ -59,6 +66,8 @@ interface ProfileFormProps {
   onCancel: () => void;
 }
 
+// Fields only — the framing (title, close) is provided by the DetailPanel that
+// hosts this form in the right drawer.
 function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCancel }: ProfileFormProps) {
   const toggleAgent = (agent: string) => {
     const next = new Set(form.allowedAgents);
@@ -68,11 +77,7 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
   };
 
   return (
-    <Card className="space-y-4">
-      <h3 className="text-sm font-semibold text-foreground">
-        {form.editingId ? t('roles.edit_profile_title') : t('roles.new_profile_title')}
-      </h3>
-
+    <div className="space-y-5">
       {formError && (
         <p className="text-xs text-status-error" role="alert">
           {formError}
@@ -90,7 +95,7 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
           disabled={form.editingId !== null}
           placeholder={t('roles.profile_id_placeholder')}
           onChange={(e) => onChange({ ...form, id: e.target.value })}
-          className="w-full max-w-sm rounded-[var(--radius-md)] border border-border bg-background px-3 py-1.5 text-sm text-foreground disabled:opacity-50"
+          className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground disabled:opacity-50 focus:border-border-strong focus:outline-none"
         />
         {form.editingId !== null && (
           <p className="text-[11px] text-muted-foreground">{t('roles.profile_id_immutable_hint')}</p>
@@ -107,11 +112,11 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
           />
           {t('roles.all_agents')}
         </label>
-        {!form.allAgents && (
-          agents.length === 0 ? (
+        {!form.allAgents &&
+          (agents.length === 0 ? (
             <p className="text-xs text-muted-foreground">{t('roles.no_agents_configured')}</p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-40 overflow-y-auto rounded-[var(--radius-md)] border border-border p-2">
+            <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto rounded-lg border border-border p-2">
               {agents.map((agent) => (
                 <label key={agent} className="flex items-center gap-2 text-sm text-text-secondary">
                   <input
@@ -123,8 +128,7 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
                 </label>
               ))}
             </div>
-          )
-        )}
+          ))}
       </div>
 
       <label className="flex items-center gap-2 text-sm text-foreground">
@@ -140,11 +144,11 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
         <Button onClick={onSave} disabled={saving}>
           {t('roles.save')}
         </Button>
-        <Button variant="ghost" onClick={onCancel} disabled={saving}>
+        <Button variant="outline" onClick={onCancel} disabled={saving}>
           {t('roles.cancel')}
         </Button>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -264,180 +268,225 @@ export default function Roles() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 border-2 rounded-full animate-spin border-border border-t-pc-accent" />
+        <div className="h-8 w-8 border-2 rounded-full animate-spin border-border border-t-primary" />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title={t('roles.title')}
-        description={t('roles.description')}
-        actions={
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            {t('roles.new_profile')}
-          </Button>
-        }
-      />
+    <>
+      <SettingsPageShell>
+        <PageHeader
+          title={t('roles.title')}
+          description={t('roles.description')}
+          actions={
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              {t('roles.new_profile')}
+            </Button>
+          }
+        />
 
-      {(error || actionError) && (
-        <Card className="flex items-start gap-2 text-sm border-status-error/25 bg-status-error/10 text-status-error">
-          <span className="flex-1">{error ? t('roles.load_error') : actionError}</span>
-          <button
-            type="button"
-            onClick={() => setActionError(null)}
-            className="flex-shrink-0 text-status-error/70 hover:text-status-error transition-colors"
-            aria-label={t('roles.dismiss')}
+        {(error || actionError) && (
+          <Card
+            padded={false}
+            className="flex items-start gap-2 p-4 text-sm border-status-error/25 bg-status-error/10 text-status-error"
           >
-            <X className="h-4 w-4" />
-          </button>
-        </Card>
-      )}
-
-      {deleteAffected && (
-        <Card className="text-sm border-status-warning/25 bg-status-warning/10 text-status-warning space-y-1">
-          <div className="flex items-start justify-between gap-2">
-            <span>
-              {plural(deleteAffected.principals.length, 'roles.delete_profile_affected')}
-            </span>
+            <span className="flex-1">{error ? t('roles.load_error') : actionError}</span>
             <button
               type="button"
-              onClick={() => setDeleteAffected(null)}
-              className="flex-shrink-0 text-status-warning/70 hover:text-status-warning transition-colors"
+              onClick={() => setActionError(null)}
+              className="flex-shrink-0 text-status-error/70 hover:text-status-error transition-colors"
               aria-label={t('roles.dismiss')}
             >
               <X className="h-4 w-4" />
             </button>
-          </div>
-          <p className="font-mono text-xs">{deleteAffected.principals.join(', ')}</p>
-        </Card>
-      )}
+          </Card>
+        )}
 
-      {form && (
-        <ProfileForm
-          form={form}
-          agents={agents}
-          saving={saving}
-          formError={formError}
-          onChange={setForm}
-          onSave={() => void handleSave()}
-          onCancel={closeForm}
-        />
-      )}
+        {deleteAffected && (
+          <Card
+            padded={false}
+            className="space-y-1 p-4 text-sm border-status-warning/25 bg-status-warning/10 text-status-warning"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span>{plural(deleteAffected.principals.length, 'roles.delete_profile_affected')}</span>
+              <button
+                type="button"
+                onClick={() => setDeleteAffected(null)}
+                className="flex-shrink-0 text-status-warning/70 hover:text-status-warning transition-colors"
+                aria-label={t('roles.dismiss')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="font-mono text-xs">{deleteAffected.principals.join(', ')}</p>
+          </Card>
+        )}
 
-      {/* Permission profiles */}
-      <Card padded={false} className="overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
-          <h3 className="text-sm font-semibold text-foreground">
-            {t('roles.profiles_heading')} ({profiles.length})
-          </h3>
-        </div>
+        {/* Permission profiles */}
+        <SettingsSectionLabel>
+          {t('roles.profiles_heading')} · {profiles.length}
+        </SettingsSectionLabel>
         {profiles.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">{t('roles.no_profiles')}</div>
+          <Card padded={false} className="p-8 text-center text-sm text-muted-foreground">
+            {t('roles.no_profiles')}
+          </Card>
         ) : (
-          <ul className="divide-y divide-border">
+          <SettingsListBody>
             {profiles.map((profile) => (
-              <li key={profile.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                <div className="min-w-0 flex items-center gap-2 flex-wrap">
-                  {profile.admin ? (
-                    <ShieldCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                  ) : (
-                    <Shield className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  )}
-                  <span className="font-mono text-sm text-foreground truncate">{profile.id}</span>
-                  {profile.admin && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
-                  <Badge tone="neutral">
-                    {profile.allowed_agents.includes(ALL_AGENTS)
-                      ? t('roles.all_agents')
-                      : `${profile.allowed_agents.length}`}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(profile)}>
-                    {t('roles.edit')}
-                  </Button>
-                  <Button variant="destructive" size="sm" onClick={() => setPendingDelete(profile)}>
+              <SettingsSelectableRow
+                key={profile.id}
+                ariaLabel={profile.id}
+                isSelected={form?.editingId === profile.id}
+                onSelect={() => openEdit(profile)}
+                leading={
+                  <span
+                    className={`grid h-9 w-9 place-items-center rounded-lg ${
+                      profile.admin ? 'bg-status-success/10 text-status-success' : 'bg-secondary text-muted-foreground'
+                    }`}
+                  >
+                    {profile.admin ? (
+                      <ShieldCheck className="h-[18px] w-[18px]" />
+                    ) : (
+                      <Shield className="h-[18px] w-[18px]" />
+                    )}
+                  </span>
+                }
+                title={
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono">{profile.id}</span>
+                    {profile.admin && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
+                    <Badge tone="neutral">
+                      {profile.allowed_agents.includes(ALL_AGENTS)
+                        ? t('roles.all_agents')
+                        : `${profile.allowed_agents.length}`}
+                    </Badge>
+                  </span>
+                }
+                trailing={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setPendingDelete(profile)}
+                    aria-label={t('roles.delete')}
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                </div>
-              </li>
+                }
+              />
             ))}
-          </ul>
+          </SettingsListBody>
         )}
-      </Card>
 
-      {/* Principal binding */}
-      <Card padded={false} className="overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
-          <h3 className="text-sm font-semibold text-foreground">
-            {t('roles.principals_heading')} ({principals.length})
-          </h3>
-        </div>
+        {/* Principal binding */}
+        <SettingsSectionLabel>
+          {t('roles.principals_heading')} · {principals.length}
+        </SettingsSectionLabel>
         {principals.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">{t('roles.no_principals')}</div>
+          <Card padded={false} className="p-8 text-center text-sm text-muted-foreground">
+            {t('roles.no_principals')}
+          </Card>
         ) : (
-          <ul className="divide-y divide-border">
+          <SettingsListBody>
             {sortedPrincipals.map((principal) => {
               const pending = principal.profiles.length === 0;
               const unbound = profiles.filter((p) => !principal.profiles.includes(p.id));
               return (
-                <li key={principal.id} className="px-5 py-3 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-sm text-foreground">{principal.id}</span>
-                    {isPrincipalAdmin(principal, profiles) && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
-                    {pending && <Badge tone="warn">{t('roles.pending_badge')}</Badge>}
-                    <span className="text-[11px] text-muted-foreground">
-                      {plural(principal.tokenHashCount, 'roles.token_count')} · {plural(principal.deviceIdCount, 'roles.device_count')}
+                <SettingsSelectableRow
+                  key={principal.id}
+                  ariaLabel={principal.id}
+                  onSelect={() => undefined}
+                  leading={
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-secondary text-muted-foreground">
+                      <User className="h-[18px] w-[18px]" />
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {principal.profiles.map((pid) => (
-                      <Badge key={pid} tone="neutral">
-                        {pid}
-                        <button
-                          type="button"
-                          onClick={() => void handleUnbind(principal.id, pid)}
-                          aria-label={`${t('roles.unbind')} ${pid}`}
-                          className="hover:text-status-error"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                    {unbound.length > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <Select
-                          value={bindSelection[principal.id] ?? ''}
-                          onChange={(v) => setBindSelection((prev) => ({ ...prev, [principal.id]: v }))}
-                          options={unbound.map((p) => ({ value: p.id, label: p.id }))}
-                          placeholder={t('roles.select_profile_placeholder')}
-                          aria-label={t('roles.bind_profile')}
-                          className="w-44"
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={!bindSelection[principal.id]}
-                          onClick={() => void handleBind(principal.id)}
-                        >
-                          {t('roles.bind_profile')}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  {principal.legacyAllowedAgents.length > 0 && (
-                    <p className="text-[11px] text-muted-foreground">
-                      {t('roles.legacy_agents_hint')} {principal.legacyAllowedAgents.join(', ')}
-                    </p>
-                  )}
-                </li>
+                  }
+                  title={
+                    <span className="flex items-center gap-2">
+                      <span className="font-mono">{principal.id}</span>
+                      {isPrincipalAdmin(principal, profiles) && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
+                      {pending && <Badge tone="warn">{t('roles.pending_badge')}</Badge>}
+                    </span>
+                  }
+                  subtitle={`${plural(principal.tokenHashCount, 'roles.token_count')} · ${plural(
+                    principal.deviceIdCount,
+                    'roles.device_count',
+                  )}`}
+                  trailing={
+                    <div className="flex items-center gap-1.5 py-2">
+                      {principal.profiles.map((pid) => (
+                        <Badge key={pid} tone="neutral">
+                          {pid}
+                          <button
+                            type="button"
+                            onClick={() => void handleUnbind(principal.id, pid)}
+                            aria-label={`${t('roles.unbind')} ${pid}`}
+                            className="hover:text-status-error"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                      {unbound.length > 0 && (
+                        <>
+                          <Select
+                            value={bindSelection[principal.id] ?? ''}
+                            onChange={(v) => setBindSelection((prev) => ({ ...prev, [principal.id]: v }))}
+                            options={unbound.map((p) => ({ value: p.id, label: p.id }))}
+                            placeholder={t('roles.select_profile_placeholder')}
+                            aria-label={t('roles.bind_profile')}
+                            className="w-40"
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={!bindSelection[principal.id]}
+                            onClick={() => void handleBind(principal.id)}
+                          >
+                            {t('roles.bind_profile')}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  }
+                />
               );
             })}
-          </ul>
+          </SettingsListBody>
         )}
-      </Card>
+      </SettingsPageShell>
+
+      {/* Right detail drawer — create / edit a role (master-detail). */}
+      <DetailPanelSurface open={form !== null} onClose={closeForm}>
+        {form && (
+          <DetailPanel
+            icon={
+              <span
+                className="grid h-10 w-10 place-items-center rounded-lg text-brand-foreground"
+                style={{ backgroundImage: 'var(--gradient-brand)' }}
+              >
+                <ShieldCheck className="h-5 w-5" />
+              </span>
+            }
+            title={
+              <span className="font-mono">{form.editingId ?? t('roles.new_profile_title')}</span>
+            }
+            subtitle={form.editingId ? t('nav.roles') : undefined}
+            onClose={closeForm}
+          >
+            <ProfileForm
+              form={form}
+              agents={agents}
+              saving={saving}
+              formError={formError}
+              onChange={setForm}
+              onSave={() => void handleSave()}
+              onCancel={closeForm}
+            />
+          </DetailPanel>
+        )}
+      </DetailPanelSurface>
 
       <ConfirmDialog
         open={pendingDelete !== null}
@@ -448,6 +497,6 @@ export default function Roles() {
         onConfirm={() => void confirmDelete()}
         onClose={() => setPendingDelete(null)}
       />
-    </div>
+    </>
   );
 }
