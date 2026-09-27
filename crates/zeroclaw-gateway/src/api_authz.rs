@@ -251,6 +251,49 @@ pub async fn handle_list_profiles(State(state): State<AppState>, headers: Header
     Json(ProfilesListResponse { profiles }).into_response()
 }
 
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct PrincipalDto {
+    pub id: String,
+    pub profiles: Vec<String>,
+    /// Derived: true when any profile this principal is bound to has
+    /// `admin = true` (mirrors [`zeroclaw_config::authz::AuthzConfig::is_admin`]).
+    pub admin: bool,
+    pub device_ids: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct PrincipalsListResponse {
+    pub principals: Vec<PrincipalDto>,
+}
+
+/// `GET /api/authz/principals` — list every configured
+/// `[[authz.principals]]` entry (id, bound profiles, derived admin bit,
+/// device ids). ADMIN-only: unlike `handle_list_profiles` above (which only
+/// enumerates profile *shape*), this enumerates who is bound to what — the
+/// panel's principal picker for role-at-pairing needs it, but it is not
+/// itself safe to hand to every paired device. Never returns
+/// `token_hashes`.
+pub async fn handle_list_principals(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e.into_response();
+    }
+    let cfg = state.config.read().clone();
+    let principals = cfg
+        .authz
+        .principals
+        .iter()
+        .map(|p| PrincipalDto {
+            id: p.id.clone(),
+            profiles: p.profiles.clone(),
+            admin: cfg.authz.is_admin(&p.id),
+            device_ids: p.device_ids.clone(),
+        })
+        .collect();
+    Json(PrincipalsListResponse { principals }).into_response()
+}
+
 #[derive(Debug, Deserialize)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 pub struct ProfileBody {

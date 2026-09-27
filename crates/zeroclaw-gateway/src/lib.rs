@@ -1009,6 +1009,10 @@ pub fn private_router(state: AppState, advertise: Option<(String, u16)>) -> Rout
                 .delete(api_authz::handle_delete_profile),
         )
         .route(
+            "/api/authz/principals",
+            get(api_authz::handle_list_principals),
+        )
+        .route(
             "/api/authz/principals/{id}/profiles",
             put(api_authz::handle_bind_principal_profile)
                 .delete(api_authz::handle_unbind_principal_profile),
