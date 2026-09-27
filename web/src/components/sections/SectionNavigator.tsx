@@ -316,11 +316,15 @@ export default function SectionNavigator({
         }
       }
     }
-    return fuzzyFilter(hits, trimmed, (h) =>
-      h.kind === "section"
-        ? `${h.section.key} ${h.section.label}`
-        : `${h.section.key} ${h.section.label} ${h.entity.label} ${h.entity.id}`,
-    );
+    // Match on the ENGLISH key + raw label AND the LOCALIZED (RU) display
+    // label / entity label, so search works whether the operator types the
+    // English key ("cha…") or the Russian label ("кан…").
+    return fuzzyFilter(hits, trimmed, (h) => {
+      const secText = `${h.section.key} ${h.section.label} ${sectionLabel(h.section.key, h.section.label)}`;
+      return h.kind === "section"
+        ? secText
+        : `${secText} ${h.entity.label} ${displayEntityLabel(h.entity.label)} ${h.entity.id}`;
+    });
   }, [searching, trimmed, sections, entitiesBySection]);
 
   const isEntitySelected = (url: string) => {
