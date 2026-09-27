@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check } from "lucide-react";
 import { fuzzyFilter } from "../../lib/fuzzy";
 import { ApiError, getSectionPicker, type PickerItem } from "../../lib/api";
+import { filterChannelItems } from "../../lib/channelAllowlist";
 import { Badge, Button } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
 import { t, badgeLabel } from "@/lib/i18n";
@@ -55,7 +56,11 @@ export default function SectionPicker({
     getSectionPicker(sectionKey)
       .then((resp) => {
         if (cancelled) return;
-        setItems(resp.items);
+        // Channel picker only: hide non-allowlisted channel types (pilot/RU
+        // build). Passthrough for every other section and when unset.
+        setItems(
+          sectionKey === "channels" ? filterChannelItems(resp.items) : resp.items,
+        );
       })
       .catch((e) => {
         if (cancelled) return;

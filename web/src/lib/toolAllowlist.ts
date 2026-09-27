@@ -5,9 +5,9 @@
 //
 // `VITE_VOLT_TOOLS` (build-time env) = comma-separated tool names to KEEP.
 // Empty / unset = passthrough (show every tool, no filtering).
-const raw = (import.meta.env.VITE_VOLT_TOOLS ?? '').trim();
+const raw = String(import.meta.env.VITE_VOLT_TOOLS ?? '').trim();
 const allow: Set<string> | null = raw
-  ? new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))
+  ? new Set(raw.split(',').map((s: string) => s.trim()).filter(Boolean))
   : null;
 
 /** True when `name` should be shown (always true in passthrough mode). */
