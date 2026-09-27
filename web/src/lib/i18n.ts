@@ -844,6 +844,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'header.forward': "Forward",
     'header.account': "Account",
     'header.session': "Session",
+    'detail.close': "Close",
     'logs.add_filter': "Add filter",
     'logs.any_category': "Any category",
     'logs.any_outcome': "Any outcome",

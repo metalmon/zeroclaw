@@ -3337,6 +3337,7 @@ export const ru: Record<string, string> = {
   'header.forward': 'Вперед',
   'header.account': 'Аккаунт',
   'header.session': 'Сеанс',
+  'detail.close': 'Закрыть',
 
   // Personality files editor
   'personality.chars': 'символов',
