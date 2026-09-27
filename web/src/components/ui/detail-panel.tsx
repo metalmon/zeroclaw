@@ -2,8 +2,10 @@ import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 import { t } from '@/lib/i18n';
+import { cn } from '../../lib/cn.ts';
 import { Button, mutedIconButtonClass } from './Button.tsx';
 import { SlideInPanel } from './slide-in-panel.tsx';
+import { panelFieldSurfaceClass } from './modal-styles.ts';
 
 // Ported from Thunderbolt (fork/rebrand src/components/detail-panel.tsx),
 // desktop path only (the mobile responsive-modal branch is dropped — this
@@ -63,18 +65,28 @@ export function DetailPanel({ icon, title, subtitle, actions, onClose, children 
 interface DetailPanelSurfaceProps {
   open: boolean;
   onCloseComplete?: () => void;
+  topInset?: boolean;
   children: ReactNode;
 }
 
-export function DetailPanelSurface({ open, onCloseComplete, children }: DetailPanelSurfaceProps) {
+export function DetailPanelSurface({ open, onCloseComplete, topInset = false, children }: DetailPanelSurfaceProps) {
   return (
     <SlideInPanel
       open={open}
       onCloseComplete={onCloseComplete}
-      width="clamp(480px, calc(50vw - 128px), 540px)"
-      className="border-l border-border bg-card"
+      width="clamp(var(--create-panel-min-width), calc(50vw - 128px), 540px)"
+      className="[filter:drop-shadow(var(--shadow-glow-strong))] dark:[filter:drop-shadow(0_0_32px_rgb(0_0_0/24%))]"
     >
-      {children}
+      <div className={cn('h-full pb-12', topInset && 'pt-12')}>
+        <div
+          className={cn(
+            'h-full overflow-hidden rounded-l-2xl border border-r-0 border-border/60 bg-sidebar',
+            panelFieldSurfaceClass,
+          )}
+        >
+          {children}
+        </div>
+      </div>
     </SlideInPanel>
   );
 }
