@@ -5594,8 +5594,13 @@ path = "{trigger_path}"
 
         let remote = ConnectInfo(SocketAddr::from(([203, 0, 113, 7], 40_000)));
         let (status, _json) = admin_paircode_response_json(
-            handle_admin_paircode_new(State(state), remote, Query(AdminPaircodeQuery::default()))
-                .await,
+            handle_admin_paircode_new(
+                State(state),
+                remote,
+                HeaderMap::new(),
+                Query(AdminPaircodeQuery::default()),
+            )
+            .await,
         )
         .await;
 
