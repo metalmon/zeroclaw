@@ -5367,6 +5367,7 @@ path = "{trigger_path}"
             handle_admin_paircode_new(
                 State(state.clone()),
                 test_connect_info(),
+                HeaderMap::new(),
                 Query(AdminPaircodeQuery::default()),
             )
             .await,
@@ -5392,6 +5393,7 @@ path = "{trigger_path}"
             handle_admin_paircode_new(
                 State(state.clone()),
                 test_connect_info(),
+                HeaderMap::new(),
                 Query(AdminPaircodeQuery {
                     rotate: Some("all".into()),
                     principal: None,
@@ -5432,6 +5434,7 @@ path = "{trigger_path}"
             handle_admin_paircode_new(
                 State(state.clone()),
                 test_connect_info(),
+                HeaderMap::new(),
                 Query(AdminPaircodeQuery {
                     rotate: Some("dev-a".into()),
                     principal: None,
@@ -5469,6 +5472,7 @@ path = "{trigger_path}"
             handle_admin_paircode_new(
                 State(state.clone()),
                 test_connect_info(),
+                HeaderMap::new(),
                 Query(AdminPaircodeQuery {
                     rotate: Some("ghost".into()),
                     principal: None,
@@ -5494,6 +5498,7 @@ path = "{trigger_path}"
             handle_admin_paircode_new(
                 State(state),
                 test_connect_info(),
+                HeaderMap::new(),
                 Query(AdminPaircodeQuery {
                     rotate: Some("all".into()),
                     principal: None,
@@ -5525,6 +5530,7 @@ path = "{trigger_path}"
             handle_admin_paircode_new(
                 State(state),
                 test_connect_info(),
+                HeaderMap::new(),
                 Query(AdminPaircodeQuery {
                     rotate: None,
                     principal: Some("ghost".into()),
@@ -5563,6 +5569,7 @@ path = "{trigger_path}"
             handle_admin_paircode_new(
                 State(state),
                 test_connect_info(),
+                HeaderMap::new(),
                 Query(AdminPaircodeQuery {
                     rotate: None,
                     principal: Some("alice".into()),
