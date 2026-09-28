@@ -337,7 +337,7 @@ interface FooterProps {
 function DrawerFooter({ version, hasUpdate, onOpen }: FooterProps) {
   return (
     <div
-      className="px-5 py-4 border-t text-[10px] uppercase tracking-wider"
+      className="px-5 py-2.5 border-t text-[10px] uppercase tracking-wider"
       style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-faint)' }}
     >
       <button
