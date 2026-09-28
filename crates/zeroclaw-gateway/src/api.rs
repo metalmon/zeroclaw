@@ -53,7 +53,7 @@ pub(crate) fn require_auth(
         return Err((
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
-                "error": "Unauthorized — pair first via POST /pair, then send Authorization: Bearer <token>"
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webhook-unauthorized-pair")
             })),
         ));
     }
@@ -63,7 +63,7 @@ pub(crate) fn require_auth(
         Err((
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
-                "error": "Unauthorized — pair first via POST /pair, then send Authorization: Bearer <token>"
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webhook-unauthorized-pair")
             })),
         ))
     }

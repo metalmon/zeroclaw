@@ -1346,3 +1346,21 @@ gateway-tokens-persist-failed = Tokens revoked in memory but config persist fail
 gateway-device-revoked = Device revoked and bearer token invalidated
 gateway-capabilities-updated = Capabilities updated
 gateway-old-token-revoked-disabled = Old token revoked. Pairing is disabled; cannot issue a new code.
+# webhook / SOP / integration HTTP errors (machine-facing but still surfaced to operators)
+gateway-webhook-too-many-requests = Too many webhook requests. Please retry later.
+gateway-webhook-unauthorized-pair = Unauthorized — pair first via POST /pair, then send Authorization: Bearer <token>
+gateway-webhook-unauthorized-secret = Unauthorized — invalid or missing X-Webhook-Secret header
+gateway-idempotency-key-reserved = A prior request already reserved this idempotency key; no new dispatch was started
+gateway-sop-webhook-needs-credential = SOP webhook dispatch requires a configured credential: set `gateway.require_pairing = true` and authenticate with `Authorization: Bearer <paired-token>` (pair first via POST /pair), or set `gateway.webhook_secret` and send X-Webhook-Secret.
+gateway-invalid-json-body = Invalid JSON body. Expected: {"{"}"message": "..."{"}"}
+gateway-llm-request-failed = LLM request failed
+gateway-invalid-json-payload = Invalid JSON payload
+gateway-gmail-push-not-configured = Gmail push not configured
+gateway-request-body-too-large = Request body too large
+gateway-unauthorized = Unauthorized
+gateway-invalid-pubsub-envelope = Invalid Pub/Sub envelope
+gateway-missing-hub-challenge = Missing hub.challenge
+gateway-forbidden = Forbidden
+gateway-device-not-found-plain = Device not found
+gateway-missing-bearer-token = Missing bearer token
+gateway-device-not-found-for-token = Device not found for this token

@@ -117,3 +117,21 @@ gateway-tokens-persist-failed = Токены отозваны в памяти, �
 gateway-device-revoked = Устройство отозвано, токен доступа аннулирован
 gateway-capabilities-updated = Возможности обновлены
 gateway-old-token-revoked-disabled = Старый токен отозван. Сопряжение отключено; невозможно выдать новый код.
+# HTTP-ошибки webhook / СОП / интеграций
+gateway-webhook-too-many-requests = Слишком много запросов webhook. Повторите позже.
+gateway-webhook-unauthorized-pair = Не авторизовано — сначала выполните сопряжение через POST /pair, затем отправьте Authorization: Bearer <token>
+gateway-webhook-unauthorized-secret = Не авторизовано — неверный или отсутствующий заголовок X-Webhook-Secret
+gateway-idempotency-key-reserved = Предыдущий запрос уже зарезервировал этот ключ идемпотентности; новая отправка не запущена
+gateway-sop-webhook-needs-credential = Отправка webhook СОП требует настроенных учетных данных: задайте `gateway.require_pairing = true` и аутентифицируйтесь через `Authorization: Bearer <paired-token>` (сначала выполните сопряжение через POST /pair), либо задайте `gateway.webhook_secret` и отправляйте X-Webhook-Secret.
+gateway-invalid-json-body = Неверное тело JSON. Ожидается: {"{"}"message": "..."{"}"}
+gateway-llm-request-failed = Запрос к LLM не удался
+gateway-invalid-json-payload = Неверные данные JSON
+gateway-gmail-push-not-configured = Gmail push не настроен
+gateway-request-body-too-large = Тело запроса слишком велико
+gateway-unauthorized = Не авторизовано
+gateway-invalid-pubsub-envelope = Неверный конверт Pub/Sub
+gateway-missing-hub-challenge = Отсутствует hub.challenge
+gateway-forbidden = Доступ запрещен
+gateway-device-not-found-plain = Устройство не найдено
+gateway-missing-bearer-token = Отсутствует токен доступа
+gateway-device-not-found-for-token = Устройство для этого токена не найдено

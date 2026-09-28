@@ -335,11 +335,14 @@ fn extract_bearer(headers: &HeaderMap) -> Option<&str> {
         .and_then(|auth| auth.strip_prefix("Bearer "))
 }
 
-fn require_auth(state: &AppState, headers: &HeaderMap) -> Result<(), (StatusCode, &'static str)> {
+fn require_auth(state: &AppState, headers: &HeaderMap) -> Result<(), (StatusCode, String)> {
     if state.pairing.require_pairing() {
         let token = extract_bearer(headers).unwrap_or("");
         if !state.pairing.is_authenticated(token) {
-            return Err((StatusCode::UNAUTHORIZED, "Unauthorized"));
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                zeroclaw_runtime::i18n::get_required_cli_string("gateway-unauthorized"),
+            ));
         }
     }
     Ok(())
@@ -625,7 +628,13 @@ pub async fn revoke_device(
 
     let token_hash = match registry.revoke(&device_id) {
         Ok(Some(hash)) => hash,
-        Ok(None) => return (StatusCode::NOT_FOUND, "Device not found").into_response(),
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                zeroclaw_runtime::i18n::get_required_cli_string("gateway-device-not-found-plain"),
+            )
+                .into_response();
+        }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -672,7 +681,13 @@ pub async fn update_my_capabilities(
 
     let token = match extract_bearer(&headers) {
         Some(t) => t,
-        None => return (StatusCode::UNAUTHORIZED, "Missing bearer token").into_response(),
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                zeroclaw_runtime::i18n::get_required_cli_string("gateway-missing-bearer-token"),
+            )
+                .into_response();
+        }
     };
     let token_hash = {
         use sha2::{Digest, Sha256};
@@ -708,7 +723,11 @@ pub async fn update_my_capabilities(
         }))
         .into_response()
     } else {
-        (StatusCode::NOT_FOUND, "Device not found for this token").into_response()
+        (
+            StatusCode::NOT_FOUND,
+            zeroclaw_runtime::i18n::get_required_cli_string("gateway-device-not-found-for-token"),
+        )
+            .into_response()
     }
 }
 
@@ -731,7 +750,13 @@ pub async fn rotate_token(
 
     let token_hash = match registry.revoke(&device_id) {
         Ok(Some(hash)) => hash,
-        Ok(None) => return (StatusCode::NOT_FOUND, "Device not found").into_response(),
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                zeroclaw_runtime::i18n::get_required_cli_string("gateway-device-not-found-plain"),
+            )
+                .into_response();
+        }
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,

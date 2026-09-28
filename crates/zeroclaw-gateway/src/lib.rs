@@ -3253,7 +3253,7 @@ fn authorize_webhook_request(
             "/webhook rate limit exceeded"
         );
         let err = serde_json::json!({
-            "error": "Too many webhook requests. Please retry later.",
+            "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webhook-too-many-requests"),
             "retry_after": RATE_LIMIT_WINDOW_SECS,
         });
         return Err((StatusCode::TOO_MANY_REQUESTS, Json(err)));
@@ -3298,7 +3298,7 @@ fn authorize_webhook_request(
                 "webhook: rejected — not paired / invalid bearer token"
             );
             let err = serde_json::json!({
-                "error": "Unauthorized — pair first via POST /pair, then send Authorization: Bearer <token>"
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webhook-unauthorized-pair")
             });
             return Err((StatusCode::UNAUTHORIZED, Json(err)));
         }
@@ -3323,7 +3323,7 @@ fn authorize_webhook_request(
                         .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
                     "webhook: rejected request — invalid or missing X-Webhook-Secret"
                 );
-                let err = serde_json::json!({"error": "Unauthorized — invalid or missing X-Webhook-Secret header"});
+                let err = serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webhook-unauthorized-secret")});
                 return Err((StatusCode::UNAUTHORIZED, Json(err)));
             }
         }
@@ -3405,7 +3405,7 @@ fn check_webhook_idempotency(
         Json(serde_json::json!({
             "status": "duplicate",
             "idempotent": true,
-            "message": "A prior request already reserved this idempotency key; no new dispatch was started"
+            "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-idempotency-key-reserved")
         })),
     ))
 }
@@ -3435,10 +3435,7 @@ fn require_sop_dispatch_credentials(
         "sop webhook dispatch rejected — no credential configured"
     );
     let err = serde_json::json!({
-        "error": "SOP webhook dispatch requires a configured credential: set \
-                  `gateway.require_pairing = true` and authenticate with \
-                  `Authorization: Bearer <paired-token>` (pair first via POST /pair), or set \
-                  `gateway.webhook_secret` and send X-Webhook-Secret."
+        "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-webhook-needs-credential")
     });
     Err((StatusCode::UNAUTHORIZED, Json(err)))
 }
@@ -3466,7 +3463,7 @@ async fn handle_webhook(
                 "webhook JSON parse error"
             );
             let err = serde_json::json!({
-                "error": "Invalid JSON body. Expected: {\"message\": \"...\"}"
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-invalid-json-body")
             });
             return (StatusCode::BAD_REQUEST, Json(err));
         }
@@ -3619,7 +3616,7 @@ async fn handle_webhook(
                         .with_attrs(::serde_json::json!({"error": sanitized})),
                     "webhook model_provider error"
                 );
-                let err = serde_json::json!({"error": "LLM request failed"});
+                let err = serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-llm-request-failed")});
                 (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
             }
         }
@@ -3682,7 +3679,11 @@ async fn handle_whatsapp_verify_impl(
             );
             (StatusCode::OK, ch).into_response()
         } else {
-            (StatusCode::BAD_REQUEST, "Missing hub.challenge".to_string()).into_response()
+            (
+                StatusCode::BAD_REQUEST,
+                zeroclaw_runtime::i18n::get_required_cli_string("gateway-missing-hub-challenge"),
+            )
+                .into_response()
         }
     } else {
         ::zeroclaw_log::record!(
@@ -3692,7 +3693,11 @@ async fn handle_whatsapp_verify_impl(
                 .with_attrs(::serde_json::json!({"channel": "whatsapp"})),
             "webhook verification failed — token mismatch"
         );
-        (StatusCode::FORBIDDEN, "Forbidden".to_string()).into_response()
+        (
+            StatusCode::FORBIDDEN,
+            zeroclaw_runtime::i18n::get_required_cli_string("gateway-forbidden"),
+        )
+            .into_response()
     };
     api_webhook::tag_deprecation(resp, resolved, "whatsapp")
 }
@@ -3796,7 +3801,7 @@ async fn process_whatsapp_message(
         let payload = serde_json::from_slice::<serde_json::Value>(body).map_err(|_| {
             (
                 StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({"error": "Invalid JSON payload"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-invalid-json-payload")})),
             )
         })?;
         Ok::<_, (StatusCode, Json<serde_json::Value>)>(wa.parse_webhook_payload(&payload))
@@ -3920,7 +3925,7 @@ async fn process_linq_webhook(
         let payload = serde_json::from_slice::<serde_json::Value>(body).map_err(|_| {
             (
                 StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({"error": "Invalid JSON payload"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-invalid-json-payload")})),
             )
         })?;
         Ok::<_, (StatusCode, Json<serde_json::Value>)>(linq.parse_webhook_payload(&payload))
@@ -4060,7 +4065,7 @@ async fn process_nextcloud_talk_webhook(
         let payload = serde_json::from_slice::<serde_json::Value>(body).map_err(|_| {
             (
                 StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({"error": "Invalid JSON payload"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-invalid-json-payload")})),
             )
         })?;
         Ok::<_, (StatusCode, Json<serde_json::Value>)>(
@@ -4105,7 +4110,9 @@ async fn handle_gmail_push_webhook(
     let Some(ref gmail_push) = state.gmail_push else {
         return (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": "Gmail push not configured"})),
+            Json(
+                serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-gmail-push-not-configured")}),
+            ),
         );
     };
 
@@ -4113,7 +4120,9 @@ async fn handle_gmail_push_webhook(
     if body.len() > GMAIL_WEBHOOK_MAX_BODY {
         return (
             StatusCode::PAYLOAD_TOO_LARGE,
-            Json(serde_json::json!({"error": "Request body too large"})),
+            Json(
+                serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-request-body-too-large")}),
+            ),
         );
     }
 
@@ -4136,17 +4145,20 @@ async fn handle_gmail_push_webhook(
             );
             return (
                 StatusCode::UNAUTHORIZED,
-                Json(serde_json::json!({"error": "Unauthorized"})),
+                Json(
+                    serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-unauthorized")}),
+                ),
             );
         }
     }
 
     let body_str = String::from_utf8_lossy(&body);
-    let envelope: zeroclaw_channels::gmail_push::PubSubEnvelope =
-        match serde_json::from_str(&body_str) {
-            Ok(e) => e,
-            Err(e) => {
-                ::zeroclaw_log::record!(
+    let envelope: zeroclaw_channels::gmail_push::PubSubEnvelope = match serde_json::from_str(
+        &body_str,
+    ) {
+        Ok(e) => e,
+        Err(e) => {
+            ::zeroclaw_log::record!(
                 WARN,
                 ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                     .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
@@ -4155,12 +4167,14 @@ async fn handle_gmail_push_webhook(
                     ),
                 "webhook: invalid payload"
             );
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(serde_json::json!({"error": "Invalid Pub/Sub envelope"})),
-                );
-            }
-        };
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-invalid-pubsub-envelope")}),
+                ),
+            );
+        }
+    };
 
     // Process the notification asynchronously (non-blocking for the webhook response)
     let channel = Arc::clone(gmail_push);
