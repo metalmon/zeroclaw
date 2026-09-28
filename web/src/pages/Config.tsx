@@ -15,7 +15,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, ChevronRight, MessageSquare, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, MessageSquare, PanelLeftOpen, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import {
   ApiError,
   deleteMapKey,
@@ -121,6 +121,25 @@ export default function Config() {
   // Bumped to make the navigator re-fetch its expanded sections' entities
   // after an add / reload (so a new alias appears without a hard refresh).
   const [navRefresh, setNavRefresh] = useState(0);
+  // Collapse the section tree (md+) so the detail pane gets the width.
+  // Persisted; defaults to collapsed when the window is narrow on first mount.
+  const [navCollapsed, setNavCollapsed] = useState(() => {
+    try {
+      const v = localStorage.getItem("volt.sectionNav.collapsed");
+      if (v !== null) return v === "1";
+      return typeof window !== "undefined" && window.innerWidth < 1024;
+    } catch {
+      return false;
+    }
+  });
+  const setNavCollapsedPersist = (next: boolean) => {
+    setNavCollapsed(next);
+    try {
+      localStorage.setItem("volt.sectionNav.collapsed", next ? "1" : "0");
+    } catch {
+      // ignore storage failures (private mode, blocked)
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -595,6 +614,8 @@ export default function Config() {
           onNavigate={(url) => navigate(url)}
           onSelectSection={(key) => goToSection(key)}
           onAddToSection={(s) => setAddSection(s)}
+          collapsed={navCollapsed}
+          onCollapse={() => setNavCollapsedPersist(true)}
           refreshKey={navRefresh + reloadKey}
           // Mobile: single-column. Show the navigator when nothing is
           // selected; once an entity is open the detail pane takes over and
@@ -606,6 +627,18 @@ export default function Config() {
       <main
         className={`flex-1 overflow-y-auto p-6 ${hasSelection ? "" : "hidden md:block"}`}
       >
+        {navCollapsed && (
+          // Tree collapsed (md+): the expand affordance lives here in the
+          // detail toolbar so the panel reclaims the full width.
+          <button
+            type="button"
+            onClick={() => setNavCollapsedPersist(false)}
+            className="mb-4 hidden md:inline-flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-card px-3 py-1.5 text-sm text-text-secondary transition-colors hover:border-border-strong hover:text-foreground"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+            {t("section_nav.tree_label")}
+          </button>
+        )}
         {!hasSelection ? (
           // Empty state — no entity selected. Calm placeholder in the detail
           // pane; the navigator on the left is the call to action.

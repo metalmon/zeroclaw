@@ -25,7 +25,6 @@ import {
   ChevronDown,
   ChevronRight,
   PanelLeftClose,
-  PanelLeftOpen,
   Plus,
   Search,
 } from "lucide-react";
@@ -71,6 +70,12 @@ interface SectionNavigatorProps {
   refreshKey: number;
   /** Extra classes for the root (e.g. responsive visibility from the parent). */
   className?: string;
+  /** Collapsed (md+): the whole tree is hidden and the parent shows an
+   *  "expand" button. Owned by the parent so the button can live in the
+   *  detail toolbar. */
+  collapsed?: boolean;
+  /** Collapse the tree (md+). */
+  onCollapse?: () => void;
 }
 
 // A section's editor shape determines how (and whether) it has children.
@@ -88,33 +93,12 @@ export default function SectionNavigator({
   onNavigate,
   onSelectSection,
   onAddToSection,
+  collapsed = false,
+  onCollapse,
   refreshKey,
   className = "",
 }: SectionNavigatorProps) {
   const [query, setQuery] = useState("");
-  // Collapse the whole navigator to a slim rail (md+ only) so the detail pane
-  // gets the width on narrow windows. Persisted; defaults to collapsed when the
-  // window is narrow on first mount.
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      const v = localStorage.getItem("volt.sectionNav.collapsed");
-      if (v !== null) return v === "1";
-      return typeof window !== "undefined" && window.innerWidth < 1024;
-    } catch {
-      return false;
-    }
-  });
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed((c) => {
-      const next = !c;
-      try {
-        localStorage.setItem("volt.sectionNav.collapsed", next ? "1" : "0");
-      } catch {
-        // ignore storage failures (private mode, blocked)
-      }
-      return next;
-    });
-  }, []);
   // Which section keys are expanded. The active section auto-expands.
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   // Lazily-loaded entities, keyed by section key.
@@ -414,22 +398,8 @@ export default function SectionNavigator({
   };
 
   return (
-    <aside className={`w-full ${collapsed ? "md:w-12" : "md:w-[300px]"} flex-shrink-0 border-r border-border flex flex-col min-h-0 ${className}`}>
-      {/* Collapsed rail (md+ only): an expand button. The tree content hides at
-          md+ when collapsed so the detail pane gets the width. */}
-      <div className={`${collapsed ? "hidden md:flex" : "hidden"} flex-col items-center p-2`}>
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          title={t('section_nav.expand')}
-          aria-label={t('section_nav.expand')}
-          className="btn-icon"
-        >
-          <PanelLeftOpen className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className={`${collapsed ? "flex md:hidden" : "flex"} min-h-0 flex-1 flex-col`}>
+    <aside className={`w-full ${collapsed ? "md:hidden" : "md:w-[300px]"} flex-shrink-0 border-r border-border flex flex-col min-h-0 ${className}`}>
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* Search box + collapse toggle */}
         <div className="flex items-center gap-2 p-3 border-b border-border">
           <div className="relative flex-1">
@@ -444,7 +414,7 @@ export default function SectionNavigator({
           </div>
           <button
             type="button"
-            onClick={toggleCollapsed}
+            onClick={onCollapse}
             title={t('section_nav.collapse')}
             aria-label={t('section_nav.collapse')}
             className="btn-icon hidden shrink-0 md:inline-flex"
