@@ -18,6 +18,7 @@ import { basePath } from "./lib/basePath";
 import { ConfigDraftProvider } from "./lib/draftStore";
 import { detectBrowserLocale, normalizeLocale, setLocale, t, type Locale } from "./lib/i18n";
 import { Router } from "./router/router";
+import { Spinner } from "./components/ui/spinner";
 
 // Locale context
 interface LocaleContextType {
@@ -238,7 +239,7 @@ function PairingDialog({
               e.currentTarget.style.display = "none";
             }}
           />
-          <h1 className="text-2xl font-bold mb-2 text-gradient-blue">
+          <h1 className="text-2xl font-bold mb-2 text-foreground">
             {t('product.name')}
           </h1>
           <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
@@ -416,13 +417,7 @@ function AppContent() {
         style={{ background: "var(--color-background)" }}
       >
         <div className="flex flex-col items-center gap-4 animate-fade-in">
-          <div
-            className="h-10 w-10 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--color-border)",
-              borderTopColor: "var(--color-primary)",
-            }}
-          />
+          <Spinner size={40} />
           <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
             Connecting...
           </p>
