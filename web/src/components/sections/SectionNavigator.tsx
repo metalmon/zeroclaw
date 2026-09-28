@@ -21,7 +21,14 @@
 // and SectionOverview used.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Plus, Search } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Search,
+} from "lucide-react";
 import {
   getMapKeys,
   getSectionPicker,
@@ -85,6 +92,29 @@ export default function SectionNavigator({
   className = "",
 }: SectionNavigatorProps) {
   const [query, setQuery] = useState("");
+  // Collapse the whole navigator to a slim rail (md+ only) so the detail pane
+  // gets the width on narrow windows. Persisted; defaults to collapsed when the
+  // window is narrow on first mount.
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      const v = localStorage.getItem("volt.sectionNav.collapsed");
+      if (v !== null) return v === "1";
+      return typeof window !== "undefined" && window.innerWidth < 1024;
+    } catch {
+      return false;
+    }
+  });
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem("volt.sectionNav.collapsed", next ? "1" : "0");
+      } catch {
+        // ignore storage failures (private mode, blocked)
+      }
+      return next;
+    });
+  }, []);
   // Which section keys are expanded. The active section auto-expands.
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   // Lazily-loaded entities, keyed by section key.
@@ -384,20 +414,44 @@ export default function SectionNavigator({
   };
 
   return (
-    <aside className={`w-full md:w-[300px] flex-shrink-0 border-r border-border flex flex-col min-h-0 ${className}`}>
-      {/* Search box */}
-      <div className="p-3 border-b border-border">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-faint pointer-events-none" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('section_nav.search_placeholder')}
-            className="w-full pl-8 pr-3 py-2 text-sm rounded-[var(--radius-md)] bg-input border border-border text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
-          />
-        </div>
+    <aside className={`w-full ${collapsed ? "md:w-12" : "md:w-[300px]"} flex-shrink-0 border-r border-border flex flex-col min-h-0 ${className}`}>
+      {/* Collapsed rail (md+ only): an expand button. The tree content hides at
+          md+ when collapsed so the detail pane gets the width. */}
+      <div className={`${collapsed ? "hidden md:flex" : "hidden"} flex-col items-center p-2`}>
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          title={t('section_nav.expand')}
+          aria-label={t('section_nav.expand')}
+          className="btn-icon"
+        >
+          <PanelLeftOpen className="h-4 w-4" />
+        </button>
       </div>
+
+      <div className={`${collapsed ? "flex md:hidden" : "flex"} min-h-0 flex-1 flex-col`}>
+        {/* Search box + collapse toggle */}
+        <div className="flex items-center gap-2 p-3 border-b border-border">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-faint pointer-events-none" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('section_nav.search_placeholder')}
+              className="w-full pl-8 pr-3 py-2 text-sm rounded-[var(--radius-md)] bg-input border border-border text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-border-strong"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            title={t('section_nav.collapse')}
+            aria-label={t('section_nav.collapse')}
+            className="btn-icon hidden shrink-0 md:inline-flex"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        </div>
 
       <nav
         ref={navRef}
@@ -570,6 +624,7 @@ export default function SectionNavigator({
           ))
         )}
       </nav>
+      </div>
     </aside>
   );
 }

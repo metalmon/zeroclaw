@@ -3477,6 +3477,8 @@ export const ru: Record<string, string> = {
   'section_nav.no_matches': 'Нет совпадений.',
   'section_nav.search_placeholder': 'Поиск в настройках…',
   'section_nav.tree_label': 'Разделы настроек',
+  'section_nav.collapse': 'Свернуть разделы',
+  'section_nav.expand': 'Развернуть разделы',
 
   // Section picker (typed-section quick picker)
   'section_picker.filter_placeholder': 'Фильтр — нечеткое совпадение. Enter — выбрать, Esc — пропустить.',

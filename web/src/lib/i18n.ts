@@ -1005,6 +1005,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'section_nav.no_matches': "No matches.",
     'section_nav.search_placeholder': "Search settings…",
     'section_nav.tree_label': "Settings sections",
+    'section_nav.collapse': "Collapse sections",
+    'section_nav.expand': "Expand sections",
     'section_picker.filter_placeholder': "Filter — fuzzy match. Enter to pick, Esc to skip.",
     'section_picker.load_failed_prefix': "Couldn't load picker for ",
     'section_picker.no_matches': "No matches. Try a different filter.",
