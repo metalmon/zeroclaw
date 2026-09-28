@@ -4577,7 +4577,14 @@ async fn async_main(command: clap::Command) -> Result<()> {
     }
 
     #[cfg(feature = "agent-runtime")]
-    crate::i18n::init(&crate::i18n::detect_locale());
+    {
+        let locale = crate::i18n::detect_locale();
+        crate::i18n::init(&locale);
+        // Config-CRUD validation errors are localized by a separate catalog in
+        // the config crate (which can't depend on the runtime i18n). Prime its
+        // process locale from the same detection.
+        zeroclaw_config::i18n::init(&locale);
+    }
 
     // Completions must remain stdout-only and should not load config or initialize logging.
     // This avoids warnings/log lines corrupting sourced completion scripts.

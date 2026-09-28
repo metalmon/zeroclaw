@@ -215,6 +215,21 @@ macro_rules! validation_bail {
     }};
 }
 
+/// Like [`validation_bail!`], but the message is a localized Fluent key
+/// (resolved in the process locale via [`crate::i18n::localize`]) instead of a
+/// `format!` string. Optional `("$name", value)` pairs become Fluent args.
+#[macro_export]
+macro_rules! validation_bail_i18n {
+    ($code:ident, $path:expr, $key:expr $(, ($name:expr, $val:expr))* $(,)?) => {{
+        let err = $crate::api_error::ConfigApiError::new(
+            $crate::api_error::ConfigApiCode::$code,
+            $crate::i18n::localize($key, &[$(($name, $val)),*]),
+        )
+        .with_path($path);
+        return Err(::anyhow::Error::from(err));
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -9,6 +9,7 @@ use crate::autonomy::DelegationPolicy;
 use crate::domain_matcher::DomainMatcher;
 use crate::traits::{ChannelConfig, HasPropKind, PropKind};
 use crate::validation_bail;
+use crate::validation_bail_i18n;
 use anyhow::{Context, Result};
 use directories::UserDirs;
 use serde::de::{self, MapAccess, Visitor};
@@ -17185,7 +17186,7 @@ impl AmqpConfig {
         }
 
         if self.exchange.is_empty() {
-            validation_bail!(RequiredFieldEmpty, "exchange", "exchange must not be empty");
+            validation_bail_i18n!(RequiredFieldEmpty, "exchange", "cfg-err-exchange-empty");
         }
 
         if self.routing_keys.is_empty() {
