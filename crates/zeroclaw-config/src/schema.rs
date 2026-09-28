@@ -8,7 +8,6 @@ use crate::autonomy::AutonomyLevel;
 use crate::autonomy::DelegationPolicy;
 use crate::domain_matcher::DomainMatcher;
 use crate::traits::{ChannelConfig, HasPropKind, PropKind};
-use crate::validation_bail;
 use crate::validation_bail_i18n;
 use anyhow::{Context, Result};
 use directories::UserDirs;
