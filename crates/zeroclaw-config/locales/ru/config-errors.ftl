@@ -110,3 +110,11 @@ cfg-err-http-request-secrets-key-must-contain = ключ http_request.secrets {$
 cfg-err-is-required-when-provider-set-the = {$path} обязательно, когда provider = "{$provider}": укажите базовый URL API инстанса, включая /api/v1 (например, https://git.example.org/api/v1); хост по умолчанию не подразумевается, так как запросы API несут токен доступа
 cfg-err-flag-requires-sqlite-backend = {$flag_path} = true требует memory.backend = "sqlite" (типизированное хранилище памяти только для SQLite), но memory.backend = {$backend}
 cfg-err-plugins-egress-not-granted = plugins.entries.{$entry_name}.egress_allow_private перечисляет {$private}, что не разрешено egress_hosts; послабление ослабляет класс адресов для уже разрешенного назначения, но не выдает разрешение. Wildcard-послабление ('*.host') требует такого же или более широкого wildcard-разрешения, а не точного
+cfg-err-could-not-serialize-json-value = не удалось сериализовать значение JSON: {$e}
+cfg-err-float-field-requires-a-number-got = поле с плавающей точкой требует число; получено {$type}
+cfg-err-integer-field-requires-a-whole-number = целочисленное поле требует целое число; получено {$type}
+cfg-err-bool-field-requires-true-false-got = булево поле требует `true`/`false`; получено {$type}
+cfg-err-object-field-requires-a-json-object = поле объекта требует объект JSON; получено {$type}
+cfg-err-object-array-field-requires-a-json = поле массива объектов требует массив JSON-объектов; получено {$type}
+cfg-err-vec-string-field-requires-a-json = поле `Vec<String>` требует массив JSON; получено {$type}
+cfg-err-array-element-is-vec-string-requires = элемент массива [{$i}] имеет тип {$type} — `Vec<String>` требует строковых элементов

@@ -31,9 +31,12 @@ pub fn coerce_for_set_prop(
                 if !item.is_string() {
                     return Err(ConfigApiError::new(
                         ConfigApiCode::ValueTypeMismatch,
-                        format!(
-                            "array element [{i}] is {} — `Vec<String>` requires string elements",
-                            json_type_name(item),
+                        crate::i18n::localize(
+                            "cfg-err-array-element-is-vec-string-requires",
+                            &[
+                                ("i", i.to_string().as_str()),
+                                ("type", json_type_name(item)),
+                            ],
                         ),
                     ));
                 }
@@ -41,15 +44,18 @@ pub fn coerce_for_set_prop(
             serde_json::to_string(value).map_err(|e| {
                 ConfigApiError::new(
                     ConfigApiCode::ValueTypeMismatch,
-                    format!("could not serialize JSON value: {e}"),
+                    crate::i18n::localize(
+                        "cfg-err-could-not-serialize-json-value",
+                        &[("e", e.to_string().as_str())],
+                    ),
                 )
             })
         }
         (Some(PropKind::StringArray), other) => Err(ConfigApiError::new(
             ConfigApiCode::ValueTypeMismatch,
-            format!(
-                "`Vec<String>` field requires a JSON array; got {}",
-                json_type_name(other),
+            crate::i18n::localize(
+                "cfg-err-vec-string-field-requires-a-json",
+                &[("type", json_type_name(other))],
             ),
         )),
 
@@ -60,14 +66,17 @@ pub fn coerce_for_set_prop(
             .map_err(|e| {
                 ConfigApiError::new(
                     ConfigApiCode::ValueTypeMismatch,
-                    format!("could not serialize JSON value: {e}"),
+                    crate::i18n::localize(
+                        "cfg-err-could-not-serialize-json-value",
+                        &[("e", e.to_string().as_str())],
+                    ),
                 )
             }),
         (Some(PropKind::ObjectArray), other) => Err(ConfigApiError::new(
             ConfigApiCode::ValueTypeMismatch,
-            format!(
-                "object-array field requires a JSON array of objects; got {}",
-                json_type_name(other),
+            crate::i18n::localize(
+                "cfg-err-object-array-field-requires-a-json",
+                &[("type", json_type_name(other))],
             ),
         )),
 
@@ -78,14 +87,17 @@ pub fn coerce_for_set_prop(
             .map_err(|e| {
                 ConfigApiError::new(
                     ConfigApiCode::ValueTypeMismatch,
-                    format!("could not serialize JSON value: {e}"),
+                    crate::i18n::localize(
+                        "cfg-err-could-not-serialize-json-value",
+                        &[("e", e.to_string().as_str())],
+                    ),
                 )
             }),
         (Some(PropKind::Object), other) => Err(ConfigApiError::new(
             ConfigApiCode::ValueTypeMismatch,
-            format!(
-                "object field requires a JSON object; got {}",
-                json_type_name(other),
+            crate::i18n::localize(
+                "cfg-err-object-field-requires-a-json-object",
+                &[("type", json_type_name(other))],
             ),
         )),
 
@@ -98,18 +110,18 @@ pub fn coerce_for_set_prop(
             } else {
                 Err(ConfigApiError::new(
                     ConfigApiCode::ValueTypeMismatch,
-                    format!(
-                        "bool field requires `true`/`false`; got {}",
-                        json_type_name(value)
+                    crate::i18n::localize(
+                        "cfg-err-bool-field-requires-true-false-got",
+                        &[("type", json_type_name(value))],
                     ),
                 ))
             }
         }
         (Some(PropKind::Bool), other) => Err(ConfigApiError::new(
             ConfigApiCode::ValueTypeMismatch,
-            format!(
-                "bool field requires `true`/`false`; got {}",
-                json_type_name(other)
+            crate::i18n::localize(
+                "cfg-err-bool-field-requires-true-false-got",
+                &[("type", json_type_name(other))],
             ),
         )),
 
@@ -124,18 +136,18 @@ pub fn coerce_for_set_prop(
             } else {
                 Err(ConfigApiError::new(
                     ConfigApiCode::ValueTypeMismatch,
-                    format!(
-                        "integer field requires a whole number; got {}",
-                        json_type_name(value)
+                    crate::i18n::localize(
+                        "cfg-err-integer-field-requires-a-whole-number",
+                        &[("type", json_type_name(value))],
                     ),
                 ))
             }
         }
         (Some(PropKind::Integer), other) => Err(ConfigApiError::new(
             ConfigApiCode::ValueTypeMismatch,
-            format!(
-                "integer field requires a whole number; got {}",
-                json_type_name(other)
+            crate::i18n::localize(
+                "cfg-err-integer-field-requires-a-whole-number",
+                &[("type", json_type_name(other))],
             ),
         )),
 
@@ -148,18 +160,18 @@ pub fn coerce_for_set_prop(
             } else {
                 Err(ConfigApiError::new(
                     ConfigApiCode::ValueTypeMismatch,
-                    format!(
-                        "float field requires a number; got {}",
-                        json_type_name(value)
+                    crate::i18n::localize(
+                        "cfg-err-float-field-requires-a-number-got",
+                        &[("type", json_type_name(value))],
                     ),
                 ))
             }
         }
         (Some(PropKind::Float), other) => Err(ConfigApiError::new(
             ConfigApiCode::ValueTypeMismatch,
-            format!(
-                "float field requires a number; got {}",
-                json_type_name(other)
+            crate::i18n::localize(
+                "cfg-err-float-field-requires-a-number-got",
+                &[("type", json_type_name(other))],
             ),
         )),
 
@@ -171,7 +183,10 @@ pub fn coerce_for_set_prop(
             serde_json::to_string(value).map_err(|e| {
                 ConfigApiError::new(
                     ConfigApiCode::ValueTypeMismatch,
-                    format!("could not serialize JSON value: {e}"),
+                    crate::i18n::localize(
+                        "cfg-err-could-not-serialize-json-value",
+                        &[("e", e.to_string().as_str())],
+                    ),
                 )
             })
         }

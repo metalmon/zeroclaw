@@ -112,3 +112,11 @@ cfg-err-http-request-secrets-key-must-contain = http_request.secrets key {$name}
 cfg-err-is-required-when-provider-set-the = {$path} is required when provider = "{$provider}": set the instance's API base URL including /api/v1 (e.g. https://git.example.org/api/v1); no default host is assumed because API requests carry the access token
 cfg-err-flag-requires-sqlite-backend = {$flag_path} = true requires memory.backend = "sqlite" (typed memory storage is SQLite-only), but memory.backend = {$backend}
 cfg-err-plugins-egress-not-granted = plugins.entries.{$entry_name}.egress_allow_private lists {$private}, which is not granted by egress_hosts; the carveout relaxes an address class for a granted destination, it does not grant one. A wildcard carveout ('*.host') needs an equal-or-broader wildcard grant, not an exact one
+cfg-err-could-not-serialize-json-value = could not serialize JSON value: {$e}
+cfg-err-float-field-requires-a-number-got = float field requires a number; got {$type}
+cfg-err-integer-field-requires-a-whole-number = integer field requires a whole number; got {$type}
+cfg-err-bool-field-requires-true-false-got = bool field requires `true`/`false`; got {$type}
+cfg-err-object-field-requires-a-json-object = object field requires a JSON object; got {$type}
+cfg-err-object-array-field-requires-a-json = object-array field requires a JSON array of objects; got {$type}
+cfg-err-vec-string-field-requires-a-json = `Vec<String>` field requires a JSON array; got {$type}
+cfg-err-array-element-is-vec-string-requires = array element [{$i}] is {$type} — `Vec<String>` requires string elements
