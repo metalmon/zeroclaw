@@ -48,6 +48,8 @@ import ToolPermissionGrid, {
 import { profileLevelFromDraft } from "@/components/ToolPermissionGrid.logic";
 import { Badge, Button, ComboBox, Select } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
+import { Spinner } from "@/components/ui/spinner";
+import { isInlineControl } from "./fieldForm.layout.ts";
 import { fieldDesc, fieldLabel, plural, t, enumLabel, sectionLabel } from "@/lib/i18n";
 import {
   ApiError,
@@ -115,11 +117,11 @@ function BoolSwitch({
         style={{
           background: value
             ? "var(--color-status-success)"
-            : "var(--color-border)",
+            : "var(--color-border-strong)",
         }}
       >
         <span
-          className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all"
+          className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all shadow-[0_1px_2px_rgb(0_0_0/0.35)]"
           style={{ left: value ? "calc(100% - 14px)" : "2px" }}
         />
       </span>
@@ -1361,13 +1363,7 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
     if (loading) {
       return (
         <div className="flex items-center justify-center py-12">
-          <div
-            className="h-8 w-8 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--color-border)",
-              borderTopColor: "var(--color-primary)",
-            }}
-          />
+          <Spinner size={32} />
         </div>
       );
     }
@@ -1889,9 +1885,19 @@ function FieldRow({
     );
   }
 
+  // Compact scalar controls (bool / number / enum) sit in the row's right
+  // column; everything else — and any field showing a validation error — keeps
+  // its control full-width below the label. `flex-wrap` + `order` place them
+  // without duplicating the control ladder.
+  const renderInline = isInlineControl(renderer) && !showValidation;
+  // Draft differs from the saved value (same secret-empty exclusion as the
+  // unsaved-changes counter) → show a "modified" dot next to the label.
+  const isDirty =
+    !(entry.is_secret && value.length === 0) && value !== defaultInputValue(entry);
+
   return (
-    <div className="px-4 py-3">
-      <div className="flex items-start justify-between gap-3">
+    <div className="group flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-3">
+      <div className="order-1 flex min-w-0 flex-1 items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <label
             className="block text-sm font-medium font-sans break-words"
@@ -1899,6 +1905,14 @@ function FieldRow({
             htmlFor={entry.path}
             title={`${entry.path}${entry.type_hint ? ` — ${entry.type_hint}` : ""}`}
           >
+            {isDirty && (
+              <span
+                className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle"
+                style={{ background: "var(--color-brand-2)" }}
+                title={t("fieldform.field_modified")}
+                aria-hidden
+              />
+            )}
             {fieldLabel(entry.path, humanizeFieldLabel(entry.path))}
             {requirement && (
               <Badge
@@ -1918,7 +1932,7 @@ function FieldRow({
               the field is still unambiguously identifiable, but the humanized
               leaf above is now the primary label. */}
           <code
-            className="block text-[11px] font-mono break-all mt-0.5"
+            className="block text-[11px] font-mono break-all mt-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
             style={{ color: "var(--color-text-faint)" }}
           >
             {entry.path}
@@ -1947,9 +1961,11 @@ function FieldRow({
 
       <div
         className={
-          showValidation
-            ? "mt-2 space-y-1.5 rounded-[var(--radius-md)] ring-1 ring-status-error p-1.5 -m-1.5"
-            : "mt-2 space-y-1.5"
+          renderInline
+            ? "order-2 flex w-52 max-w-[55%] shrink-0 justify-end"
+            : showValidation
+              ? "order-3 w-full rounded-[var(--radius-md)] ring-1 ring-status-error p-1.5"
+              : "order-3 w-full"
         }
         aria-invalid={showValidation || undefined}
       >
@@ -2145,7 +2161,7 @@ function FieldRow({
             type="number"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="input-electric w-full px-3 py-2 text-sm"
+            className="input-electric w-44 max-w-full px-3 py-2 text-sm tabular-nums"
           />
         ) : showPicker ? (
           <div className="relative">
@@ -2205,6 +2221,9 @@ function FieldRow({
           />
         )}
 
+      </div>
+
+      <div className="order-3 w-full space-y-1.5">
         {showValidation && (
           <p className="text-xs text-status-error" role="alert">
             {validationMessage}

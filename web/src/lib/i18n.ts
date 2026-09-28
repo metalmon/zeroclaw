@@ -816,6 +816,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'fieldform.alias_pick_or_type': "Pick from list or type a value",
     'fieldform.remove_entry': "Remove this entry",
     'fieldform.reset_to_default': "Reset to default / unset",
+    'fieldform.field_modified': "modified",
     'fieldform.save_failed_prefix': "Save failed: ",
     'fieldform.saved_count_one': "{n} field saved.",
     'fieldform.saved_count_other': "{n} fields saved.",

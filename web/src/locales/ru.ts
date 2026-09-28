@@ -3309,6 +3309,7 @@ export const ru: Record<string, string> = {
   'fieldform.optional_label': 'необязательно',
   'fieldform.remove_entry': 'Удалить эту запись',
   'fieldform.reset_to_default': 'Сбросить к значению по умолчанию / очистить',
+  'fieldform.field_modified': 'изменено',
   'fieldform.save_failed_prefix': 'Не удалось сохранить: ',
   'fieldform.saved_count_one': '{n} поле сохранено.',
   'fieldform.saved_count_few': '{n} поля сохранено.',
