@@ -6856,10 +6856,13 @@ impl CostRatesConfig {
                 && !crate::cost::is_sane_usd_rate(value)
             {
                 let max = crate::cost::MAX_SANE_USD_RATE;
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     path.clone(),
-                    "{path} = {value} is invalid; cost rates must be finite and between 0 and {max} USD per configured unit"
+                    "cfg-err-is-invalid-cost-rates-must-be",
+                    ("path", path.to_string().as_str()),
+                    ("value", value.to_string().as_str()),
+                    ("max", max.to_string().as_str())
                 );
             }
             Ok(())
@@ -10489,10 +10492,11 @@ fn validate_mcp_config(config: &McpConfig) -> Result<()> {
     for (i, server) in config.servers.iter().enumerate() {
         let name = server.name.trim();
         if name.is_empty() {
-            validation_bail!(
+            validation_bail_i18n!(
                 RequiredFieldEmpty,
                 format!("mcp.servers[{i}].name"),
-                "mcp.servers[{i}].name must not be empty"
+                "cfg-err-mcp-servers-name-must-not-be",
+                ("i", i.to_string().as_str())
             );
         }
         if !seen_names.insert(name.to_ascii_lowercase()) {
@@ -10501,10 +10505,11 @@ fn validate_mcp_config(config: &McpConfig) -> Result<()> {
 
         if let Some(timeout) = server.tool_timeout_secs {
             if timeout == 0 {
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     format!("mcp.servers[{i}].tool_timeout_secs"),
-                    "mcp.servers[{i}].tool_timeout_secs must be greater than 0"
+                    "cfg-err-mcp-servers-tool-timeout-secs-must",
+                    ("i", i.to_string().as_str())
                 );
             }
             if timeout > MCP_MAX_TOOL_TIMEOUT_SECS {
@@ -10558,10 +10563,11 @@ fn validate_mcp_config(config: &McpConfig) -> Result<()> {
                 }
                 if let Some(ca_path) = server.tls_ca_cert_path.as_deref() {
                     if ca_path.trim().is_empty() {
-                        validation_bail!(
+                        validation_bail_i18n!(
                             RequiredFieldEmpty,
                             format!("mcp.servers[{i}].tls_ca_cert_path"),
-                            "mcp.servers[{i}].tls_ca_cert_path must not be empty"
+                            "cfg-err-mcp-servers-tls-ca-cert-path",
+                            ("i", i.to_string().as_str())
                         );
                     }
                     if !std::path::Path::new(ca_path).is_absolute() {
@@ -10601,37 +10607,42 @@ fn validate_proxy_url(field: &str, url: &str) -> Result<()> {
 
 fn validate_http_base_url(field: &str, url: &str) -> Result<()> {
     if url.trim().is_empty() {
-        validation_bail!(
+        validation_bail_i18n!(
             RequiredFieldEmpty,
             field.to_string(),
-            "{field} must not be empty"
+            "cfg-err-must-not-be-empty",
+            ("field", field.to_string().as_str())
         );
     }
 
     let parsed = match reqwest::Url::parse(url) {
         Ok(parsed) => parsed,
         Err(err) => {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidFormat,
                 field.to_string(),
-                "{field} must be a valid URL: {err}"
+                "cfg-err-must-be-a-valid-url",
+                ("field", field.to_string().as_str()),
+                ("err", err.to_string().as_str())
             );
         }
     };
 
     if !matches!(parsed.scheme(), "http" | "https") {
-        validation_bail!(
+        validation_bail_i18n!(
             InvalidFormat,
             field.to_string(),
-            "{field} must use http:// or https://"
+            "cfg-err-must-use-http-or-https",
+            ("field", field.to_string().as_str())
         );
     }
 
     if parsed.host_str().is_none() {
-        validation_bail!(
+        validation_bail_i18n!(
             InvalidFormat,
             field.to_string(),
-            "{field} must include a host"
+            "cfg-err-must-include-a-host",
+            ("field", field.to_string().as_str())
         );
     }
 
@@ -10644,10 +10655,11 @@ fn validate_http_base_url(field: &str, url: &str) -> Result<()> {
 /// derives the sibling `.enabled` path from it.
 fn validate_required_bot_token(field_path: &str, enabled: bool, token: &str) -> Result<()> {
     if token.trim() == crate::traits::UNSET_DISPLAY {
-        validation_bail!(
+        validation_bail_i18n!(
             RequiredFieldEmpty,
             field_path.to_string(),
-            "{field_path} must not contain the unset display placeholder",
+            "cfg-err-must-not-contain-the-unset-display-2",
+            ("field_path", field_path.to_string().as_str())
         );
     }
     if enabled && crate::traits::is_unset_display_value(token) {
@@ -10655,10 +10667,12 @@ fn validate_required_bot_token(field_path: &str, enabled: bool, token: &str) -> 
             || field_path.to_string(),
             |prefix| format!("{prefix}enabled"),
         );
-        validation_bail!(
+        validation_bail_i18n!(
             RequiredFieldEmpty,
             field_path.to_string(),
-            "{field_path} is required when {enabled_path} = true",
+            "cfg-err-is-required-when-true-2",
+            ("field_path", field_path.to_string().as_str()),
+            ("enabled_path", enabled_path.to_string().as_str())
         );
     }
     Ok(())
@@ -10679,17 +10693,20 @@ pub(crate) fn validate_required_field(
     value: &str,
 ) -> Result<()> {
     if value.trim() == crate::traits::UNSET_DISPLAY {
-        validation_bail!(
+        validation_bail_i18n!(
             RequiredFieldEmpty,
             field_path.to_string(),
-            "{field_path} must not contain the unset display placeholder",
+            "cfg-err-must-not-contain-the-unset-display",
+            ("field_path", field_path.to_string().as_str())
         );
     }
     if enabled && crate::traits::is_unset_display_value(value) {
-        validation_bail!(
+        validation_bail_i18n!(
             RequiredFieldEmpty,
             field_path.to_string(),
-            "{field_path} is required when {enabled_path} = true",
+            "cfg-err-is-required-when-true",
+            ("field_path", field_path.to_string().as_str()),
+            ("enabled_path", enabled_path.to_string().as_str())
         );
     }
     Ok(())
@@ -16841,10 +16858,10 @@ impl MqttConfig {
 
         // Client ID validation
         if self.client_id.is_empty() {
-            validation_bail!(
+            validation_bail_i18n!(
                 RequiredFieldEmpty,
                 "client_id",
-                "client_id must not be empty"
+                "cfg-err-client-id-must-not-be-empty"
             );
         }
 
@@ -19137,10 +19154,11 @@ impl CloudOpsConfig {
             }
             for (i, cloud) in self.supported_clouds.iter().enumerate() {
                 if cloud.trim().is_empty() {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         RequiredFieldEmpty,
                         format!("cloud_ops.supported_clouds[{i}]"),
-                        "cloud_ops.supported_clouds[{i}] must not be empty"
+                        "cfg-err-cloud-ops-supported-clouds-must-not",
+                        ("i", i.to_string().as_str())
                     );
                 }
             }
@@ -21587,10 +21605,21 @@ impl Config {
         let websocket_ping_interval_secs = self.gateway.websocket_ping_interval_secs;
         if websocket_ping_interval_secs > GATEWAY_WEBSOCKET_PING_INTERVAL_MAX_SECS {
             let path = "gateway.websocket_ping_interval_secs";
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 path,
-                "{path} = {websocket_ping_interval_secs} is out of range; must be 0..={GATEWAY_WEBSOCKET_PING_INTERVAL_MAX_SECS}"
+                "cfg-err-is-out-of-range-must-be-4",
+                ("path", path.to_string().as_str()),
+                (
+                    "websocket_ping_interval_secs",
+                    websocket_ping_interval_secs.to_string().as_str()
+                ),
+                (
+                    "GATEWAY_WEBSOCKET_PING_INTERVAL_MAX_SECS",
+                    GATEWAY_WEBSOCKET_PING_INTERVAL_MAX_SECS
+                        .to_string()
+                        .as_str()
+                )
             );
         }
 
@@ -21607,17 +21636,17 @@ impl Config {
             })?;
 
             if openvpn.config_file.trim().is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     "tunnel.openvpn.config_file",
-                    "tunnel.openvpn.config_file must not be empty"
+                    "cfg-err-tunnel-openvpn-config-file-must-not"
                 );
             }
             if openvpn.connect_timeout_secs == 0 {
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     "tunnel.openvpn.connect_timeout_secs",
-                    "tunnel.openvpn.connect_timeout_secs must be greater than 0"
+                    "cfg-err-tunnel-openvpn-connect-timeout-secs-must"
                 );
             }
         }
@@ -21631,24 +21660,27 @@ impl Config {
                 .as_ref()
                 .is_some_and(|path| path.trim().is_empty())
             {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("storage.lucid.{alias}.binary_path"),
-                    "storage.lucid.{alias}.binary_path must not be empty"
+                    "cfg-err-storage-lucid-binary-path-must-not",
+                    ("alias", alias.to_string().as_str())
                 );
             }
             if matches!(lucid.recall_timeout_ms, Some(0)) {
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     format!("storage.lucid.{alias}.recall_timeout_ms"),
-                    "storage.lucid.{alias}.recall_timeout_ms must be greater than 0"
+                    "cfg-err-storage-lucid-recall-timeout-ms-must",
+                    ("alias", alias.to_string().as_str())
                 );
             }
             if matches!(lucid.store_timeout_ms, Some(0)) {
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     format!("storage.lucid.{alias}.store_timeout_ms"),
-                    "storage.lucid.{alias}.store_timeout_ms must be greater than 0"
+                    "cfg-err-storage-lucid-store-timeout-ms-must",
+                    ("alias", alias.to_string().as_str())
                 );
             }
         }
@@ -21660,19 +21692,31 @@ impl Config {
             let secs = cfg.reply_min_interval_secs();
             if secs > REPLY_MIN_INTERVAL_MAX_SECS {
                 let path = format!("{path_prefix}.reply_min_interval_secs");
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     path,
-                    "{path} = {secs} is out of range; must be 0..={REPLY_MIN_INTERVAL_MAX_SECS}"
+                    "cfg-err-is-out-of-range-must-be-3",
+                    ("path", path.to_string().as_str()),
+                    ("secs", secs.to_string().as_str()),
+                    (
+                        "REPLY_MIN_INTERVAL_MAX_SECS",
+                        REPLY_MIN_INTERVAL_MAX_SECS.to_string().as_str()
+                    )
                 );
             }
             let depth = cfg.reply_queue_depth_max();
             if depth > REPLY_QUEUE_DEPTH_CEILING {
                 let path = format!("{path_prefix}.reply_queue_depth_max");
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     path,
-                    "{path} = {depth} is out of range; must be 0..={REPLY_QUEUE_DEPTH_CEILING}"
+                    "cfg-err-is-out-of-range-must-be-2",
+                    ("path", path.to_string().as_str()),
+                    ("depth", depth.to_string().as_str()),
+                    (
+                        "REPLY_QUEUE_DEPTH_CEILING",
+                        REPLY_QUEUE_DEPTH_CEILING.to_string().as_str()
+                    )
                 );
             }
         }
@@ -21695,10 +21739,16 @@ impl Config {
             let max_messages = slack.effective_thread_context_max_messages();
             if max_messages > MAX_SLACK_THREAD_CONTEXT_MAX_MESSAGES {
                 let path = format!("channels.slack.{alias}.thread_context_max_messages");
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     path,
-                    "{path} = {max_messages} is out of range; must be 0..={MAX_SLACK_THREAD_CONTEXT_MAX_MESSAGES}"
+                    "cfg-err-is-out-of-range-must-be",
+                    ("path", path.to_string().as_str()),
+                    ("max_messages", max_messages.to_string().as_str()),
+                    (
+                        "MAX_SLACK_THREAD_CONTEXT_MAX_MESSAGES",
+                        MAX_SLACK_THREAD_CONTEXT_MAX_MESSAGES.to_string().as_str()
+                    )
                 );
             }
         }
@@ -21779,52 +21829,52 @@ impl Config {
 
         // Gateway
         if self.gateway.host.trim().is_empty() {
-            validation_bail!(
+            validation_bail_i18n!(
                 RequiredFieldEmpty,
                 "gateway.host",
-                "gateway.host must not be empty"
+                "cfg-err-gateway-host-must-not-be-empty"
             );
         }
         if self.nodes.mdns.max_peers == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "nodes.mdns.max_peers",
-                "nodes.mdns.max_peers must be greater than 0"
+                "cfg-err-nodes-mdns-max-peers-must-be"
             );
         }
         if self.nodes.mdns.announce_interval_secs == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "nodes.mdns.announce_interval_secs",
-                "nodes.mdns.announce_interval_secs must be greater than 0"
+                "cfg-err-nodes-mdns-announce-interval-secs-must"
             );
         }
         if self.nodes.mdns.peer_ttl_secs == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "nodes.mdns.peer_ttl_secs",
-                "nodes.mdns.peer_ttl_secs must be greater than 0"
+                "cfg-err-nodes-mdns-peer-ttl-secs-must-2"
             );
         }
         if self.nodes.mdns.peer_ttl_secs <= self.nodes.mdns.announce_interval_secs {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "nodes.mdns.peer_ttl_secs",
-                "nodes.mdns.peer_ttl_secs must be greater than nodes.mdns.announce_interval_secs"
+                "cfg-err-nodes-mdns-peer-ttl-secs-must"
             );
         }
         if matches!(self.transcription.max_audio_bytes, Some(0)) {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "transcription.max_audio_bytes",
-                "transcription.max_audio_bytes must be greater than zero"
+                "cfg-err-transcription-max-audio-bytes-must-be"
             );
         }
         if self.channels.max_concurrent_per_channel == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "channels.max_concurrent_per_channel",
-                "channels.max_concurrent_per_channel must be greater than 0"
+                "cfg-err-channels-max-concurrent-per-channel-must"
             );
         }
         // Typed-memory producers are a SQLite-only slice: the enabled write
@@ -21871,10 +21921,11 @@ impl Config {
         }
         for (alias, agent) in &self.agents {
             if agent.precheck.timeout_secs == 0 {
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     format!("agents.{alias}.precheck.timeout_secs"),
-                    "agents.{alias}.precheck.timeout_secs must be greater than 0"
+                    "cfg-err-agents-precheck-timeout-secs-must-be",
+                    ("alias", alias.to_string().as_str())
                 );
             }
         }
@@ -21883,10 +21934,10 @@ impl Config {
         if self.heartbeat.enabled {
             let hb_agent = self.heartbeat.agent.trim();
             if hb_agent.is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     "heartbeat.agent",
-                    "heartbeat.agent must reference a configured agent when heartbeat.enabled = true"
+                    "cfg-err-heartbeat-agent-must-reference-a-configured"
                 );
             }
             if !self.agents.contains_key(hb_agent) {
@@ -21902,17 +21953,17 @@ impl Config {
             // value is exactly what was validated.
             if !prefix.is_empty() {
                 if !prefix.starts_with('/') {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         InvalidFormat,
                         "gateway.path_prefix",
-                        "gateway.path_prefix must start with '/'"
+                        "cfg-err-gateway-path-prefix-must-start-with"
                     );
                 }
                 if prefix.ends_with('/') {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         InvalidFormat,
                         "gateway.path_prefix",
-                        "gateway.path_prefix must not end with '/' (including bare '/')"
+                        "cfg-err-gateway-path-prefix-must-not-end"
                     );
                 }
                 // Reject characters unsafe for URL paths or HTML/JS injection.
@@ -21957,15 +22008,21 @@ impl Config {
                         anyhow::Error::msg(e.to_string())
                     })?;
                 if let Err(e) = crate::skill_bundles::validate_directory(&dir, &install_root) {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         InvalidFormat,
                         format!("skill-bundles.{alias}.directory"),
-                        "{e}"
+                        "cfg-err-msg-2",
+                        ("e", e.to_string().as_str())
                     );
                 }
             }
             if let Err(e) = crate::skill_bundles::validate_uniqueness(self, &install_root) {
-                validation_bail!(InvalidFormat, "skill_bundles", "{e}");
+                validation_bail_i18n!(
+                    InvalidFormat,
+                    "skill_bundles",
+                    "cfg-err-msg",
+                    ("e", e.to_string().as_str())
+                );
             }
         }
 
@@ -22058,24 +22115,24 @@ impl Config {
 
         // Security OTP / estop
         if self.security.otp.challenge_max_attempts == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "security.otp.challenge_max_attempts",
-                "security.otp.challenge_max_attempts must be greater than 0"
+                "cfg-err-security-otp-challenge-max-attempts-must-2"
             );
         }
         if self.security.otp.token_ttl_secs == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "security.otp.token_ttl_secs",
-                "security.otp.token_ttl_secs must be greater than 0"
+                "cfg-err-security-otp-token-ttl-secs-must"
             );
         }
         if self.security.otp.cache_valid_secs == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "security.otp.cache_valid_secs",
-                "security.otp.cache_valid_secs must be greater than 0"
+                "cfg-err-security-otp-cache-valid-secs-must"
             );
         }
         if self.security.otp.cache_valid_secs < self.security.otp.token_ttl_secs {
@@ -22084,19 +22141,20 @@ impl Config {
             );
         }
         if self.security.otp.challenge_max_attempts == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "security.otp.challenge_max_attempts",
-                "security.otp.challenge_max_attempts must be greater than 0"
+                "cfg-err-security-otp-challenge-max-attempts-must"
             );
         }
         for (i, action) in self.security.otp.gated_actions.iter().enumerate() {
             let normalized = action.trim();
             if normalized.is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("security.otp.gated_actions[{i}]"),
-                    "security.otp.gated_actions[{i}] must not be empty"
+                    "cfg-err-security-otp-gated-actions-must-not",
+                    ("i", i.to_string().as_str())
                 );
             }
             if !normalized
@@ -22131,51 +22189,53 @@ impl Config {
             || "Invalid security.otp.gated_domains or security.otp.gated_domain_categories",
         )?;
         if self.security.estop.state_file.trim().is_empty() {
-            validation_bail!(
+            validation_bail_i18n!(
                 RequiredFieldEmpty,
                 "security.estop.state_file",
-                "security.estop.state_file must not be empty"
+                "cfg-err-security-estop-state-file-must-not"
             );
         }
         if !(0.0..=1.0).contains(&self.security.leak_detection.sensitivity) {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "security.leak_detection.sensitivity",
-                "security.leak_detection.sensitivity must be between 0.0 and 1.0"
+                "cfg-err-security-leak-detection-sensitivity-must-be"
             );
         }
 
         // Scheduler
         if self.scheduler.max_concurrent == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "scheduler.max_concurrent",
-                "scheduler.max_concurrent must be greater than 0"
+                "cfg-err-scheduler-max-concurrent-must-be-greater"
             );
         }
         if self.scheduler.max_tasks == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "scheduler.max_tasks",
-                "scheduler.max_tasks must be greater than 0"
+                "cfg-err-scheduler-max-tasks-must-be-greater"
             );
         }
 
         // Model routes
         for (i, route) in self.model_routes.iter().enumerate() {
             if route.hint.trim().is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("model_routes[{i}].hint"),
-                    "model_routes[{i}].hint must not be empty"
+                    "cfg-err-model-routes-hint-must-not-be",
+                    ("i", i.to_string().as_str())
                 );
             }
             let mp = route.model_provider.trim();
             if mp.is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("model_routes[{i}].model_provider"),
-                    "model_routes[{i}].model_provider must not be empty"
+                    "cfg-err-model-routes-model-provider-must-not",
+                    ("i", i.to_string().as_str())
                 );
             }
             // Route refs are dotted `<type>.<alias>` and must resolve to a
@@ -22199,10 +22259,11 @@ impl Config {
                 ),
             }
             if route.model.trim().is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("model_routes[{i}].model"),
-                    "model_routes[{i}].model must not be empty"
+                    "cfg-err-model-routes-model-must-not-be",
+                    ("i", i.to_string().as_str())
                 );
             }
         }
@@ -22210,18 +22271,20 @@ impl Config {
         // Embedding routes
         for (i, route) in self.embedding_routes.iter().enumerate() {
             if route.hint.trim().is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("embedding_routes[{i}].hint"),
-                    "embedding_routes[{i}].hint must not be empty"
+                    "cfg-err-embedding-routes-hint-must-not-be",
+                    ("i", i.to_string().as_str())
                 );
             }
             let mp = route.model_provider.trim();
             if mp.is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("embedding_routes[{i}].model_provider"),
-                    "embedding_routes[{i}].model_provider must not be empty"
+                    "cfg-err-embedding-routes-model-provider-must-not",
+                    ("i", i.to_string().as_str())
                 );
             }
             // Embedding routes resolve against the same model-provider map;
@@ -22243,10 +22306,11 @@ impl Config {
                 ),
             }
             if route.model.trim().is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("embedding_routes[{i}].model"),
-                    "embedding_routes[{i}].model must not be empty"
+                    "cfg-err-embedding-routes-model-must-not-be",
+                    ("i", i.to_string().as_str())
                 );
             }
         }
@@ -22478,17 +22542,17 @@ impl Config {
         // Knowledge graph
         if self.knowledge.enabled {
             if self.knowledge.max_nodes == 0 {
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     "knowledge.max_nodes",
-                    "knowledge.max_nodes must be greater than 0"
+                    "cfg-err-knowledge-max-nodes-must-be-greater"
                 );
             }
             if self.knowledge.db_path.trim().is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     "knowledge.db_path",
-                    "knowledge.db_path must not be empty"
+                    "cfg-err-knowledge-db-path-must-not-be"
                 );
             }
         }
@@ -22498,10 +22562,11 @@ impl Config {
         for (i, service) in self.google_workspace.allowed_services.iter().enumerate() {
             let normalized = service.trim();
             if normalized.is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("google_workspace.allowed_services[{i}]"),
-                    "google_workspace.allowed_services[{i}] must not be empty"
+                    "cfg-err-google-workspace-allowed-services-must-not",
+                    ("i", i.to_string().as_str())
                 );
             }
             if !normalized
@@ -22540,10 +22605,11 @@ impl Config {
             let resource = operation.resource.trim();
 
             if service.is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("google_workspace.allowed_operations[{i}].service"),
-                    "google_workspace.allowed_operations[{i}].service must not be empty"
+                    "cfg-err-google-workspace-allowed-operations-service-must",
+                    ("i", i.to_string().as_str())
                 );
             }
             if resource.is_empty() {
@@ -22596,10 +22662,11 @@ impl Config {
             }
 
             if operation.methods.is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("google_workspace.allowed_operations[{i}].methods"),
-                    "google_workspace.allowed_operations[{i}].methods must not be empty"
+                    "cfg-err-google-workspace-allowed-operations-methods-must",
+                    ("i", i.to_string().as_str())
                 );
             }
 
@@ -22714,38 +22781,38 @@ impl Config {
                 anyhow::bail!("notion.database_id must not be empty when notion.enabled = true");
             }
             if self.notion.poll_interval_secs == 0 {
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     "notion.poll_interval_secs",
-                    "notion.poll_interval_secs must be greater than 0"
+                    "cfg-err-notion-poll-interval-secs-must-be"
                 );
             }
             if self.notion.max_concurrent == 0 {
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidNumericRange,
                     "notion.max_concurrent",
-                    "notion.max_concurrent must be greater than 0"
+                    "cfg-err-notion-max-concurrent-must-be-greater"
                 );
             }
             if self.notion.status_property.trim().is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     "notion.status_property",
-                    "notion.status_property must not be empty"
+                    "cfg-err-notion-status-property-must-not-be"
                 );
             }
             if self.notion.input_property.trim().is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     "notion.input_property",
-                    "notion.input_property must not be empty"
+                    "cfg-err-notion-input-property-must-not-be"
                 );
             }
             if self.notion.result_property.trim().is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     "notion.result_property",
-                    "notion.result_property must not be empty"
+                    "cfg-err-notion-result-property-must-not-be"
                 );
             }
         }
@@ -22805,17 +22872,17 @@ impl Config {
 
         // Delegate tool global defaults
         if self.delegate.timeout_secs == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "delegate.timeout_secs",
-                "delegate.timeout_secs must be greater than 0"
+                "cfg-err-delegate-timeout-secs-must-be-greater"
             );
         }
         if self.delegate.agentic_timeout_secs == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "delegate.agentic_timeout_secs",
-                "delegate.agentic_timeout_secs must be greater than 0"
+                "cfg-err-delegate-agentic-timeout-secs-must-be"
             );
         }
 
@@ -23049,10 +23116,11 @@ impl Config {
             // gate its actions. Run this check last so the more specific
             // dangling/format errors above surface first.
             if agent.enabled && agent.risk_profile.trim().is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("agents.{alias}.risk_profile"),
-                    "agents.{alias}.risk_profile must reference a configured [risk_profiles.<alias>] entry",
+                    "cfg-err-agents-risk-profile-must-reference-a",
+                    ("alias", alias.to_string().as_str())
                 );
             }
 
@@ -23065,10 +23133,12 @@ impl Config {
             for (i, target) in agent.delegates.iter().enumerate() {
                 let target_str = target.agent().trim();
                 if target_str.is_empty() {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         RequiredFieldEmpty,
                         format!("agents.{alias}.delegates[{i}].agent"),
-                        "agents.{alias}.delegates[{i}].agent is empty; remove it or name a configured agent",
+                        "cfg-err-agents-delegates-agent-is-empty-remove",
+                        ("alias", alias.to_string().as_str()),
+                        ("i", i.to_string().as_str())
                     );
                 }
                 if target_str == alias.as_str() {
@@ -23240,52 +23310,52 @@ impl Config {
         }
 
         if self.plugins.max_active_instances == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "plugins.max_active_instances",
-                "plugins.max_active_instances must be greater than 0; a zero ceiling rejects every logical plugin instance"
+                "cfg-err-plugins-max-active-instances-must-be"
             );
         }
         if self.plugins.limits.call_fuel == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "plugins.limits.call_fuel",
-                "plugins.limits.call_fuel must be greater than 0; a zero budget traps every plugin call before it runs"
+                "cfg-err-plugins-limits-call-fuel-must-be"
             );
         }
         if self.plugins.limits.max_memory_mb == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "plugins.limits.max_memory_mb",
-                "plugins.limits.max_memory_mb must be greater than 0; a zero cap rejects every plugin at instantiation"
+                "cfg-err-plugins-limits-max-memory-mb-must"
             );
         }
         if self.plugins.limits.max_table_elements == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "plugins.limits.max_table_elements",
-                "plugins.limits.max_table_elements must be greater than 0; a zero ceiling rejects every plugin that allocates a table"
+                "cfg-err-plugins-limits-max-table-elements-must"
             );
         }
         if self.plugins.limits.max_instances == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "plugins.limits.max_instances",
-                "plugins.limits.max_instances must be greater than 0; a zero ceiling rejects every plugin at instantiation"
+                "cfg-err-plugins-limits-max-instances-must-be"
             );
         }
         if self.plugins.limits.call_timeout_ms == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "plugins.limits.call_timeout_ms",
-                "plugins.limits.call_timeout_ms must be greater than 0; a zero deadline aborts every plugin call before it runs"
+                "cfg-err-plugins-limits-call-timeout-ms-must"
             );
         }
         if self.plugins.limits.max_connections_per_instance == 0 {
-            validation_bail!(
+            validation_bail_i18n!(
                 InvalidNumericRange,
                 "plugins.limits.max_connections_per_instance",
-                "plugins.limits.max_connections_per_instance must be greater than 0; a zero ceiling rejects every plugin network connection"
+                "cfg-err-plugins-limits-max-connections-per-instance"
             );
         }
 
