@@ -1204,6 +1204,11 @@ export const ru: Record<string, string> = {
   'config.section.gateway.label': 'Шлюз',
   'config.section.gateway.desc': 'Настройки сервера шлюза: адрес, порт, сопряжение, ограничения частоты запросов.',
   'config.section.authz.label': 'Авторизация',
+  'config.section.authz.desc': 'Авторизация агентов по субъектам, локальная для форка (`[[authz.principals]]`).',
+  'config.section.locale.label': 'Локализация',
+  'config.section.onboard_state.label': 'Состояние онбординга',
+  'config.section.onboard_state.desc': 'Состояние жизненного цикла быстрого старта. `quickstart_completed` становится true после успешного прохождения быстрого старта.',
+  'config.section.sop_approval.label': 'Одобрение СОП',
 
   // Long tail — label only (nav/breadcrumb/heading translated; intro
   // description falls back to the Rust `///` doc comment in English).
