@@ -6,7 +6,8 @@ import { basePath } from '@/lib/basePath';
 import { getToken } from '@/lib/auth';
 import { formatRelative } from '@/lib/format';
 import { plural, t } from '@/lib/i18n';
-import { Badge, Card, PageHeader } from '@/components/ui';
+import { Badge, Card, EmptyState, PageHeader } from '@/components/ui';
+import { Spinner } from '@/components/ui/spinner';
 import { confirmsCancellation, runsStreamEffect } from './runs.logic';
 
 type RunsFrame =
@@ -181,10 +182,10 @@ export default function Runs() {
         <Card className="p-8 text-center text-sm text-muted-foreground">{t('runs.disabled')}</Card>
       ) : !ready ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+          <Spinner size={22} />
         </div>
       ) : shown.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">{t('runs.empty')}</Card>
+        <EmptyState icon={<Activity className="h-6 w-6" />} title={t('runs.empty')} />
       ) : (
         <Card className="overflow-hidden p-0">
           <table className="w-full text-sm">

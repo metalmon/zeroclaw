@@ -19,6 +19,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { t } from '@/lib/i18n';
+import { Spinner } from '@/components/ui/spinner';
 import {
   ApiError,
   createMapKey,
@@ -513,10 +514,7 @@ function ResourceRow({
 function InlineSpinner() {
   return (
     <div className="flex items-center justify-center py-8">
-      <div
-        className="h-6 w-6 border-2 rounded-full animate-spin"
-        style={{ borderColor: 'var(--color-border)', borderTopColor: 'var(--color-primary)' }}
-      />
+      <Spinner size={22} />
     </div>
   );
 }

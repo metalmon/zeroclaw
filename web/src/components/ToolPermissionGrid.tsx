@@ -350,7 +350,7 @@ export default function ToolPermissionGrid({
           disabled={disabled || loading}
           placeholder={t('tool_picker.search_placeholder')}
           aria-label={t('tool_picker.search_placeholder')}
-          className="w-full h-9 pl-9 pr-3 text-sm rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-9 pl-9 pr-3 text-sm rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </div>
 
@@ -369,7 +369,7 @@ export default function ToolPermissionGrid({
             }}
             disabled={disabled}
             placeholder={t('tool_permission_grid.add_placeholder')}
-            className="min-w-0 flex-1 h-9 px-3 text-sm rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-w-0 flex-1 h-9 px-3 text-sm rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <div className="flex flex-wrap gap-1.5">
             <button

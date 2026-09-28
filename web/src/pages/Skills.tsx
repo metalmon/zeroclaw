@@ -4,10 +4,11 @@ import { BookOpen, ChevronRight, RefreshCw, Search } from 'lucide-react';
 import { getAgentOptions, listAgentSkills } from '@/lib/api';
 import type { AgentSkillEntry, DroppedSkillEntry } from '@/lib/api';
 import { plural, t } from '@/lib/i18n';
-import { Badge, Button, Card, PageHeader, Select } from '@/components/ui';
+import { Badge, Button, Card, EmptyState, PageHeader, Select } from '@/components/ui';
 import { SettingsPageShell, SettingsListBody, SettingsSelectableRow } from '@/components/ui/settings-list';
 import { DetailPanel, DetailPanelSurface, DetailSectionTitle } from '@/components/ui/detail-panel';
 import { IconTile } from '@/components/ui/icon-tile';
+import { SpinnerScreen } from '@/components/ui/spinner';
 
 const skillKey = (s: AgentSkillEntry): string =>
   s.editable && s.bundle ? `${s.bundle}/${s.name}` : `${s.origin}:${s.plugin ?? ''}/${s.name}`;
@@ -92,9 +93,7 @@ export default function Skills() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
-      </div>
+      <SpinnerScreen />
     );
   }
 
@@ -151,9 +150,7 @@ export default function Skills() {
           )}
 
           {filtered.length === 0 && dropped.length === 0 ? (
-            <Card padded={false} className="p-8 text-center text-sm text-muted-foreground">
-              {t('skills.empty')}
-            </Card>
+            <EmptyState icon={<BookOpen className="h-6 w-6" />} title={t('skills.empty')} />
           ) : (
             <SettingsListBody>
               {filtered.map((s) => {

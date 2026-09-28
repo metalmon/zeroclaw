@@ -794,7 +794,7 @@ export function AgentChatInner({
                   ? t('agent.running')
                   : t('agent.type_message')}
             disabled={!connected || typing || !hydrated}
-            className="flex-1 px-4 text-sm resize-none rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 disabled:opacity-40"
+            className="flex-1 px-4 text-sm resize-none rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:border-border-strong disabled:opacity-40"
             style={{ minHeight: '40px', maxHeight: '200px', paddingTop: '9px', paddingBottom: '9px' }}
           />
           {typing ? (

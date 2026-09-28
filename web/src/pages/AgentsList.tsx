@@ -2,9 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Bot, ChevronRight, Plus, Power, AlertCircle } from 'lucide-react';
 import AgentDrawer from '@/components/AgentDrawer';
-import { Badge, Button, Card, PageHeader } from '@/components/ui';
+import { Badge, Button, Card, EmptyState, PageHeader } from '@/components/ui';
 import { SettingsPageShell, SettingsListBody, SettingsSelectableRow } from '@/components/ui/settings-list';
 import { IconTile } from '@/components/ui/icon-tile';
+import { SpinnerScreen } from '@/components/ui/spinner';
 import { t } from '@/lib/i18n';
 import { loadAgentSummaries, toggleAgentEnabled, type AgentSummary } from '@/lib/agents';
 
@@ -62,8 +63,9 @@ export default function AgentsList() {
     selectedAlias === null ? null : state.agents.find((a) => a.alias === selectedAlias) ?? null;
 
   return (
-    <div className="no-scrollbar h-full overflow-y-auto">
-      <SettingsPageShell>
+    <div className="flex h-full min-h-0">
+      <div className="no-scrollbar min-w-0 flex-1 overflow-y-auto">
+        <SettingsPageShell>
         <PageHeader
           title={t('nav.agents')}
           description={t('agents_list.description')}
@@ -88,11 +90,9 @@ export default function AgentsList() {
         )}
 
         {state.loading && state.agents.length === 0 ? (
-          <Card padded={false} className="p-8 text-center text-sm text-muted-foreground">
-            {t('common.loading')}
-          </Card>
+          <SpinnerScreen />
         ) : state.agents.length === 0 ? (
-          <EmptyState />
+          <AgentsEmpty />
         ) : (
           <SettingsListBody>
             {state.agents.map((agent) => (
@@ -121,7 +121,8 @@ export default function AgentsList() {
             ))}
           </SettingsListBody>
         )}
-      </SettingsPageShell>
+        </SettingsPageShell>
+      </div>
 
       <AgentDrawer
         agent={selectedAgent}
@@ -133,20 +134,20 @@ export default function AgentsList() {
   );
 }
 
-function EmptyState() {
+function AgentsEmpty() {
   return (
-    <Card padded={false} className="border-dashed p-12 text-center">
-      <IconTile className="mx-auto mb-4 size-12 bg-primary/10 text-primary">
-        <Bot className="h-6 w-6" />
-      </IconTile>
-      <p className="mb-1 text-base font-medium text-foreground">{t('agents_list.empty_title')}</p>
-      <p className="mb-4 text-sm text-muted-foreground">{t('agents_list.empty_hint')}</p>
-      <Link to="/quickstart" className="inline-block">
-        <Button variant="default" size="default">
-          <Plus className="h-4 w-4" />
-          {t('agents_list.start_quickstart')}
-        </Button>
-      </Link>
-    </Card>
+    <EmptyState
+      icon={<Bot className="h-6 w-6" />}
+      title={t('agents_list.empty_title')}
+      hint={t('agents_list.empty_hint')}
+      action={
+        <Link to="/quickstart" className="inline-block">
+          <Button variant="default" size="default">
+            <Plus className="h-4 w-4" />
+            {t('agents_list.start_quickstart')}
+          </Button>
+        </Link>
+      }
+    />
   );
 }

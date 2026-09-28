@@ -24,6 +24,7 @@ import {
 import { loadAgentPickerSummaries, type AgentPickerSummary } from '@/lib/agents';
 import { t } from '@/lib/i18n';
 import { Badge, Card, PageHeader } from '@/components/ui';
+import { SpinnerScreen } from '@/components/ui/spinner';
 
 // ── Risk-profile tool access ────────────────────────────────────────────
 // Per-profile allow/exclude state for the tool-access matrix in each expanded
@@ -211,9 +212,7 @@ export default function Tools() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 border-2 rounded-full animate-spin border-border" style={{ borderTopColor: 'var(--color-primary)' }} />
-      </div>
+      <SpinnerScreen />
     );
   }
 
@@ -236,7 +235,7 @@ export default function Tools() {
               <select
                 value={selectedAgent}
                 onChange={(e) => setSelectedAgent(e.target.value)}
-                className="h-9 min-w-0 max-w-full rounded-[var(--radius-md)] border border-border bg-input px-3 text-sm font-medium text-text-secondary transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30"
+                className="h-9 min-w-0 max-w-full rounded-[var(--radius-md)] border border-border bg-input px-3 text-sm font-medium text-text-secondary transition-colors focus:outline-none focus:border-border-strong"
                 aria-label={t('tools.agent_select_label')}
                 title={t('tools.agent_select_label')}
               >
@@ -255,14 +254,14 @@ export default function Tools() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t('tools.search')}
-                className="w-full h-9 pl-9 pr-3 text-sm rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30"
+                className="w-full h-9 pl-9 pr-3 text-sm rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong"
               />
             </div>
             {/* Exit path: tool access is configured per risk profile, so send
                 the operator to the risk-profiles config section. */}
             <Link
               to="/config/risk_profiles"
-              className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 text-sm font-medium whitespace-nowrap rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 text-sm font-medium whitespace-nowrap rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
             >
               {t('tools.configure_access')}
               <ArrowRight className="h-3.5 w-3.5" />

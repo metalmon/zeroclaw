@@ -67,8 +67,8 @@ export default function ReloadBanner() {
   const isQuickstart = location.pathname.startsWith('/quickstart');
   if (isQuickstart && pendingReload && driftedCount === 0) {
     return (
-      <div className="px-4 py-3 border-b border-status-info/20 bg-status-info/[0.06] flex items-start gap-3">
-        <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5 text-status-info" />
+      <div className="px-4 py-2.5 border-b border-status-info/20 bg-status-info/[0.06] flex items-center gap-2.5">
+        <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-status-info" />
         <p className="text-sm font-medium text-foreground">
           {t('reload_banner.quickstart_saved')}
         </p>
@@ -87,8 +87,8 @@ export default function ReloadBanner() {
   }
 
   return (
-    <div className="px-4 py-3 border-b border-status-warning/25 bg-status-warning/[0.06] flex items-center gap-3">
-      <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5 text-status-warning" />
+    <div className="px-4 py-2.5 border-b border-status-warning/25 bg-status-warning/[0.06] flex items-center gap-2.5">
+      <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-status-warning" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground">
           {pendingReload && driftedCount > 0
@@ -135,7 +135,7 @@ export default function ReloadBanner() {
         onClick={() => setDismissedSig(sig)}
         aria-label={t('reload_banner.dismiss')}
         title={t('reload_banner.dismiss')}
-        className="flex-shrink-0 p-1 rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="flex-shrink-0 p-1 rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
       >
         <X className="h-4 w-4" />
       </button>

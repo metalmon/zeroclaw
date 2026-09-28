@@ -102,7 +102,7 @@ export default function DoctorFixModal({
             type="button"
             onClick={onClose}
             aria-label={t('common.close')}
-            className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
           >
             <X className="h-4 w-4" />
           </button>
@@ -117,7 +117,7 @@ export default function DoctorFixModal({
         <div className="flex items-center justify-between gap-2 px-6 py-4 border-t border-border">
           <Link
             to={href}
-            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-border bg-transparent px-3.5 text-sm font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-border bg-transparent px-3.5 text-sm font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
           >
             {t('doctor_fix.open_full_page')}
             <ExternalLink className="h-3.5 w-3.5" />

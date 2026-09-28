@@ -20,6 +20,7 @@ import {
 import { useRunOverlay } from '@/hooks/useRunOverlay';
 import { t } from '@/lib/i18n';
 import { Badge, Card, PageHeader } from '@/components/ui';
+import { Spinner } from '@/components/ui/spinner';
 import SopStepList from '@/components/SopStepList';
 import SopCanvas from './SopCanvas';
 
@@ -210,7 +211,7 @@ export default function RunDetail() {
         </Card>
       ) : !error ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+          <Spinner size={22} />
         </div>
       ) : null}
 

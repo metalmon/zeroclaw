@@ -12,6 +12,7 @@ import {
 import type { DiagResult } from '@/types/api';
 import { runDoctor } from '@/lib/api';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
+import { Spinner } from '@/components/ui/spinner';
 import ReloadDaemonButton from '@/components/sections/ReloadDaemonButton';
 import DoctorFixModal from '@/components/DoctorFixModal';
 import { plural, t } from '@/lib/i18n';
@@ -130,7 +131,7 @@ function SeverityFilterToggle({
       title={active ? `${t('doctor.hide_prefix')}${label}` : `${t('doctor.show_prefix')}${label}`}
       className={[
         'inline-flex items-center gap-2 rounded-[var(--radius-md)] border px-2.5 py-1 transition-colors duration-150 cursor-pointer select-none',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]',
         active
           ? 'border-primary bg-primary/10 text-foreground'
           : 'border-border bg-transparent text-muted-foreground opacity-60 hover:opacity-100 hover:border-border-strong',
@@ -258,7 +259,7 @@ export default function Doctor() {
       {/* Loading state */}
       {loading && (
         <Card className="flex flex-col items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <Spinner size={32} className="mb-4" />
           <p className="text-sm text-text-secondary">{t('doctor.running_desc')}</p>
           <p className="text-[13px] mt-1 text-text-faint">{t('doctor.running_hint')}</p>
         </Card>
@@ -340,7 +341,7 @@ export default function Doctor() {
                           <button
                             type="button"
                             onClick={() => setFixTarget(target)}
-                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2.5 text-[13px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background cursor-pointer"
+                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2.5 text-[13px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] cursor-pointer"
                           >
                             {target.label}
                             <ArrowRight className="h-3.5 w-3.5" />
@@ -349,7 +350,7 @@ export default function Doctor() {
                         {link && (
                           <Link
                             to={link[0]}
-                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2.5 text-[13px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2.5 text-[13px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
                           >
                             {link[1]}
                             <ArrowRight className="h-3.5 w-3.5" />

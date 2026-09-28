@@ -165,6 +165,7 @@ import { useSSE } from "@/hooks/useSSE";
 import { usePolling } from "@/hooks/usePolling";
 import { t, fmtDate, fmtNumber, fmtRelative, plural } from "@/lib/i18n";
 import { StatCard, PageHeader, ConfirmDialog } from "@/components/ui";
+import { Spinner } from "@/components/ui/spinner";
 
 type TabId =
   | "overview"
@@ -821,7 +822,7 @@ function OverviewTab({
                                 <button
                                   type="button"
                                   onClick={() => setHealthFix(fix)}
-                                  className="inline-flex h-6 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2 text-[11px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background cursor-pointer"
+                                  className="inline-flex h-6 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2 text-[11px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] cursor-pointer"
                                 >
                                   {t("dashboard.fix")}
                                   <ArrowRight className="h-3 w-3" />
@@ -1121,13 +1122,7 @@ function SessionsTab() {
     return (
       <div className="flex items-center justify-center h-48">
         <div className="flex items-center gap-3">
-          <div
-            className="h-6 w-6 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--color-border)",
-              borderTopColor: "var(--color-primary)",
-            }}
-          />
+          <Spinner size={22} />
           <span className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
             {t("dashboard.loading_sessions")}
           </span>
@@ -1547,13 +1542,7 @@ function ChannelsTab() {
     return (
       <div className="flex items-center justify-center h-48">
         <div className="flex items-center gap-3">
-          <div
-            className="h-6 w-6 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--color-border)",
-              borderTopColor: "var(--color-primary)",
-            }}
-          />
+          <Spinner size={22} />
           <span className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
             {t("dashboard.loading_channels")}
           </span>
@@ -1826,13 +1815,7 @@ export default function Dashboard() {
   if (!status || !cost) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div
-          className="h-8 w-8 border-2 rounded-full animate-spin"
-          style={{
-            borderColor: "var(--color-border)",
-            borderTopColor: "var(--color-primary)",
-          }}
-        />
+        <Spinner size={32} />
       </div>
     );
   }
@@ -2391,13 +2374,7 @@ function MemoriesTab() {
     return (
       <div className="flex items-center justify-center h-48">
         <div className="flex items-center gap-3">
-          <div
-            className="h-6 w-6 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--color-border)",
-              borderTopColor: "var(--color-primary)",
-            }}
-          />
+          <Spinner size={22} />
           <span className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
             {t("dashboard.mem.loading")}
           </span>

@@ -158,7 +158,7 @@ export function SettingsModal({ open, onClose }: Props) {
             type="button"
             onClick={onClose}
             aria-label={t('common.close')}
-            className="h-11 w-11 -mr-2 rounded-[var(--radius-md)] flex items-center justify-center text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="h-11 w-11 -mr-2 rounded-[var(--radius-md)] flex items-center justify-center text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
           >
             <X size={16} />
           </button>

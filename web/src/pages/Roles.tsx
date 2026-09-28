@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronRight, Plus, Shield, ShieldCheck, Trash2, User, X } from 'lucide-react';
 import { useRoles } from '@/hooks/useRoles';
 import { HttpError, type AuthzProfile, type AuthzPrincipalSummary } from '@/lib/api';
-import { Badge, Button, Card, ConfirmDialog, PageHeader, Select } from '@/components/ui';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, PageHeader, Select } from '@/components/ui';
 import {
   SettingsPageShell,
   SettingsListBody,
@@ -12,6 +12,7 @@ import {
 import { DetailPanel, DetailPanelSurface, DetailSectionTitle } from '@/components/ui/detail-panel';
 import { IconTile } from '@/components/ui/icon-tile';
 import { ActionMenu } from '@/components/ui/action-menu';
+import { SpinnerScreen } from '@/components/ui/spinner';
 import { plural, t } from '@/lib/i18n';
 
 // Sentinel written into `allowed_agents` for "every agent" — matches the
@@ -356,9 +357,7 @@ export default function Roles() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 border-2 rounded-full animate-spin border-border border-t-primary" />
-      </div>
+      <SpinnerScreen />
     );
   }
 
@@ -419,9 +418,7 @@ export default function Roles() {
           {t('roles.profiles_heading')} · {profiles.length}
         </SettingsSectionLabel>
         {profiles.length === 0 ? (
-          <Card padded={false} className="p-8 text-center text-sm text-muted-foreground">
-            {t('roles.no_profiles')}
-          </Card>
+          <EmptyState icon={<Shield className="h-6 w-6" />} title={t('roles.no_profiles')} />
         ) : (
           <SettingsListBody>
             {profiles.map((profile) => (
@@ -461,9 +458,7 @@ export default function Roles() {
           {t('roles.principals_heading')} · {principals.length}
         </SettingsSectionLabel>
         {principals.length === 0 ? (
-          <Card padded={false} className="p-8 text-center text-sm text-muted-foreground">
-            {t('roles.no_principals')}
-          </Card>
+          <EmptyState icon={<User className="h-6 w-6" />} title={t('roles.no_principals')} />
         ) : (
           <SettingsListBody>
             {sortedPrincipals.map((principal) => {

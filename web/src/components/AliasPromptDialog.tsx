@@ -58,7 +58,7 @@ export default function AliasPromptDialog({ label, suggestion, onConfirm, onCanc
             type="button"
             onClick={onCancel}
             aria-label={t('common.close')}
-            className="h-8 w-8 rounded-[var(--radius-md)] flex items-center justify-center text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="h-8 w-8 rounded-[var(--radius-md)] flex items-center justify-center text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
           >
             <X size={16} />
           </button>

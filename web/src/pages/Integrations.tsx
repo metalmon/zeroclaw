@@ -4,7 +4,7 @@ import { Puzzle, Check, Zap, ChevronRight } from 'lucide-react';
 import type { Integration } from '@/types/api';
 import { getIntegrations } from '@/lib/api';
 import { t } from '@/lib/i18n';
-import { Badge, Card, PageHeader } from '@/components/ui';
+import { Badge, Card, EmptyState, PageHeader } from '@/components/ui';
 import type { BadgeTone } from '@/components/ui';
 import {
   SettingsPageShell,
@@ -13,6 +13,7 @@ import {
   SettingsSelectableRow,
 } from '@/components/ui/settings-list';
 import { IconTile } from '@/components/ui/icon-tile';
+import { SpinnerScreen } from '@/components/ui/spinner';
 
 function channelSlug(name: string): string | null {
   const slug = name
@@ -109,9 +110,7 @@ export default function Integrations() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
-      </div>
+      <SpinnerScreen />
     );
   }
 
@@ -145,10 +144,7 @@ export default function Integrations() {
         </div>
 
         {Object.keys(grouped).length === 0 ? (
-          <Card padded={false} className="p-10 text-center">
-            <Puzzle className="mx-auto mb-3 h-10 w-10 text-text-faint" />
-            <p className="text-sm text-muted-foreground">{t('integrations.empty')}</p>
-          </Card>
+          <EmptyState icon={<Puzzle className="h-6 w-6" />} title={t('integrations.empty')} />
         ) : (
           Object.entries(grouped)
             .sort(([a], [b]) => a.localeCompare(b))

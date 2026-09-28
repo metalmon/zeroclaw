@@ -292,7 +292,7 @@ export default function ToolPicker({
           onChange={(e) => setSearch(e.target.value)}
           disabled={disabled || loading || error !== null}
           placeholder={t('tool_picker.search_placeholder')}
-          className="w-full h-9 pl-9 pr-3 text-sm rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-9 pl-9 pr-3 text-sm rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </div>
 

@@ -1,10 +1,5 @@
-import { useEffect, useRef } from 'react';
 import type { ReactNode, ComponentType } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  useFocusTrap,
-  FOCUSABLE_SELECTOR_FORM,
-} from '@/hooks/useFocusTrap';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   BookOpen,
   Bot,
@@ -20,20 +15,22 @@ import {
   Sparkles,
   Users,
   Wifi,
-  X,
   Zap,
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import type { AgentSummary } from '@/lib/agents';
 import { Badge } from '@/components/ui';
+import { DetailPanel, DetailPanelSurface } from '@/components/ui/detail-panel';
+import { IconTile } from '@/components/ui/icon-tile';
+import { ActionMenu } from '@/components/ui/action-menu';
 import { t } from '@/lib/i18n';
 import { formatRelative, formatUsd } from '@/lib/format';
 import EntityLink from './EntityLink';
 
 export interface AgentDrawerProps {
-  /** The agent to show. When null the drawer is closed (renders nothing). */
+  /** The agent to show. When null the panel is closed (renders nothing). */
   agent: AgentSummary | null;
-  /** Clear the selection / close the drawer. */
+  /** Clear the selection / close the panel. */
   onClose: () => void;
   /** Flip the agent's enabled flag (same handler the list rows use). */
   onToggle: (agent: AgentSummary) => void;
@@ -47,15 +44,8 @@ const CHIP_CLASS =
   'inline-block font-mono text-[10px] px-2 py-0.5 rounded-full ' +
   'bg-secondary text-text-secondary hover:text-foreground transition-colors';
 
-const ACTION_BASE =
-  'inline-flex items-center justify-center gap-1.5 h-9 px-3.5 text-sm ' +
-  'font-medium whitespace-nowrap rounded-[var(--radius-md)] border ' +
-  'transition-colors duration-150 select-none ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] ' +
-  'focus-visible:ring-offset-2 focus-visible:ring-offset-card';
-
 // A labelled group: a muted caption + icon over a wrapped set of facts. Reused
-// for each config dimension so the drawer reads as scannable sections.
+// for each config dimension so the panel reads as scannable sections.
 function DetailGroup({
   icon: Icon,
   label,
@@ -84,100 +74,47 @@ export default function AgentDrawer({
   onToggle,
   toggling,
 }: AgentDrawerProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const closeBtnRef = useRef<HTMLButtonElement>(null);
-
+  const navigate = useNavigate();
   const open = agent !== null;
 
-  // Esc closes; Tab is trapped inside the drawer panel; focus is restored to the
-  // opener (the row that opened the drawer) on close. Matches the prior
-  // hand-rolled effect (wide selector that includes select/textarea, no
-  // visibility filter, Esc does not preventDefault). Declared before the
-  // focus-on-open effect so the trap captures the opener as the restore target
-  // before focus moves into the panel.
-  useFocusTrap(panelRef, {
-    onClose,
-    enabled: open,
-    focusableSelector: FOCUSABLE_SELECTOR_FORM,
-  });
-
-  // Focus the close button on open. (Store/restore + Esc/Tab handled above.)
-  useEffect(() => {
-    if (!open) return;
-    closeBtnRef.current?.focus();
-  }, [open]);
-
-  if (!agent) return null;
-
-  const channelCount = agent.channels.length;
-  const skillCount = agent.skillBundles.length;
-  const knowledgeCount = agent.knowledgeBundles.length;
-  const mcpCount = agent.mcpBundles.length;
-  const cronCount = agent.cronJobs.length;
-  const peerCount = agent.peerGroups.length;
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('agent.detail_aria', { value: agent.alias })}
-      className="fixed inset-0 z-50 flex justify-end"
-      onClick={onClose}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
-
-      {/* Panel: full-screen on mobile, right-side drawer on >= sm. */}
-      <div
-        ref={panelRef}
-        className="relative h-full w-full sm:max-w-md flex flex-col bg-background border-l border-border shadow-[var(--color-shadow-md)] animate-slide-in-right overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header: identity + close */}
-        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="h-10 w-10 rounded-[var(--radius-md)] flex-shrink-0 flex items-center justify-center bg-primary/10">
-              <Bot className="h-5 w-5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <EntityLink
-                kind="agent"
-                id={agent.alias}
-                className="block text-base font-semibold truncate text-foreground hover:underline"
-                title={t('agent.open_config', { value: `agents.${agent.alias}` })}
-              >
-                {agent.alias}
-              </EntityLink>
-              {agent.modelProvider ? (
-                <EntityLink
-                  kind="model-provider"
-                  id={agent.modelProvider}
-                  className="block text-xs truncate font-mono text-muted-foreground hover:text-text-secondary hover:underline"
-                  title={t('agent.open_config', { value: `providers.models.${agent.modelProvider}` })}
-                >
-                  {agent.modelProvider}
-                </EntityLink>
-              ) : (
-                <p className="text-xs truncate text-muted-foreground">
-                  {t('agent.no_model_provider')}
-                </p>
-              )}
-            </div>
-          </div>
-          <button
-            ref={closeBtnRef}
-            type="button"
-            onClick={onClose}
-            aria-label={t('agent.close')}
-            title={t('agent.close')}
-            className="h-8 w-8 flex-shrink-0 rounded-[var(--radius-md)] flex items-center justify-center text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5">
+    <DetailPanelSurface open={open}>
+      {agent && (
+        <DetailPanel
+          icon={
+            <IconTile>
+              <Bot className="h-[18px] w-[18px] text-muted-foreground" />
+            </IconTile>
+          }
+          title={
+            <EntityLink
+              kind="agent"
+              id={agent.alias}
+              className="hover:underline"
+              title={t('agent.open_config', { value: `agents.${agent.alias}` })}
+            >
+              {agent.alias}
+            </EntityLink>
+          }
+          subtitle={agent.modelProvider || t('agent.no_model_provider')}
+          onClose={onClose}
+          actions={
+            <ActionMenu
+              items={[
+                {
+                  label: t('agent.open_chat'),
+                  icon: <MessageSquare />,
+                  onClick: () => navigate(`/agent/${encodeURIComponent(agent.alias)}`),
+                },
+                {
+                  label: t('agent.edit'),
+                  icon: <Pencil />,
+                  onClick: () => navigate(`/config/agents/${encodeURIComponent(agent.alias)}`),
+                },
+              ]}
+            />
+          }
+        >
           {/* Status */}
           <div className="flex items-center justify-between gap-3">
             <span className="text-[11px] uppercase tracking-wide text-text-faint">
@@ -187,7 +124,7 @@ export default function AgentDrawer({
               type="button"
               onClick={() => onToggle(agent)}
               disabled={toggling}
-              className="rounded-full transition-opacity disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="rounded-full transition-opacity disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
               aria-pressed={agent.enabled}
               aria-label={agent.enabled ? t('agent.disable') : t('agent.enable')}
               title={agent.enabled ? t('agent.disable') : t('agent.enable')}
@@ -201,7 +138,7 @@ export default function AgentDrawer({
 
           {/* Configuration facts */}
           <DetailGroup icon={Wifi} label={t('agent.section.channels')}>
-            {channelCount === 0 ? (
+            {agent.channels.length === 0 ? (
               <span className="text-muted-foreground">{t('agent.none_bound')}</span>
             ) : (
               agent.channels.map((ch) => (
@@ -229,10 +166,7 @@ export default function AgentDrawer({
                 {agent.riskProfile}
               </EntityLink>
             ) : (
-              <span
-                className="text-muted-foreground"
-                title={t('agent.risk_profile_title')}
-              >
+              <span className="text-muted-foreground" title={t('agent.risk_profile_title')}>
                 {t('agent.no_risk_profile')}
               </span>
             )}
@@ -266,7 +200,7 @@ export default function AgentDrawer({
             )}
           </DetailGroup>
 
-          {skillCount > 0 && (
+          {agent.skillBundles.length > 0 && (
             <DetailGroup icon={Sparkles} label={t('agent.section.skills')}>
               {agent.skillBundles.map((s) => (
                 <EntityLink
@@ -282,7 +216,7 @@ export default function AgentDrawer({
             </DetailGroup>
           )}
 
-          {knowledgeCount > 0 && (
+          {agent.knowledgeBundles.length > 0 && (
             <DetailGroup icon={BookOpen} label={t('agent.section.knowledge')}>
               {agent.knowledgeBundles.map((k) => (
                 <EntityLink
@@ -298,7 +232,7 @@ export default function AgentDrawer({
             </DetailGroup>
           )}
 
-          {mcpCount > 0 && (
+          {agent.mcpBundles.length > 0 && (
             <DetailGroup icon={Plug} label={t('agent.section.mcp')}>
               {agent.mcpBundles.map((m) => (
                 <EntityLink
@@ -314,7 +248,7 @@ export default function AgentDrawer({
             </DetailGroup>
           )}
 
-          {peerCount > 0 && (
+          {agent.peerGroups.length > 0 && (
             <DetailGroup icon={Users} label={t('agent.section.peers')}>
               {agent.peerGroups.map((pg) => (
                 <EntityLink
@@ -330,7 +264,7 @@ export default function AgentDrawer({
             </DetailGroup>
           )}
 
-          {cronCount > 0 && (
+          {agent.cronJobs.length > 0 && (
             <DetailGroup icon={Clock} label={t('agent.section.cron')}>
               {agent.cronJobs.map((c) => (
                 <EntityLink
@@ -347,7 +281,7 @@ export default function AgentDrawer({
           )}
 
           {/* Activity stats: sessions / memories / spend */}
-          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-border">
+          <div className="grid grid-cols-3 gap-2 border-t border-border/60 pt-4">
             <div className="min-w-0">
               <div className="flex items-center gap-1 text-[11px] text-text-faint">
                 <MessageSquare className="h-3 w-3 flex-shrink-0" />
@@ -366,7 +300,7 @@ export default function AgentDrawer({
                   </Link>
                 )}
               </div>
-              <div className="text-[11px] text-muted-foreground truncate">
+              <div className="truncate text-[11px] text-muted-foreground">
                 {formatRelative(agent.lastActivity)}
               </div>
             </div>
@@ -408,27 +342,8 @@ export default function AgentDrawer({
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Sticky footer actions. Routes are <Link>s styled to match the Button
-            primitive (Button renders a native <button>, so it can't navigate). */}
-        <div className="flex items-center gap-2 px-5 py-4 border-t border-border">
-          <Link
-            to={`/agent/${encodeURIComponent(agent.alias)}`}
-            className={`${ACTION_BASE} flex-1 bg-primary border-transparent text-primary-foreground hover:bg-accent-light active:brightness-95`}
-          >
-            <MessageSquare className="h-4 w-4" />
-            {t('agent.open_chat')}
-          </Link>
-          <Link
-            to={`/config/agents/${encodeURIComponent(agent.alias)}`}
-            className={`${ACTION_BASE} bg-transparent border-border text-text-secondary hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong`}
-          >
-            <Pencil className="h-4 w-4" />
-            {t('agent.edit')}
-          </Link>
-        </div>
-      </div>
-    </div>
+        </DetailPanel>
+      )}
+    </DetailPanelSurface>
   );
 }

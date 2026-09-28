@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, FolderOpen, ChevronRight, RefreshCw, FolderPlus, Trash2 } from 'lucide-react';
 import { Button, ConfirmDialog } from '@/components/ui';
+import { Spinner } from '@/components/ui/spinner';
 import { t } from '@/lib/i18n';
 import {
   ApiError,
@@ -186,7 +187,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
           onClick={() => setCreating((v) => !v)}
           title={t('dir_picker.new_folder_here')}
           aria-label={t('dir_picker.new_folder_here')}
-          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
         >
           <FolderPlus className="h-3.5 w-3.5" />
         </button>
@@ -195,7 +196,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
           onClick={reload}
           title={t('common.refresh')}
           aria-label={t('common.refresh')}
-          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
         >
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
@@ -254,10 +255,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
         )}
         {loading ? (
           <li className="px-3 py-6 flex items-center justify-center">
-            <div
-              className="h-5 w-5 border-2 rounded-full animate-spin"
-              style={{ borderColor: 'var(--color-border)', borderTopColor: 'var(--color-primary)' }}
-            />
+            <Spinner size={20} />
           </li>
         ) : error ? (
           <li className="px-3 py-3 text-xs text-status-error">

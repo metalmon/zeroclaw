@@ -13,7 +13,8 @@ import {
 } from '@/lib/api';
 import { agentBoundChannels, type AgentBoundChannel } from '@/lib/agentChannels';
 import { t, fmtDate } from '@/lib/i18n';
-import { Badge, Button, Card, PageHeader } from '@/components/ui';
+import { Badge, Button, Card, PageHeader, Switch } from '@/components/ui';
+import { SpinnerScreen } from '@/components/ui/spinner';
 import ToolPicker from '@/components/ToolPicker';
 import type { CronJob, CronRun } from '@/types/api';
 import {
@@ -558,9 +559,7 @@ export default function Cron() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 border-2 rounded-full animate-spin border-border" style={{ borderTopColor: 'var(--color-primary)' }} />
-      </div>
+      <SpinnerScreen />
     );
   }
 
@@ -587,24 +586,12 @@ export default function Cron() {
               {t('cron.catch_up_description')}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={toggleCatchUp}
+          <Switch
+            checked={settings.catch_up_on_startup}
+            onChange={toggleCatchUp}
             disabled={togglingCatchUp}
-            aria-pressed={settings.catch_up_on_startup}
-            className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40 cursor-pointer"
-            style={settings.catch_up_on_startup
-              ? { background: 'var(--color-primary)' }
-              : { background: 'var(--color-muted-foreground)' }
-            }
-          >
-            <span
-              className={`inline-block h-4 w-4 rounded-full bg-white transition-transform duration-200 ${settings.catch_up_on_startup
-                  ? 'translate-x-6'
-                  : 'translate-x-1'
-                }`}
-            />
-          </button>
+            ariaLabel={t('cron.catch_up_title')}
+          />
         </Card>
       )}
 
@@ -683,7 +670,7 @@ export default function Cron() {
                     <select
                       value={formAgent}
                       onChange={(e) => setFormAgent(e.target.value)}
-                      className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 w-full px-3 py-2.5 text-sm appearance-none cursor-pointer"
+                      className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm appearance-none cursor-pointer"
                     >
                       {agentOptions.length === 0 ? (
                         <option value="">{t('cron.no_configured_agents')}</option>
@@ -705,19 +692,19 @@ export default function Cron() {
                 <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
                   {t('cron.name_optional')}
                 </label>
-                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder={t('cron.name_placeholder')} className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 w-full px-3 py-2.5 text-sm" />
+                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder={t('cron.name_placeholder')} className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm" />
               </div>
               <div>
                 <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
                   {t('cron.schedule_required')} <span className="text-status-error">*</span>
                 </label>
-                <input type="text" value={formSchedule} onChange={(e) => setFormSchedule(e.target.value)} placeholder={t('cron.schedule_placeholder')} className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 w-full px-3 py-2.5 text-sm" />
+                <input type="text" value={formSchedule} onChange={(e) => setFormSchedule(e.target.value)} placeholder={t('cron.schedule_placeholder')} className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm" />
               </div>
               <div>
                 <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
                   {t('cron.timezone')}
                 </label>
-                <input type="text" value={formTimezone} onChange={(e) => setFormTimezone(e.target.value)} placeholder={t('cron.timezone_placeholder')} className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 w-full px-3 py-2.5 text-sm font-mono" />
+                <input type="text" value={formTimezone} onChange={(e) => setFormTimezone(e.target.value)} placeholder={t('cron.timezone_placeholder')} className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm font-mono" />
               </div>
 
               {/* Conditional fields based on job type */}
@@ -731,7 +718,7 @@ export default function Cron() {
                     onChange={(e) => setFormCommand(e.target.value)}
                     placeholder={t('cron.command_placeholder')}
                     rows={4}
-                    className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 w-full px-3 py-2.5 text-sm resize-y font-mono"
+                    className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm resize-y font-mono"
                   />
                 </div>
               ) : (
@@ -745,7 +732,7 @@ export default function Cron() {
                       onChange={(e) => setFormPrompt(e.target.value)}
                       placeholder={t('cron.prompt_placeholder')}
                       rows={4}
-                      className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 w-full px-3 py-2.5 text-sm resize-y"
+                      className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm resize-y"
                     />
                   </div>
                   {/* Model / session-target / allowed-tools. patchCronJob does
@@ -791,7 +778,7 @@ export default function Cron() {
                           value={formModel}
                           onChange={(e) => setFormModel(e.target.value)}
                           placeholder={t('cron.model_placeholder')}
-                          className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 w-full px-3 py-2.5 text-sm"
+                          className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm"
                         />
                       </div>
                       <div>
@@ -937,7 +924,7 @@ export default function Cron() {
                       <select
                         value={formDeliveryChannel}
                         onChange={(e) => setFormDeliveryChannel(e.target.value)}
-                        className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 w-full px-3 py-2 text-sm appearance-none cursor-pointer"
+                        className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2 text-sm appearance-none cursor-pointer"
                       >
                         <option value="">
                           {boundChannels.length === 0
@@ -956,7 +943,7 @@ export default function Cron() {
                         value={formDeliveryTo}
                         onChange={(e) => setFormDeliveryTo(e.target.value)}
                         placeholder={t('cron.delivery_to_placeholder')}
-                        className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong focus:ring-2 focus:ring-[var(--color-focus)]/30 w-full px-3 py-2 text-sm font-mono"
+                        className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2 text-sm font-mono"
                       />
                       <label className="flex items-center gap-2 text-xs text-muted-foreground">
                         <input
