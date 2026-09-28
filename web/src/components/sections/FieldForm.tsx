@@ -1889,7 +1889,7 @@ function FieldRow({
   // column; everything else — and any field showing a validation error — keeps
   // its control full-width below the label. `flex-wrap` + `order` place them
   // without duplicating the control ladder.
-  const renderInline = isInlineControl(renderer) && !showValidation;
+  const renderInline = isInlineControl(renderer) && !showValidation && !error;
   // Draft differs from the saved value (same secret-empty exclusion as the
   // unsaved-changes counter) → show a "modified" dot next to the label.
   const isDirty =
@@ -1932,7 +1932,7 @@ function FieldRow({
               the field is still unambiguously identifiable, but the humanized
               leaf above is now the primary label. */}
           <code
-            className="block text-[11px] font-mono break-all mt-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            className="block text-[11px] font-mono break-all mt-0.5"
             style={{ color: "var(--color-text-faint)" }}
           >
             {entry.path}
@@ -1947,16 +1947,6 @@ function FieldRow({
           )}
           {drift && <DriftDiff drift={drift} />}
         </div>
-        {onDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            title={t("fieldform.reset_to_default")}
-            className="btn-icon flex-shrink-0"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
       </div>
 
       <div
@@ -2222,6 +2212,18 @@ function FieldRow({
         )}
 
       </div>
+
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          title={t("fieldform.reset_to_default")}
+          aria-label={t("fieldform.reset_to_default")}
+          className="btn-icon order-2 shrink-0 self-start text-text-faint hover:text-status-error"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
 
       <div className="order-3 w-full space-y-1.5">
         {showValidation && (
