@@ -4,9 +4,10 @@ import {
   getAdminPairCode,
   generatePairCode,
   getPrincipals,
+  PairCodeForbiddenError,
   type PrincipalSummary,
 } from '@/lib/api';
-import { Button, Card, ConfirmDialog, PageHeader, Select } from '@/components/ui';
+import { Button, Card, ConfirmDialog, EmptyState, PageHeader, Select } from '@/components/ui';
 import {
   SettingsPageShell,
   SettingsListBody,
@@ -16,7 +17,9 @@ import {
 import { DetailPanel, DetailPanelSurface, DetailSectionTitle } from '@/components/ui/detail-panel';
 import { IconTile } from '@/components/ui/icon-tile';
 import { ActionMenu } from '@/components/ui/action-menu';
+import { SpinnerScreen } from '@/components/ui/spinner';
 import { t, fmtDate } from '@/lib/i18n';
+import { formatServerError } from '@/lib/serverError';
 
 const NO_ROLE = '';
 
@@ -34,6 +37,9 @@ export default function Pairing() {
   const [loading, setLoading] = useState(true);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The localhost-only mint endpoint (/admin/paircode/new) returns 403 to a
+  // non-loopback caller (Docker/remote). Show the CLI fallback then.
+  const [cliFallback, setCliFallback] = useState(false);
   const [pendingRevoke, setPendingRevoke] = useState<Device | null>(null);
   const [unauthorized, setUnauthorized] = useState(false);
   const [principals, setPrincipals] = useState<PrincipalSummary[]>([]);
@@ -84,6 +90,8 @@ export default function Pairing() {
   }, [fetchDevices]);
 
   const handleInitiatePairing = async () => {
+    setError(null);
+    setCliFallback(false);
     try {
       const principal = selectedPrincipal || undefined;
       const data = await generatePairCode(principal);
@@ -94,7 +102,15 @@ export default function Pairing() {
         setError(data.message || t('pairing.generate_error'));
       }
     } catch (err) {
-      setError(t('pairing.generate_error'));
+      console.error('generatePairCode failed', err);
+      if (err instanceof PairCodeForbiddenError) {
+        // Non-loopback caller (Docker/remote): the browser can't mint. Point
+        // the operator at the CLI on the gateway host (or an SSH -L loopback).
+        setCliFallback(true);
+      } else {
+        // Surface the real reason instead of a bare "failed".
+        setError(formatServerError(err, t('pairing.generate_error')));
+      }
     }
   };
 
@@ -121,9 +137,7 @@ export default function Pairing() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
-      </div>
+      <SpinnerScreen />
     );
   }
 
@@ -180,6 +194,28 @@ export default function Pairing() {
             </Card>
           )}
 
+          {cliFallback && (
+            <Card
+              padded={false}
+              className="flex items-start gap-2 p-4 text-sm border-status-warning/25 bg-status-warning/10"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-text-secondary">{t('pairing.cli_fallback_localhost')}</p>
+                <code className="mt-2 block break-all rounded-[var(--radius-md)] bg-code px-3 py-2 font-mono text-xs text-foreground">
+                  zeroclaw gateway get-paircode --new
+                </code>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCliFallback(false)}
+                className="flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                aria-label={t('pairing.dismiss')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Card>
+          )}
+
           {pairingCode && (
             <Card className="p-6 text-center">
               <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
@@ -201,14 +237,13 @@ export default function Pairing() {
           </SettingsSectionLabel>
 
           {unauthorized ? (
-            <Card padded={false} className="p-8 text-center text-sm text-muted-foreground">
-              <p className="font-medium text-text-secondary">{t('pairing.unpaired_title')}</p>
-              <p className="mt-1">{t('pairing.unpaired_hint')}</p>
-            </Card>
+            <EmptyState
+              icon={<Smartphone className="h-6 w-6" />}
+              title={t('pairing.unpaired_title')}
+              hint={t('pairing.unpaired_hint')}
+            />
           ) : devices.length === 0 ? (
-            <Card padded={false} className="p-8 text-center text-sm text-muted-foreground">
-              {t('pairing.no_devices')}
-            </Card>
+            <EmptyState icon={<Smartphone className="h-6 w-6" />} title={t('pairing.no_devices')} />
           ) : (
             <SettingsListBody>
               {devices.map((device) => (

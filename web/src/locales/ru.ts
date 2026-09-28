@@ -529,7 +529,7 @@ export const ru: Record<string, string> = {
   'auth.pairing_failed': 'Сопряжение не удалось. Пожалуйста, попробуйте снова.',
   'auth.enter_code': 'Введите код сопряжения для подключения к агенту.',
   'pairing.title': 'Сопряжение устройств',
-  'pairing.pair_new_device': 'Сопрячь новое устройство',
+  'pairing.pair_new_device': 'Подключить новое устройство',
   'pairing.pairing_code': 'Код сопряжения',
   'pairing.code_hint': 'Введите этот код на новом устройстве',
   'pairing.paired_devices': 'Сопряженные устройства',
