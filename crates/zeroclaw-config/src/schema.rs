@@ -23023,7 +23023,7 @@ impl Config {
                                 "cfg-err-agents-channels-but-channels-is-not",
                                 ("alias", alias.to_string().as_str()),
                                 ("i", i.to_string().as_str()),
-                                ("trimmed", format!("{:?}", trimmed).as_str()),
+                                ("trimmed", trimmed.to_string().as_str()),
                                 ("ty", ty.to_string().as_str()),
                                 ("inner", inner.to_string().as_str())
                             );
@@ -23035,7 +23035,7 @@ impl Config {
                         "cfg-err-agents-channels-must-be-dotted-form",
                         ("alias", alias.to_string().as_str()),
                         ("i", i.to_string().as_str()),
-                        ("trimmed", format!("{:?}", trimmed).as_str())
+                        ("trimmed", trimmed.to_string().as_str())
                     ),
                 }
             }
@@ -23134,7 +23134,7 @@ impl Config {
                             ("alias", alias.to_string().as_str()),
                             ("field", field.to_string().as_str()),
                             ("i", i.to_string().as_str()),
-                            ("trimmed", format!("{:?}", trimmed).as_str()),
+                            ("trimmed", trimmed.to_string().as_str()),
                             ("section", section.to_string().as_str())
                         );
                     }
@@ -23163,7 +23163,7 @@ impl Config {
                         "cfg-err-agents-but-is-not-configured",
                         ("alias", alias.to_string().as_str()),
                         ("field", field.to_string().as_str()),
-                        ("trimmed", format!("{:?}", trimmed).as_str()),
+                        ("trimmed", trimmed.to_string().as_str()),
                         ("section", section.to_string().as_str())
                     );
                 }
@@ -23206,7 +23206,7 @@ impl Config {
                         "cfg-err-agents-delegates-agent-names-this-agent",
                         ("alias", alias.to_string().as_str()),
                         ("i", i.to_string().as_str()),
-                        ("target_str", format!("{:?}", target_str).as_str())
+                        ("target_str", target_str.to_string().as_str())
                     );
                 }
                 if !self.agents.contains_key(target_str) {
@@ -23216,7 +23216,7 @@ impl Config {
                         "cfg-err-agents-delegates-agent-but-agents-is",
                         ("alias", alias.to_string().as_str()),
                         ("i", i.to_string().as_str()),
-                        ("target_str", format!("{:?}", target_str).as_str())
+                        ("target_str", target_str.to_string().as_str())
                     );
                 }
                 if !seen_delegates.insert(target_str) {
@@ -23226,7 +23226,7 @@ impl Config {
                         "cfg-err-agents-delegates-agent-duplicates-an-earlier",
                         ("alias", alias.to_string().as_str()),
                         ("i", i.to_string().as_str()),
-                        ("target_str", format!("{:?}", target_str).as_str())
+                        ("target_str", target_str.to_string().as_str())
                     );
                 }
             }
@@ -23272,7 +23272,7 @@ impl Config {
                         "cfg-err-agents-workspace-read-memory-from-but-2",
                         ("alias", alias.to_string().as_str()),
                         ("i", i.to_string().as_str()),
-                        ("target_str", format!("{:?}", target_str).as_str())
+                        ("target_str", target_str.to_string().as_str())
                     );
                 }
                 let Some(target_agent) = self.agents.get(target_str) else {
@@ -23282,7 +23282,7 @@ impl Config {
                         "cfg-err-agents-workspace-read-memory-from-but",
                         ("alias", alias.to_string().as_str()),
                         ("i", i.to_string().as_str()),
-                        ("target_str", format!("{:?}", target_str).as_str())
+                        ("target_str", target_str.to_string().as_str())
                     );
                 };
                 if target_agent.memory.backend != agent_backend {
@@ -23383,7 +23383,7 @@ impl Config {
                         "cfg-err-peer-groups-agents-but-agents-is",
                         ("group_name", group_name.to_string().as_str()),
                         ("i", i.to_string().as_str()),
-                        ("member_str", format!("{:?}", member_str).as_str())
+                        ("member_str", member_str.to_string().as_str())
                     );
                 };
                 let has_channel_match = member_agent.channels.iter().any(|ch| {
@@ -23404,7 +23404,7 @@ impl Config {
                         "cfg-err-peer-groups-agents-but-agents-channels",
                         ("group_name", group_name.to_string().as_str()),
                         ("i", i.to_string().as_str()),
-                        ("member_str", format!("{:?}", member_str).as_str()),
+                        ("member_str", member_str.to_string().as_str()),
                         ("needs_msg", needs_msg.to_string().as_str())
                     );
                 }
