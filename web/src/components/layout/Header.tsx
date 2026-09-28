@@ -14,7 +14,6 @@ import {
 import { t } from '@/lib/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { SettingsModal } from '@/components/SettingsModal';
-import ReloadDaemonButton from '@/components/sections/ReloadDaemonButton';
 import { Button } from '@/components/ui';
 
 interface HeaderProps {
@@ -127,10 +126,7 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
             aria-label={t('header.account')}
             aria-expanded={menuOpen}
           >
-            <span
-              className="grid place-items-center h-7 w-7 rounded-full text-brand-foreground"
-              style={{ backgroundImage: 'var(--gradient-brand)' }}
-            >
+            <span className="grid place-items-center h-7 w-7 rounded-full bg-secondary text-muted-foreground">
               <User className="h-4 w-4" />
             </span>
             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
@@ -152,9 +148,6 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
                 <Rocket />
                 {t('nav.quickstart')}
               </button>
-              <div className="px-0.5 py-0.5">
-                <ReloadDaemonButton onReloaded={() => window.location.reload()} compact />
-              </div>
               <button
                 type="button"
                 className={menuItemClass}
