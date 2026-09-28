@@ -55,6 +55,7 @@ import CostRatesEditor, {
 import { Badge, Button, Card } from "@/components/ui";
 import { Spinner } from "@/components/ui/spinner";
 import { t, plural, sectionDesc, sectionLabel, displayAlias, badgeLabel } from "@/lib/i18n";
+import { filterSections } from "@/lib/sectionFilter";
 import { formatServerError } from "@/lib/serverError";
 
 // Display order for the curated sidebar groups. Each `SectionInfo.group`
@@ -154,11 +155,13 @@ export default function Config() {
     getSections()
       .then((resp) => {
         if (cancelled) return;
-        setSections(resp.sections);
+        // Volt build hides a few integration sections (VITE_VOLT_HIDE_SECTIONS).
+        const visible = filterSections(resp.sections);
+        setSections(visible);
         const initialKey =
-          sectionParam && resp.sections.find((s) => s.key === sectionParam)
+          sectionParam && visible.find((s) => s.key === sectionParam)
             ? sectionParam
-            : (resp.sections[0]?.key ?? null);
+            : (visible[0]?.key ?? null);
         setActiveKey(initialKey);
       })
       .catch((e) => {
