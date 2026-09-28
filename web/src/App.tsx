@@ -154,7 +154,7 @@ function PairingDialog({
   // can show the exact recovery command — including the alternate port that made
   // the config-default `get-paircode` miss the running instance (#5266).
   const gatewayPort = window.location.port;
-  const cliRecoveryCommand = `zeroclaw gateway get-paircode --new${gatewayPort ? ` --port ${gatewayPort}` : ""}`;
+  const cliRecoveryCommand = `voltd gateway get-paircode --new${gatewayPort ? ` --port ${gatewayPort}` : ""}`;
 
   // Fetch the current pairing code (public endpoint works in Docker too)
   useEffect(() => {

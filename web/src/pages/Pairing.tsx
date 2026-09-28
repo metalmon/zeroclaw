@@ -202,7 +202,7 @@ export default function Pairing() {
               <div className="min-w-0 flex-1">
                 <p className="text-text-secondary">{t('pairing.cli_fallback_localhost')}</p>
                 <code className="mt-2 block break-all rounded-[var(--radius-md)] bg-code px-3 py-2 font-mono text-xs text-foreground">
-                  zeroclaw gateway get-paircode --new
+                  voltd gateway get-paircode --new
                 </code>
               </div>
               <button
