@@ -1449,7 +1449,7 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
           </div>
         ) : (
           <form
-            className="surface-panel divide-y"
+            className="@container surface-panel divide-y"
             style={{ borderColor: "var(--color-border)" }}
             onSubmit={(e) => {
               e.preventDefault();
@@ -1952,7 +1952,10 @@ function FieldRow({
       <div
         className={
           renderInline
-            ? "order-2 flex w-52 max-w-[55%] shrink-0 justify-end"
+            ? // Narrow container: control stacks full-width below the label.
+              // Wide enough (>=30rem): moves to a compact right column so a
+              // single number/toggle isn't a full-width input.
+              "order-3 w-full @[30rem]:order-2 @[30rem]:flex @[30rem]:w-52 @[30rem]:max-w-[55%] @[30rem]:shrink-0 @[30rem]:justify-end"
             : showValidation
               ? "order-3 w-full rounded-[var(--radius-md)] ring-1 ring-status-error p-1.5"
               : "order-3 w-full"
