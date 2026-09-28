@@ -2766,8 +2766,8 @@ async fn handle_pair(
                     let body = serde_json::json!({
                         "paired": false,
                         "persisted": false,
-                        "error": format!("Device registry error: {e}"),
-                        "message": "Pairing failed; the in-process token was not retained.",
+                        "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-device-registry-error", &[("err", e.to_string().as_str())]),
+                        "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-pairing-failed-token-dropped"),
                     });
                     return (StatusCode::INTERNAL_SERVER_ERROR, Json(body));
                 }
@@ -2790,8 +2790,8 @@ async fn handle_pair(
                 let body = serde_json::json!({
                     "paired": false,
                     "persisted": false,
-                    "error": format!("Token persistence error: {err}"),
-                    "message": "Pairing failed; the in-process token was not retained.",
+                    "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-token-persistence-error", &[("err", err.to_string().as_str())]),
+                    "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-pairing-failed-token-dropped"),
                 });
                 return (StatusCode::INTERNAL_SERVER_ERROR, Json(body));
             }
@@ -2855,7 +2855,7 @@ async fn handle_pair(
                 "paired": true,
                 "persisted": true,
                 "token": token,
-                "message": "Save this token — use it as Authorization: Bearer <token>",
+                "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-save-token-hint"),
                 "principal_binding": principal_binding.map(|binding| serde_json::json!({
                     "principal_id": binding.principal_id,
                     "token_hash": binding.token_hash,
@@ -2872,7 +2872,7 @@ async fn handle_pair(
                     .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
                 "pairing attempt with invalid code"
             );
-            let err = serde_json::json!({"error": "Invalid pairing code"});
+            let err = serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-pair-code-invalid")});
             (StatusCode::FORBIDDEN, Json(err))
         }
         Err(lockout_secs) => {
@@ -2884,7 +2884,7 @@ async fn handle_pair(
                 "pairing locked out; too many failed attempts"
             );
             let err = serde_json::json!({
-                "error": format!("Too many failed attempts. Try again in {lockout_secs}s."),
+                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-too-many-failed-attempts", &[("secs", lockout_secs.to_string().as_str())]),
                 "retry_after": lockout_secs
             });
             (StatusCode::TOO_MANY_REQUESTS, Json(err))
@@ -4221,7 +4221,7 @@ async fn handle_admin_shutdown(
 
     let body = AdminResponse {
         success: true,
-        message: "Gateway shutdown initiated".to_string(),
+        message: zeroclaw_runtime::i18n::get_required_cli_string("gateway-shutdown-initiated"),
     };
 
     let _ = state.shutdown_tx.send(true);
@@ -4285,9 +4285,7 @@ async fn handle_admin_reload(
             return Err((
                 StatusCode::FORBIDDEN,
                 Json(serde_json::json!({
-                    "error": "Remote admin reload is disabled. Call from localhost, \
-                              or set gateway.allow_remote_admin = true (with pairing \
-                              enabled, then pair) to allow authenticated remote reloads."
+                    "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-reload-remote-disabled")
                 })),
             ));
         }
@@ -4295,11 +4293,7 @@ async fn handle_admin_reload(
             return Err((
                 StatusCode::FORBIDDEN,
                 Json(serde_json::json!({
-                    "error": "Remote admin reload requires pairing. \
-                              gateway.allow_remote_admin is enabled but \
-                              gateway.require_pairing is off, so remote callers \
-                              cannot be authenticated. Enable require_pairing, or \
-                              call /admin/reload from localhost."
+                    "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-reload-requires-pairing")
                 })),
             ));
         }
@@ -4309,8 +4303,7 @@ async fn handle_admin_reload(
         return Err((
             StatusCode::SERVICE_UNAVAILABLE,
             Json(serde_json::json!({
-                "error": "no daemon supervisor — running as standalone gateway. \
-                          Restart the process to pick up config changes."
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-reload-no-supervisor")
             })),
         ));
     };
@@ -4413,7 +4406,7 @@ async fn handle_admin_paircode_new(
             "success": false,
             "pairing_required": false,
             "pairing_code": null,
-            "message": "Pairing is disabled for this gateway"
+            "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-pairing-disabled")
         });
         return Ok((StatusCode::BAD_REQUEST, Json(body)));
     }
@@ -4433,7 +4426,7 @@ async fn handle_admin_paircode_new(
                         "success": false,
                         "pairing_required": true,
                         "pairing_code": null,
-                        "message": format!("Tokens revoked in memory but device registry clear failed: {e}"),
+                        "message": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-tokens-registry-clear-failed", &[("err", e.to_string().as_str())]),
                     });
                     return Ok((StatusCode::INTERNAL_SERVER_ERROR, Json(body)));
                 }
@@ -4449,7 +4442,7 @@ async fn handle_admin_paircode_new(
                     "success": false,
                     "pairing_required": true,
                     "pairing_code": null,
-                    "message": format!("Tokens revoked in memory but config persist failed: {e}"),
+                    "message": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-tokens-persist-failed", &[("err", e.to_string().as_str())]),
                 });
                 return Ok((StatusCode::INTERNAL_SERVER_ERROR, Json(body)));
             }
@@ -4469,7 +4462,7 @@ async fn handle_admin_paircode_new(
                     "success": false,
                     "pairing_required": true,
                     "pairing_code": null,
-                    "message": "Device registry is disabled; cannot rotate a single device.",
+                    "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-device-registry-disabled"),
                 });
                 return Ok((StatusCode::SERVICE_UNAVAILABLE, Json(body)));
             };
@@ -4480,7 +4473,7 @@ async fn handle_admin_paircode_new(
                         "success": false,
                         "pairing_required": true,
                         "pairing_code": null,
-                        "message": format!("Device '{device_id}' not found; nothing revoked."),
+                        "message": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-device-not-found", &[("device", device_id.to_string().as_str())]),
                     });
                     return Ok((StatusCode::NOT_FOUND, Json(body)));
                 }
@@ -4489,7 +4482,7 @@ async fn handle_admin_paircode_new(
                         "success": false,
                         "pairing_required": true,
                         "pairing_code": null,
-                        "message": format!("Device registry error: {e}"),
+                        "message": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-device-registry-error", &[("err", e.to_string().as_str())]),
                     });
                     return Ok((StatusCode::INTERNAL_SERVER_ERROR, Json(body)));
                 }
@@ -4506,7 +4499,7 @@ async fn handle_admin_paircode_new(
                     "success": false,
                     "pairing_required": true,
                     "pairing_code": null,
-                    "message": format!("Token revoked in memory but config persist failed: {e}"),
+                    "message": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-token-persist-failed", &[("err", e.to_string().as_str())]),
                 });
                 return Ok((StatusCode::INTERNAL_SERVER_ERROR, Json(body)));
             }
@@ -4515,8 +4508,9 @@ async fn handle_admin_paircode_new(
                 ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
                 "single device token revoked via admin endpoint"
             );
-            Some(format!(
-                "Revoked the bearer token for device '{device_id}'."
+            Some(zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                "gateway-paircode-revoked-device",
+                &[("device", device_id.to_string().as_str())],
             ))
         }
         None => None,
@@ -4543,10 +4537,9 @@ async fn handle_admin_paircode_new(
             "success": false,
             "pairing_required": true,
             "pairing_code": null,
-            "message": format!(
-                "principal '{principal_id}' is not configured; onboard it first (redeem an \
-                 unbound pairing code, then bind it a profile in the Roles UI) before minting \
-                 a pre-bound code for it"
+            "message": zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                "gateway-principal-not-configured",
+                &[("principal", principal_id.to_string().as_str())],
             ),
         });
         return Ok((StatusCode::NOT_FOUND, Json(body)));
@@ -4573,19 +4566,20 @@ async fn handle_admin_paircode_new(
 
     let message = match (revocation_message, principal) {
         (Some(revoked), Some(principal_id)) => {
-            format!(
-                "{revoked} Use this one-time code to re-pair, tagged for principal '{principal_id}'."
+            zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                "gateway-paircode-new-revoked-principal",
+                &[("revoked", revoked.as_str()), ("principal", principal_id)],
             )
         }
-        (Some(revoked), None) => {
-            format!("{revoked} Use this one-time code to re-pair.")
-        }
-        (None, Some(principal_id)) => {
-            format!(
-                "New pairing code generated, tagged for principal '{principal_id}' — use this one-time code to pair"
-            )
-        }
-        (None, None) => "New pairing code generated — use this one-time code to pair".to_string(),
+        (Some(revoked), None) => zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+            "gateway-paircode-new-revoked",
+            &[("revoked", revoked.as_str())],
+        ),
+        (None, Some(principal_id)) => zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+            "gateway-paircode-new-principal",
+            &[("principal", principal_id)],
+        ),
+        (None, None) => zeroclaw_runtime::i18n::get_required_cli_string("gateway-paircode-new"),
     };
 
     let body = serde_json::json!({

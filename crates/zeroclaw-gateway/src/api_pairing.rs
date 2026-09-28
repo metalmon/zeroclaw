@@ -447,8 +447,8 @@ pub async fn submit_pairing_enhanced(
                         Json(serde_json::json!({
                             "paired": false,
                             "persisted": false,
-                            "error": format!("Device registry error: {e}"),
-                            "message": "Pairing failed; the in-process token was not retained.",
+                            "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-device-registry-error", &[("err", e.to_string().as_str())]),
+                            "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-pairing-failed-token-dropped"),
                         })),
                     )
                         .into_response();
@@ -474,8 +474,8 @@ pub async fn submit_pairing_enhanced(
                     Json(serde_json::json!({
                         "paired": false,
                         "persisted": false,
-                        "error": format!("Token persistence error: {e}"),
-                        "message": "Pairing failed; the in-process token was not retained.",
+                        "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-token-persistence-error", &[("err", e.to_string().as_str())]),
+                        "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-pairing-failed-token-dropped"),
                     })),
                 )
                     .into_response();
@@ -652,7 +652,7 @@ pub async fn revoke_device(
     }
 
     Json(serde_json::json!({
-        "message": "Device revoked and bearer token invalidated",
+        "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-device-revoked"),
         "device_id": device_id,
     }))
     .into_response()
@@ -703,7 +703,7 @@ pub async fn update_my_capabilities(
 
     if registry.update_capabilities(&token_hash, capabilities.clone()) {
         Json(serde_json::json!({
-            "message": "Capabilities updated",
+            "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-capabilities-updated"),
             "capabilities": capabilities,
         }))
         .into_response()
@@ -783,7 +783,7 @@ pub async fn rotate_token(
             Json(serde_json::json!({
                 "device_id": device_id,
                 "pairing_code": null,
-                "message": "Old token revoked. Pairing is disabled; cannot issue a new code.",
+                "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-old-token-revoked-disabled"),
             }))
             .into_response()
         }
