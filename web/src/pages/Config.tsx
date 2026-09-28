@@ -121,25 +121,32 @@ export default function Config() {
   // Bumped to make the navigator re-fetch its expanded sections' entities
   // after an add / reload (so a new alias appears without a hard refresh).
   const [navRefresh, setNavRefresh] = useState(0);
-  // Collapse the section tree (md+) so the detail pane gets the width.
-  // Persisted; defaults to collapsed when the window is narrow on first mount.
-  const [navCollapsed, setNavCollapsed] = useState(() => {
+  // Responsive section tree: on wide screens it sits inline (standard 3-column
+  // layout); on narrow screens it becomes a flyout opened from a "Sections"
+  // button, so the detail pane keeps the full width. Auto by width — no manual
+  // persisted toggle.
+  const [isNarrow, setIsNarrow] = useState(() => {
     try {
-      const v = localStorage.getItem("volt.sectionNav.collapsed");
-      if (v !== null) return v === "1";
-      return typeof window !== "undefined" && window.innerWidth < 1024;
+      return (
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 1023px)").matches
+      );
     } catch {
       return false;
     }
   });
-  const setNavCollapsedPersist = (next: boolean) => {
-    setNavCollapsed(next);
-    try {
-      localStorage.setItem("volt.sectionNav.collapsed", next ? "1" : "0");
-    } catch {
-      // ignore storage failures (private mode, blocked)
-    }
-  };
+  const [treeOpen, setTreeOpen] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia?.("(max-width: 1023px)");
+    if (!mq) return;
+    setIsNarrow(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => {
+      setIsNarrow(e.matches);
+      if (!e.matches) setTreeOpen(false); // widened → drop the flyout state
+    };
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -601,11 +608,11 @@ export default function Config() {
   const hasSelection = Boolean(sectionParam);
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {!lockedSection && (
-        // Master navigator: searchable section → entity tree. Selecting an
-        // entity navigates to its existing form URL so the detail pane's
-        // dispatch (unchanged) renders the right editor.
+    <div className="relative flex h-full overflow-hidden">
+      {/* Wide screens: the master tree sits inline (standard 3-column layout).
+          On narrow screens it is a flyout (rendered below) opened from a
+          "Sections" button, so the detail pane keeps the full width. */}
+      {!lockedSection && !isNarrow && (
         <SectionNavigator
           sections={sections}
           groupOrder={GROUP_ORDER}
@@ -614,26 +621,18 @@ export default function Config() {
           onNavigate={(url) => navigate(url)}
           onSelectSection={(key) => goToSection(key)}
           onAddToSection={(s) => setAddSection(s)}
-          collapsed={navCollapsed}
-          onCollapse={() => setNavCollapsedPersist(true)}
           refreshKey={navRefresh + reloadKey}
-          // Mobile: single-column. Show the navigator when nothing is
-          // selected; once an entity is open the detail pane takes over and
-          // the navigator hides (a "back to list" button returns here).
-          className={hasSelection ? "hidden md:flex" : "flex"}
+          className="flex"
         />
       )}
 
-      <main
-        className={`flex-1 overflow-y-auto p-6 ${hasSelection ? "" : "hidden md:block"}`}
-      >
-        {navCollapsed && (
-          // Tree collapsed (md+): the expand affordance lives here in the
-          // detail toolbar so the panel reclaims the full width.
+      <main className="flex-1 overflow-y-auto p-6">
+        {isNarrow && !lockedSection && (
+          // Narrow: open the section tree as a flyout over the detail pane.
           <button
             type="button"
-            onClick={() => setNavCollapsedPersist(false)}
-            className="mb-4 hidden md:inline-flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-card px-3 py-1.5 text-sm text-text-secondary transition-colors hover:border-border-strong hover:text-foreground"
+            onClick={() => setTreeOpen(true)}
+            className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-card px-3 py-1.5 text-sm text-text-secondary transition-colors hover:border-border-strong hover:text-foreground"
           >
             <PanelLeftOpen className="h-4 w-4" />
             {t("section_nav.tree_label")}
@@ -713,6 +712,36 @@ export default function Config() {
           )
         )}
       </main>
+
+      {/* Narrow: the section tree as a left flyout with a dismiss backdrop. */}
+      {isNarrow && treeOpen && !lockedSection && (
+        <>
+          <div
+            className="absolute inset-0 z-30 bg-black/40"
+            onClick={() => setTreeOpen(false)}
+          />
+          <SectionNavigator
+            sections={sections}
+            groupOrder={GROUP_ORDER}
+            activeSectionKey={hasSelection ? activeKey : null}
+            selectedPath={location.pathname}
+            onNavigate={(url) => {
+              navigate(url);
+              setTreeOpen(false);
+            }}
+            onSelectSection={(key) => {
+              goToSection(key);
+              setTreeOpen(false);
+            }}
+            onAddToSection={(s) => {
+              setAddSection(s);
+              setTreeOpen(false);
+            }}
+            refreshKey={navRefresh + reloadKey}
+            className="absolute inset-y-0 left-0 z-40 max-w-[320px] bg-background shadow-xl"
+          />
+        </>
+      )}
 
       <DetailPanelSurface open={addSection !== null}>
         {addSection && (

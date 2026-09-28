@@ -21,13 +21,7 @@
 // and SectionOverview used.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ChevronDown,
-  ChevronRight,
-  PanelLeftClose,
-  Plus,
-  Search,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Search } from "lucide-react";
 import {
   getMapKeys,
   getSectionPicker,
@@ -68,14 +62,9 @@ interface SectionNavigatorProps {
   /** Bump to force expanded sections to re-fetch their entities (e.g. after
    *  an add/delete/reload). */
   refreshKey: number;
-  /** Extra classes for the root (e.g. responsive visibility from the parent). */
+  /** Extra classes for the root (e.g. responsive visibility / flyout
+   *  positioning from the parent). */
   className?: string;
-  /** Collapsed (md+): the whole tree is hidden and the parent shows an
-   *  "expand" button. Owned by the parent so the button can live in the
-   *  detail toolbar. */
-  collapsed?: boolean;
-  /** Collapse the tree (md+). */
-  onCollapse?: () => void;
 }
 
 // A section's editor shape determines how (and whether) it has children.
@@ -93,8 +82,6 @@ export default function SectionNavigator({
   onNavigate,
   onSelectSection,
   onAddToSection,
-  collapsed = false,
-  onCollapse,
   refreshKey,
   className = "",
 }: SectionNavigatorProps) {
@@ -398,11 +385,11 @@ export default function SectionNavigator({
   };
 
   return (
-    <aside className={`w-full ${collapsed ? "md:hidden" : "md:w-[300px]"} flex-shrink-0 border-r border-border flex flex-col min-h-0 ${className}`}>
+    <aside className={`w-full md:w-[300px] flex-shrink-0 border-r border-border flex flex-col min-h-0 ${className}`}>
       <div className="flex min-h-0 flex-1 flex-col">
-        {/* Search box + collapse toggle */}
-        <div className="flex items-center gap-2 p-3 border-b border-border">
-          <div className="relative flex-1">
+        {/* Search box */}
+        <div className="p-3 border-b border-border">
+          <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-faint pointer-events-none" />
             <input
               type="text"
@@ -412,15 +399,6 @@ export default function SectionNavigator({
               className="w-full pl-8 pr-3 py-2 text-sm rounded-[var(--radius-md)] bg-input border border-border text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-border-strong"
             />
           </div>
-          <button
-            type="button"
-            onClick={onCollapse}
-            title={t('section_nav.collapse')}
-            aria-label={t('section_nav.collapse')}
-            className="btn-icon hidden shrink-0 md:inline-flex"
-          >
-            <PanelLeftClose className="h-4 w-4" />
-          </button>
         </div>
 
       <nav
