@@ -17,6 +17,7 @@ import { ApiError, getSectionPicker, type PickerItem } from "../../lib/api";
 import { filterChannelItems } from "../../lib/channelAllowlist";
 import { Badge, Button } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
+import { Spinner } from "@/components/ui/spinner";
 import { t, badgeLabel } from "@/lib/i18n";
 
 interface SectionPickerProps {
@@ -31,6 +32,9 @@ interface SectionPickerProps {
   onSkip?: () => void;
   /** Optional Back button (wizard: previous section; config: hide). */
   onBack?: () => void;
+  /** Bump to force a re-fetch of items/badges (e.g. after a pick writes the
+   *  config server-side and the "active" badge needs to move). */
+  reloadKey?: number;
 }
 
 export default function SectionPicker({
@@ -39,6 +43,7 @@ export default function SectionPicker({
   onPick,
   onSkip,
   onBack,
+  reloadKey,
 }: SectionPickerProps) {
   const [items, setItems] = useState<PickerItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +81,7 @@ export default function SectionPicker({
     return () => {
       cancelled = true;
     };
-  }, [sectionKey]);
+  }, [sectionKey, reloadKey]);
 
   // Refocus the filter input on section change so keyboard-only users can
   // start typing immediately (matches the TUI's auto-focus behavior).
@@ -108,13 +113,7 @@ export default function SectionPicker({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div
-          className="h-8 w-8 border-2 rounded-full animate-spin"
-          style={{
-            borderColor: "var(--color-border)",
-            borderTopColor: "var(--color-primary)",
-          }}
-        />
+        <Spinner size={32} />
       </div>
     );
   }

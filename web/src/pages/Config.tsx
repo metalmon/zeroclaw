@@ -45,6 +45,7 @@ import SectionPicker, {
 } from "../components/sections/SectionPicker";
 import SectionNavigator from "../components/sections/SectionNavigator";
 import AddEntityDialog from "../components/sections/AddEntityDialog";
+import { DetailPanelSurface } from "../components/ui/detail-panel";
 import SectionTabs, {
   type SectionTabSpec,
 } from "../components/sections/SectionTabs";
@@ -52,6 +53,7 @@ import CostRatesEditor, {
   type CostRatesCategory,
 } from "../components/sections/CostRatesEditor";
 import { Badge, Button, Card } from "@/components/ui";
+import { Spinner } from "@/components/ui/spinner";
 import { t, plural, sectionDesc, sectionLabel, displayAlias, badgeLabel } from "@/lib/i18n";
 import { formatServerError } from "@/lib/serverError";
 
@@ -205,13 +207,7 @@ export default function Config() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div
-          className="h-8 w-8 border-2 rounded-full animate-spin"
-          style={{
-            borderColor: "var(--color-border)",
-            borderTopColor: "var(--color-primary)",
-          }}
-        />
+        <Spinner size={32} />
       </div>
     );
   }
@@ -478,8 +474,9 @@ export default function Config() {
         onPickType={(typeKey) => {
           if (needsAliasTier) {
             goToType(activeSection.key, typeKey);
+            return;
           } else {
-            void (async () => {
+            return (async () => {
               try {
                 const resp = await selectSectionItem(
                   activeSection.key,
@@ -606,18 +603,6 @@ export default function Config() {
         />
       )}
 
-      {addSection && (
-        <AddEntityDialog
-          section={addSection}
-          onClose={() => setAddSection(null)}
-          onCreated={(url) => {
-            setAddSection(null);
-            setNavRefresh((n) => n + 1);
-            navigate(url);
-          }}
-        />
-      )}
-
       <main
         className={`flex-1 overflow-y-auto p-6 ${hasSelection ? "" : "hidden md:block"}`}
       >
@@ -640,7 +625,7 @@ export default function Config() {
           </div>
         ) : (
           activeSection && (
-          <div className="flex flex-col gap-4 max-w-3xl min-h-full">
+          <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-4">
             {/* Mobile-only: return to the navigator (single-column nav↔detail). */}
             <Button
               variant="ghost"
@@ -695,6 +680,21 @@ export default function Config() {
           )
         )}
       </main>
+
+      <DetailPanelSurface open={addSection !== null}>
+        {addSection && (
+          <AddEntityDialog
+            key={addSection.key}
+            section={addSection}
+            onClose={() => setAddSection(null)}
+            onCreated={(url) => {
+              setAddSection(null);
+              setNavRefresh((n) => n + 1);
+              navigate(url);
+            }}
+          />
+        )}
+      </DetailPanelSurface>
     </div>
   );
 }
@@ -837,13 +837,7 @@ function AliasListView({
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div
-            className="h-8 w-8 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--color-border)",
-              borderTopColor: "var(--color-primary)",
-            }}
-          />
+          <Spinner size={32} />
         </div>
       ) : (
         <Card padded={false} className="divide-y divide-border overflow-hidden">
@@ -1471,7 +1465,7 @@ function AliasRow({
 
 interface SectionOverviewProps {
   section: SectionInfo;
-  onPickType: (typeKey: string) => void;
+  onPickType: (typeKey: string) => void | Promise<void>;
   onPickAlias: (typeKey: string, alias: string) => void;
   sectionUrl: string;
   reloadKey: number;
@@ -1486,6 +1480,9 @@ function SectionOverview({
   sectionUrl,
 }: SectionOverviewProps) {
   const [showPicker, setShowPicker] = useState(false);
+  // Bumped after a backend-picker choice so the picker re-fetches its badges
+  // and the "active" marker moves without a page refresh.
+  const [pickerReload, setPickerReload] = useState(0);
 
   // BackendPicker sections (Memory, Tunnel) pick ONE backend; +Add
   // and the "configured items" list don't fit single-choice semantics.
@@ -1504,7 +1501,15 @@ function SectionOverview({
         <SectionPicker
           sectionKey={section.key}
           help={sectionDesc(section.key, section.help)}
-          onPick={(item) => onPickType(item.key)}
+          reloadKey={pickerReload}
+          onPick={(item) => {
+            // The pick writes the backend server-side; once it resolves, bump
+            // the picker's reloadKey so it re-fetches and the "active" badge
+            // moves to the chosen row without a page refresh.
+            void Promise.resolve(onPickType(item.key)).then(() =>
+              setPickerReload((n) => n + 1),
+            );
+          }}
         />
         <FieldForm
           key={`${section.key}-fields`}
@@ -1610,13 +1615,7 @@ function ConfiguredOnlyPicker({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div
-          className="h-8 w-8 border-2 rounded-full animate-spin"
-          style={{
-            borderColor: "var(--color-border)",
-            borderTopColor: "var(--color-primary)",
-          }}
-        />
+        <Spinner size={32} />
       </div>
     );
   }
