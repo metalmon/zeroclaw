@@ -18,3 +18,7 @@ label = "Español"
 code = "zh-CN"
 label = "中文"
 
+[[locale]]
+code = "ru"
+label = "Русский"
+

@@ -220,6 +220,7 @@ fn builtin_cli_ftl_source(locale: &str) -> Option<&'static str> {
         "fr" => Some(include_str!("../locales/fr/cli.ftl")),
         "ja" => Some(include_str!("../locales/ja/cli.ftl")),
         "zh-CN" => Some(include_str!("../locales/zh-CN/cli.ftl")),
+        "ru" => Some(include_str!("../locales/ru/cli.ftl")),
         _ => None,
     }
 }
