@@ -357,12 +357,12 @@ pub async fn initiate_pairing(
     match state.pairing.generate_new_pairing_code() {
         Some(code) => Json(serde_json::json!({
             "pairing_code": code,
-            "message": "New pairing code generated"
+            "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-paircode-generated")
         }))
         .into_response(),
         None => (
             StatusCode::SERVICE_UNAVAILABLE,
-            "Pairing is disabled or not available",
+            zeroclaw_runtime::i18n::get_required_cli_string("gateway-pairing-unavailable"),
         )
             .into_response(),
     }
@@ -395,7 +395,7 @@ pub async fn submit_pairing_enhanced(
             StatusCode::TOO_MANY_REQUESTS,
             Json(serde_json::json!({
                 "paired": false,
-                "error": "Too many pairing requests. Please retry later.",
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-pairing-too-many-requests"),
                 "retry_after": super::RATE_LIMIT_WINDOW_SECS,
             })),
         )
@@ -406,7 +406,7 @@ pub async fn submit_pairing_enhanced(
             StatusCode::TOO_MANY_REQUESTS,
             Json(serde_json::json!({
                 "paired": false,
-                "error": format!("Too many auth attempts. Try again in {}s.", e.retry_after_secs),
+                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-pairing-too-many-auth", &[("secs", e.retry_after_secs.to_string().as_str())]),
                 "retry_after": e.retry_after_secs,
             })),
         )
@@ -536,7 +536,7 @@ pub async fn submit_pairing_enhanced(
                 "paired": true,
                 "persisted": true,
                 "token": token,
-                "message": "Pairing successful",
+                "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-pairing-success"),
                 "principal_binding": principal_binding.map(|binding| serde_json::json!({
                     "principal_id": binding.principal_id,
                     "token_hash": binding.token_hash,
@@ -553,7 +553,7 @@ pub async fn submit_pairing_enhanced(
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({
                     "paired": false,
-                    "error": "Invalid or expired pairing code",
+                    "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-pairing-invalid-code"),
                 })),
             )
                 .into_response()
@@ -562,7 +562,7 @@ pub async fn submit_pairing_enhanced(
             StatusCode::TOO_MANY_REQUESTS,
             Json(serde_json::json!({
                 "paired": false,
-                "error": format!("Too many attempts. Locked out for {lockout_secs}s"),
+                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-pairing-locked-out", &[("secs", lockout_secs.to_string().as_str())]),
                 "retry_after": lockout_secs,
             })),
         )
@@ -768,14 +768,14 @@ pub async fn rotate_token(
         Ok(code) => Json(serde_json::json!({
             "device_id": device_id,
             "pairing_code": code,
-            "message": "Old token revoked. Use this code to re-pair the device.",
+            "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-paircode-revoked"),
         }))
         .into_response(),
         Err(zeroclaw_config::pairing::GeneratePairingCodeError::Pending) => {
             Json(serde_json::json!({
                 "device_id": device_id,
                 "pairing_code": null,
-                "message": "Old token revoked. A pairing code is already pending; use it or call again after it clears.",
+                "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-paircode-revoked-pending"),
             }))
             .into_response()
         }

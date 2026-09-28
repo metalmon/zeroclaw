@@ -2707,7 +2707,7 @@ async fn handle_pair(
             "/pair rate limit exceeded"
         );
         let err = serde_json::json!({
-            "error": "Too many pairing requests. Please retry later.",
+            "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-pairing-too-many-requests"),
             "retry_after": RATE_LIMIT_WINDOW_SECS,
         });
         return (StatusCode::TOO_MANY_REQUESTS, Json(err));
@@ -2723,7 +2723,7 @@ async fn handle_pair(
             "pairing auth rate limit exceeded"
         );
         let err = serde_json::json!({
-            "error": format!("Too many auth attempts. Try again in {}s.", e.retry_after_secs),
+            "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-pairing-too-many-auth", &[("secs", e.retry_after_secs.to_string().as_str())]),
             "retry_after": e.retry_after_secs,
         });
         return (StatusCode::TOO_MANY_REQUESTS, Json(err));
@@ -3279,7 +3279,7 @@ fn authorize_webhook_request(
                 "webhook: auth rate limit exceeded for"
             );
             let err = serde_json::json!({
-                "error": format!("Too many auth attempts. Try again in {}s.", e.retry_after_secs),
+                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-pairing-too-many-auth", &[("secs", e.retry_after_secs.to_string().as_str())]),
                 "retry_after": e.retry_after_secs,
             });
             return Err((StatusCode::TOO_MANY_REQUESTS, Json(err)));
@@ -4201,7 +4201,7 @@ fn require_localhost(peer: &SocketAddr) -> Result<(), (StatusCode, Json<serde_js
         Err((
             StatusCode::FORBIDDEN,
             Json(serde_json::json!({
-                "error": "Admin endpoints are restricted to localhost"
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-admin-localhost-only")
             })),
         ))
     }
@@ -4341,7 +4341,7 @@ async fn handle_admin_reload(
         StatusCode::OK,
         Json(AdminResponse {
             success: true,
-            message: "Daemon reload initiated".to_string(),
+            message: zeroclaw_runtime::i18n::get_required_cli_string("gateway-reload-initiated"),
         }),
     ))
 }
@@ -4359,7 +4359,7 @@ async fn handle_admin_paircode(
             "success": true,
             "pairing_required": state.pairing.require_pairing(),
             "pairing_code": c,
-            "message": "Use this one-time code to pair"
+            "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-paircode-use-onetime")
         })
     } else {
         serde_json::json!({
@@ -4367,9 +4367,9 @@ async fn handle_admin_paircode(
             "pairing_required": state.pairing.require_pairing(),
             "pairing_code": null,
             "message": if state.pairing.require_pairing() {
-                "Pairing is active but no new code available (already paired or code expired)"
+                zeroclaw_runtime::i18n::get_required_cli_string("gateway-paircode-none-available")
             } else {
-                "Pairing is disabled for this gateway"
+                zeroclaw_runtime::i18n::get_required_cli_string("gateway-pairing-disabled")
             }
         })
     };
@@ -4403,7 +4403,7 @@ async fn handle_admin_paircode_new(
         return Err((
             StatusCode::FORBIDDEN,
             Json(serde_json::json!({
-                "error": "Minting a pairing code requires localhost or an admin token",
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-paircode-mint-forbidden"),
             })),
         ));
     }

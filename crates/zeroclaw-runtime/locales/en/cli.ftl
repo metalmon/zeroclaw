@@ -1302,3 +1302,23 @@ channel-approval-opt-allow-once = Allow once
 channel-approval-opt-allow-always = Always allow
 channel-approval-opt-reject = Reject
 channel-approval-opt-reject-with-edit = Reject with edit
+
+# --- gateway pairing / admin HTTP errors ---
+# User-facing strings returned by the gateway's pairing, paircode and admin
+# endpoints (rendered verbatim by the panel). Routed through Fluent so the
+# panel shows them in the process locale.
+gateway-paircode-generated = New pairing code generated
+gateway-pairing-unavailable = Pairing is disabled or not available
+gateway-pairing-too-many-requests = Too many pairing requests. Please retry later.
+gateway-pairing-too-many-auth = Too many auth attempts. Try again in {$secs}s.
+gateway-pairing-success = Pairing successful
+gateway-pairing-invalid-code = Invalid or expired pairing code
+gateway-pairing-locked-out = Too many attempts. Locked out for {$secs}s
+gateway-paircode-revoked = Old token revoked. Use this code to re-pair the device.
+gateway-paircode-revoked-pending = Old token revoked. A pairing code is already pending; use it or call again after it clears.
+gateway-admin-localhost-only = Admin endpoints are restricted to localhost
+gateway-reload-initiated = Daemon reload initiated
+gateway-paircode-use-onetime = Use this one-time code to pair
+gateway-paircode-none-available = Pairing is active but no new code available (already paired or code expired)
+gateway-pairing-disabled = Pairing is disabled for this gateway
+gateway-paircode-mint-forbidden = Minting a pairing code requires localhost or an admin token

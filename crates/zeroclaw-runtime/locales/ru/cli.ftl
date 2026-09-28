@@ -76,3 +76,20 @@ cli-doctor-systemd-linger-unknown = не удалось проверить за�
 cli-doctor-web-dist-dir-expansion-warning = gateway.web_dist_dir = "{$path}" — {$reason}; gateway.web_dist_dir читается буквально, поэтому раскройте значение самостоятельно (например, абсолютный путь)
 cli-doctor-verifiable-intent-tool-withheld = verifiable_intent.enabled включен, но инструмент vi_verify скрыт из видимого модели реестра, пока не появится проверяющий цепочку учетных данных. Включение раздела не включает проверку учетных данных при коммерческих вызовах инструментов. Пути библиотек выпуска и проверки не затронуты.
 cli-doctor-memory-semantic-search-without-embedder = memory.search_mode = "{$search_mode}" при памяти sqlite, но эффективный провайдер эмбеддингов не настроен; векторный поиск пропускается, и извлечение работает только по ключевым словам. Настройте memory.embedding_provider или корректный маршрут memory.embedding_model, либо задайте memory.search_mode = "bm25".
+
+# --- ошибки HTTP шлюза: сопряжение / администрирование ---
+gateway-paircode-generated = Код сопряжения создан
+gateway-pairing-unavailable = Сопряжение отключено или недоступно
+gateway-pairing-too-many-requests = Слишком много запросов сопряжения. Повторите позже.
+gateway-pairing-too-many-auth = Слишком много попыток авторизации. Повторите через {$secs} с.
+gateway-pairing-success = Сопряжение выполнено
+gateway-pairing-invalid-code = Неверный или просроченный код сопряжения
+gateway-pairing-locked-out = Слишком много попыток. Блокировка на {$secs} с.
+gateway-paircode-revoked = Старый токен отозван. Используйте этот код, чтобы заново сопрячь устройство.
+gateway-paircode-revoked-pending = Старый токен отозван. Код сопряжения уже ожидает; используйте его или повторите после того, как он истечет.
+gateway-admin-localhost-only = Административные эндпоинты доступны только с localhost
+gateway-reload-initiated = Перезагрузка демона запущена
+gateway-paircode-use-onetime = Используйте этот одноразовый код для сопряжения
+gateway-paircode-none-available = Сопряжение активно, но новый код недоступен (уже сопряжено или код истек)
+gateway-pairing-disabled = Сопряжение отключено для этого шлюза
+gateway-paircode-mint-forbidden = Создание кода сопряжения требует localhost или админ-токена
