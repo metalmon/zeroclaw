@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Puzzle, Check, Zap, ChevronRight } from 'lucide-react';
 import type { Integration } from '@/types/api';
 import { getIntegrations } from '@/lib/api';
+import { isChannelAllowed } from '@/lib/channelAllowlist';
+import { isProviderAllowed } from '@/lib/providerAllowlist';
 import { t } from '@/lib/i18n';
 import { Badge, Card, EmptyState, PageHeader } from '@/components/ui';
 import type { BadgeTone } from '@/components/ui';
@@ -22,6 +24,27 @@ function channelSlug(name: string): string | null {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
   return slug.length > 0 ? slug : null;
+}
+
+// Canonical channel key from an integration's display name (underscores, to
+// match the channel keys used by VITE_VOLT_CHANNELS: "NextCloud Talk" ->
+// "nextcloud_talk"). Differs from channelSlug (hyphens) on purpose.
+function channelKeyFromName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+// Volt build trims the catalog to the RU-relevant set: Chat channels follow the
+// channel allowlist (mirrors the add-channel picker); AiModel providers follow
+// the provider allowlist. Tools/Platform are left as-is. All passthrough when
+// the respective env keep-list is unset.
+function isIntegrationVisible(i: Integration): boolean {
+  if (i.category === 'Chat') return isChannelAllowed(channelKeyFromName(i.name));
+  if (i.category === 'AiModel') return isProviderAllowed(i.name);
+  return true;
 }
 
 const TOOLS_AUTOMATION_ROUTES: Record<string, string> = {
@@ -73,7 +96,7 @@ export default function Integrations() {
 
   useEffect(() => {
     getIntegrations()
-      .then(setIntegrations)
+      .then((list) => setIntegrations(list.filter(isIntegrationVisible)))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
