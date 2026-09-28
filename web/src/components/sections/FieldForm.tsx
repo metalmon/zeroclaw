@@ -137,6 +137,53 @@ function BoolSwitch({
   );
 }
 
+/**
+ * Compact number stepper: −/+ buttons flanking an editable field. The field
+ * stays free-text (arbitrary/large/float values still typeable); the buttons
+ * nudge by 1 from the current numeric value (0 when empty/non-numeric).
+ */
+function NumberStepper({
+  id,
+  value,
+  onChange,
+}: {
+  id?: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const step = (delta: number) => {
+    const n = Number.parseFloat(value);
+    onChange(String((Number.isFinite(n) ? n : 0) + delta));
+  };
+  return (
+    <div className="inline-flex items-center overflow-hidden rounded-[var(--radius-md)] border border-border bg-input">
+      <button
+        type="button"
+        onClick={() => step(-1)}
+        aria-label={t("fieldform.decrement")}
+        className="flex h-9 w-8 items-center justify-center text-base text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      >
+        −
+      </button>
+      <input
+        id={id}
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-16 border-x border-border bg-transparent py-2 text-center text-sm tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+      <button
+        type="button"
+        onClick={() => step(1)}
+        aria-label={t("fieldform.increment")}
+        className="flex h-9 w-8 items-center justify-center text-base text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
 interface FieldFormProps {
   /** Dotted prefix to fetch fields under, e.g. `model_providers.anthropic`. */
   prefix: string;
@@ -383,6 +430,12 @@ function defaultInputValue(entry: ListResponseEntry): string {
   if (typeof v === "boolean") return v ? "true" : "false";
   if (Array.isArray(v)) return v.join("\n");
   return "";
+}
+
+/** Draft value differs from the saved value (same secret-empty exclusion as the
+ *  unsaved-changes counter). Drives the "modified" dot + the count/filter. */
+function isEntryValueModified(entry: ListResponseEntry, raw: string): boolean {
+  return !(entry.is_secret && raw.length === 0) && raw !== defaultInputValue(entry);
 }
 
 function parseInput(entry: ListResponseEntry, raw: string): unknown {
@@ -980,6 +1033,8 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
       undefined,
     );
     const [filter, setFilter] = useState("");
+    // "All" vs "Modified only" segmented filter (matches the modified dots).
+    const [showOnlyModified, setShowOnlyModified] = useState(false);
 
     // When this form edits a channel block (`channels.<type>.<alias>`), its
     // `excluded_tools` ToolPicker should list the OWNING agent's scoped tools
@@ -1317,16 +1372,39 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
           ? sortedEntries.filter((e) => e.path !== enabledEntry.path)
           : sortedEntries
       ).filter((e) => !groupedPaths.has(e.path));
-      const filtered = includePath
+      let filtered = includePath
         ? base.filter((e) => includePath(e.path))
         : base;
+      if (showOnlyModified) {
+        filtered = filtered.filter((e) =>
+          isEntryValueModified(e, draft[e.path] ?? ""),
+        );
+      }
       if (!filter.trim()) return filtered;
       return fuzzyFilter(
         filtered,
         filter,
         (e) => `${fieldShortLabel(e)} ${e.path}`,
       );
-    }, [sortedEntries, filter, includePath, enabledEntry, groupedPaths]);
+    }, [
+      sortedEntries,
+      filter,
+      includePath,
+      enabledEntry,
+      groupedPaths,
+      showOnlyModified,
+      draft,
+    ]);
+
+    // Count of fields whose draft value differs from the saved value — drives
+    // the header chip and the "Modified" filter tab.
+    const modifiedCount = useMemo(() => {
+      let n = 0;
+      for (const e of actionableEntries) {
+        if (isEntryValueModified(e, draft[e.path] ?? "")) n += 1;
+      }
+      return n;
+    }, [actionableEntries, draft]);
 
     // Count of fields whose draft value differs from the saved display value.
     // Drives the unsaved-changes counter in the sticky save bar. Must be
@@ -1401,12 +1479,32 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
         {(title || enabledEntry) && (
           <div className="flex items-center justify-between gap-3 flex-wrap">
             {title ? (
-              <h2
-                className="text-lg font-semibold"
-                style={{ color: "var(--color-foreground)" }}
-              >
-                {title}
-              </h2>
+              <div className="flex min-w-0 items-center gap-2">
+                <h2
+                  className="text-lg font-semibold"
+                  style={{ color: "var(--color-foreground)" }}
+                >
+                  {title}
+                </h2>
+                {modifiedCount > 0 && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px]"
+                    style={{
+                      color: "var(--color-brand-2)",
+                      borderColor:
+                        "color-mix(in srgb, var(--color-brand-2) 30%, transparent)",
+                      background:
+                        "color-mix(in srgb, var(--color-brand-2) 12%, transparent)",
+                    }}
+                  >
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: "var(--color-brand-2)" }}
+                    />
+                    {modifiedCount} {t("fieldform.field_modified")}
+                  </span>
+                )}
+              </div>
             ) : (
               <span />
             )}
@@ -1428,15 +1526,41 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
           </div>
         )}
 
-        {visibleEntries.length > 1 && (
-          <input
-            type="text"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder={plural(visibleEntries.length, "fieldform.filter_count")}
-            className="input-electric w-full px-3 py-2 text-sm"
-            aria-label={t("fieldform.filter_aria")}
-          />
+        {entries.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder={plural(actionableEntries.length, "fieldform.filter_count")}
+              className="input-electric min-w-0 flex-1 px-3 py-2 text-sm"
+              aria-label={t("fieldform.filter_aria")}
+            />
+            <div className="inline-flex shrink-0 items-center rounded-[var(--radius-md)] border border-border bg-input p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setShowOnlyModified(false)}
+                className={
+                  showOnlyModified
+                    ? "px-3 py-1.5 text-muted-foreground"
+                    : "rounded-[var(--radius-md)] bg-secondary px-3 py-1.5 text-foreground"
+                }
+              >
+                {t("fieldform.filter_all")} · {actionableEntries.length}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowOnlyModified(true)}
+                className={
+                  showOnlyModified
+                    ? "rounded-[var(--radius-md)] bg-secondary px-3 py-1.5 text-foreground"
+                    : "px-3 py-1.5 text-muted-foreground"
+                }
+              >
+                {t("fieldform.filter_modified")} · {modifiedCount}
+              </button>
+            </div>
+          </div>
         )}
 
         {entries.length === 0 ? (
@@ -1892,8 +2016,7 @@ function FieldRow({
   const renderInline = isInlineControl(renderer) && !showValidation && !error;
   // Draft differs from the saved value (same secret-empty exclusion as the
   // unsaved-changes counter) → show a "modified" dot next to the label.
-  const isDirty =
-    !(entry.is_secret && value.length === 0) && value !== defaultInputValue(entry);
+  const isDirty = isEntryValueModified(entry, value);
 
   return (
     <div className="group flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-3">
@@ -2149,13 +2272,7 @@ function FieldRow({
             elementProps={elementProps ?? null}
           />
         ) : renderer === "number" ? (
-          <input
-            id={entry.path}
-            type="number"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="input-electric w-44 max-w-full px-3 py-2 text-sm tabular-nums"
-          />
+          <NumberStepper id={entry.path} value={value} onChange={onChange} />
         ) : showPicker ? (
           <div className="relative">
             <div className="flex items-center gap-2">

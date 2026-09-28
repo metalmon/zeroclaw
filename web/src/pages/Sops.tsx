@@ -12,9 +12,10 @@ import {
   X,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Badge, Button, Card, PageHeader, HelpTip } from '@/components/ui';
+import { Badge, Button, Card, EmptyState, PageHeader, HelpTip } from '@/components/ui';
 import { SettingsPageShell, SettingsListBody, SettingsSelectableRow } from '@/components/ui/settings-list';
 import { IconTile } from '@/components/ui/icon-tile';
+import { Spinner, SpinnerScreen } from '@/components/ui/spinner';
 import SopCanvas from './SopCanvas';
 import MarkdownEditor from '@/components/MarkdownEditor';
 import ToolPicker from '@/components/ToolPicker';
@@ -1226,7 +1227,7 @@ function TriggerEditor({
   return (
     <div
       className={`space-y-2 rounded border bg-card p-2 ${
-        selected ? 'border-primary' : 'border-border'
+        selected ? 'border-brand' : 'border-border'
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -1313,7 +1314,7 @@ function StepListRow({
   return (
     <div
       className={`flex items-center gap-2 rounded border px-2 py-1.5 ${
-        selected ? 'border-primary ring-1 ring-primary' : 'border-border'
+        selected ? 'border-brand' : 'border-border'
       }`}
     >
       <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-2 text-left">
@@ -1811,13 +1812,9 @@ export function SopsList() {
             {error}
           </Card>
         ) : loading ? (
-          <Card padded={false} className="flex items-center justify-center p-8">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
-          </Card>
+          <SpinnerScreen />
         ) : sops.length === 0 ? (
-          <Card padded={false} className="p-8 text-center text-sm text-muted-foreground">
-            {t('sops.empty')}
-          </Card>
+          <EmptyState icon={<Workflow className="h-6 w-6" />} title={t('sops.empty')} />
         ) : (
           <SettingsListBody>
             {sops.map((s) => (
@@ -1934,7 +1931,7 @@ export function SopView() {
           </div>
         </div>
         {loading ? (
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+          <Spinner size={22} />
         ) : graph ? (
           <>
             {layer === 'visual' && viewSop ? (
@@ -2316,7 +2313,7 @@ export function SopEditor() {
     return (
       <div className="p-6">
         <Card>
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+          <Spinner size={22} />
         </Card>
       </div>
     );
