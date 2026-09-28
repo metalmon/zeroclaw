@@ -74,3 +74,39 @@ cfg-err-mcp-servers-tls-ca-cert-path = mcp.servers[{$i}].tls_ca_cert_path не �
 cfg-err-mcp-servers-tool-timeout-secs-must = mcp.servers[{$i}].tool_timeout_secs должно быть больше 0
 cfg-err-mcp-servers-name-must-not-be = mcp.servers[{$i}].name не должно быть пустым
 cfg-err-is-invalid-cost-rates-must-be = {$path} = {$value} некорректно; ставки стоимости должны быть конечными и в диапазоне от 0 до {$max} USD за настроенную единицу
+cfg-err-peer-groups-agents-but-agents-channels = peer_groups.{$group_name}.agents[{$i}] = {$member_str}, но у agents.{$member_str}.channels нет {$needs_msg}
+cfg-err-peer-groups-agents-but-agents-is = peer_groups.{$group_name}.agents[{$i}] = {$member_str}, но agents.{$member_str} не настроено
+cfg-err-peer-groups-channel-but-channels-is = peer_groups.{$group_name}.channel = {$group_channel}, но [channels.{$channel_type}.{$alias}] не настроено
+cfg-err-peer-groups-channel-but-no-channels = peer_groups.{$group_name}.channel = {$group_channel}, но блок [channels.{$channel_type}.*] не настроен
+cfg-err-peer-groups-channel-but-no-channels-2 = peer_groups.{$group_name}.channel = {$group_channel}, но блок [channels.{$channel_type}.*] не настроен
+cfg-err-peer-groups-channel-must-name-a = peer_groups.{$group_name}.channel должно указывать тип канала (например, "discord") или точечный псевдоним (например, "discord.work")
+cfg-err-agents-workspace-read-memory-from-points = agents.{$alias}.workspace.read_memory_from[{$i}] указывает на agents.{$target_str}, который использует бэкенд памяти {$target_backend}, а agents.{$alias} использует {$agent_backend}; список разрешений должен указывать только на соседей с тем же бэкендом
+cfg-err-agents-workspace-read-memory-from-but = agents.{$alias}.workspace.read_memory_from[{$i}] = {$target_str}, но agents.{$target_str} не настроено
+cfg-err-agents-workspace-read-memory-from-but-2 = agents.{$alias}.workspace.read_memory_from[{$i}] = {$target_str}, но {$target_str} — это сам этот агент; агент всегда видит свои строки памяти, поэтому ссылки на себя в межагентном списке разрешений не допускаются
+cfg-err-agents-workspace-access-but-agents-is = agents.{$alias}.workspace.access.{$target_str} = {$mode}, но agents.{$target_str} не настроено
+cfg-err-agents-workspace-access-but-is-this = agents.{$alias}.workspace.access.{$target_str} = {$mode}, но {$target_str} — это сам этот агент; агент всегда имеет полный доступ к своему рабочему пространству, поэтому ссылки на себя в межагентном списке разрешений не допускаются
+cfg-err-agents-delegates-agent-duplicates-an-earlier = agents.{$alias}.delegates[{$i}].agent = {$target_str} дублирует ранее указанную цель делегирования
+cfg-err-agents-delegates-agent-but-agents-is = agents.{$alias}.delegates[{$i}].agent = {$target_str}, но agents.{$target_str} не настроено
+cfg-err-agents-delegates-agent-names-this-agent = agents.{$alias}.delegates[{$i}].agent = {$target_str} указывает на самого этого агента; агент не может делегировать сам себе
+cfg-err-agents-but-is-not-configured = agents.{$alias}.{$field} = {$trimmed}, но {$section}.{$trimmed} не настроено
+cfg-err-agents-but-is-not-configured-2 = agents.{$alias}.{$field}[{$i}] = {$trimmed}, но {$section}.{$trimmed} не настроено
+cfg-err-agents-must-be-dotted-form-type = agents.{$alias}.{$field} должно быть в точечной форме `<type>.<alias>` (получено {$value})
+cfg-err-agents-but-is-not-configured-3 = agents.{$alias}.{$field} = {$value}, но {$section_prefix}.{$ty}.{$inner} не настроено
+cfg-err-agents-channels-must-be-dotted-form = agents.{$alias}.channels[{$i}] должно быть в точечной форме `<type>.<alias>` (получено {$trimmed})
+cfg-err-agents-channels-but-channels-is-not = agents.{$alias}.channels[{$i}] = {$trimmed}, но channels.{$ty}.{$inner} не настроено
+cfg-err-agents-model-provider-must-be-dotted = agents.{$alias}.model_provider должно быть в точечной форме `<type>.<alias>` (получено {$mp})
+cfg-err-agents-model-provider-but-providers-models = agents.{$alias}.model_provider = {$mp}, но [providers.models.{$ty}.{$inner}] не настроено
+cfg-err-agents-model-provider-but-is-not = agents.{$alias}.model_provider = {$mp}, но {$ty} не является известным семейством провайдеров; проверьте [providers.models.<family>.<alias>] в config.toml (допустимые семейства: `voltd providers`)
+cfg-err-agents-model-provider-must-reference-a = agents.{$alias}.model_provider должно ссылаться на настроенный model_provider (например, "anthropic.default")
+cfg-err-runtime-profiles-context-compression-summary-provider = runtime_profiles.{$palias}.context_compression.summary_provider должно быть в точечной форме `<type>.<alias>` (получено {$value})
+cfg-err-runtime-profiles-context-compression-summary-provider-2 = runtime_profiles.{$palias}.context_compression.summary_provider = {$value}, но providers.models.{$ty}.{$inner} не настроено
+cfg-err-embedding-routes-model-provider-must-be = embedding_routes[{$i}].model_provider должно быть в точечной форме `<type>.<alias>` (получено {$mp})
+cfg-err-embedding-routes-model-provider-but-providers = embedding_routes[{$i}].model_provider = {$mp}, но providers.models.{$ty}.{$inner} не настроено
+cfg-err-model-routes-model-provider-must-be = model_routes[{$i}].model_provider должно быть в точечной форме `<type>.<alias>` (получено {$mp})
+cfg-err-model-routes-model-provider-but-providers = model_routes[{$i}].model_provider = {$mp}, но providers.models.{$ty}.{$inner} не настроено
+cfg-err-heartbeat-agent-but-no-agents-entry = heartbeat.agent = {$hb_agent}, но запись [agents.{$hb_agent}] не настроена
+cfg-err-true-requires-every-agent-on-the = {$flag_path} = true требует, чтобы каждый агент использовал бэкенд памяти sqlite (типизированное хранилище памяти только для SQLite), но agents.{$alias}.memory.backend = {$agent_backend}
+cfg-err-http-request-secrets-key-must-contain = ключ http_request.secrets {$name} должен содержать 1..=64 ASCII-букв, цифр, подчеркиваний или дефисов
+cfg-err-is-required-when-provider-set-the = {$path} обязательно, когда provider = "{$provider}": укажите базовый URL API инстанса, включая /api/v1 (например, https://git.example.org/api/v1); хост по умолчанию не подразумевается, так как запросы API несут токен доступа
+cfg-err-flag-requires-sqlite-backend = {$flag_path} = true требует memory.backend = "sqlite" (типизированное хранилище памяти только для SQLite), но memory.backend = {$backend}
+cfg-err-plugins-egress-not-granted = plugins.entries.{$entry_name}.egress_allow_private перечисляет {$private}, что не разрешено egress_hosts; послабление ослабляет класс адресов для уже разрешенного назначения, но не выдает разрешение. Wildcard-послабление ('*.host') требует такого же или более широкого wildcard-разрешения, а не точного

@@ -21799,13 +21799,12 @@ impl Config {
             if git.enabled && matches!(provider.as_str(), "gitea" | "forgejo") {
                 let path = format!("channels.git.{alias}.api_base_url");
                 match git.api_base_url.as_deref() {
-                    None => validation_bail!(
+                    None => validation_bail_i18n!(
                         RequiredFieldEmpty,
                         path,
-                        "{path} is required when provider = \"{provider}\": set the \
-                         instance's API base URL including /api/v1 (e.g. \
-                         https://git.example.org/api/v1); no default host is assumed \
-                         because API requests carry the access token"
+                        "cfg-err-is-required-when-provider-set-the",
+                        ("path", path.to_string().as_str()),
+                        ("provider", provider.to_string().as_str())
                     ),
                     Some(url) => validate_http_base_url(&path, url)?,
                 }
@@ -21819,10 +21818,11 @@ impl Config {
                     .chars()
                     .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
             {
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidFormat,
                     format!("http_request.secrets.{name}"),
-                    "http_request.secrets key {name:?} must contain 1..=64 ASCII letters, numbers, underscores, or hyphens"
+                    "cfg-err-http-request-secrets-key-must-contain",
+                    ("name", format!("{:?}", name).as_str())
                 );
             }
         }
@@ -21901,20 +21901,24 @@ impl Config {
                 .unwrap_or_default()
                 .to_ascii_lowercase();
             if backend_kind != "sqlite" {
-                validation_bail!(
+                validation_bail_i18n!(
                     InvalidFormat,
                     flag_path,
-                    "{flag_path} = true requires memory.backend = \"sqlite\" (typed memory storage is SQLite-only), but memory.backend = {:?}",
-                    self.memory.backend
+                    "cfg-err-flag-requires-sqlite-backend",
+                    ("flag_path", flag_path.to_string().as_str()),
+                    ("backend", format!("{:?}", self.memory.backend).as_str())
                 );
             }
             for (alias, agent) in &self.agents {
                 if agent.memory.backend != crate::multi_agent::MemoryBackendKind::Sqlite {
                     let agent_backend = agent.memory.backend;
-                    validation_bail!(
+                    validation_bail_i18n!(
                         InvalidFormat,
                         format!("agents.{alias}.memory.backend"),
-                        "{flag_path} = true requires every agent on the sqlite memory backend (typed memory storage is SQLite-only), but agents.{alias}.memory.backend = {agent_backend:?}",
+                        "cfg-err-true-requires-every-agent-on-the",
+                        ("flag_path", flag_path.to_string().as_str()),
+                        ("alias", alias.to_string().as_str()),
+                        ("agent_backend", format!("{:?}", agent_backend).as_str())
                     );
                 }
             }
@@ -21941,10 +21945,11 @@ impl Config {
                 );
             }
             if !self.agents.contains_key(hb_agent) {
-                validation_bail!(
+                validation_bail_i18n!(
                     DanglingReference,
                     "heartbeat.agent",
-                    "heartbeat.agent = {hb_agent:?} but no [agents.{hb_agent}] entry is configured"
+                    "cfg-err-heartbeat-agent-but-no-agents-entry",
+                    ("hb_agent", format!("{:?}", hb_agent).as_str())
                 );
             }
         }
@@ -22245,17 +22250,23 @@ impl Config {
             match mp.split_once('.') {
                 Some((ty, inner)) if !ty.is_empty() && !inner.is_empty() => {
                     if self.providers.models.find(ty, inner).is_none() {
-                        validation_bail!(
+                        validation_bail_i18n!(
                             DanglingReference,
                             format!("model_routes[{i}].model_provider"),
-                            "model_routes[{i}].model_provider = {mp:?} but providers.models.{ty}.{inner} is not configured",
+                            "cfg-err-model-routes-model-provider-but-providers",
+                            ("i", i.to_string().as_str()),
+                            ("mp", format!("{:?}", mp).as_str()),
+                            ("ty", ty.to_string().as_str()),
+                            ("inner", inner.to_string().as_str())
                         );
                     }
                 }
-                _ => validation_bail!(
+                _ => validation_bail_i18n!(
                     InvalidFormat,
                     format!("model_routes[{i}].model_provider"),
-                    "model_routes[{i}].model_provider must be dotted form `<type>.<alias>` (got {mp:?})",
+                    "cfg-err-model-routes-model-provider-must-be",
+                    ("i", i.to_string().as_str()),
+                    ("mp", format!("{:?}", mp).as_str())
                 ),
             }
             if route.model.trim().is_empty() {
@@ -22292,17 +22303,23 @@ impl Config {
             match mp.split_once('.') {
                 Some((ty, inner)) if !ty.is_empty() && !inner.is_empty() => {
                     if self.providers.models.find(ty, inner).is_none() {
-                        validation_bail!(
+                        validation_bail_i18n!(
                             DanglingReference,
                             format!("embedding_routes[{i}].model_provider"),
-                            "embedding_routes[{i}].model_provider = {mp:?} but providers.models.{ty}.{inner} is not configured",
+                            "cfg-err-embedding-routes-model-provider-but-providers",
+                            ("i", i.to_string().as_str()),
+                            ("mp", format!("{:?}", mp).as_str()),
+                            ("ty", ty.to_string().as_str()),
+                            ("inner", inner.to_string().as_str())
                         );
                     }
                 }
-                _ => validation_bail!(
+                _ => validation_bail_i18n!(
                     InvalidFormat,
                     format!("embedding_routes[{i}].model_provider"),
-                    "embedding_routes[{i}].model_provider must be dotted form `<type>.<alias>` (got {mp:?})",
+                    "cfg-err-embedding-routes-model-provider-must-be",
+                    ("i", i.to_string().as_str()),
+                    ("mp", format!("{:?}", mp).as_str())
                 ),
             }
             if route.model.trim().is_empty() {
@@ -22906,19 +22923,25 @@ impl Config {
                         .get_map_keys(&format!("providers.models.{ty}"))
                         .is_some_and(|keys| keys.iter().any(|k| k == inner));
                     if !exists {
-                        validation_bail!(
+                        validation_bail_i18n!(
                             DanglingReference,
                             format!(
                                 "runtime_profiles.{palias}.context_compression.summary_provider"
                             ),
-                            "runtime_profiles.{palias}.context_compression.summary_provider = {value:?} but providers.models.{ty}.{inner} is not configured",
+                            "cfg-err-runtime-profiles-context-compression-summary-provider-2",
+                            ("palias", palias.to_string().as_str()),
+                            ("value", format!("{:?}", value).as_str()),
+                            ("ty", ty.to_string().as_str()),
+                            ("inner", inner.to_string().as_str())
                         );
                     }
                 }
-                _ => validation_bail!(
+                _ => validation_bail_i18n!(
                     InvalidFormat,
                     format!("runtime_profiles.{palias}.context_compression.summary_provider"),
-                    "runtime_profiles.{palias}.context_compression.summary_provider must be dotted form `<type>.<alias>` (got {value:?})",
+                    "cfg-err-runtime-profiles-context-compression-summary-provider",
+                    ("palias", palias.to_string().as_str()),
+                    ("value", format!("{:?}", value).as_str())
                 ),
             }
         }
@@ -22936,36 +22959,46 @@ impl Config {
             // model_providers.<type>.<inner>.
             let mp = agent.model_provider.trim();
             if mp.is_empty() {
-                validation_bail!(
+                validation_bail_i18n!(
                     RequiredFieldEmpty,
                     format!("agents.{alias}.model_provider"),
-                    "agents.{alias}.model_provider must reference a configured model model_provider (e.g. \"anthropic.default\")",
+                    "cfg-err-agents-model-provider-must-reference-a",
+                    ("alias", alias.to_string().as_str())
                 );
             }
             match mp.split_once('.') {
                 Some((ty, inner)) if !ty.is_empty() && !inner.is_empty() => {
                     if !crate::providers::ModelProviders::slot_names().contains(&ty) {
-                        validation_bail!(
+                        validation_bail_i18n!(
                             DanglingReference,
                             format!("agents.{alias}.model_provider"),
-                            "agents.{alias}.model_provider = {mp:?} but {ty:?} is not a known provider family; check [providers.models.<family>.<alias>] in config.toml (valid families: `voltd providers`)",
+                            "cfg-err-agents-model-provider-but-is-not",
+                            ("alias", alias.to_string().as_str()),
+                            ("mp", format!("{:?}", mp).as_str()),
+                            ("ty", format!("{:?}", ty).as_str())
                         );
                     }
                     let exists = self
                         .get_map_keys(&format!("providers.models.{ty}"))
                         .is_some_and(|keys| keys.iter().any(|k| k == inner));
                     if !exists {
-                        validation_bail!(
+                        validation_bail_i18n!(
                             DanglingReference,
                             format!("agents.{alias}.model_provider"),
-                            "agents.{alias}.model_provider = {mp:?} but [providers.models.{ty}.{inner}] is not configured",
+                            "cfg-err-agents-model-provider-but-providers-models",
+                            ("alias", alias.to_string().as_str()),
+                            ("mp", format!("{:?}", mp).as_str()),
+                            ("ty", ty.to_string().as_str()),
+                            ("inner", inner.to_string().as_str())
                         );
                     }
                 }
-                _ => validation_bail!(
+                _ => validation_bail_i18n!(
                     InvalidFormat,
                     format!("agents.{alias}.model_provider"),
-                    "agents.{alias}.model_provider must be dotted form `<type>.<alias>` (got {mp:?})",
+                    "cfg-err-agents-model-provider-must-be-dotted",
+                    ("alias", alias.to_string().as_str()),
+                    ("mp", format!("{:?}", mp).as_str())
                 ),
             }
 
@@ -22985,17 +23018,25 @@ impl Config {
                             .get_map_keys(&format!("channels.{ty}"))
                             .is_some_and(|keys| keys.iter().any(|k| k == inner));
                         if !exists {
-                            validation_bail!(
+                            validation_bail_i18n!(
                                 DanglingReference,
                                 format!("agents.{alias}.channels[{i}]"),
-                                "agents.{alias}.channels[{i}] = {trimmed:?} but channels.{ty}.{inner} is not configured",
+                                "cfg-err-agents-channels-but-channels-is-not",
+                                ("alias", alias.to_string().as_str()),
+                                ("i", i.to_string().as_str()),
+                                ("trimmed", format!("{:?}", trimmed).as_str()),
+                                ("ty", ty.to_string().as_str()),
+                                ("inner", inner.to_string().as_str())
                             );
                         }
                     }
-                    _ => validation_bail!(
+                    _ => validation_bail_i18n!(
                         InvalidFormat,
                         format!("agents.{alias}.channels[{i}]"),
-                        "agents.{alias}.channels[{i}] must be dotted form `<type>.<alias>` (got {trimmed:?})",
+                        "cfg-err-agents-channels-must-be-dotted-form",
+                        ("alias", alias.to_string().as_str()),
+                        ("i", i.to_string().as_str()),
+                        ("trimmed", format!("{:?}", trimmed).as_str())
                     ),
                 }
             }
@@ -23037,17 +23078,26 @@ impl Config {
                             .get_map_keys(&format!("{section_prefix}.{ty}"))
                             .is_some_and(|keys| keys.iter().any(|k| k == inner));
                         if !exists {
-                            validation_bail!(
+                            validation_bail_i18n!(
                                 DanglingReference,
                                 format!("agents.{alias}.{field}"),
-                                "agents.{alias}.{field} = {value:?} but {section_prefix}.{ty}.{inner} is not configured",
+                                "cfg-err-agents-but-is-not-configured-3",
+                                ("alias", alias.to_string().as_str()),
+                                ("field", field.to_string().as_str()),
+                                ("value", format!("{:?}", value).as_str()),
+                                ("section_prefix", section_prefix.to_string().as_str()),
+                                ("ty", ty.to_string().as_str()),
+                                ("inner", inner.to_string().as_str())
                             );
                         }
                     }
-                    _ => validation_bail!(
+                    _ => validation_bail_i18n!(
                         InvalidFormat,
                         format!("agents.{alias}.{field}"),
-                        "agents.{alias}.{field} must be dotted form `<type>.<alias>` (got {value:?})",
+                        "cfg-err-agents-must-be-dotted-form-type",
+                        ("alias", alias.to_string().as_str()),
+                        ("field", field.to_string().as_str()),
+                        ("value", format!("{:?}", value).as_str())
                     ),
                 }
             }
@@ -23078,10 +23128,15 @@ impl Config {
                         .get_map_keys(section)
                         .is_some_and(|keys| keys.iter().any(|k| k == trimmed));
                     if !exists {
-                        validation_bail!(
+                        validation_bail_i18n!(
                             DanglingReference,
                             format!("agents.{alias}.{field}[{i}]"),
-                            "agents.{alias}.{field}[{i}] = {trimmed:?} but {section}.{trimmed} is not configured",
+                            "cfg-err-agents-but-is-not-configured-2",
+                            ("alias", alias.to_string().as_str()),
+                            ("field", field.to_string().as_str()),
+                            ("i", i.to_string().as_str()),
+                            ("trimmed", format!("{:?}", trimmed).as_str()),
+                            ("section", section.to_string().as_str())
                         );
                     }
                 }
@@ -23103,10 +23158,14 @@ impl Config {
                     .get_map_keys(section)
                     .is_some_and(|keys| keys.iter().any(|k| k == trimmed));
                 if !exists {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         DanglingReference,
                         format!("agents.{alias}.{field}"),
-                        "agents.{alias}.{field} = {trimmed:?} but {section}.{trimmed} is not configured",
+                        "cfg-err-agents-but-is-not-configured",
+                        ("alias", alias.to_string().as_str()),
+                        ("field", field.to_string().as_str()),
+                        ("trimmed", format!("{:?}", trimmed).as_str()),
+                        ("section", section.to_string().as_str())
                     );
                 }
             }
@@ -23142,24 +23201,33 @@ impl Config {
                     );
                 }
                 if target_str == alias.as_str() {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         InvalidFormat,
                         format!("agents.{alias}.delegates[{i}].agent"),
-                        "agents.{alias}.delegates[{i}].agent = {target_str:?} names this agent itself; an agent cannot delegate to itself",
+                        "cfg-err-agents-delegates-agent-names-this-agent",
+                        ("alias", alias.to_string().as_str()),
+                        ("i", i.to_string().as_str()),
+                        ("target_str", format!("{:?}", target_str).as_str())
                     );
                 }
                 if !self.agents.contains_key(target_str) {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         DanglingReference,
                         format!("agents.{alias}.delegates[{i}].agent"),
-                        "agents.{alias}.delegates[{i}].agent = {target_str:?} but agents.{target_str} is not configured",
+                        "cfg-err-agents-delegates-agent-but-agents-is",
+                        ("alias", alias.to_string().as_str()),
+                        ("i", i.to_string().as_str()),
+                        ("target_str", format!("{:?}", target_str).as_str())
                     );
                 }
                 if !seen_delegates.insert(target_str) {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         InvalidFormat,
                         format!("agents.{alias}.delegates[{i}].agent"),
-                        "agents.{alias}.delegates[{i}].agent = {target_str:?} duplicates an earlier delegate target",
+                        "cfg-err-agents-delegates-agent-duplicates-an-earlier",
+                        ("alias", alias.to_string().as_str()),
+                        ("i", i.to_string().as_str()),
+                        ("target_str", format!("{:?}", target_str).as_str())
                     );
                 }
             }
@@ -23169,17 +23237,23 @@ impl Config {
             for (target, mode) in &agent.workspace.access {
                 let target_str = target.as_str();
                 if target_str == alias.as_str() {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         InvalidFormat,
                         format!("agents.{alias}.workspace.access.{target_str}"),
-                        "agents.{alias}.workspace.access.{target_str} = {mode:?} but {target_str} is this agent itself; an agent always has full access to its own workspace, so self-references in the cross-agent allowlist are not permitted",
+                        "cfg-err-agents-workspace-access-but-is-this",
+                        ("alias", alias.to_string().as_str()),
+                        ("target_str", target_str.to_string().as_str()),
+                        ("mode", format!("{:?}", mode).as_str())
                     );
                 }
                 if !self.agents.contains_key(target_str) {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         DanglingReference,
                         format!("agents.{alias}.workspace.access.{target_str}"),
-                        "agents.{alias}.workspace.access.{target_str} = {mode:?} but agents.{target_str} is not configured",
+                        "cfg-err-agents-workspace-access-but-agents-is",
+                        ("alias", alias.to_string().as_str()),
+                        ("target_str", target_str.to_string().as_str()),
+                        ("mode", format!("{:?}", mode).as_str())
                     );
                 }
             }
@@ -23193,25 +23267,36 @@ impl Config {
             for (i, target) in agent.workspace.read_memory_from.iter().enumerate() {
                 let target_str = target.as_str();
                 if target_str == alias.as_str() {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         InvalidFormat,
                         format!("agents.{alias}.workspace.read_memory_from[{i}]"),
-                        "agents.{alias}.workspace.read_memory_from[{i}] = {target_str:?} but {target_str} is this agent itself; an agent always sees its own memory rows, so self-references in the cross-agent allowlist are not permitted",
+                        "cfg-err-agents-workspace-read-memory-from-but-2",
+                        ("alias", alias.to_string().as_str()),
+                        ("i", i.to_string().as_str()),
+                        ("target_str", format!("{:?}", target_str).as_str())
                     );
                 }
                 let Some(target_agent) = self.agents.get(target_str) else {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         DanglingReference,
                         format!("agents.{alias}.workspace.read_memory_from[{i}]"),
-                        "agents.{alias}.workspace.read_memory_from[{i}] = {target_str:?} but agents.{target_str} is not configured",
+                        "cfg-err-agents-workspace-read-memory-from-but",
+                        ("alias", alias.to_string().as_str()),
+                        ("i", i.to_string().as_str()),
+                        ("target_str", format!("{:?}", target_str).as_str())
                     );
                 };
                 if target_agent.memory.backend != agent_backend {
                     let target_backend = target_agent.memory.backend;
-                    validation_bail!(
+                    validation_bail_i18n!(
                         InvalidFormat,
                         format!("agents.{alias}.workspace.read_memory_from[{i}]"),
-                        "agents.{alias}.workspace.read_memory_from[{i}] points at agents.{target_str} which uses memory backend {target_backend:?}, but agents.{alias} uses {agent_backend:?}; the allowlist must point at same-backend siblings only",
+                        "cfg-err-agents-workspace-read-memory-from-points",
+                        ("alias", alias.to_string().as_str()),
+                        ("i", i.to_string().as_str()),
+                        ("target_str", target_str.to_string().as_str()),
+                        ("target_backend", format!("{:?}", target_backend).as_str()),
+                        ("agent_backend", format!("{:?}", agent_backend).as_str())
                     );
                 }
             }
@@ -23238,10 +23323,11 @@ impl Config {
             };
             match self.classify_peer_group_channel_ref(group_channel) {
                 PeerGroupChannelRef::Empty => {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         RequiredFieldEmpty,
                         format!("peer_groups.{group_name}.channel"),
-                        "peer_groups.{group_name}.channel must name a channel type (e.g. \"discord\") or dotted alias (e.g. \"discord.work\")",
+                        "cfg-err-peer-groups-channel-must-name-a",
+                        ("group_name", group_name.to_string().as_str())
                     );
                 }
                 PeerGroupChannelRef::BareType {
@@ -23249,10 +23335,13 @@ impl Config {
                     configured,
                 } => {
                     if !configured {
-                        validation_bail!(
+                        validation_bail_i18n!(
                             DanglingReference,
                             format!("peer_groups.{group_name}.channel"),
-                            "peer_groups.{group_name}.channel = {group_channel:?} but no [channels.{channel_type}.*] block is configured",
+                            "cfg-err-peer-groups-channel-but-no-channels-2",
+                            ("group_name", group_name.to_string().as_str()),
+                            ("group_channel", format!("{:?}", group_channel).as_str()),
+                            ("channel_type", channel_type.to_string().as_str())
                         );
                     }
                 }
@@ -23264,17 +23353,24 @@ impl Config {
                     ..
                 } => {
                     if !type_configured {
-                        validation_bail!(
+                        validation_bail_i18n!(
                             DanglingReference,
                             format!("peer_groups.{group_name}.channel"),
-                            "peer_groups.{group_name}.channel = {group_channel:?} but no [channels.{channel_type}.*] block is configured",
+                            "cfg-err-peer-groups-channel-but-no-channels",
+                            ("group_name", group_name.to_string().as_str()),
+                            ("group_channel", format!("{:?}", group_channel).as_str()),
+                            ("channel_type", channel_type.to_string().as_str())
                         );
                     }
                     if !exists {
-                        validation_bail!(
+                        validation_bail_i18n!(
                             DanglingReference,
                             format!("peer_groups.{group_name}.channel"),
-                            "peer_groups.{group_name}.channel = {group_channel:?} but [channels.{channel_type}.{alias}] is not configured",
+                            "cfg-err-peer-groups-channel-but-channels-is",
+                            ("group_name", group_name.to_string().as_str()),
+                            ("group_channel", format!("{:?}", group_channel).as_str()),
+                            ("channel_type", channel_type.to_string().as_str()),
+                            ("alias", alias.to_string().as_str())
                         );
                     }
                 }
@@ -23282,10 +23378,13 @@ impl Config {
             for (i, member) in group.agents.iter().enumerate() {
                 let member_str = member.as_str();
                 let Some(member_agent) = self.agents.get(member_str) else {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         DanglingReference,
                         format!("peer_groups.{group_name}.agents[{i}]"),
-                        "peer_groups.{group_name}.agents[{i}] = {member_str:?} but agents.{member_str} is not configured",
+                        "cfg-err-peer-groups-agents-but-agents-is",
+                        ("group_name", group_name.to_string().as_str()),
+                        ("i", i.to_string().as_str()),
+                        ("member_str", format!("{:?}", member_str).as_str())
                     );
                 };
                 let has_channel_match = member_agent.channels.iter().any(|ch| {
@@ -23300,10 +23399,14 @@ impl Config {
                         Some(alias) => format!("entry for {group_channel_type}.{alias}"),
                         None => format!("entry of type {group_channel_type:?}"),
                     };
-                    validation_bail!(
+                    validation_bail_i18n!(
                         InvalidFormat,
                         format!("peer_groups.{group_name}.agents[{i}]"),
-                        "peer_groups.{group_name}.agents[{i}] = {member_str:?} but agents.{member_str}.channels has no {needs_msg}",
+                        "cfg-err-peer-groups-agents-but-agents-channels",
+                        ("group_name", group_name.to_string().as_str()),
+                        ("i", i.to_string().as_str()),
+                        ("member_str", format!("{:?}", member_str).as_str()),
+                        ("needs_msg", needs_msg.to_string().as_str())
                     );
                 }
             }
@@ -23372,7 +23475,12 @@ impl Config {
                     &path,
                 ) {
                     Ok(patterns) => patterns,
-                    Err(e) => validation_bail!(InvalidFormat, path, "{}", e),
+                    Err(e) => validation_bail_i18n!(
+                        InvalidFormat,
+                        path,
+                        "cfg-err-msg",
+                        ("e", e.to_string().as_str())
+                    ),
                 }
             };
             let private = {
@@ -23382,7 +23490,12 @@ impl Config {
                     &path,
                 ) {
                     Ok(patterns) => patterns,
-                    Err(e) => validation_bail!(InvalidFormat, path, "{}", e),
+                    Err(e) => validation_bail_i18n!(
+                        InvalidFormat,
+                        path,
+                        "cfg-err-msg",
+                        ("e", e.to_string().as_str())
+                    ),
                 }
             };
 
@@ -23394,11 +23507,12 @@ impl Config {
                     .iter()
                     .any(|grant| zeroclaw_infra::net_guard::egress_pattern_contains(grant, private))
                 {
-                    validation_bail!(
+                    validation_bail_i18n!(
                         InvalidFormat,
                         format!("plugins.entries.{}.egress_allow_private", entry.name),
-                        "plugins.entries.{}.egress_allow_private lists {private:?}, which is not granted by egress_hosts; the carveout relaxes an address class for a granted destination, it does not grant one. A wildcard carveout ('*.host') needs an equal-or-broader wildcard grant, not an exact one",
-                        entry.name
+                        "cfg-err-plugins-egress-not-granted",
+                        ("entry_name", entry.name.to_string().as_str()),
+                        ("private", format!("{:?}", private).as_str())
                     );
                 }
             }

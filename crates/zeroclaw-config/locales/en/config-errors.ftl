@@ -76,3 +76,39 @@ cfg-err-mcp-servers-tls-ca-cert-path = mcp.servers[{$i}].tls_ca_cert_path must n
 cfg-err-mcp-servers-tool-timeout-secs-must = mcp.servers[{$i}].tool_timeout_secs must be greater than 0
 cfg-err-mcp-servers-name-must-not-be = mcp.servers[{$i}].name must not be empty
 cfg-err-is-invalid-cost-rates-must-be = {$path} = {$value} is invalid; cost rates must be finite and between 0 and {$max} USD per configured unit
+cfg-err-peer-groups-agents-but-agents-channels = peer_groups.{$group_name}.agents[{$i}] = {$member_str} but agents.{$member_str}.channels has no {$needs_msg}
+cfg-err-peer-groups-agents-but-agents-is = peer_groups.{$group_name}.agents[{$i}] = {$member_str} but agents.{$member_str} is not configured
+cfg-err-peer-groups-channel-but-channels-is = peer_groups.{$group_name}.channel = {$group_channel} but [channels.{$channel_type}.{$alias}] is not configured
+cfg-err-peer-groups-channel-but-no-channels = peer_groups.{$group_name}.channel = {$group_channel} but no [channels.{$channel_type}.*] block is configured
+cfg-err-peer-groups-channel-but-no-channels-2 = peer_groups.{$group_name}.channel = {$group_channel} but no [channels.{$channel_type}.*] block is configured
+cfg-err-peer-groups-channel-must-name-a = peer_groups.{$group_name}.channel must name a channel type (e.g. "discord") or dotted alias (e.g. "discord.work")
+cfg-err-agents-workspace-read-memory-from-points = agents.{$alias}.workspace.read_memory_from[{$i}] points at agents.{$target_str} which uses memory backend {$target_backend}, but agents.{$alias} uses {$agent_backend}; the allowlist must point at same-backend siblings only
+cfg-err-agents-workspace-read-memory-from-but = agents.{$alias}.workspace.read_memory_from[{$i}] = {$target_str} but agents.{$target_str} is not configured
+cfg-err-agents-workspace-read-memory-from-but-2 = agents.{$alias}.workspace.read_memory_from[{$i}] = {$target_str} but {$target_str} is this agent itself; an agent always sees its own memory rows, so self-references in the cross-agent allowlist are not permitted
+cfg-err-agents-workspace-access-but-agents-is = agents.{$alias}.workspace.access.{$target_str} = {$mode} but agents.{$target_str} is not configured
+cfg-err-agents-workspace-access-but-is-this = agents.{$alias}.workspace.access.{$target_str} = {$mode} but {$target_str} is this agent itself; an agent always has full access to its own workspace, so self-references in the cross-agent allowlist are not permitted
+cfg-err-agents-delegates-agent-duplicates-an-earlier = agents.{$alias}.delegates[{$i}].agent = {$target_str} duplicates an earlier delegate target
+cfg-err-agents-delegates-agent-but-agents-is = agents.{$alias}.delegates[{$i}].agent = {$target_str} but agents.{$target_str} is not configured
+cfg-err-agents-delegates-agent-names-this-agent = agents.{$alias}.delegates[{$i}].agent = {$target_str} names this agent itself; an agent cannot delegate to itself
+cfg-err-agents-but-is-not-configured = agents.{$alias}.{$field} = {$trimmed} but {$section}.{$trimmed} is not configured
+cfg-err-agents-but-is-not-configured-2 = agents.{$alias}.{$field}[{$i}] = {$trimmed} but {$section}.{$trimmed} is not configured
+cfg-err-agents-must-be-dotted-form-type = agents.{$alias}.{$field} must be dotted form `<type>.<alias>` (got {$value})
+cfg-err-agents-but-is-not-configured-3 = agents.{$alias}.{$field} = {$value} but {$section_prefix}.{$ty}.{$inner} is not configured
+cfg-err-agents-channels-must-be-dotted-form = agents.{$alias}.channels[{$i}] must be dotted form `<type>.<alias>` (got {$trimmed})
+cfg-err-agents-channels-but-channels-is-not = agents.{$alias}.channels[{$i}] = {$trimmed} but channels.{$ty}.{$inner} is not configured
+cfg-err-agents-model-provider-must-be-dotted = agents.{$alias}.model_provider must be dotted form `<type>.<alias>` (got {$mp})
+cfg-err-agents-model-provider-but-providers-models = agents.{$alias}.model_provider = {$mp} but [providers.models.{$ty}.{$inner}] is not configured
+cfg-err-agents-model-provider-but-is-not = agents.{$alias}.model_provider = {$mp} but {$ty} is not a known provider family; check [providers.models.<family>.<alias>] in config.toml (valid families: `voltd providers`)
+cfg-err-agents-model-provider-must-reference-a = agents.{$alias}.model_provider must reference a configured model model_provider (e.g. "anthropic.default")
+cfg-err-runtime-profiles-context-compression-summary-provider = runtime_profiles.{$palias}.context_compression.summary_provider must be dotted form `<type>.<alias>` (got {$value})
+cfg-err-runtime-profiles-context-compression-summary-provider-2 = runtime_profiles.{$palias}.context_compression.summary_provider = {$value} but providers.models.{$ty}.{$inner} is not configured
+cfg-err-embedding-routes-model-provider-must-be = embedding_routes[{$i}].model_provider must be dotted form `<type>.<alias>` (got {$mp})
+cfg-err-embedding-routes-model-provider-but-providers = embedding_routes[{$i}].model_provider = {$mp} but providers.models.{$ty}.{$inner} is not configured
+cfg-err-model-routes-model-provider-must-be = model_routes[{$i}].model_provider must be dotted form `<type>.<alias>` (got {$mp})
+cfg-err-model-routes-model-provider-but-providers = model_routes[{$i}].model_provider = {$mp} but providers.models.{$ty}.{$inner} is not configured
+cfg-err-heartbeat-agent-but-no-agents-entry = heartbeat.agent = {$hb_agent} but no [agents.{$hb_agent}] entry is configured
+cfg-err-true-requires-every-agent-on-the = {$flag_path} = true requires every agent on the sqlite memory backend (typed memory storage is SQLite-only), but agents.{$alias}.memory.backend = {$agent_backend}
+cfg-err-http-request-secrets-key-must-contain = http_request.secrets key {$name} must contain 1..=64 ASCII letters, numbers, underscores, or hyphens
+cfg-err-is-required-when-provider-set-the = {$path} is required when provider = "{$provider}": set the instance's API base URL including /api/v1 (e.g. https://git.example.org/api/v1); no default host is assumed because API requests carry the access token
+cfg-err-flag-requires-sqlite-backend = {$flag_path} = true requires memory.backend = "sqlite" (typed memory storage is SQLite-only), but memory.backend = {$backend}
+cfg-err-plugins-egress-not-granted = plugins.entries.{$entry_name}.egress_allow_private lists {$private}, which is not granted by egress_hosts; the carveout relaxes an address class for a granted destination, it does not grant one. A wildcard carveout ('*.host') needs an equal-or-broader wildcard grant, not an exact one
