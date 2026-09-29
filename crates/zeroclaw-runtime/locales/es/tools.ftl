@@ -93,7 +93,7 @@ tool-microsoft365 = Integración de Microsoft 365: gestionar correo de Outlook, 
 tool-model-routing-config = Gestionar la configuración del modelo predeterminado, rutas de proveedor/modelo basadas en escenarios, reglas de clasificación y perfiles de agente con alias
 tool-notion = Interactuar con Notion: consultar bases de datos, leer/crear/actualizar páginas y buscar en el espacio de trabajo.
 tool-project-intel = Inteligencia de entrega de proyectos: generar informes de estado, detectar riesgos, redactar actualizaciones para clientes, resumir sprints y estimar esfuerzo. Herramienta de análisis de solo lectura.
-tool-proxy-config = Gestionar la configuración del proxy de ZeroClaw (scope: environment | zeroclaw | services), incluida la aplicación del entorno de tiempo de ejecución y de proceso
+tool-proxy-config = Gestionar la configuración del proxy de Volt (scope: environment | zeroclaw | services), incluida la aplicación del entorno de tiempo de ejecución y de proceso
 tool-pushover = Enviar una notificación de Pushover a tu dispositivo. Requiere PUSHOVER_TOKEN y PUSHOVER_USER_KEY en el archivo .env.
 tool-schedule = Gestionar tareas programadas solo de shell. Acciones: create/add/once/list/get/cancel/remove/pause/resume. ADVERTENCIA: Esta herramienta crea trabajos de shell cuya salida solo se registra, NO se entrega a ningún canal. Para enviar un mensaje programado a Discord/Telegram/Slack/Matrix, use la herramienta cron_add con job_type='agent' y una configuración de entrega como {"{"}"mode":"announce","channel":"discord","to":"<channel_id>"{"}"}.
 tool-screenshot = Capturar una captura de pantalla de la pantalla actual. Devuelve la ruta del archivo y los datos PNG codificados en base64.

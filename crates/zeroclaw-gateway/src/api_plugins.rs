@@ -23,7 +23,11 @@ pub mod plugin_routes {
                 .and_then(|auth| auth.strip_prefix("Bearer "))
                 .unwrap_or("");
             if !state.pairing.is_authenticated(token) {
-                return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    zeroclaw_runtime::i18n::get_required_cli_string("gateway-plugins-unauthorized"),
+                )
+                    .into_response();
             }
         }
 

@@ -21,7 +21,11 @@ static EMBEDDED_WEB_DIST: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../web/
 /// Serve static files from `/_app/*` path
 pub async fn handle_static(State(state): State<AppState>, uri: Uri) -> Response {
     let Some(path) = static_request_path(&uri) else {
-        return (StatusCode::BAD_REQUEST, "Invalid path").into_response();
+        return (
+            StatusCode::BAD_REQUEST,
+            zeroclaw_runtime::i18n::get_required_cli_string("gateway-static-invalid-path"),
+        )
+            .into_response();
     };
 
     #[cfg(feature = "embedded-web")]
@@ -38,7 +42,7 @@ pub async fn handle_spa_fallback(State(state): State<AppState>, uri: Uri) -> Res
     if let Some(path) = api_fallback_path(uri.path(), &state.path_prefix) {
         let body = serde_json::json!({
             "error": "not_found",
-            "message": "No backend route matched this path.",
+            "message": zeroclaw_runtime::i18n::get_required_cli_string("gateway-static-no-backend-route"),
             "path": path,
         });
         return (StatusCode::NOT_FOUND, Json(body)).into_response();
@@ -47,11 +51,7 @@ pub async fn handle_spa_fallback(State(state): State<AppState>, uri: Uri) -> Res
     let Some(bytes) = load_index_html_bytes(state.web_dist_dir.as_ref()).await else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            "Web dashboard not available. Reinstall with the supported installer \
-             so the dashboard is built and placed where the gateway looks for it: \
-             `./install.sh --source` on Linux/macOS, or `setup.bat` on Windows. \
-             The daemon's API endpoints remain reachable independently of the \
-             dashboard.",
+            zeroclaw_runtime::i18n::get_required_cli_string("gateway-static-dashboard-unavailable"),
         )
             .into_response();
     };
@@ -115,20 +115,36 @@ async fn load_index_html_bytes(dist_dir: Option<&PathBuf>) -> Option<Vec<u8>> {
 
 async fn serve_fs_file(dist_dir: Option<&PathBuf>, path: &str) -> Response {
     if !is_valid_relative_path(path) {
-        return (StatusCode::BAD_REQUEST, "Invalid path").into_response();
+        return (
+            StatusCode::BAD_REQUEST,
+            zeroclaw_runtime::i18n::get_required_cli_string("gateway-static-invalid-path"),
+        )
+            .into_response();
     }
 
     let Some(dir) = dist_dir else {
-        return (StatusCode::NOT_FOUND, "Not found").into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            zeroclaw_runtime::i18n::get_required_cli_string("gateway-static-not-found"),
+        )
+            .into_response();
     };
 
     let file_path = match resolve_fs_file(dir, Path::new(path)).await {
         Ok(path) => path,
         Err(FsPathError::Invalid) => {
-            return (StatusCode::BAD_REQUEST, "Invalid path").into_response();
+            return (
+                StatusCode::BAD_REQUEST,
+                zeroclaw_runtime::i18n::get_required_cli_string("gateway-static-invalid-path"),
+            )
+                .into_response();
         }
         Err(FsPathError::Unavailable) => {
-            return (StatusCode::NOT_FOUND, "Not found").into_response();
+            return (
+                StatusCode::NOT_FOUND,
+                zeroclaw_runtime::i18n::get_required_cli_string("gateway-static-not-found"),
+            )
+                .into_response();
         }
     };
 
@@ -157,7 +173,11 @@ async fn serve_fs_file(dist_dir: Option<&PathBuf>, path: &str) -> Response {
             )
                 .into_response()
         }
-        Err(_) => (StatusCode::NOT_FOUND, "Not found").into_response(),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            zeroclaw_runtime::i18n::get_required_cli_string("gateway-static-not-found"),
+        )
+            .into_response(),
     }
 }
 
@@ -219,7 +239,13 @@ async fn resolve_fs_file(root: &Path, relative: &Path) -> Result<PathBuf, FsPath
 #[cfg(feature = "embedded-web")]
 fn serve_embedded_file(path: &str) -> Option<Response> {
     if path.contains("..") {
-        return Some((StatusCode::BAD_REQUEST, "Invalid path").into_response());
+        return Some(
+            (
+                StatusCode::BAD_REQUEST,
+                zeroclaw_runtime::i18n::get_required_cli_string("gateway-static-invalid-path"),
+            )
+                .into_response(),
+        );
     }
 
     let file = EMBEDDED_WEB_DIST.get_file(path)?;

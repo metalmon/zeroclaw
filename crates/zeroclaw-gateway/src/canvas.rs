@@ -51,7 +51,7 @@ pub async fn handle_canvas_get(
         .into_response(),
         None => (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("Canvas '{}' not found", id) })),
+            Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-canvas-not-found", &[("id", id.to_string().as_str())]) })),
         )
             .into_response(),
     }
@@ -93,10 +93,15 @@ pub async fn handle_canvas_post(
         return (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
-                "error": format!(
-                    "Invalid content_type '{}'. Allowed: {:?}",
-                    content_type,
-                    zeroclaw_runtime::tools::ALLOWED_CONTENT_TYPES
+                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                    "gateway-canvas-invalid-content-type",
+                    &[
+                        ("content_type", content_type),
+                        (
+                            "allowed",
+                            format!("{:?}", zeroclaw_runtime::tools::ALLOWED_CONTENT_TYPES).as_str(),
+                        ),
+                    ],
                 )
             })),
         )
@@ -108,9 +113,12 @@ pub async fn handle_canvas_post(
         return (
             StatusCode::PAYLOAD_TOO_LARGE,
             Json(serde_json::json!({
-                "error": format!(
-                    "Content exceeds maximum size of {} bytes",
-                    zeroclaw_runtime::tools::MAX_CONTENT_SIZE
+                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                    "gateway-canvas-content-too-large",
+                    &[(
+                        "max",
+                        zeroclaw_runtime::tools::MAX_CONTENT_SIZE.to_string().as_str(),
+                    )],
                 )
             })),
         )
@@ -129,7 +137,7 @@ pub async fn handle_canvas_post(
         None => (
             StatusCode::TOO_MANY_REQUESTS,
             Json(serde_json::json!({
-                "error": "Maximum canvas count reached. Clear unused canvases first."
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-canvas-max-count-reached")
             })),
         )
             .into_response(),
@@ -184,7 +192,7 @@ pub async fn handle_ws_canvas(
         if !state.pairing.is_authenticated(token) {
             return (
                 StatusCode::UNAUTHORIZED,
-                "Unauthorized — provide Authorization header or Sec-WebSocket-Protocol bearer",
+                zeroclaw_runtime::i18n::get_required_cli_string("gateway-canvas-ws-unauthorized"),
             )
                 .into_response();
         }
@@ -216,7 +224,7 @@ async fn handle_canvas_socket(socket: WebSocket, state: AppState, canvas_id: Str
         None => {
             let msg = serde_json::json!({
                 "type": "error",
-                "error": "Maximum canvas count reached",
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-canvas-max-count-reached-ws"),
             });
             let _ = sender.send(Message::Text(msg.to_string().into())).await;
             return;

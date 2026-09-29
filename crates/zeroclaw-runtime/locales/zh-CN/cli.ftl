@@ -22,8 +22,8 @@ cli-auth-about = 管理提供商订阅认证配置文件
 cli-hardware-about = 发现并检查 USB 硬件
 cli-peripheral-about = 管理硬件外设
 cli-memory-about = 管理智能体记忆条目
-cli-config-about = 管理 ZeroClaw 配置
-cli-update-about = 检查并应用 ZeroClaw 更新
+cli-config-about = 管理 Volt 配置
+cli-update-about = 检查并应用 Volt 更新
 cli-self-test-about = 运行诊断自检
 cli-completions-about = 生成 shell 补全脚本
 cli-desktop-about = 启动配套桌面应用，或打开其下载页面
@@ -59,7 +59,7 @@ cli-wechat-scanned-confirm = 👀 已扫码！请在手机上确认...
 cli-wechat-qr-expired-refreshing = ⏳ 二维码已过期，正在刷新...
 cli-wechat-login-confirmed-missing-field = 登录已确认，但缺少 {$field}。
 cli-wechat-connected = ✅ WeChat 已连接！
-cli-wechat-bound-success = ✅ WeChat 账号绑定成功。现在可以和 ZeroClaw 对话了。
+cli-wechat-bound-success = ✅ WeChat 账号绑定成功。现在可以和 Volt 对话了。
 cli-wechat-invalid-bind-code = ❌ 绑定码无效。请重试。
 cli-skills-list-about = 列出所有已安装的技能
 cli-skills-audit-about = 审计技能源目录或已安装的技能名称
@@ -96,7 +96,7 @@ cli-skills-removed-global = { "  " }{$status} 技能 '{$name}' 已从全局技�
 cli-skills-install-tier-official = 正在安装 {$name} v{$version} — 官方（zeroclaw-labs 维护）
 cli-skills-install-tier-community =
     正在安装 {$name} v{$version} — 社区提交
-    此技能未经 ZeroClaw 审计。请检查技能内容，
+    此技能未经 Volt 审计。请检查技能内容，
     并在授予任何权限或用于生产前运行 `zeroclaw skills audit {$name}`。
 cli-skills-add-scaffolded = 已在 {$dir} 搭建技能 {$target}
 cli-skills-bundle-add-prompt =
@@ -154,11 +154,11 @@ cli-hardware-introspect-about = 通过序列号或设备路径检视设备
 cli-hardware-info-about = 通过 ST-Link 使用 probe-rs 经 USB 获取芯片信息
 cli-peripheral-list-about = 列出已配置的外设
 cli-peripheral-add-about = 按开发板类型和传输路径添加外设
-cli-peripheral-flash-about = 将 ZeroClaw 固件刷写到 Arduino 开发板
+cli-peripheral-flash-about = 将 Volt 固件刷写到 Arduino 开发板
 cli-sop-list-about = 列出已加载的 SOP
 cli-sop-validate-about = 验证 SOP 定义
 cli-sop-show-about = 显示 SOP 的详细信息
-cli-migrate-openclaw-about = 将 OpenClaw 工作区中的记忆导入到此 ZeroClaw 工作区
+cli-migrate-openclaw-about = 将 OpenClaw 工作区中的记忆导入到此 Volt 工作区
 cli-migrate-openclaw-qdrant-unsupported = Qdrant 当前不支持作为 OpenClaw 迁移目标。请将 memory.backend 设置为 sqlite、lucid 或 markdown，然后重试。
 cli-agent-long-about =
     启动 AI 代理循环。
@@ -192,7 +192,7 @@ cli-acp-long-about =
 cli-daemon-long-about =
     启动长期运行的自主守护进程。
 
-    启动完整的 ZeroClaw 运行时：网关服务器、所有已配置的通道（Telegram、Discord、Slack 等）、心跳监视器以及 cron 调度器。这是在生产环境中或作为始终在线助手运行 ZeroClaw 的推荐方式。
+    启动完整的 Volt 运行时：网关服务器、所有已配置的通道（Telegram、Discord、Slack 等）、心跳监视器以及 cron 调度器。这是在生产环境中或作为始终在线助手运行 Volt 的推荐方式。
 
     使用 'zeroclaw service install' 将守护进程注册为操作系统服务（systemd/launchd），以便开机自动启动。
 
@@ -220,7 +220,7 @@ cli-cron-long-about =
 cli-channel-long-about =
     管理通信通道。
 
-    添加、删除、列出、发送以及对将 ZeroClaw 连接到消息平台的通道进行健康检查。支持的通道类型：telegram、discord、slack、whatsapp、matrix、imessage、email。
+    添加、删除、列出、发送以及对将 Volt 连接到消息平台的通道进行健康检查。支持的通道类型：telegram、discord、slack、whatsapp、matrix、imessage、email。
 
     示例：
     zeroclaw channel list
@@ -261,7 +261,7 @@ cli-memory-long-about =
     zeroclaw memory get KEY
     zeroclaw memory clear --category conversation --yes
 cli-config-long-about =
-    管理 ZeroClaw 配置。
+    管理 Volt 配置。
 
     通过点分路径查看、设置或初始化配置属性。使用 'schema' 转储配置文件的完整 JSON Schema。
 
@@ -283,7 +283,7 @@ cli-config-long-about =
 
     属性路径 Tab 补全会自动包含在 `zeroclaw completions <shell>` 中。
 cli-update-long-about =
-    检查并应用 ZeroClaw 更新。
+    检查并应用 Volt 更新。
 
     默认情况下，使用 6 阶段流水线下载并安装最新版本：预检、下载、备份、验证、交换和冒烟测试。失败时自动回滚。
 
@@ -297,7 +297,7 @@ cli-update-long-about =
     zeroclaw update --force              # 不确认直接安装
     zeroclaw update --version 0.6.0      # 安装特定版本
 cli-self-test-long-about =
-    运行诊断自检以验证 ZeroClaw 安装。
+    运行诊断自检以验证 Volt 安装。
 
     默认情况下，运行完整的测试套件，包括网络检查（网关健康状况、记忆往返）。使用 --quick 跳过网络检查以进行更快的离线验证。
 
@@ -324,7 +324,7 @@ cli-completions-long-about =
     zeroclaw completions zsh > ~/.zfunc/_zeroclaw
     zeroclaw completions fish > ~/.config/fish/completions/zeroclaw.fish
 cli-desktop-long-about =
-    启动 ZeroClaw 配套桌面应用。
+    启动 Volt 配套桌面应用。
 
     配套应用是一个轻量级的菜单栏 / 系统托盘应用程序，它连接到与 CLI 相同的网关。它提供对仪表板、状态监控和设备配对的快速访问。
 
@@ -413,7 +413,7 @@ cli-self-test-web-dist-dir-name = web_dist_dir
 cli-self-test-web-dist-dir-pass-unset = 未设置（使用自动检测）
 cli-self-test-web-dist-dir-pass-literal = {$path}（字面路径）
 cli-self-test-web-dist-dir-fail-expansion = 警告：{$path} — {$reason}；gateway.web_dist_dir 按原样读取，请自行展开该值（例如使用绝对路径）
-cli-service-systemd-linger-disabled-warning = systemd 用户 linger 已禁用。ZeroClaw 的用户服务可能会在注销后停止。启用命令：loginctl enable-linger {$user}
+cli-service-systemd-linger-disabled-warning = systemd 用户 linger 已禁用。Volt 的用户服务可能会在注销后停止。启用命令：loginctl enable-linger {$user}
 cli-peripherals-none = 未配置外设。
 cli-peripherals-add-hint = 使用以下命令添加: zeroclaw peripheral add <board> <path>
 cli-peripherals-add-example = {"  "}示例: zeroclaw peripheral add nucleo-f401re <serial-path>
@@ -636,7 +636,7 @@ cli-quickstart-complete = Quickstart 完成。已创建 agent `{$alias}`。
 cli-next-steps = 后续步骤：
 cli-agent-not-created = 未创建您的 agent — 磁盘上没有任何更改。
 cli-onboard-deprecated = `zeroclaw onboard` 已弃用 — 请使用 `zeroclaw quickstart`。
-cli-otp-initialized = 已为 ZeroClaw 初始化 OTP 密钥。
+cli-otp-initialized = 已为 Volt 初始化 OTP 密钥。
 cli-otp-enrollment-uri = 注册 URI：{$uri}
 cli-otp-received = {"  "}✓ OTP 已接收
 cli-secret-captured = {"  "}● 已接收输入 — 按 Enter 保存
@@ -661,8 +661,8 @@ cli-pairing-rotate-no-code = 轮换请求已完成，但没有返回替换配对
 cli-pairing-check-enabled = 请确认配对已启用，然后请求新的设备配对码：
 cli-pairing-inspect = 要检查正在运行的 gateway：
 cli-gateway-running-q = {"   "}gateway 是否正在运行？使用以下命令启动它：
-cli-status-title = 🦀 ZeroClaw 状态
-cli-security-status-title = ZeroClaw 安全状态
+cli-status-title = 🦀 Volt 状态
+cli-security-status-title = Volt 安全状态
 cli-security-status-source = 来源：      {$v}
 cli-security-status-agent = Agent：       {$v}
 cli-security-status-agent-enabled = Agent 已启用：{$enabled}
@@ -695,10 +695,10 @@ cli-status-service-stopped = 🔴 服务：       已停止
 cli-status-channels = 通道：
 cli-status-cli-always = {"  "}CLI:      ✅ 始终
 cli-status-peripherals = 外设：
-cli-desktop-download = 正在打开 ZeroClaw 配套应用的下载页面：
+cli-desktop-download = 正在打开 Volt 配套应用的下载页面：
 cli-desktop-homebrew = 或通过 Homebrew 安装（即将推出）：
 cli-desktop-linux-pkg = {"  "}该页面提供按架构分类的 .deb 和 .AppImage 下载。
-cli-desktop-launching = 正在启动 ZeroClaw 配套应用...
+cli-desktop-launching = 正在启动 Volt 配套应用...
 cli-status-version = 版本：     {$v}
 cli-status-workspace = 工作区：   {$v}
 cli-status-config = 配置：      {$v}
@@ -743,7 +743,7 @@ cli-status-word-not-configured = 未配置
 cli-status-channel-configured = ✅ {$status}
 cli-status-channel-not-configured = ❌ {$status}
 cli-status-channel-not-compiled = 🚫 已配置，未编译
-cli-desktop-not-installed = 未安装 ZeroClaw 配套应用。
+cli-desktop-not-installed = 未安装 Volt 配套应用。
 cli-desktop-blurb1 = 该配套应用是一个轻量级菜单栏应用，
 cli-desktop-blurb2 = 它连接到与 CLI 相同的网关。
 cli-config-all-configured = 所有部分均已配置。
@@ -973,11 +973,11 @@ cli-gateway-restart-hint-container = docker compose restart
 cli-gateway-restart-hint-systemd = systemctl restart zeroclaw
 cli-gateway-restart-hint-launchd = launchctl kickstart -k <your-zeroclaw-label>
 cli-gateway-restart-hint-process = 重启 `zeroclaw daemon` 进程
-cli-daemon-gateway-already-running = ZeroClaw gateway 已在 {$host}:{$port} 运行。daemon 会管理自己的 gateway，不会在同一地址启动第二个 gateway。请停止该 gateway（或使用 `zeroclaw config set gateway.port <port>` 将 daemon 指向空闲端口），然后重新运行 daemon。
+cli-daemon-gateway-already-running = Volt gateway 已在 {$host}:{$port} 运行。daemon 会管理自己的 gateway，不会在同一地址启动第二个 gateway。请停止该 gateway（或使用 `zeroclaw config set gateway.port <port>` 将 daemon 指向空闲端口），然后重新运行 daemon。
 cli-daemon-gateway-port-occupied = Gateway 地址 {$host}:{$port} 已被另一个进程占用。请释放该端口或将 daemon 指向空闲端口（`zeroclaw config set gateway.port <port>`），然后重新运行 daemon。
-cli-daemon-starting-title = 🧠 ZeroClaw daemon 正在启动…
+cli-daemon-starting-title = 🧠 Volt daemon 正在启动…
 cli-daemon-starting-detail = 正在准备已配置的 daemon endpoint
-cli-daemon-started-title = 🧠 ZeroClaw daemon 已就绪
+cli-daemon-started-title = 🧠 Volt daemon 已就绪
 cli-daemon-started-gateway = Gateway:  {$url}
 cli-daemon-started-socket = Socket:   {$path}
 cli-daemon-started-pairing = 配对：已启用（当前状态请查看上方 gateway 输出）

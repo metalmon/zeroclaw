@@ -1,4 +1,4 @@
-# Russian CLI strings for ZeroClaw.
+# Russian CLI strings for Вольт.
 # Keys not present here fall back to the English catalog in ../en/cli.ftl.
 
 # --- doctor diagnostics ---
@@ -135,3 +135,74 @@ gateway-forbidden = Доступ запрещен
 gateway-device-not-found-plain = Устройство не найдено
 gateway-missing-bearer-token = Отсутствует токен доступа
 gateway-device-not-found-for-token = Устройство для этого токена не найдено
+
+# --- Gateway API errors (RU localization, batch 2) ---
+gateway-webauthn-disabled = WebAuthn не включен
+gateway-webauthn-no-pending-registration = Нет ожидающей регистрации для этого challenge
+gateway-webauthn-no-pending-authentication = Нет ожидающей аутентификации для этого challenge
+gateway-canvas-not-found = Canvas «{$id}» не найден
+gateway-canvas-invalid-content-type = Недопустимый content_type «{$content_type}». Разрешено: {$allowed}
+gateway-canvas-content-too-large = Содержимое превышает максимальный размер {$max} байт
+gateway-canvas-max-count-reached = Достигнуто максимальное число canvas. Сначала очистите неиспользуемые canvas.
+gateway-canvas-max-count-reached-ws = Достигнуто максимальное число canvas
+gateway-canvas-ws-unauthorized = Не авторизовано — укажите заголовок Authorization или Sec-WebSocket-Protocol bearer
+gateway-plugins-unauthorized = Не авторизовано
+gateway-static-invalid-path = Недопустимый путь
+gateway-static-not-found = Не найдено
+gateway-static-no-backend-route = Ни один backend-маршрут не совпал с этим путем.
+gateway-static-dashboard-unavailable = Веб-панель недоступна. Переустановите с помощью поддерживаемого установщика, чтобы панель была собрана и размещена там, где ее ищет gateway: `./install.sh --source` в Linux/macOS или `setup.bat` в Windows. API-эндпоинты демона остаются доступными независимо от панели.
+gateway-sop-disabled = Подсистема SOP не включена
+gateway-sop-lock-poisoned = Блокировка движка SOP повреждена
+gateway-sop-remote-approval-disabled = Удаленное подтверждение SOP отключено. Обратитесь с localhost или задайте gateway.allow_remote_admin = true с включенным сопряжением, затем выполните сопряжение.
+gateway-sop-resolve-failed = не удалось разрешить: {$err}
+gateway-sop-payload-invalid-json = полезная нагрузка не является корректным JSON
+gateway-sop-no-manual-trigger = SOP «{$name}» не имеет подходящего ручного триггера
+gateway-sop-invalid-decision = решение не является допустимым решением о подтверждении: {$err}
+gateway-sop-run-not-found = Запуск {$run_id} не найден
+gateway-sop-run-belongs-to-other = запуск «{$run_id}» относится к SOP «{$sop}», а не «{$name}»
+gateway-sop-run-not-waiting-approval = Запуск {$run_id} не ожидает подтверждения
+gateway-sop-self-approval-forbidden = approval_mode запрещает этому субъекту снимать блокировку
+gateway-sop-not-authorized-group = нет доступа: требуется группа «{$group}»
+gateway-sop-policy-not-configured = политика подтверждения «{$name}» не настроена (блокировка оставлена в ожидании)
+gateway-sop-run-not-waiting-or-checkpoint = Запуск {$run_id} не ожидает подтверждения и не приостановлен на контрольной точке
+gateway-sop-remote-cancel-requires-pairing = Удаленная отмена SOP требует сопряжения шлюза. Сначала включите gateway.require_pairing и выполните сопряжение или обратитесь с localhost.
+gateway-sop-invalid-cancel-body = некорректное тело запроса отмены: {$err}
+gateway-sop-run-disappeared = запуск исчез после перехода к отмене
+gateway-sop-cancel-not-persisted = отмену не удалось надежно сохранить; запуск остается активным - повторите попытку
+gateway-sop-body-name-mismatch = имя в теле «{$body}» не совпадает с именем в URL «{$url}»
+gateway-sop-load-error = SOP «{$name}»: {$err}
+gateway-cron-tz-nonempty = tz должен быть непустой таймзоной IANA; используйте clear_tz=true, чтобы очистить его
+gateway-cron-tz-xor = Укажите либо tz, либо clear_tz=true, но не оба сразу
+gateway-cron-schedule-invalid = Неверное расписание cron: {$err}
+gateway-cron-list-failed = Не удалось получить список заданий cron: {$err}
+gateway-misc-unknown-agent = Неизвестный агент {$agent} (нет настроенной записи [agents.{$alias}])
+gateway-cron-add-failed = Не удалось добавить задание cron: {$err}
+gateway-cron-shellfmt-agent = shell_output_format неприменим к заданиям агента; выполнение агента его игнорирует
+gateway-cron-missing-prompt = Отсутствует 'prompt' для задания агента
+gateway-cron-missing-command = Отсутствует 'command' для shell-задания
+gateway-cron-not-found = Задание cron не найдено: {$err}
+gateway-cron-runs-list-failed = Не удалось получить список запусков cron: {$err}
+gateway-cron-shellfmt-declarative = shell_output_format для декларативного задания '{$id}' задается через cron.{$id}.shell_output_format в config.toml, а не через API; столбец в БД не читается для декларативных заданий, и этот PATCH не даст эффекта
+gateway-cron-tz-schedule-only = tz можно обновлять только для расписаний cron
+gateway-cron-update-failed = Не удалось обновить задание cron: {$err}
+gateway-cron-remove-failed = Не удалось удалить задание cron: {$err}
+gateway-cfg-save-failed = Не удалось сохранить конфигурацию: {$err}
+gateway-mem-build-failed = Не удалось построить память для агента: {$err}
+gateway-mem-recall-failed = Не удалось выполнить поиск в памяти: {$err}
+gateway-mem-list-failed = Не удалось получить список записей памяти: {$err}
+gateway-mem-store-failed = Не удалось сохранить запись в память: {$err}
+gateway-mem-forget-failed = Не удалось удалить запись из памяти: {$err}
+gateway-misc-cost-summary-failed = Не удалось получить сводку расходов: {$err}
+gateway-channel-unknown = неизвестный канал {$channel} — используйте составное имя из GET /api/channels
+gateway-channel-no-relink = канал типа {$channel} не поддерживает операцию перепривязки (он не использует сессии QR-сопряжения) либо эта возможность не включена в сборку данного бинарного файла; ничего не изменено
+gateway-channel-relink-failed = не удалось очистить сохраненные данные входа: {$err}
+gateway-session-content-required = требуется content
+gateway-session-persistence-disabled = Сохранение сессий отключено
+gateway-session-not-found = Сессия не найдена
+gateway-session-queue-full = Очередь сессии переполнена
+gateway-session-queue-timeout = Истекло время ожидания очереди сессии
+gateway-session-append-failed = Не удалось добавить сообщение в сессию: {$err}
+gateway-session-delete-failed = Не удалось удалить сессию: {$err}
+gateway-session-name-required = требуется name
+gateway-session-rename-failed = Не удалось переименовать сессию: {$err}
+gateway-session-state-failed = Не удалось получить состояние сессии: {$err}

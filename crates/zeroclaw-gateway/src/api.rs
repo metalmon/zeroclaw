@@ -186,7 +186,7 @@ fn normalize_optional_timezone(
             let trimmed = raw.trim();
             if trimmed.is_empty() {
                 Err(bad_request(
-                    "tz must be a non-empty IANA timezone; use clear_tz=true to clear it",
+                    &zeroclaw_runtime::i18n::get_required_cli_string("gateway-cron-tz-nonempty"),
                 ))
             } else {
                 Ok(Some(trimmed.to_string()))
@@ -204,7 +204,9 @@ fn parse_timezone_patch(
     let clear_tz = clear_tz.unwrap_or(false);
 
     if clear_tz && tz.is_some() {
-        return Err(bad_request("Provide either tz or clear_tz=true, not both"));
+        return Err(bad_request(
+            &zeroclaw_runtime::i18n::get_required_cli_string("gateway-cron-tz-xor"),
+        ));
     }
 
     if clear_tz {
@@ -221,8 +223,12 @@ fn cron_schedule_from_api(
     tz: Option<String>,
 ) -> Result<zeroclaw_runtime::cron::Schedule, (StatusCode, Json<serde_json::Value>)> {
     let schedule = zeroclaw_runtime::cron::Schedule::Cron { expr, tz };
-    zeroclaw_runtime::cron::validate_schedule(&schedule, chrono::Utc::now())
-        .map_err(|e| bad_request(format!("Invalid cron schedule: {e}")))?;
+    zeroclaw_runtime::cron::validate_schedule(&schedule, chrono::Utc::now()).map_err(|e| {
+        bad_request(zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+            "gateway-cron-schedule-invalid",
+            &[("err", e.to_string().as_str())],
+        ))
+    })?;
     Ok(schedule)
 }
 
@@ -449,7 +455,7 @@ pub async fn handle_api_cron_list(
         Ok(jobs) => Json(serde_json::json!({"jobs": jobs})).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Failed to list cron jobs: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-cron-list-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response(),
     }
@@ -486,8 +492,9 @@ pub async fn handle_api_cron_add(
     if config.agent(&agent_alias).is_none() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": format!(
-                "Unknown agent {agent_alias:?} (no [agents.{agent_alias}] entry configured)"
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                "gateway-misc-unknown-agent",
+                &[("agent", format!("{agent_alias:?}").as_str()), ("alias", agent_alias.as_str())]
             )})),
         )
             .into_response();
@@ -503,7 +510,7 @@ pub async fn handle_api_cron_add(
     if let Err(e) = zeroclaw_runtime::cron::validate_delivery_config(delivery.as_ref()) {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": format!("Failed to add cron job: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-cron-add-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response();
     }
@@ -514,9 +521,9 @@ pub async fn handle_api_cron_add(
 
     let result = if is_agent {
         if shell_output_format.is_some() {
-            return bad_request(
-                "shell_output_format is not applicable to agent jobs; agent execution ignores it",
-            )
+            return bad_request(&zeroclaw_runtime::i18n::get_required_cli_string(
+                "gateway-cron-shellfmt-agent",
+            ))
             .into_response();
         }
         let prompt = match prompt.as_deref() {
@@ -524,7 +531,7 @@ pub async fn handle_api_cron_add(
             _ => {
                 return (
                     StatusCode::BAD_REQUEST,
-                    Json(serde_json::json!({"error": "Missing 'prompt' for agent job"})),
+                    Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-cron-missing-prompt")})),
                 )
                     .into_response();
             }
@@ -560,7 +567,7 @@ pub async fn handle_api_cron_add(
             _ => {
                 return (
                     StatusCode::BAD_REQUEST,
-                    Json(serde_json::json!({"error": "Missing 'command' for shell job"})),
+                    Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-cron-missing-command")})),
                 )
                     .into_response();
             }
@@ -583,7 +590,7 @@ pub async fn handle_api_cron_add(
         Ok(job) => Json(serde_json::json!({"status": "ok", "job": job})).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Failed to add cron job: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-cron-add-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response(),
     }
@@ -607,7 +614,7 @@ pub async fn handle_api_cron_runs(
     if let Err(e) = zeroclaw_runtime::cron::get_job(&config, &id) {
         return (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": format!("Cron job not found: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-cron-not-found", &[("err", e.to_string().as_str())])})),
         )
             .into_response();
     }
@@ -632,7 +639,7 @@ pub async fn handle_api_cron_runs(
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Failed to list cron runs: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-cron-runs-list-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response(),
     }
@@ -655,7 +662,7 @@ pub async fn handle_api_cron_run(
         Err(e) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"error": format!("Cron job not found: {e}")})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-cron-not-found", &[("err", e.to_string().as_str())])})),
             )
                 .into_response();
         }
@@ -717,7 +724,7 @@ pub async fn handle_api_cron_patch(
         Err(e) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"error": format!("Cron job not found: {e}")})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-cron-not-found", &[("err", e.to_string().as_str())])})),
             )
                 .into_response();
         }
@@ -725,16 +732,15 @@ pub async fn handle_api_cron_patch(
     let is_agent = matches!(existing.job_type, zeroclaw_runtime::cron::JobType::Agent);
     if shell_output_format.is_some() {
         if is_agent {
-            return bad_request(
-                "shell_output_format is not applicable to agent jobs; agent execution ignores it",
-            )
+            return bad_request(&zeroclaw_runtime::i18n::get_required_cli_string(
+                "gateway-cron-shellfmt-agent",
+            ))
             .into_response();
         }
         if existing.source == "declarative" {
-            return bad_request(format!(
-                "shell_output_format for declarative job '{id}' is set via \
-                 cron.{id}.shell_output_format in config.toml, not the API; \
-                 the DB column is not read for declarative jobs and this PATCH would have no effect"
+            return bad_request(zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                "gateway-cron-shellfmt-declarative",
+                &[("id", id.as_str())],
             ))
             .into_response();
         }
@@ -743,9 +749,9 @@ pub async fn handle_api_cron_patch(
     if setting_shell_command && config.agent(&agent_alias).is_none() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": format!(
-                "Unknown agent {a:?} (no [agents.{a}] entry configured)",
-                a = agent_alias
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                "gateway-misc-unknown-agent",
+                &[("agent", format!("{agent_alias:?}").as_str()), ("alias", agent_alias.as_str())]
             )})),
         )
             .into_response();
@@ -769,7 +775,10 @@ pub async fn handle_api_cron_patch(
                 (expr.clone(), tz.clone())
             }
             (_, None) => {
-                return bad_request("tz can only be updated on cron schedules").into_response();
+                return bad_request(&zeroclaw_runtime::i18n::get_required_cli_string(
+                    "gateway-cron-tz-schedule-only",
+                ))
+                .into_response();
             }
         };
         let tz = match timezone_patch {
@@ -811,7 +820,7 @@ pub async fn handle_api_cron_patch(
         Ok(job) => Json(serde_json::json!({"status": "ok", "job": job})).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Failed to update cron job: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-cron-update-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response(),
     }
@@ -832,7 +841,7 @@ pub async fn handle_api_cron_delete(
         Ok(()) => Json(serde_json::json!({"status": "ok"})).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Failed to remove cron job: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-cron-remove-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response(),
     }
@@ -892,7 +901,7 @@ pub async fn handle_api_cron_settings_patch(
     if let Err(e) = config.save_dirty().await {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Failed to save config: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-cfg-save-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response();
     }
@@ -1004,9 +1013,12 @@ async fn resolve_memory_handle(
     if config.agent(alias).is_none() {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": format!(
-                "Unknown agent {alias:?} (no [agents.{alias}] entry configured)"
-            )})),
+            Json(
+                serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                    "gateway-misc-unknown-agent",
+                    &[("agent", format!("{alias:?}").as_str()), ("alias", alias)]
+                )}),
+            ),
         ));
     }
     let api_key = config
@@ -1018,7 +1030,7 @@ async fn resolve_memory_handle(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(
-                    serde_json::json!({"error": format!("Failed to build per-agent memory: {e:#}")}),
+                    serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-mem-build-failed", &[("err", format!("{e:#}").as_str())])}),
                 ),
             )
         })
@@ -1060,7 +1072,7 @@ pub async fn handle_api_memory_list(
             }
             Err(e) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": format!("Memory recall failed: {e}")})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-mem-recall-failed", &[("err", e.to_string().as_str())])})),
             )
                 .into_response(),
         }
@@ -1080,7 +1092,7 @@ pub async fn handle_api_memory_list(
             .into_response(),
             Err(e) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": format!("Memory list failed: {e}")})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-mem-list-failed", &[("err", e.to_string().as_str())])})),
             )
                 .into_response(),
         }
@@ -1143,7 +1155,7 @@ pub async fn handle_api_memory_store(
         Ok(()) => Json(serde_json::json!({"status": "ok"})).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Memory store failed: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-mem-store-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response(),
     }
@@ -1171,7 +1183,7 @@ pub async fn handle_api_memory_delete(
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Memory forget failed: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-mem-forget-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response(),
     }
@@ -1222,7 +1234,7 @@ pub async fn handle_api_cost(
             Ok(summary) => Json(serde_json::json!({"cost": summary})).into_response(),
             Err(e) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": format!("Cost summary failed: {e}")})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-misc-cost-summary-failed", &[("err", e.to_string().as_str())])})),
             )
                 .into_response(),
         }
@@ -1361,7 +1373,7 @@ pub async fn handle_api_channel_relink(
         return (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({
-                "error": format!("unknown channel {channel} — use the composite name from GET /api/channels"),
+                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-channel-unknown", &[("channel", channel.as_str())]),
             })),
         )
             .into_response();
@@ -1378,10 +1390,9 @@ pub async fn handle_api_channel_relink(
             Json(serde_json::json!({
                 "channel": channel,
                 "outcome": "unsupported",
-                "error": format!(
-                    "channel type {} has no relink operation (it does not use QR-pairing sessions) \
-                     or the feature is not compiled into this binary; nothing was changed",
-                    info.channel_type
+                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                    "gateway-channel-no-relink",
+                    &[("channel", info.channel_type.to_string().as_str())]
                 ),
             })),
         )
@@ -1419,7 +1430,7 @@ pub async fn handle_api_channel_relink(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({
                 "channel": channel,
-                "error": format!("failed to clear persisted login: {e}"),
+                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-channel-relink-failed", &[("err", e.to_string().as_str())]),
             })),
         )
             .into_response(),
@@ -1841,7 +1852,7 @@ pub async fn handle_api_session_message_post(
     if body.content.trim().is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "content is required"})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-content-required")})),
         )
             .into_response();
     }
@@ -1849,7 +1860,7 @@ pub async fn handle_api_session_message_post(
     let Some(ref backend) = state.session_backend else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "Session persistence is disabled"})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-persistence-disabled")})),
         )
             .into_response();
     };
@@ -1858,7 +1869,7 @@ pub async fn handle_api_session_message_post(
     if !backend.session_exists(&session_key) {
         return (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": "Session not found"})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-not-found")})),
         )
             .into_response();
     }
@@ -1868,14 +1879,14 @@ pub async fn handle_api_session_message_post(
         Err(crate::session_queue::SessionQueueError::QueueFull { .. }) => {
             return (
                 StatusCode::TOO_MANY_REQUESTS,
-                Json(serde_json::json!({"error": "Session queue is full"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-queue-full")})),
             )
                 .into_response();
         }
         Err(crate::session_queue::SessionQueueError::Timeout { .. }) => {
             return (
                 StatusCode::REQUEST_TIMEOUT,
-                Json(serde_json::json!({"error": "Timed out waiting for session queue"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-queue-timeout")})),
             )
                 .into_response();
         }
@@ -1885,7 +1896,7 @@ pub async fn handle_api_session_message_post(
     if let Err(e) = backend.append(&session_key, &message) {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Failed to append session message: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-session-append-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response();
     }
@@ -1929,7 +1940,7 @@ pub async fn handle_api_session_delete(
     let Some(ref backend) = state.session_backend else {
         return (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": "Session persistence is disabled"})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-persistence-disabled")})),
         )
             .into_response();
     };
@@ -1955,12 +1966,12 @@ pub async fn handle_api_session_delete(
         Ok(true) => Json(serde_json::json!({"deleted": true, "session_id": id})).into_response(),
         Ok(false) => (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": "Session not found"})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-not-found")})),
         )
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Failed to delete session: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-session-delete-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response(),
     }
@@ -1980,7 +1991,7 @@ pub async fn handle_api_session_rename(
     let Some(ref backend) = state.session_backend else {
         return (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": "Session persistence is disabled"})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-persistence-disabled")})),
         )
             .into_response();
     };
@@ -1989,7 +2000,7 @@ pub async fn handle_api_session_rename(
     if name.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "name is required"})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-name-required")})),
         )
             .into_response();
     }
@@ -2000,7 +2011,7 @@ pub async fn handle_api_session_rename(
     if !backend.session_exists(&session_key) {
         return (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": "Session not found"})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-not-found")})),
         )
             .into_response();
     }
@@ -2009,7 +2020,7 @@ pub async fn handle_api_session_rename(
         Ok(()) => Json(serde_json::json!({"session_id": id, "name": name})).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Failed to rename session: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-session-rename-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response(),
     }
@@ -2062,7 +2073,7 @@ pub async fn handle_api_session_state(
     let Some(ref backend) = state.session_backend else {
         return (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": "Session persistence is disabled"})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-persistence-disabled")})),
         )
             .into_response();
     };
@@ -2084,12 +2095,12 @@ pub async fn handle_api_session_state(
         }
         Ok(None) => (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": "Session not found"})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-session-not-found")})),
         )
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": format!("Failed to get session state: {e}")})),
+            Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-session-state-failed", &[("err", e.to_string().as_str())])})),
         )
             .into_response(),
     }

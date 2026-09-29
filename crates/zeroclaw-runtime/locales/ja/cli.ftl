@@ -59,7 +59,7 @@ cli-wechat-scanned-confirm = 👀 スキャンされました！スマートフ�
 cli-wechat-qr-expired-refreshing = ⏳ QRコードの期限が切れました。更新中...
 cli-wechat-login-confirmed-missing-field = ログインは確認されましたが、{$field} がありません。
 cli-wechat-connected = ✅ WeChat に接続しました！
-cli-wechat-bound-success = ✅ WeChatアカウントが正常にバインドされました。これで ZeroClaw と会話できます。
+cli-wechat-bound-success = ✅ WeChatアカウントが正常にバインドされました。これで Volt と会話できます。
 cli-wechat-invalid-bind-code = ❌ 無効なバインドコードです。もう一度お試しください。
 cli-skills-list-about = すべてのインストール済みスキルをリスト表示
 cli-skills-audit-about = スキルソースディレクトリまたはインストール済みスキル名を監査
@@ -94,7 +94,7 @@ cli-skills-removed-global = { "  " }{$status} スキル '{$name}' をグロー�
 cli-skills-install-tier-official = {$name} v{$version} をインストール中 — 公式（zeroclaw-labs 管理）
 cli-skills-install-tier-community =
     {$name} v{$version} をインストール中 — コミュニティ提出
-    このスキルは ZeroClaw による監査を受けていません。スキルの内容を確認し、
+    このスキルは Volt による監査を受けていません。スキルの内容を確認し、
     権限を付与したり本番環境で実行したりする前に `zeroclaw skills audit {$name}` を
     実行してください。
 cli-skills-add-scaffolded = スキル {$target} を {$dir} にスキャフォールドしました
@@ -153,11 +153,11 @@ cli-hardware-introspect-about = デバイスをそのシリアル番号または
 cli-hardware-info-about = ST-Link 経由 probe-rs を使用して USB でチップ情報を取得
 cli-peripheral-list-about = 設定されたペリフェラルを一覧表示
 cli-peripheral-add-about = ボードタイプとトランスポートパスでペリフェラルを追加
-cli-peripheral-flash-about = Arduino ボードに ZeroClaw ファームウェアをフラッシュ
+cli-peripheral-flash-about = Arduino ボードに Volt ファームウェアをフラッシュ
 cli-sop-list-about = ロードされた SOP を一覧表示
 cli-sop-validate-about = SOP 定義を検証
 cli-sop-show-about = SOP の詳細を表示
-cli-migrate-openclaw-about = OpenClaw ワークスペースからこの ZeroClaw ワークスペースにメモリをインポート
+cli-migrate-openclaw-about = OpenClaw ワークスペースからこの Volt ワークスペースにメモリをインポート
 cli-migrate-openclaw-qdrant-unsupported = Qdrant は現在、OpenClaw の移行先としてサポートされていません。memory.backend を sqlite、lucid、または markdown に設定して再試行してください。
 cli-agent-long-about =
     AI エージェントループを起動します。
@@ -191,7 +191,7 @@ cli-acp-long-about =
 cli-daemon-long-about =
     長時間実行の自律型デーモンを起動します。
 
-    完全な ZeroClaw ランタイムを起動します: ゲートウェイサーバー、すべての設定されたチャネル（Telegram、Discord、Slack など）、ハートビートモニター、および cron スケジューラー。これは本番環境またはオンアシスタントとして ZeroClaw を実行する推奨方法です。
+    完全な Volt ランタイムを起動します: ゲートウェイサーバー、すべての設定されたチャネル（Telegram、Discord、Slack など）、ハートビートモニター、および cron スケジューラー。これは本番環境またはオンアシスタントとして Volt を実行する推奨方法です。
 
     デーモンを OS サービス（systemd/launchd）として登録し、ブート時に自動起動するには「zeroclaw service install」を使用してください。
 
@@ -219,7 +219,7 @@ cli-cron-long-about =
 cli-channel-long-about =
     通信チャネルを管理します。
 
-    ZeroClaw をメッセージングプラットフォームに接続するチャネルを追加、削除、一覧表示、送信、およびヘルスチェックします。サポートされるチャネルタイプ: telegram、discord、slack、whatsapp、matrix、imessage、email。
+    Volt をメッセージングプラットフォームに接続するチャネルを追加、削除、一覧表示、送信、およびヘルスチェックします。サポートされるチャネルタイプ: telegram、discord、slack、whatsapp、matrix、imessage、email。
 
     例:
     zeroclaw channel list
@@ -260,7 +260,7 @@ cli-memory-long-about =
     zeroclaw memory get KEY
     zeroclaw memory clear --category conversation --yes
 cli-config-long-about =
-    ZeroClaw 設定を管理します。
+    Volt 設定を管理します。
 
     ドット記法で設定プロパティを表示、設定、または初期化します。「schema」を使用して、設定ファイルの完全な JSON スキーマをダンプします。
 
@@ -282,7 +282,7 @@ cli-config-long-about =
 
     プロパティパスタブ補完は `zeroclaw completions <shell>` に自動的に含まれます。
 cli-update-long-about =
-    ZeroClaw 更新を確認して適用します。
+    Volt 更新を確認して適用します。
 
     デフォルトでは、6 段階のパイプライン（プリフライト、ダウンロード、バックアップ、検証、スワップ、スモークテスト）で最新リリースをダウンロードしてインストールします。失敗時に自動ロールバックします。
 
@@ -296,7 +296,7 @@ cli-update-long-about =
     zeroclaw update --force              # 確認なしでインストール
     zeroclaw update --version 0.6.0      # 特定のバージョンをインストール
 cli-self-test-long-about =
-    診断自己テストを実行して ZeroClaw インストールを検証します。
+    診断自己テストを実行して Volt インストールを検証します。
 
     デフォルトでは、ネットワークチェック（ゲートウェイヘルス、メモリラウンドトリップ）を含む完全なテストスイートを実行します。--quick を使用して、ネットワークチェックをスキップしてより高速なオフライン検証を実行してください。
 
@@ -323,7 +323,7 @@ cli-completions-long-about =
     zeroclaw completions zsh > ~/.zfunc/_zeroclaw
     zeroclaw completions fish > ~/.config/fish/completions/zeroclaw.fish
 cli-desktop-long-about =
-    ZeroClaw コンパニオンデスクトップアプリを起動します。
+    Volt コンパニオンデスクトップアプリを起動します。
 
     コンパニオンアプリは、CLI と同じゲートウェイに接続する軽量のメニューバー/システムトレイアプリケーションです。ダッシュボードへのクイックアクセス、ステータス監視、およびデバイスペアリングを提供します。
 
@@ -412,7 +412,7 @@ cli-self-test-web-dist-dir-name = web_dist_dir
 cli-self-test-web-dist-dir-pass-unset = 未設定（自動検出を使用）
 cli-self-test-web-dist-dir-pass-literal = {$path}（リテラルパス）
 cli-self-test-web-dist-dir-fail-expansion = 警告: {$path} — {$reason}。gateway.web_dist_dir はそのまま読み込まれるため、値を自分で展開してください（例: 絶対パス）
-cli-service-systemd-linger-disabled-warning = systemd ユーザー linger は無効です。ZeroClaw のユーザーサービスはログアウト後に停止する可能性があります。有効化: loginctl enable-linger {$user}
+cli-service-systemd-linger-disabled-warning = systemd ユーザー linger は無効です。Volt のユーザーサービスはログアウト後に停止する可能性があります。有効化: loginctl enable-linger {$user}
 cli-peripherals-none = 周辺機器が設定されていません。
 cli-peripherals-add-hint = 次のコマンドで追加します: zeroclaw peripheral add <board> <path>
 cli-peripherals-add-example = {"  "}例: zeroclaw peripheral add nucleo-f401re <serial-path>
@@ -660,8 +660,8 @@ cli-pairing-rotate-no-code = ローテーション要求は置き換えコード
 cli-pairing-check-enabled = ペアリングが有効か確認してから、新しいデバイスコードを要求してください:
 cli-pairing-inspect = 実行中のゲートウェイを確認するには:
 cli-gateway-running-q = {"   "}ゲートウェイは実行中ですか？次のコマンドで起動してください:
-cli-status-title = 🦀 ZeroClaw ステータス
-cli-security-status-title = ZeroClaw セキュリティステータス
+cli-status-title = 🦀 Volt ステータス
+cli-security-status-title = Volt セキュリティステータス
 cli-security-status-source = ソース:      {$v}
 cli-security-status-agent = エージェント:       {$v}
 cli-security-status-agent-enabled = エージェント有効: {$enabled}
@@ -694,10 +694,10 @@ cli-status-service-stopped = 🔴 サービス:       停止
 cli-status-channels = チャンネル:
 cli-status-cli-always = {"  "}CLI:      ✅ 常時
 cli-status-peripherals = 周辺機器:
-cli-desktop-download = ZeroClaw コンパニオンアプリのダウンロードページを開きます:
+cli-desktop-download = Volt コンパニオンアプリのダウンロードページを開きます:
 cli-desktop-homebrew = または Homebrew でインストール(近日対応予定):
 cli-desktop-linux-pkg = {"  "}このページには、アーキテクチャ別の .deb と .AppImage があります。
-cli-desktop-launching = ZeroClaw コンパニオンアプリを起動中...
+cli-desktop-launching = Volt コンパニオンアプリを起動中...
 cli-status-version = バージョン:     {$v}
 cli-status-workspace = ワークスペース:   {$v}
 cli-status-config = 設定:      {$v}
@@ -742,7 +742,7 @@ cli-status-word-not-configured = 未設定
 cli-status-channel-configured = ✅ {$status}
 cli-status-channel-not-configured = ❌ {$status}
 cli-status-channel-not-compiled = 🚫 設定済み、未コンパイル
-cli-desktop-not-installed = ZeroClaw コンパニオンアプリがインストールされていません。
+cli-desktop-not-installed = Volt コンパニオンアプリがインストールされていません。
 cli-desktop-blurb1 = コンパニオンアプリは軽量なメニューバーアプリで、
 cli-desktop-blurb2 = CLI と同じゲートウェイに接続します。
 cli-config-all-configured = すべてのセクションは既に設定済みです。
@@ -972,11 +972,11 @@ cli-gateway-restart-hint-container = docker compose restart
 cli-gateway-restart-hint-systemd = systemctl restart zeroclaw
 cli-gateway-restart-hint-launchd = launchctl kickstart -k <your-zeroclaw-label>
 cli-gateway-restart-hint-process = `zeroclaw daemon` プロセスを再起動してください
-cli-daemon-gateway-already-running = ZeroClaw ゲートウェイは既に {$host}:{$port} で実行中です。デーモンは自身のゲートウェイを監視しており、同じアドレスで2つ目を開始しません。そのゲートウェイを停止するか、`zeroclaw config set gateway.port <port>` でデーモンを空きポートに向けてから、もう一度デーモンを実行してください。
+cli-daemon-gateway-already-running = Volt ゲートウェイは既に {$host}:{$port} で実行中です。デーモンは自身のゲートウェイを監視しており、同じアドレスで2つ目を開始しません。そのゲートウェイを停止するか、`zeroclaw config set gateway.port <port>` でデーモンを空きポートに向けてから、もう一度デーモンを実行してください。
 cli-daemon-gateway-port-occupied = ゲートウェイアドレス {$host}:{$port} は別のプロセスで既に使用されています。ポートを解放するか、デーモンを空きポートに向けて (`zeroclaw config set gateway.port <port>`)、もう一度デーモンを実行してください。
-cli-daemon-starting-title = 🧠 ZeroClaw デーモンを起動しています…
+cli-daemon-starting-title = 🧠 Volt デーモンを起動しています…
 cli-daemon-starting-detail = 設定済みのデーモンエンドポイントを準備しています
-cli-daemon-started-title = 🧠 ZeroClaw デーモンの準備ができました
+cli-daemon-started-title = 🧠 Volt デーモンの準備ができました
 cli-daemon-started-gateway = ゲートウェイ: {$url}
 cli-daemon-started-socket = ソケット:     {$path}
 cli-daemon-started-pairing = ペアリング: 有効（現在の状態は上のゲートウェイ出力を確認してください）

@@ -22,8 +22,8 @@ cli-auth-about = Gestiona los perfiles de autenticación de suscripción del pro
 cli-hardware-about = Descubre e inspecciona hardware USB
 cli-peripheral-about = Gestiona los periféricos de hardware
 cli-memory-about = Gestiona las entradas de memoria del agente
-cli-config-about = Gestiona la configuración de ZeroClaw
-cli-update-about = Comprueba y aplica las actualizaciones de ZeroClaw
+cli-config-about = Gestiona la configuración de Volt
+cli-update-about = Comprueba y aplica las actualizaciones de Volt
 cli-self-test-about = Ejecuta autopruebas de diagnóstico
 cli-completions-about = Genera scripts de autocompletado del shell
 cli-desktop-about = Inicia la aplicación de escritorio complementaria, o abre su página de descarga
@@ -59,7 +59,7 @@ cli-wechat-scanned-confirm = 👀 ¡Escaneado! Confirma en tu teléfono...
 cli-wechat-qr-expired-refreshing = ⏳ Código QR caducado, actualizando...
 cli-wechat-login-confirmed-missing-field = Inicio de sesión confirmado pero falta {$field}.
 cli-wechat-connected = ✅ ¡WeChat conectado!
-cli-wechat-bound-success = ✅ Cuenta de WeChat vinculada correctamente. Ya puedes hablar con ZeroClaw.
+cli-wechat-bound-success = ✅ Cuenta de WeChat vinculada correctamente. Ya puedes hablar con Volt.
 cli-wechat-invalid-bind-code = ❌ Código de vinculación no válido. Inténtalo de nuevo.
 cli-skills-list-about = Listar todas las skills instaladas
 cli-skills-audit-about = Auditar un directorio de origen de skill o el nombre de una skill instalada
@@ -96,7 +96,7 @@ cli-skills-removed-global = { "  " }{$status} La skill '{$name}' se eliminó del
 cli-skills-install-tier-official = Instalando {$name} v{$version} — Oficial (mantenida por zeroclaw-labs)
 cli-skills-install-tier-community =
     Instalando {$name} v{$version} — Envío de la comunidad
-    Esta skill no está auditada por ZeroClaw. Revisa el contenido de la skill
+    Esta skill no está auditada por Volt. Revisa el contenido de la skill
     y ejecuta `zeroclaw skills audit {$name}` antes de otorgar cualquier
     permiso o ejecutarla en producción.
 cli-skills-add-scaffolded = Skill {$target} estructurada en {$dir}
@@ -155,11 +155,11 @@ cli-hardware-introspect-about = Inspecciona un dispositivo por su número de ser
 cli-hardware-info-about = Obtiene información del chip vía USB usando probe-rs sobre ST-Link
 cli-peripheral-list-about = Lista los periféricos configurados
 cli-peripheral-add-about = Agrega un periférico por tipo de placa y ruta de transporte
-cli-peripheral-flash-about = Flashea el firmware de ZeroClaw a una placa Arduino
+cli-peripheral-flash-about = Flashea el firmware de Volt a una placa Arduino
 cli-sop-list-about = Lista los SOP cargados
 cli-sop-validate-about = Valida las definiciones de SOP
 cli-sop-show-about = Muestra los detalles de un SOP
-cli-migrate-openclaw-about = Importa memoria de un espacio de trabajo OpenClaw a este espacio de trabajo ZeroClaw
+cli-migrate-openclaw-about = Importa memoria de un espacio de trabajo OpenClaw a este espacio de trabajo Volt
 cli-migrate-openclaw-qdrant-unsupported = Qdrant no es compatible actualmente como destino de migración de OpenClaw. Establece memory.backend en sqlite, lucid o markdown y vuelve a intentarlo.
 cli-agent-long-about =
     Inicia el bucle del agente de IA.
@@ -193,7 +193,7 @@ cli-acp-long-about =
 cli-daemon-long-about =
     Inicia el daemon autónomo de larga duración.
 
-    Lanza el entorno de ejecución completo de ZeroClaw: servidor de gateway, todos los canales configurados (Telegram, Discord, Slack, etc.), monitor de heartbeat y el programador cron. Esta es la forma recomendada de ejecutar ZeroClaw en producción o como un asistente siempre activo.
+    Lanza el entorno de ejecución completo de Volt: servidor de gateway, todos los canales configurados (Telegram, Discord, Slack, etc.), monitor de heartbeat y el programador cron. Esta es la forma recomendada de ejecutar Volt en producción o como un asistente siempre activo.
 
     Usa 'zeroclaw service install' para registrar el daemon como un servicio del SO (systemd/launchd) para que se inicie automáticamente al arrancar.
 
@@ -221,7 +221,7 @@ cli-cron-long-about =
 cli-channel-long-about =
     Gestiona los canales de comunicación.
 
-    Agrega, elimina, lista, envía y verifica el estado de los canales que conectan ZeroClaw con plataformas de mensajería. Tipos de canal admitidos: telegram, discord, slack, whatsapp, matrix, imessage, email.
+    Agrega, elimina, lista, envía y verifica el estado de los canales que conectan Volt con plataformas de mensajería. Tipos de canal admitidos: telegram, discord, slack, whatsapp, matrix, imessage, email.
 
     Ejemplos:
     zeroclaw channel list
@@ -262,7 +262,7 @@ cli-memory-long-about =
     zeroclaw memory get KEY
     zeroclaw memory clear --category conversation --yes
 cli-config-long-about =
-    Gestiona la configuración de ZeroClaw.
+    Gestiona la configuración de Volt.
 
     Visualiza, establece o inicializa propiedades de configuración mediante una ruta con puntos. Usa 'schema' para volcar el esquema JSON completo del archivo de configuración.
 
@@ -284,7 +284,7 @@ cli-config-long-about =
 
     El autocompletado de la ruta de propiedades se incluye automáticamente en `zeroclaw completions <shell>`.
 cli-update-long-about =
-    Comprueba y aplica actualizaciones de ZeroClaw.
+    Comprueba y aplica actualizaciones de Volt.
 
     De forma predeterminada, descarga e instala la última versión con un pipeline de 6 fases: verificación previa, descarga, copia de seguridad, validación, intercambio y prueba de humo. Reversión automática en caso de fallo.
 
@@ -298,7 +298,7 @@ cli-update-long-about =
     zeroclaw update --force              # instalar sin confirmación
     zeroclaw update --version 0.6.0      # instalar versión específica
 cli-self-test-long-about =
-    Ejecuta autodiagnósticos para verificar la instalación de ZeroClaw.
+    Ejecuta autodiagnósticos para verificar la instalación de Volt.
 
     De forma predeterminada, ejecuta la suite de pruebas completa, incluidas las comprobaciones de red (estado del gateway, ida y vuelta de memoria). Usa --quick para omitir las comprobaciones de red y validar más rápido sin conexión.
 
@@ -325,7 +325,7 @@ cli-completions-long-about =
     zeroclaw completions zsh > ~/.zfunc/_zeroclaw
     zeroclaw completions fish > ~/.config/fish/completions/zeroclaw.fish
 cli-desktop-long-about =
-    Lanza la aplicación de escritorio complementaria de ZeroClaw.
+    Lanza la aplicación de escritorio complementaria de Volt.
 
     La aplicación complementaria es una aplicación ligera de barra de menú / bandeja del sistema que se conecta al mismo gateway que la CLI. Proporciona acceso rápido al panel, monitoreo de estado y emparejamiento de dispositivos.
 
@@ -414,7 +414,7 @@ cli-self-test-web-dist-dir-name = web_dist_dir
 cli-self-test-web-dist-dir-pass-unset = no establecido (usando detección automática)
 cli-self-test-web-dist-dir-pass-literal = {$path} (ruta literal)
 cli-self-test-web-dist-dir-fail-expansion = ADVERTENCIA: {$path} — {$reason}; gateway.web_dist_dir se lee literalmente, así que expande el valor tú mismo (p. ej., una ruta absoluta)
-cli-service-systemd-linger-disabled-warning = la permanencia de usuario de systemd está deshabilitada. El servicio de usuario de ZeroClaw puede detenerse tras cerrar sesión. Habilítala con: loginctl enable-linger {$user}
+cli-service-systemd-linger-disabled-warning = la permanencia de usuario de systemd está deshabilitada. El servicio de usuario de Volt puede detenerse tras cerrar sesión. Habilítala con: loginctl enable-linger {$user}
 cli-peripherals-none = No hay periféricos configurados.
 cli-peripherals-add-hint = Agregue uno con: zeroclaw peripheral add <board> <path>
 cli-peripherals-add-example = {"  "}Ejemplo: zeroclaw peripheral add nucleo-f401re <serial-path>
@@ -637,7 +637,7 @@ cli-quickstart-complete = Quickstart completado. Se creó el agente `{$alias}`.
 cli-next-steps = Siguientes pasos:
 cli-agent-not-created = Tu agente no fue creado — y no se cambió nada en el disco.
 cli-onboard-deprecated = `zeroclaw onboard` está obsoleto — usa `zeroclaw quickstart`.
-cli-otp-initialized = Secreto OTP inicializado para ZeroClaw.
+cli-otp-initialized = Secreto OTP inicializado para Volt.
 cli-otp-enrollment-uri = URI de inscripción: {$uri}
 cli-otp-received = {"  "}✓ OTP recibido
 cli-secret-captured = {"  "}● Valor capturado — pulse Enter para guardar
@@ -662,8 +662,8 @@ cli-pairing-rotate-no-code = La solicitud de rotación terminó sin devolver un 
 cli-pairing-check-enabled = Comprueba si el emparejamiento está habilitado y solicita un código para el nuevo dispositivo:
 cli-pairing-inspect = Para inspeccionar el gateway en ejecución:
 cli-gateway-running-q = {"   "}¿Está el gateway en ejecución? Inícialo con:
-cli-status-title = 🦀 Estado de ZeroClaw
-cli-security-status-title = Estado de seguridad de ZeroClaw
+cli-status-title = 🦀 Estado de Volt
+cli-security-status-title = Estado de seguridad de Volt
 cli-security-status-source = Origen:      {$v}
 cli-security-status-agent = Agente:       {$v}
 cli-security-status-agent-enabled = Agente habilitado: {$enabled}
@@ -696,10 +696,10 @@ cli-status-service-stopped = 🔴 Servicio:       detenido
 cli-status-channels = Canales:
 cli-status-cli-always = {"  "}CLI:      ✅ siempre
 cli-status-peripherals = Periféricos:
-cli-desktop-download = Abriendo la página de descargas de la aplicación complementaria ZeroClaw:
+cli-desktop-download = Abriendo la página de descargas de la aplicación complementaria Volt:
 cli-desktop-homebrew = O instálala con Homebrew (próximamente):
 cli-desktop-linux-pkg = {"  "}La página ofrece archivos .deb y .AppImage para tu arquitectura.
-cli-desktop-launching = Iniciando la aplicación complementaria de ZeroClaw...
+cli-desktop-launching = Iniciando la aplicación complementaria de Volt...
 cli-status-version = Versión:     {$v}
 cli-status-workspace = Espacio de trabajo:   {$v}
 cli-status-config = Configuración:      {$v}
@@ -744,7 +744,7 @@ cli-status-word-not-configured = no configurado
 cli-status-channel-configured = ✅ {$status}
 cli-status-channel-not-configured = ❌ {$status}
 cli-status-channel-not-compiled = 🚫 configurado, no compilado
-cli-desktop-not-installed = La aplicación complementaria de ZeroClaw no está instalada.
+cli-desktop-not-installed = La aplicación complementaria de Volt no está instalada.
 cli-desktop-blurb1 = La aplicación complementaria es una ligera app de la barra de menú que
 cli-desktop-blurb2 = se conecta a la misma puerta de enlace que la CLI.
 cli-config-all-configured = Todas las secciones ya están configuradas.
@@ -974,11 +974,11 @@ cli-gateway-restart-hint-container = docker compose restart
 cli-gateway-restart-hint-systemd = systemctl restart zeroclaw
 cli-gateway-restart-hint-launchd = launchctl kickstart -k <your-zeroclaw-label>
 cli-gateway-restart-hint-process = reinicie el proceso `zeroclaw daemon`
-cli-daemon-gateway-already-running = Ya hay un gateway de ZeroClaw ejecutándose en {$host}:{$port}. El daemon supervisa su propio gateway y no iniciará un segundo en la misma dirección. Detén ese gateway (o apunta el daemon a un puerto libre con `zeroclaw config set gateway.port <port>`) y luego vuelve a ejecutar el daemon.
+cli-daemon-gateway-already-running = Ya hay un gateway de Volt ejecutándose en {$host}:{$port}. El daemon supervisa su propio gateway y no iniciará un segundo en la misma dirección. Detén ese gateway (o apunta el daemon a un puerto libre con `zeroclaw config set gateway.port <port>`) y luego vuelve a ejecutar el daemon.
 cli-daemon-gateway-port-occupied = La dirección del gateway {$host}:{$port} ya está en uso por otro proceso. Libera el puerto o apunta el daemon a un puerto libre (`zeroclaw config set gateway.port <port>`) y luego vuelve a ejecutar el daemon.
-cli-daemon-starting-title = 🧠 El daemon de ZeroClaw se está iniciando…
+cli-daemon-starting-title = 🧠 El daemon de Volt se está iniciando…
 cli-daemon-starting-detail = Preparando los endpoints configurados del daemon
-cli-daemon-started-title = 🧠 El daemon de ZeroClaw está listo
+cli-daemon-started-title = 🧠 El daemon de Volt está listo
 cli-daemon-started-gateway = Gateway:  {$url}
 cli-daemon-started-socket = Socket:   {$path}
 cli-daemon-started-pairing = Emparejamiento: activado (consulta arriba el estado actual del gateway)

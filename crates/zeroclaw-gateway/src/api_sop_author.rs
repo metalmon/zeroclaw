@@ -139,7 +139,7 @@ pub async fn handle_sop_graph(
         }
         Err(e) => (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("SOP '{name}': {e}") })),
+            Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-load-error", &[("name", name.as_str()), ("err", e.to_string().as_str())]) })),
         )
             .into_response(),
     }
@@ -177,7 +177,7 @@ pub async fn handle_sop_run(
     {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "payload is not valid JSON" })),
+            Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-payload-invalid-json") })),
         )
             .into_response();
     }
@@ -185,14 +185,14 @@ pub async fn handle_sop_run(
     let Some(engine) = state.sop_engine.as_ref() else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "error": "SOP subsystem not enabled" })),
+            Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-disabled") })),
         )
             .into_response();
     };
     let Some(audit) = state.sop_audit.as_ref() else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "error": "SOP subsystem not enabled" })),
+            Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-disabled") })),
         )
             .into_response();
     };
@@ -267,7 +267,7 @@ pub async fn handle_sop_run(
     (
         StatusCode::NOT_FOUND,
         Json(serde_json::json!({
-            "error": format!("SOP '{name}' has no matching manual trigger")
+            "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-no-manual-trigger", &[("name", name.as_str())])
         })),
     )
         .into_response()
@@ -284,7 +284,7 @@ pub async fn handle_sop_runs(
     let Some(engine) = state.sop_engine.as_ref() else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "error": "SOP subsystem not enabled" })),
+            Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-disabled") })),
         )
             .into_response();
     };
@@ -312,7 +312,7 @@ pub async fn handle_sop_run_overlay(
         Err(e) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": format!("SOP '{name}': {e}") })),
+                Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-load-error", &[("name", name.as_str()), ("err", e.to_string().as_str())]) })),
             )
                 .into_response();
         }
@@ -320,7 +320,7 @@ pub async fn handle_sop_run_overlay(
     let Some(engine) = state.sop_engine.as_ref() else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "error": "SOP subsystem not enabled" })),
+            Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-disabled") })),
         )
             .into_response();
     };
@@ -367,26 +367,27 @@ pub async fn handle_sop_decide(
         .flatten()
         .and_then(|t| state.pairing.authenticate_and_hash(t));
     let principal = zeroclaw_runtime::sop::approval::ApprovalPrincipal::http(subject);
-    let decision: zeroclaw_runtime::sop::approval::ApprovalDecision =
-        match serde_json::from_value(decision_value) {
-            Ok(d) => d,
-            Err(e) => {
-                return (
+    let decision: zeroclaw_runtime::sop::approval::ApprovalDecision = match serde_json::from_value(
+        decision_value,
+    ) {
+        Ok(d) => d,
+        Err(e) => {
+            return (
                     StatusCode::BAD_REQUEST,
                     Json(serde_json::json!({
-                        "error": format!("decision is not a valid approval decision: {e}")
+                        "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-invalid-decision", &[("err", e.to_string().as_str())])
                     })),
                 )
                     .into_response();
-            }
-        };
+        }
+    };
     let (dir, mode) = sops_dir_and_mode(&state);
     let sop = match zeroclaw_runtime::sop::load_sop_by_name(&dir, &name, mode) {
         Ok(sop) => sop,
         Err(e) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": format!("SOP '{name}': {e}") })),
+                Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-load-error", &[("name", name.as_str()), ("err", e.to_string().as_str())]) })),
             )
                 .into_response();
         }
@@ -394,7 +395,7 @@ pub async fn handle_sop_decide(
     let Some(engine) = state.sop_engine.as_ref() else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "error": "SOP subsystem not enabled" })),
+            Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-disabled") })),
         )
             .into_response();
     };
@@ -417,7 +418,7 @@ pub async fn handle_sop_decide(
             Err(_) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({ "error": "SOP engine lock poisoned" })),
+                    Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-lock-poisoned") })),
                 )
                     .into_response();
             }
@@ -428,7 +429,7 @@ pub async fn handle_sop_decide(
                 return (
                     StatusCode::NOT_FOUND,
                     Json(serde_json::json!({
-                        "error": format!("Run {run_id} not found")
+                        "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-run-not-found", &[("run_id", run_id.to_string().as_str())])
                     })),
                 )
                     .into_response();
@@ -438,7 +439,7 @@ pub async fn handle_sop_decide(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({
-                    "error": format!("run '{run_id}' belongs to SOP '{run_sop_name}', not '{name}'")
+                    "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-run-belongs-to-other", &[("run_id", run_id.as_str()), ("sop", run_sop_name.as_str()), ("name", name.as_str())])
                 })),
             )
                 .into_response();
@@ -470,7 +471,7 @@ pub async fn handle_sop_decide(
                         return (
                             StatusCode::CONFLICT,
                             Json(serde_json::json!({
-                                "error": format!("Run {run_id} is not waiting for approval")
+                                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-run-not-waiting-approval", &[("run_id", run_id.to_string().as_str())])
                             })),
                         )
                             .into_response();
@@ -479,7 +480,7 @@ pub async fn handle_sop_decide(
                         return (
                             StatusCode::FORBIDDEN,
                             Json(serde_json::json!({
-                                "error": "approval_mode forbids this principal from clearing the gate"
+                                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-self-approval-forbidden")
                             })),
                         )
                             .into_response();
@@ -498,7 +499,7 @@ pub async fn handle_sop_decide(
                         return (
                             StatusCode::FORBIDDEN,
                             Json(serde_json::json!({
-                                "error": format!("not authorized: requires group '{required_group}'")
+                                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-not-authorized-group", &[("group", required_group.as_str())])
                             })),
                         )
                             .into_response();
@@ -509,7 +510,7 @@ pub async fn handle_sop_decide(
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
                             Json(serde_json::json!({
-                                "error": format!("approval policy '{name}' is not configured (gate left waiting)")
+                                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-policy-not-configured", &[("name", name.as_str())])
                             })),
                         )
                             .into_response();
@@ -542,8 +543,9 @@ pub async fn handle_sop_decide(
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(serde_json::json!({
-                        "error": format!(
-                            "Run {run_id} is not waiting for approval or paused at a checkpoint"
+                        "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                            "gateway-sop-run-not-waiting-or-checkpoint",
+                            &[("run_id", run_id.to_string().as_str())],
                         )
                     })),
                 )
@@ -633,8 +635,7 @@ fn authorize_sop_cancel(
         (
             StatusCode::FORBIDDEN,
             Json(serde_json::json!({
-                "error": "Remote SOP cancellation requires gateway pairing. Enable \
-                          gateway.require_pairing and pair first, or call from localhost."
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-remote-cancel-requires-pairing")
             })),
         )
             .into_response(),
@@ -671,7 +672,7 @@ pub async fn handle_sop_cancel(
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(serde_json::json!({
-                        "error": format!("invalid cancel request body: {e}")
+                        "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-invalid-cancel-body", &[("err", e.to_string().as_str())])
                     })),
                 )
                     .into_response();
@@ -682,7 +683,7 @@ pub async fn handle_sop_cancel(
     let Some(engine) = state.sop_engine.as_ref() else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "error": "SOP subsystem not enabled" })),
+            Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-disabled") })),
         )
             .into_response();
     };
@@ -692,7 +693,7 @@ pub async fn handle_sop_cancel(
         Err(_) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": "SOP engine lock poisoned" })),
+                Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-lock-poisoned") })),
             )
                 .into_response();
         }
@@ -706,7 +707,7 @@ pub async fn handle_sop_cancel(
         None => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": format!("Run {run_id} not found") })),
+                Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-run-not-found", &[("run_id", run_id.to_string().as_str())]) })),
             )
                 .into_response();
         }
@@ -715,7 +716,7 @@ pub async fn handle_sop_cancel(
         return (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
-                "error": format!("run '{run_id}' belongs to SOP '{run_sop_name}', not '{name}'")
+                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-run-belongs-to-other", &[("run_id", run_id.as_str()), ("sop", run_sop_name.as_str()), ("name", name.as_str())])
             })),
         )
             .into_response();
@@ -736,7 +737,7 @@ pub async fn handle_sop_cancel(
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(serde_json::json!({
-                        "error": "run disappeared after cancellation transition"
+                        "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-run-disappeared")
                     })),
                 )
                     .into_response();
@@ -759,13 +760,13 @@ pub async fn handle_sop_cancel(
         }
         Ok(None) => (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("Run {run_id} not found") })),
+            Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-run-not-found", &[("run_id", run_id.to_string().as_str())]) })),
         )
             .into_response(),
         Err(e) if err_is_cancellation_persistence_retained(&e) => (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(serde_json::json!({
-                "error": "cancellation could not be durably persisted; the run remains active - retry"
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-cancel-not-persisted")
             })),
         )
             .into_response(),
@@ -790,7 +791,7 @@ pub async fn handle_sop_full(
         Ok(sop) => Json(sop).into_response(),
         Err(e) => (
             StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("SOP '{name}': {e}") })),
+            Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-load-error", &[("name", name.as_str()), ("err", e.to_string().as_str())]) })),
         )
             .into_response(),
     }
@@ -830,9 +831,9 @@ pub async fn handle_sop_save(
         return (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
-                "error": format!(
-                    "body name '{}' does not match URL name '{name}'",
-                    sop.name
+                "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args(
+                    "gateway-sop-body-name-mismatch",
+                    &[("body", sop.name.as_str()), ("url", name.as_str())],
                 )
             })),
         )

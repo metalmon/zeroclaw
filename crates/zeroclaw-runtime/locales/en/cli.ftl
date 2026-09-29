@@ -23,8 +23,8 @@ cli-auth-about = Manage provider subscription authentication profiles
 cli-hardware-about = Discover and introspect USB hardware
 cli-peripheral-about = Manage hardware peripherals
 cli-memory-about = Manage agent memory entries
-cli-config-about = Manage ZeroClaw configuration
-cli-update-about = Check for and apply ZeroClaw updates
+cli-config-about = Manage Volt configuration
+cli-update-about = Check for and apply Volt updates
 cli-self-test-about = Run diagnostic self-tests
 cli-completions-about = Generate shell completion scripts
 cli-desktop-about = Launch the companion desktop app, or open its download page
@@ -63,7 +63,7 @@ cli-wechat-scanned-confirm = 👀 Scanned! Confirm on your phone...
 cli-wechat-qr-expired-refreshing = ⏳ QR code expired, refreshing...
 cli-wechat-login-confirmed-missing-field = Login confirmed but {$field} missing.
 cli-wechat-connected = ✅ WeChat connected!
-cli-wechat-bound-success = ✅ WeChat account bound successfully. You can talk to ZeroClaw now.
+cli-wechat-bound-success = ✅ WeChat account bound successfully. You can talk to Volt now.
 cli-wechat-invalid-bind-code = ❌ Invalid bind code. Please try again.
 
 cli-skills-list-about = List all installed skills
@@ -101,7 +101,7 @@ cli-skills-removed-global = { "  " }{$status} Skill '{$name}' removed from the g
 cli-skills-install-tier-official = Installing {$name} v{$version} — Official (zeroclaw-labs maintained)
 cli-skills-install-tier-community =
     Installing {$name} v{$version} — Community submission
-    This skill is not audited by ZeroClaw. Review the skill content
+    This skill is not audited by Volt. Review the skill content
     and run `zeroclaw skills audit {$name}` before granting any
     permissions or running it in production.
 
@@ -172,13 +172,13 @@ cli-hardware-info-about = Get chip info via USB using probe-rs over ST-Link
 
 cli-peripheral-list-about = List configured peripherals
 cli-peripheral-add-about = Add a peripheral by board type and transport path
-cli-peripheral-flash-about = Flash ZeroClaw firmware to an Arduino board
+cli-peripheral-flash-about = Flash Volt firmware to an Arduino board
 
 cli-sop-list-about = List loaded SOPs
 cli-sop-validate-about = Validate SOP definitions
 cli-sop-show-about = Show details of an SOP
 
-cli-migrate-openclaw-about = Import memory from an OpenClaw workspace into this ZeroClaw workspace
+cli-migrate-openclaw-about = Import memory from an OpenClaw workspace into this Volt workspace
 cli-migrate-openclaw-qdrant-unsupported = Qdrant is not currently supported as an OpenClaw migration target. Set memory.backend to sqlite, lucid, or markdown and retry.
 
 cli-agent-long-about =
@@ -216,7 +216,7 @@ cli-acp-long-about =
 cli-daemon-long-about =
     Start the long-running autonomous daemon.
 
-    Launches the full ZeroClaw runtime: gateway server, all configured channels (Telegram, Discord, Slack, etc.), heartbeat monitor, and the cron scheduler. This is the recommended way to run ZeroClaw in production or as an always-on assistant.
+    Launches the full Volt runtime: gateway server, all configured channels (Telegram, Discord, Slack, etc.), heartbeat monitor, and the cron scheduler. This is the recommended way to run Volt in production or as an always-on assistant.
 
     Use 'zeroclaw service install' to register the daemon as an OS service (systemd/launchd) for auto-start on boot.
 
@@ -246,7 +246,7 @@ cli-cron-long-about =
 cli-channel-long-about =
     Manage communication channels.
 
-    Add, remove, list, send, and health-check channels that connect ZeroClaw to messaging platforms. Supported channel types: telegram, discord, slack, whatsapp, matrix, imessage, email.
+    Add, remove, list, send, and health-check channels that connect Volt to messaging platforms. Supported channel types: telegram, discord, slack, whatsapp, matrix, imessage, email.
 
     Examples:
       zeroclaw channel list
@@ -291,7 +291,7 @@ cli-memory-long-about =
       zeroclaw memory clear --category conversation --yes
 
 cli-config-long-about =
-    Manage ZeroClaw configuration.
+    Manage Volt configuration.
 
     View, set, or initialize config properties by dotted path. Use 'schema' to dump the full JSON Schema for the config file.
 
@@ -314,7 +314,7 @@ cli-config-long-about =
     Property path tab completion is included automatically in `zeroclaw completions <shell>`.
 
 cli-update-long-about =
-    Check for and apply ZeroClaw updates.
+    Check for and apply Volt updates.
 
     By default, downloads and installs the latest release with a 6-phase pipeline: preflight, download, backup, validate, swap, and smoke test. Automatic rollback on failure.
 
@@ -329,7 +329,7 @@ cli-update-long-about =
       zeroclaw update --version 0.6.0      # install specific version
 
 cli-self-test-long-about =
-    Run diagnostic self-tests to verify the ZeroClaw installation.
+    Run diagnostic self-tests to verify the Volt installation.
 
     By default, runs the full test suite including network checks (gateway health, memory round-trip). Use --quick to skip network checks for faster offline validation.
 
@@ -360,7 +360,7 @@ cli-completions-long-about =
       zeroclaw completions fish > ~/.config/fish/completions/zeroclaw.fish
 
 cli-desktop-long-about =
-    Launch the ZeroClaw companion desktop app.
+    Launch the Volt companion desktop app.
 
     The companion app is a lightweight menu bar / system tray application that connects to the same gateway as the CLI. It provides quick access to the dashboard, status monitoring, and device pairing.
 
@@ -471,7 +471,7 @@ cli-self-test-web-dist-dir-pass-literal = {$path} (literal path)
 cli-self-test-web-dist-dir-fail-expansion = WARNING: {$path} — {$reason}; gateway.web_dist_dir is read verbatim, so expand the value yourself (e.g. an absolute path)
 
 # Service lifecycle warnings.
-cli-service-systemd-linger-disabled-warning = systemd user lingering is disabled. ZeroClaw's user service may stop after logout. Enable it with: loginctl enable-linger {$user}
+cli-service-systemd-linger-disabled-warning = systemd user lingering is disabled. Volt's user service may stop after logout. Enable it with: loginctl enable-linger {$user}
 
 # ── peripherals (zeroclaw peripheral) ──
 cli-peripherals-none = No peripherals configured.
@@ -707,7 +707,7 @@ cli-quickstart-complete = Quickstart complete. Created agent `{$alias}`.
 cli-next-steps = Next steps:
 cli-agent-not-created = Your agent was not created — and nothing on disk was changed.
 cli-onboard-deprecated = `zeroclaw onboard` is deprecated — use `zeroclaw quickstart`.
-cli-otp-initialized = Initialized OTP secret for ZeroClaw.
+cli-otp-initialized = Initialized OTP secret for Volt.
 cli-otp-enrollment-uri = Enrollment URI: {$uri}
 cli-otp-received = {"  "}✓ OTP received
 cli-secret-captured = {"  "}● Value captured — press Enter to save
@@ -732,8 +732,8 @@ cli-pairing-rotate-no-code = The rotate request completed without returning a re
 cli-pairing-check-enabled = Check whether pairing is enabled, then request a new device code:
 cli-pairing-inspect = To inspect the running gateway:
 cli-gateway-running-q = {"   "}Is the gateway running? Start it with:
-cli-status-title = 🦀 ZeroClaw Status
-cli-security-status-title = ZeroClaw Security Status
+cli-status-title = 🦀 Volt Status
+cli-security-status-title = Volt Security Status
 cli-security-status-source = Source:      {$v}
 cli-security-status-agent = Agent:       {$v}
 cli-security-status-agent-enabled = Agent enabled: {$enabled}
@@ -766,10 +766,10 @@ cli-status-service-stopped = 🔴 Service:       stopped
 cli-status-channels = Channels:
 cli-status-cli-always = {"  "}CLI:      ✅ always
 cli-status-peripherals = Peripherals:
-cli-desktop-download = Opening the ZeroClaw companion app download page:
+cli-desktop-download = Opening the Volt companion app download page:
 cli-desktop-homebrew = Or install via Homebrew (coming soon):
 cli-desktop-linux-pkg = {"  "}The page provides .deb and .AppImage downloads by architecture.
-cli-desktop-launching = Launching ZeroClaw companion app...
+cli-desktop-launching = Launching Volt companion app...
 
 # ── status fields ──
 cli-status-version = Version:     {$v}
@@ -819,7 +819,7 @@ cli-status-channel-not-configured = ❌ {$status}
 cli-status-channel-not-compiled = 🚫 configured, not compiled
 
 # ── desktop / config / plugins / estop / auth ──
-cli-desktop-not-installed = ZeroClaw companion app is not installed.
+cli-desktop-not-installed = Volt companion app is not installed.
 cli-desktop-blurb1 = The companion app is a lightweight menu bar app that
 cli-desktop-blurb2 = connects to the same gateway as the CLI.
 cli-config-all-configured = All sections already configured.
@@ -1103,11 +1103,11 @@ cli-gateway-restart-hint-process = restart the `zeroclaw daemon` process
 # (shared event bus / canvas / reload channel) and cannot adopt a separate
 # process, so it fails fast with an actionable message instead of degrading into
 # a supervisor retry loop. The two variants differ only by who holds the port.
-cli-daemon-gateway-already-running = A ZeroClaw gateway is already running on {$host}:{$port}. The daemon supervises its own gateway and will not start a second one on the same address. Stop that gateway (or point the daemon at a free port with `zeroclaw config set gateway.port <port>`), then run the daemon again.
+cli-daemon-gateway-already-running = A Volt gateway is already running on {$host}:{$port}. The daemon supervises its own gateway and will not start a second one on the same address. Stop that gateway (or point the daemon at a free port with `zeroclaw config set gateway.port <port>`), then run the daemon again.
 cli-daemon-gateway-port-occupied = Gateway address {$host}:{$port} is already in use by another process. Free the port or point the daemon at a free port (`zeroclaw config set gateway.port <port>`), then run the daemon again.
-cli-daemon-starting-title = 🧠 ZeroClaw daemon starting…
+cli-daemon-starting-title = 🧠 Volt daemon starting…
 cli-daemon-starting-detail = Preparing configured daemon endpoints
-cli-daemon-started-title = 🧠 ZeroClaw daemon ready
+cli-daemon-started-title = 🧠 Volt daemon ready
 cli-daemon-started-gateway = Gateway:  {$url}
 cli-daemon-started-socket = Socket:   {$path}
 cli-daemon-started-pairing = Pairing:    enabled (see gateway output above for current status)
@@ -1364,3 +1364,74 @@ gateway-forbidden = Forbidden
 gateway-device-not-found-plain = Device not found
 gateway-missing-bearer-token = Missing bearer token
 gateway-device-not-found-for-token = Device not found for this token
+
+# --- Gateway API errors (RU localization, batch 2) ---
+gateway-webauthn-disabled = WebAuthn is not enabled
+gateway-webauthn-no-pending-registration = No pending registration for this challenge
+gateway-webauthn-no-pending-authentication = No pending authentication for this challenge
+gateway-canvas-not-found = Canvas '{$id}' not found
+gateway-canvas-invalid-content-type = Invalid content_type '{$content_type}'. Allowed: {$allowed}
+gateway-canvas-content-too-large = Content exceeds maximum size of {$max} bytes
+gateway-canvas-max-count-reached = Maximum canvas count reached. Clear unused canvases first.
+gateway-canvas-max-count-reached-ws = Maximum canvas count reached
+gateway-canvas-ws-unauthorized = Unauthorized — provide Authorization header or Sec-WebSocket-Protocol bearer
+gateway-plugins-unauthorized = Unauthorized
+gateway-static-invalid-path = Invalid path
+gateway-static-not-found = Not found
+gateway-static-no-backend-route = No backend route matched this path.
+gateway-static-dashboard-unavailable = Web dashboard not available. Reinstall with the supported installer so the dashboard is built and placed where the gateway looks for it: `./install.sh --source` on Linux/macOS, or `setup.bat` on Windows. The daemon's API endpoints remain reachable independently of the dashboard.
+gateway-sop-disabled = SOP subsystem not enabled
+gateway-sop-lock-poisoned = SOP engine lock poisoned
+gateway-sop-remote-approval-disabled = Remote SOP approval is disabled. Call from localhost, or set gateway.allow_remote_admin = true with pairing enabled, then pair.
+gateway-sop-resolve-failed = resolve failed: {$err}
+gateway-sop-payload-invalid-json = payload is not valid JSON
+gateway-sop-no-manual-trigger = SOP '{$name}' has no matching manual trigger
+gateway-sop-invalid-decision = decision is not a valid approval decision: {$err}
+gateway-sop-run-not-found = Run {$run_id} not found
+gateway-sop-run-belongs-to-other = run '{$run_id}' belongs to SOP '{$sop}', not '{$name}'
+gateway-sop-run-not-waiting-approval = Run {$run_id} is not waiting for approval
+gateway-sop-self-approval-forbidden = approval_mode forbids this principal from clearing the gate
+gateway-sop-not-authorized-group = not authorized: requires group '{$group}'
+gateway-sop-policy-not-configured = approval policy '{$name}' is not configured (gate left waiting)
+gateway-sop-run-not-waiting-or-checkpoint = Run {$run_id} is not waiting for approval or paused at a checkpoint
+gateway-sop-remote-cancel-requires-pairing = Remote SOP cancellation requires gateway pairing. Enable gateway.require_pairing and pair first, or call from localhost.
+gateway-sop-invalid-cancel-body = invalid cancel request body: {$err}
+gateway-sop-run-disappeared = run disappeared after cancellation transition
+gateway-sop-cancel-not-persisted = cancellation could not be durably persisted; the run remains active - retry
+gateway-sop-body-name-mismatch = body name '{$body}' does not match URL name '{$url}'
+gateway-sop-load-error = SOP '{$name}': {$err}
+gateway-cron-tz-nonempty = tz must be a non-empty IANA timezone; use clear_tz=true to clear it
+gateway-cron-tz-xor = Provide either tz or clear_tz=true, not both
+gateway-cron-schedule-invalid = Invalid cron schedule: {$err}
+gateway-cron-list-failed = Failed to list cron jobs: {$err}
+gateway-misc-unknown-agent = Unknown agent {$agent} (no [agents.{$alias}] entry configured)
+gateway-cron-add-failed = Failed to add cron job: {$err}
+gateway-cron-shellfmt-agent = shell_output_format is not applicable to agent jobs; agent execution ignores it
+gateway-cron-missing-prompt = Missing 'prompt' for agent job
+gateway-cron-missing-command = Missing 'command' for shell job
+gateway-cron-not-found = Cron job not found: {$err}
+gateway-cron-runs-list-failed = Failed to list cron runs: {$err}
+gateway-cron-shellfmt-declarative = shell_output_format for declarative job '{$id}' is set via cron.{$id}.shell_output_format in config.toml, not the API; the DB column is not read for declarative jobs and this PATCH would have no effect
+gateway-cron-tz-schedule-only = tz can only be updated on cron schedules
+gateway-cron-update-failed = Failed to update cron job: {$err}
+gateway-cron-remove-failed = Failed to remove cron job: {$err}
+gateway-cfg-save-failed = Failed to save config: {$err}
+gateway-mem-build-failed = Failed to build per-agent memory: {$err}
+gateway-mem-recall-failed = Memory recall failed: {$err}
+gateway-mem-list-failed = Memory list failed: {$err}
+gateway-mem-store-failed = Memory store failed: {$err}
+gateway-mem-forget-failed = Memory forget failed: {$err}
+gateway-misc-cost-summary-failed = Cost summary failed: {$err}
+gateway-channel-unknown = unknown channel {$channel} — use the composite name from GET /api/channels
+gateway-channel-no-relink = channel type {$channel} has no relink operation (it does not use QR-pairing sessions) or the feature is not compiled into this binary; nothing was changed
+gateway-channel-relink-failed = failed to clear persisted login: {$err}
+gateway-session-content-required = content is required
+gateway-session-persistence-disabled = Session persistence is disabled
+gateway-session-not-found = Session not found
+gateway-session-queue-full = Session queue is full
+gateway-session-queue-timeout = Timed out waiting for session queue
+gateway-session-append-failed = Failed to append session message: {$err}
+gateway-session-delete-failed = Failed to delete session: {$err}
+gateway-session-name-required = name is required
+gateway-session-rename-failed = Failed to rename session: {$err}
+gateway-session-state-failed = Failed to get session state: {$err}

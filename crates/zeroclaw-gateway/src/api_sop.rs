@@ -39,14 +39,18 @@ pub struct SopResolveBody {
 fn sop_disabled() -> JsonErr {
     (
         StatusCode::SERVICE_UNAVAILABLE,
-        Json(serde_json::json!({ "error": "SOP subsystem not enabled" })),
+        Json(
+            serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-disabled") }),
+        ),
     )
 }
 
 fn lock_poisoned() -> JsonErr {
     (
         StatusCode::INTERNAL_SERVER_ERROR,
-        Json(serde_json::json!({ "error": "SOP engine lock poisoned" })),
+        Json(
+            serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-lock-poisoned") }),
+        ),
     )
 }
 
@@ -101,8 +105,7 @@ fn authorize(
         AdminReloadGate::Forbidden | AdminReloadGate::ForbiddenNoPairing => Err((
             StatusCode::FORBIDDEN,
             Json(serde_json::json!({
-                "error": "Remote SOP approval is disabled. Call from localhost, or set \
-                          gateway.allow_remote_admin = true with pairing enabled, then pair."
+                "error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-sop-remote-approval-disabled")
             })),
         )),
     }
@@ -212,7 +215,7 @@ fn resolve(
             .map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({ "error": format!("resolve failed: {e}") })),
+                    Json(serde_json::json!({ "error": zeroclaw_runtime::i18n::get_required_cli_string_with_args("gateway-sop-resolve-failed", &[("err", e.to_string().as_str())]) })),
                 )
             })?
     };

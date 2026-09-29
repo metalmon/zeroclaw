@@ -75,7 +75,7 @@ pub async fn handle_register_start(
         None => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"error": "WebAuthn is not enabled"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webauthn-disabled")})),
             )
                 .into_response();
         }
@@ -115,7 +115,7 @@ pub async fn handle_register_finish(
         None => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"error": "WebAuthn is not enabled"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webauthn-disabled")})),
             )
                 .into_response();
         }
@@ -130,7 +130,7 @@ pub async fn handle_register_finish(
         None => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({"error": "No pending registration for this challenge"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webauthn-no-pending-registration")})),
             )
                 .into_response();
         }
@@ -169,7 +169,7 @@ pub async fn handle_auth_start(
         None => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"error": "WebAuthn is not enabled"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webauthn-disabled")})),
             )
                 .into_response();
         }
@@ -206,7 +206,7 @@ pub async fn handle_auth_finish(
         None => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"error": "WebAuthn is not enabled"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webauthn-disabled")})),
             )
                 .into_response();
         }
@@ -221,7 +221,7 @@ pub async fn handle_auth_finish(
         None => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({"error": "No pending authentication for this challenge"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webauthn-no-pending-authentication")})),
             )
                 .into_response();
         }
@@ -255,7 +255,7 @@ pub async fn handle_list_credentials(
         None => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"error": "WebAuthn is not enabled"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webauthn-disabled")})),
             )
                 .into_response();
         }
@@ -300,7 +300,7 @@ pub async fn handle_delete_credential(
         None => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"error": "WebAuthn is not enabled"})),
+                Json(serde_json::json!({"error": zeroclaw_runtime::i18n::get_required_cli_string("gateway-webauthn-disabled")})),
             )
                 .into_response();
         }
