@@ -186,7 +186,7 @@ fn normalize_optional_timezone(
             let trimmed = raw.trim();
             if trimmed.is_empty() {
                 Err(bad_request(
-                    &zeroclaw_runtime::i18n::get_required_cli_string("gateway-cron-tz-nonempty"),
+                    zeroclaw_runtime::i18n::get_required_cli_string("gateway-cron-tz-nonempty"),
                 ))
             } else {
                 Ok(Some(trimmed.to_string()))
@@ -205,7 +205,7 @@ fn parse_timezone_patch(
 
     if clear_tz && tz.is_some() {
         return Err(bad_request(
-            &zeroclaw_runtime::i18n::get_required_cli_string("gateway-cron-tz-xor"),
+            zeroclaw_runtime::i18n::get_required_cli_string("gateway-cron-tz-xor"),
         ));
     }
 
@@ -521,7 +521,7 @@ pub async fn handle_api_cron_add(
 
     let result = if is_agent {
         if shell_output_format.is_some() {
-            return bad_request(&zeroclaw_runtime::i18n::get_required_cli_string(
+            return bad_request(zeroclaw_runtime::i18n::get_required_cli_string(
                 "gateway-cron-shellfmt-agent",
             ))
             .into_response();
@@ -732,7 +732,7 @@ pub async fn handle_api_cron_patch(
     let is_agent = matches!(existing.job_type, zeroclaw_runtime::cron::JobType::Agent);
     if shell_output_format.is_some() {
         if is_agent {
-            return bad_request(&zeroclaw_runtime::i18n::get_required_cli_string(
+            return bad_request(zeroclaw_runtime::i18n::get_required_cli_string(
                 "gateway-cron-shellfmt-agent",
             ))
             .into_response();
@@ -775,7 +775,7 @@ pub async fn handle_api_cron_patch(
                 (expr.clone(), tz.clone())
             }
             (_, None) => {
-                return bad_request(&zeroclaw_runtime::i18n::get_required_cli_string(
+                return bad_request(zeroclaw_runtime::i18n::get_required_cli_string(
                     "gateway-cron-tz-schedule-only",
                 ))
                 .into_response();
