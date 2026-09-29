@@ -3480,9 +3480,7 @@ export const ru: Record<string, string> = {
 
   // Section navigator (settings tree sidebar)
   'section_nav.add_to_prefix': 'Добавить в ',
-  'section_nav.collapse': 'Свернуть',
   'section_nav.empty': 'Пока ничего не настроено',
-  'section_nav.expand': 'Развернуть',
   'section_nav.no_matches': 'Нет совпадений.',
   'section_nav.search_placeholder': 'Поиск в настройках…',
   'section_nav.tree_label': 'Разделы настроек',
