@@ -1,10 +1,10 @@
 // Reusable two-axis tool-permission grid. Each row is one tool; the operator
 // sets two independent states per tool instead of picking through four
 // separate lists:
-//  - Authorization (deny / inherit / allow) — can the agent call this tool
-//    at all. Bridges `allowed_tools` + `excluded_tools`.
-//  - Approval gating (ask every time / inherit / auto-approve) — does a
-//    human confirm before it runs. Bridges `auto_approve` + `always_ask`.
+// - Authorization (deny / inherit / allow) — can the agent call this tool
+// at all. Bridges `allowed_tools` + `excluded_tools`.
+// - Approval gating (ask every time / inherit / auto-approve) — does a
+// human confirm before it runs. Bridges `auto_approve` + `always_ask`.
 //
 // The two axes aren't symmetric. An empty `allowed_tools` means
 // *unrestricted*, not deny-all, so "Strict allowlist" is a real mode toggle
@@ -61,8 +61,8 @@ export type { ToolPermissionGridValue } from './ToolPermissionGrid.logic';
 export interface ToolPermissionGridProps {
   value: ToolPermissionGridValue;
   /** Fired with the full updated bundle — the component always resolves a
-   *  single row edit into every affected list at once, so callers never
-   *  have to reconcile four independent partial updates. */
+   * single row edit into every affected list at once, so callers never
+   * have to reconcile four independent partial updates. */
   onChange: (next: ToolPermissionGridValue) => void;
   /** When true, every control is inert. */
   disabled?: boolean;
@@ -71,9 +71,9 @@ export interface ToolPermissionGridProps {
   /** Scope the tool catalog to this agent, same as ToolPicker. */
   agent?: string;
   /** The profile's autonomy level. Under `full` / `readonly` the runtime
-   *  decides approval before consulting the per-tool lists, so the approval
-   *  column is shown locked with an explanatory tooltip instead of a state the
-   *  runtime would not honor. Defaults to `supervised` (lists are live). */
+   * decides approval before consulting the per-tool lists, so the approval
+   * column is shown locked with an explanatory tooltip instead of a state the
+   * runtime would not honor. Defaults to `supervised` (lists are live). */
   level?: AutonomyLevel;
 }
 
@@ -315,7 +315,7 @@ export default function ToolPermissionGrid({
               'relative inline-flex h-[22px] w-[38px] flex-shrink-0 items-center rounded-full border transition-colors',
               strict ? 'bg-primary border-primary' : 'bg-input border-border-strong',
               disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40',
+              'focus:outline-none ',
             ].join(' ')}
           >
             <span
@@ -378,7 +378,7 @@ export default function ToolPermissionGrid({
               disabled={!canAddCustom || customNameIsApprovalOnlyWildcard}
               title={t('tool_permission_grid.add_deny_title')}
               aria-label={t('tool_permission_grid.add_deny_title')}
-              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-error/30 text-status-error transition-colors hover:bg-status-error/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-error/30 text-status-error transition-colors hover:bg-status-error/10 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -388,7 +388,7 @@ export default function ToolPermissionGrid({
               disabled={!canAddCustom || customNameIsApprovalOnlyWildcard}
               title={t('tool_permission_grid.add_allow_title')}
               aria-label={t('tool_permission_grid.add_allow_title')}
-              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-success/30 text-status-success transition-colors hover:bg-status-success/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-success/30 text-status-success transition-colors hover:bg-status-success/10 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Check className="h-3.5 w-3.5" />
             </button>
@@ -398,7 +398,7 @@ export default function ToolPermissionGrid({
               disabled={!canAddCustom}
               title={t('tool_permission_grid.add_ask_title')}
               aria-label={t('tool_permission_grid.add_ask_title')}
-              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-warning/30 text-status-warning transition-colors hover:bg-status-warning/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-warning/30 text-status-warning transition-colors hover:bg-status-warning/10 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <AlertCircle className="h-3.5 w-3.5" />
             </button>
@@ -408,7 +408,7 @@ export default function ToolPermissionGrid({
               disabled={!canAddCustom}
               title={t('tool_permission_grid.add_auto_title')}
               aria-label={t('tool_permission_grid.add_auto_title')}
-              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-primary/30 text-primary transition-colors hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-primary/30 text-primary transition-colors hover:bg-primary/10 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Zap className="h-3.5 w-3.5" />
             </button>
@@ -623,7 +623,7 @@ function Segmented<T extends string>({
                 ? 'cursor-not-allowed opacity-40'
                 : 'cursor-pointer hover:bg-secondary',
               active ? TONE_CLASSES[opt.tone] : 'text-text-faint',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-focus)]/40',
+              'focus:outline-none ',
             ].join(' ')}
           >
             <Icon className="h-3.5 w-3.5" />

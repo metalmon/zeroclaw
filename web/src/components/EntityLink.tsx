@@ -35,8 +35,8 @@ export default function EntityLink({
       className={[
         'underline-offset-2 hover:underline rounded-[var(--radius-sm)]',
         'transition-colors duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]',
-        'focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'focus-visible:outline-none ',
+        ' ',
         className ?? '',
       ]
         .filter(Boolean)

@@ -20,7 +20,7 @@ export interface SectionTabSpec {
 interface SectionTabsProps {
   tabs: SectionTabSpec[];
   /** Tab key to activate when the URL has no `tab` query. Defaults to
-   *  the first tab. */
+   * the first tab. */
   defaultKey?: string;
 }
 
@@ -67,8 +67,8 @@ export default function SectionTabs({ tabs, defaultKey }: SectionTabsProps) {
               onClick={() => setActive(t.key)}
               className={[
                 'px-3 py-2 text-sm border-b-2 -mb-px transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2',
-                'focus-visible:ring-[var(--color-focus)] focus-visible:rounded-sm',
+                'focus-visible:outline-none ',
+                ' focus-visible:rounded-sm',
                 isActive
                   ? 'border-primary text-foreground font-medium'
                   : 'border-transparent text-muted-foreground hover:text-text-secondary',

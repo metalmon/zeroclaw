@@ -2,12 +2,12 @@
 //
 // A single ~300px column that replaces the old section-list → overview →
 // alias-list drill-down. It shows, top to bottom:
-//   1. a search box that filters across every section AND every configured
-//      entity (alias) at once;
-//   2. the sections grouped by the caller-provided GROUP_ORDER, each a
-//      collapsible row;
-//   3. under an expanded section, its CONFIGURED entities (aliases) as
-//      selectable rows, lazily fetched the first time the section opens.
+// 1. a search box that filters across every section AND every configured
+// entity (alias) at once;
+// 2. the sections grouped by the caller-provided GROUP_ORDER, each a
+// collapsible row;
+// 3. under an expanded section, its CONFIGURED entities (aliases) as
+// selectable rows, lazily fetched the first time the section opens.
 //
 // Selecting an entity NAVIGATES to that entity's existing form URL so the
 // address bar stays the source of truth — deep-linking and the existing
@@ -54,16 +54,16 @@ interface SectionNavigatorProps {
   /** Navigate to an entity's form URL. */
   onNavigate: (url: string) => void;
   /** Select a section itself (flat / backend-picker sections, or section
-   *  header click). Navigates to /config/<key>. */
+   * header click). Navigates to /config/<key>. */
   onSelectSection: (key: string) => void;
   /** Trigger the existing add-alias flow for a section (parent owns the
-   *  modal/prompt + selectSectionItem call). */
+   * modal/prompt + selectSectionItem call). */
   onAddToSection: (section: SectionInfo) => void;
   /** Bump to force expanded sections to re-fetch their entities (e.g. after
-   *  an add/delete/reload). */
+   * an add/delete/reload). */
   refreshKey: number;
   /** Extra classes for the root (e.g. responsive visibility / flyout
-   *  positioning from the parent). */
+   * positioning from the parent). */
   className?: string;
 }
 
@@ -110,9 +110,9 @@ export default function SectionNavigator({
 
   // Enumerate the configured entities (aliases) for a section, by shape.
   // Reuses the SAME endpoints the old AliasListView / SectionOverview used:
-  //   one_tier_alias_map → getMapKeys(section.key)
-  //   typed_family_map   → configured types via getSectionPicker, then
-  //                         getMapKeys(section.key + '.' + type) per type
+  // one_tier_alias_map → getMapKeys(section.key)
+  // typed_family_map → configured types via getSectionPicker, then
+  // getMapKeys(section.key + '.' + type) per type
   const loadEntities = useCallback(
     async (section: SectionInfo): Promise<NavEntity[]> => {
       if (section.shape === "one_tier_alias_map") {
@@ -371,7 +371,7 @@ export default function SectionNavigator({
           className={[
             "w-full flex items-center gap-2 rounded-[var(--radius-sm)] mx-1.5 pl-5 pr-2.5 py-1.5",
             "text-sm text-left transition-colors truncate",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-inset",
+            "focus-visible:outline-none ",
             sel
               ? "bg-primary/10 text-primary font-medium"
               : "text-text-secondary hover:bg-secondary/60 hover:text-foreground",
@@ -426,7 +426,7 @@ export default function SectionNavigator({
                       className={[
                         "mx-1.5 flex items-center justify-between gap-2 rounded-[var(--radius-sm)]",
                         "px-2.5 py-1.5 text-sm text-left transition-colors",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-inset",
+                        "focus-visible:outline-none ",
                         active
                           ? "bg-primary/10 text-primary font-medium"
                           : "text-text-secondary hover:bg-secondary/60 hover:text-foreground",
@@ -451,7 +451,7 @@ export default function SectionNavigator({
                     className={[
                       "mx-1.5 flex items-center justify-between gap-2 rounded-[var(--radius-sm)]",
                       "px-2.5 py-1.5 text-sm text-left transition-colors",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-inset",
+                      "focus-visible:outline-none ",
                       sel
                         ? "bg-primary/10 text-primary font-medium"
                         : "text-text-secondary hover:bg-secondary/60 hover:text-foreground",
@@ -537,7 +537,7 @@ export default function SectionNavigator({
                         }
                         className={[
                           "flex-1 min-w-0 text-left text-sm py-1.5 pr-1 transition-colors truncate rounded-[var(--radius-sm)]",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-inset",
+                          "focus-visible:outline-none ",
                           active || sectionSelected
                             ? "text-primary font-medium"
                             : "text-text-secondary group-hover:text-foreground",

@@ -1,5 +1,5 @@
 // Picker view used by /config to mirror the TUI's
-//   ZeroClaw Sections › Providers › [filter:_____] › <pickable list>
+// ZeroClaw Sections › Providers › [filter:_____] › <pickable list>
 // flow. Items come from /api/config/sections/<section> (gateway derives
 // them from list_providers / selectable_memory_backends / schema-walk).
 //
@@ -28,12 +28,12 @@ interface SectionPickerProps {
   /** Called when the user picks an item. */
   onPick: (item: PickerItem) => void;
   /** Esc key handler — typically the parent's "advance / next section"
-   *  action, so keyboard-only users can skip the picker without picking. */
+   * action, so keyboard-only users can skip the picker without picking. */
   onSkip?: () => void;
   /** Optional Back button (wizard: previous section; config: hide). */
   onBack?: () => void;
   /** Bump to force a re-fetch of items/badges (e.g. after a pick writes the
-   *  config server-side and the "active" badge needs to move). */
+   * config server-side and the "active" badge needs to move). */
   reloadKey?: number;
 }
 
@@ -138,7 +138,7 @@ export default function SectionPicker({
         }}
         onKeyDown={handleKey}
         placeholder={t("section_picker.filter_placeholder")}
-        className="w-full px-3 py-2.5 text-sm rounded-[var(--radius-md)] bg-input border border-border text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+        className="w-full px-3 py-2.5 text-sm rounded-[var(--radius-md)] bg-input border border-border text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-border-strong "
       />
 
       <div

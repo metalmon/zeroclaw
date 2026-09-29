@@ -41,7 +41,7 @@ const CONTROL_CLASS =
   'px-2 py-1 text-xs rounded-[var(--radius-md)] border border-border ' +
   'bg-input text-foreground placeholder:text-text-faint ' +
   'focus-visible:outline-none focus-visible:border-primary ' +
-  'focus-visible:ring-1 focus-visible:ring-primary';
+  ' ';
 
 interface FilterState {
   q: string;
@@ -636,7 +636,7 @@ function FilterableValue({
         type="button"
         onClick={onClick}
         title={`${t('logs.filter_where_prefix')}${attrKey} = ${value}`}
-        className="rounded-[var(--radius-sm)] px-0.5 -mx-0.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-pointer"
+        className="rounded-[var(--radius-sm)] px-0.5 -mx-0.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none cursor-pointer"
       >
         {value}
       </button>
@@ -679,7 +679,7 @@ function LogRow({
             type="button"
             onClick={() => onFilterAction(event.event.action)}
             title={`${t('logs.filter_where_prefix')}event.action = ${event.event.action}`}
-            className="rounded-[var(--radius-sm)] px-0.5 -mx-0.5 transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-pointer"
+            className="rounded-[var(--radius-sm)] px-0.5 -mx-0.5 transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none cursor-pointer"
           >
             {event.event.action}
           </button>

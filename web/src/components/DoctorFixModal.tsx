@@ -13,8 +13,8 @@ export interface DoctorFixModalProps {
   /** Whether the modal is mounted/visible. */
   open: boolean;
   /** Dotted config entity prefix to edit, e.g. `providers.models.openai.ss`
-   *  or `channels.discord.gnosis`. FieldForm fetches and renders every field
-   *  under this prefix and owns its own Save. */
+   * or `channels.discord.gnosis`. FieldForm fetches and renders every field
+   * under this prefix and owns its own Save. */
   prefix: string;
   /** Human-friendly entity name shown in the header (e.g. `openai.ss`). */
   entity: string;
@@ -102,7 +102,7 @@ export default function DoctorFixModal({
             type="button"
             onClick={onClose}
             aria-label={t('common.close')}
-            className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+            className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none "
           >
             <X className="h-4 w-4" />
           </button>
@@ -117,7 +117,7 @@ export default function DoctorFixModal({
         <div className="flex items-center justify-between gap-2 px-6 py-4 border-t border-border">
           <Link
             to={href}
-            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-border bg-transparent px-3.5 text-sm font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-border bg-transparent px-3.5 text-sm font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none "
           >
             {t('doctor_fix.open_full_page')}
             <ExternalLink className="h-3.5 w-3.5" />

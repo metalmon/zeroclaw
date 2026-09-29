@@ -9,8 +9,8 @@
 // with the updated, de-duplicated, order-preserving array.
 //
 // Used by:
-//  * FieldForm — for schema-driven `*.allowed_tools` string-array fields.
-//  * Cron — for the Add/Edit job `allowed_tools` field.
+// * FieldForm — for schema-driven `*.allowed_tools` string-array fields.
+// * Cron — for the Add/Edit job `allowed_tools` field.
 //
 // i18n: user-facing copy is routed through t() under the `tool_picker.`
 // namespace (plus shared `common.` keys); see @/lib/i18n.
@@ -268,7 +268,7 @@ export default function ToolPicker({
                   onClick={() => removeChip(name)}
                   disabled={disabled}
                   aria-label={`${t('tool_picker.remove_prefix')}${name}`}
-                  className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center self-stretch rounded-full hover:bg-primary/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center self-stretch rounded-full hover:bg-primary/20 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -314,7 +314,7 @@ export default function ToolPicker({
                     ? t('tool_picker.deselect_all_aria_prefix')
                     : t('tool_picker.select_all_aria_prefix')
                 }${t('tool_picker.group_agent')}`}
-                className="text-[10px] font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40 rounded cursor-pointer"
+                className="text-[10px] font-medium text-primary hover:underline focus:outline-none rounded cursor-pointer"
               >
                 {agentAllSelected
                   ? t('tool_picker.deselect_all')
@@ -331,7 +331,7 @@ export default function ToolPicker({
                     ? t('tool_picker.deselect_all_aria_prefix')
                     : t('tool_picker.select_all_aria_prefix')
                 }${t('tool_picker.group_cli')}`}
-                className="text-[10px] font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]/40 rounded cursor-pointer"
+                className="text-[10px] font-medium text-primary hover:underline focus:outline-none rounded cursor-pointer"
               >
                 {cliAllSelected
                   ? t('tool_picker.deselect_all')
@@ -506,7 +506,7 @@ function ToolRow({
         }
       }}
       className={[
-        'flex min-h-[44px] items-start gap-2.5 px-3 py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-focus)]/40',
+        'flex min-h-[44px] items-start gap-2.5 px-3 py-2.5 transition-colors focus:outline-none ',
         disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
         selected ? 'bg-primary/10' : 'hover:bg-secondary/60',
       ].join(' ')}

@@ -118,9 +118,9 @@ export default function Canvas() {
   }, 5000);
 
   // Build srcdoc HTML for the iframe — avoids needing allow-same-origin to
-  // access contentDocument.  Content types that don't need scripts get a
+  // access contentDocument. Content types that don't need scripts get a
   // restrictive CSP meta tag; only the explicit `html` content type can
-  // execute scripts inside the opaque-origin sandbox.  Every other content
+  // execute scripts inside the opaque-origin sandbox. Every other content
   // type — including `eval` and any unrecognised type — renders an inert
   // no-script document, so a previous frame's srcdoc can never remain
   // visible or active across a content_type transition.
@@ -135,14 +135,14 @@ export default function Canvas() {
     const fontUi = cs.getPropertyValue('--font-sans').trim() || 'system-ui,sans-serif';
 
     // CSP that blocks all scripts — used for non-interactive content types
-    // and for the inert placeholder.  object-src 'none' is required
+    // and for the inert placeholder. object-src 'none' is required
     // separately because in the absence of a default-src directive,
     // object-src would otherwise fall back to * and allow <object>,
     // <embed>, and <applet> to load external content from these frames.
     const noScriptCsp =
       '<meta http-equiv="Content-Security-Policy" content="script-src \'none\'; object-src \'none\'">';
 
-    // Inert placeholder document.  Used for `eval` (where iframe rendering
+    // Inert placeholder document. Used for `eval` (where iframe rendering
     // is intentionally a no-op and execution happens out of band) and as
     // the deny-by-default fallback for any unrecognised content_type.
     // Replacing the previous srcdoc with this guarantees that stale frame
@@ -190,7 +190,7 @@ export default function Canvas() {
     }
 
     // Unrecognised content_type — render inert rather than defaulting to
-    // scriptable HTML.  Future content types must be added explicitly above.
+    // scriptable HTML. Future content types must be added explicitly above.
     return inertDoc;
   }, [currentFrame]);
 
@@ -313,7 +313,7 @@ export default function Canvas() {
           onChange={(e) => setCanvasIdInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSwitchCanvas()}
           placeholder={t('canvas.canvas_id_placeholder')}
-          className="h-9 px-3 rounded-[var(--radius-md)] text-sm border border-border bg-input text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
+          className="h-9 px-3 rounded-[var(--radius-md)] text-sm border border-border bg-input text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-primary/40"
         />
         <Button size="default" onClick={handleSwitchCanvas}>
           {t('canvas.switch')}

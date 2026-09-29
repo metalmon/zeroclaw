@@ -535,7 +535,7 @@ export default function AcpConsole() {
               value={selectedAgentAlias ?? ''}
               onChange={(event) => setSelectedAgentAlias(event.target.value || null)}
               disabled={agentsLoading || !hasEnabledAgent || busy}
-              className="h-9 min-w-0 max-w-full rounded-[var(--radius-md)] border border-border bg-input px-3 text-[13px] font-medium text-text-secondary disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
+              className="h-9 min-w-0 max-w-full rounded-[var(--radius-md)] border border-border bg-input px-3 text-[13px] font-medium text-text-secondary disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:border-primary/40"
               aria-label={t('acp.agent_select_label')}
               title={t('acp.agent_select_label')}
             >
@@ -657,7 +657,7 @@ export default function AcpConsole() {
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               rows={3}
-              className="min-h-20 flex-1 resize-none rounded-[var(--radius-md)] border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
+              className="min-h-20 flex-1 resize-none rounded-[var(--radius-md)] border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-primary/40"
               placeholder={t('acp.prompt_placeholder')}
             />
             <Button type="submit" size="default" disabled={!canSend} className="sm:w-32">

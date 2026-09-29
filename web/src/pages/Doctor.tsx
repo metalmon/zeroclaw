@@ -24,11 +24,11 @@ type Severity = DiagResult['severity'];
  * its deep-link. The same parse drives both the inline "fix in a modal" flow
  * (via `prefix`, which FieldForm fetches its fields under) and the "Open
  * config" / "Open full page →" deep-link (`href`).
- *  - `prefix` — dotted config entity prefix, e.g. `providers.models.openai.ss`
- *               or `channels.discord.gnosis`.
- *  - `href`   — the in-app route to the full config page for that entity
- *               (carries `?tab=model` for model findings).
- *  - `label`  — the action label ("Open config").
+ * - `prefix` — dotted config entity prefix, e.g. `providers.models.openai.ss`
+ * or `channels.discord.gnosis`.
+ * - `href` — the in-app route to the full config page for that entity
+ * (carries `?tab=model` for model findings).
+ * - `label` — the action label ("Open config").
  */
 interface RemediationTarget {
   prefix: string;
@@ -43,10 +43,10 @@ interface RemediationTarget {
  * "openai.ss: no model configured", "discord.gnosis: …") and resolve both the
  * editable entity prefix and its deep-link. Returns `null` when no parseable
  * entity is present (the caller then falls back to the coarse `/config` link).
- *  - parsed model finding   → prefix `providers.models.<type>.<alias>`,
- *                             href `/config/providers.models/<type>/<alias>[?tab=model]`
- *  - parsed channel finding → prefix `channels.<type>.<alias>`,
- *                             href `/config/channels/<type>/<alias>`
+ * - parsed model finding → prefix `providers.models.<type>.<alias>`,
+ * href `/config/providers.models/<type>/<alias>[?tab=model]`
+ * - parsed channel finding → prefix `channels.<type>.<alias>`,
+ * href `/config/channels/<type>/<alias>`
  */
 function remediationTarget(result: DiagResult): RemediationTarget | null {
   if (result.severity === 'ok') return null;
@@ -131,7 +131,7 @@ function SeverityFilterToggle({
       title={active ? `${t('doctor.hide_prefix')}${label}` : `${t('doctor.show_prefix')}${label}`}
       className={[
         'inline-flex items-center gap-2 rounded-[var(--radius-md)] border px-2.5 py-1 transition-colors duration-150 cursor-pointer select-none',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]',
+        'focus-visible:outline-none ',
         active
           ? 'border-primary bg-primary/10 text-foreground'
           : 'border-border bg-transparent text-muted-foreground opacity-60 hover:opacity-100 hover:border-border-strong',
@@ -341,7 +341,7 @@ export default function Doctor() {
                           <button
                             type="button"
                             onClick={() => setFixTarget(target)}
-                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2.5 text-[13px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] cursor-pointer"
+                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2.5 text-[13px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none cursor-pointer"
                           >
                             {target.label}
                             <ArrowRight className="h-3.5 w-3.5" />
@@ -350,7 +350,7 @@ export default function Doctor() {
                         {link && (
                           <Link
                             to={link[0]}
-                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2.5 text-[13px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+                            className="inline-flex h-7 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2.5 text-[13px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none "
                           >
                             {link[1]}
                             <ArrowRight className="h-3.5 w-3.5" />

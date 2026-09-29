@@ -270,7 +270,7 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         title={t('agent.sessions')}
-        className="flex items-center gap-2 px-3 h-7 rounded-[var(--radius-md)] text-xs font-medium border border-border bg-secondary text-text-secondary transition-colors hover:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+        className="flex items-center gap-2 px-3 h-7 rounded-[var(--radius-md)] text-xs font-medium border border-border bg-secondary text-text-secondary transition-colors hover:text-foreground hover:border-border-strong focus-visible:outline-none "
       >
         <MessagesSquare className="h-3.5 w-3.5" />
         <span className="max-w-[160px] truncate">{activeLabel}</span>
@@ -338,7 +338,7 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
                     aria-label={t('agent.session_rename')}
                     aria-invalid={renameFailed}
                     aria-describedby={renameFailed ? `session-rename-error-${row.id}` : undefined}
-                    className="w-full px-2 h-7 rounded-[var(--radius-md)] text-xs border border-border bg-card text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+                    className="w-full px-2 h-7 rounded-[var(--radius-md)] text-xs border border-border bg-card text-foreground focus-visible:outline-none "
                   />
                   {renameFailed && (
                     <p

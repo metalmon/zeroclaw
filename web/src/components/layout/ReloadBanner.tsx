@@ -18,9 +18,9 @@ interface BannerState {
  * Layout-level banner. Polls the gateway for two distinct reload triggers:
  *
  * - `pending_reload`: config writes have landed in this session, subsystems
- *   may need a reload to apply (channels rebind, providers swap keys, etc.).
+ * may need a reload to apply (channels rebind, providers swap keys, etc.).
  * - `drifted`: on-disk config diverges from the running daemon's loaded
- *   state, typically because an external editor touched the file.
+ * state, typically because an external editor touched the file.
  *
  * Hidden when both signals are clear. Shows the same `ReloadDaemonButton`
  * the Config page already uses — when reload completes, both signals clear
@@ -135,7 +135,7 @@ export default function ReloadBanner() {
         onClick={() => setDismissedSig(sig)}
         aria-label={t('reload_banner.dismiss')}
         title={t('reload_banner.dismiss')}
-        className="flex-shrink-0 p-1 rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+        className="flex-shrink-0 p-1 rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none "
       >
         <X className="h-4 w-4" />
       </button>

@@ -187,7 +187,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
           onClick={() => setCreating((v) => !v)}
           title={t('dir_picker.new_folder_here')}
           aria-label={t('dir_picker.new_folder_here')}
-          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none "
         >
           <FolderPlus className="h-3.5 w-3.5" />
         </button>
@@ -196,7 +196,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
           onClick={reload}
           title={t('common.refresh')}
           aria-label={t('common.refresh')}
-          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none "
         >
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
@@ -246,7 +246,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
             <button
               type="button"
               onClick={() => setCwd(parent)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-text-secondary transition-colors hover:bg-[var(--color-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-focus)]"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-text-secondary transition-colors hover:bg-[var(--color-hover)] focus-visible:outline-none "
             >
               <ArrowUp className="h-3.5 w-3.5 flex-shrink-0" />
               {t('dir_picker.up_one_level')}
@@ -273,7 +273,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
                   <button
                     type="button"
                     onClick={() => enterDir(entry.name)}
-                    className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left text-foreground transition-colors hover:bg-[var(--color-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-focus)]"
+                    className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left text-foreground transition-colors hover:bg-[var(--color-hover)] focus-visible:outline-none "
                   >
                     <FolderOpen className="h-3.5 w-3.5 flex-shrink-0 text-primary" />
                     <span className="flex-1 min-w-0 truncate">{entry.name}</span>
@@ -285,7 +285,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
                     disabled={busyDir === entry.name}
                     title={`${t('dir_picker.delete_prefix')}shared/${cwd ? `${cwd}/` : ''}${entry.name}`}
                     aria-label={`${t('dir_picker.delete_prefix')}shared/${cwd ? `${cwd}/` : ''}${entry.name}`}
-                    className="px-2 text-status-error opacity-60 transition-colors hover:opacity-100 hover:bg-status-error/10 disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-focus)]"
+                    className="px-2 text-status-error opacity-60 transition-colors hover:opacity-100 hover:bg-status-error/10 disabled:opacity-30 focus-visible:outline-none "
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

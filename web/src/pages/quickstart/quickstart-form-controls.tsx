@@ -2,9 +2,9 @@ import { Badge } from "../../components/ui/Badge";
 import { t } from "../../lib/i18n";
 
 const INPUT_CLASS =
-  "w-full h-9 px-3 rounded-[var(--radius-md)] border border-border bg-input text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40";
+  "w-full h-9 px-3 rounded-[var(--radius-md)] border border-border bg-input text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-primary/40";
 const TEXTAREA_CLASS =
-  "w-full px-3 py-2 rounded-[var(--radius-md)] border border-border bg-input text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40";
+  "w-full px-3 py-2 rounded-[var(--radius-md)] border border-border bg-input text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-primary/40";
 const MUTED = { color: "var(--color-muted-foreground)" } as const;
 
 export function LabeledInput({

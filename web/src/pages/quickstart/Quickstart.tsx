@@ -41,18 +41,18 @@ import { LabeledInput } from "./quickstart-form-controls";
 // Shared tokenized field control classes. Calm input surface with an accent
 // focus ring — replaces the legacy `input-electric` utility.
 const INPUT_CLASS =
-  "w-full h-9 px-3 rounded-[var(--radius-md)] border border-border bg-input text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40";
+  "w-full h-9 px-3 rounded-[var(--radius-md)] border border-border bg-input text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-primary/40";
 const TEXTAREA_CLASS =
-  "w-full px-3 py-2 rounded-[var(--radius-md)] border border-border bg-input text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40";
+  "w-full px-3 py-2 rounded-[var(--radius-md)] border border-border bg-input text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-primary/40";
 
 interface StagedProvider {
   provider_type: string;
   alias: string;
   model: string;
   /** Round-trip of `FieldDescriptor.key` -> user-typed value.
-   *  The web surface knows nothing about which keys exist; the
-   *  daemon authors them via `/api/quickstart/fields` and consumes
-   *  them on the way back. */
+   * The web surface knows nothing about which keys exist; the
+   * daemon authors them via `/api/quickstart/fields` and consumes
+   * them on the way back. */
   fields: Record<string, string>;
 }
 

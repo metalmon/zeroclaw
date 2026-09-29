@@ -73,7 +73,7 @@ export default function AgentCard({ agent, onSelect, selected = false }: AgentCa
         'border-b border-border last:border-b-0',
         'transition-colors duration-150 cursor-pointer',
         'hover:bg-[var(--color-hover)]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-focus)]',
+        'focus-visible:outline-none ',
         selected ? 'bg-secondary' : '',
       ]
         .filter(Boolean)
@@ -145,7 +145,7 @@ export default function AgentCard({ agent, onSelect, selected = false }: AgentCa
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') openChat(e);
         }}
-        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-[var(--radius-md)] flex-shrink-0 text-xs font-medium cursor-pointer bg-primary/10 text-primary hover:bg-primary/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-[var(--radius-md)] flex-shrink-0 text-xs font-medium cursor-pointer bg-primary/10 text-primary hover:bg-primary/20 transition-colors focus-visible:outline-none "
       >
         <MessageSquare className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">{t('agent.open_chat')}</span>

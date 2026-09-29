@@ -45,8 +45,8 @@ const monoSizes = [13, 14, 15, 16, 17];
 // accent-tinted token surface. Both carry a strong focus-visible ring.
 const chipBase =
   'border transition-colors duration-150 focus-visible:outline-none ' +
-  'focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] ' +
-  'focus-visible:ring-offset-2 focus-visible:ring-offset-background cursor-pointer';
+  ' ' +
+  ' cursor-pointer';
 const chipInactive =
   'border-border text-muted-foreground bg-transparent ' +
   'hover:bg-[var(--color-hover)] hover:text-foreground';
@@ -158,7 +158,7 @@ export function SettingsModal({ open, onClose }: Props) {
             type="button"
             onClick={onClose}
             aria-label={t('common.close')}
-            className="h-11 w-11 -mr-2 rounded-[var(--radius-md)] flex items-center justify-center text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+            className="h-11 w-11 -mr-2 rounded-[var(--radius-md)] flex items-center justify-center text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none "
           >
             <X size={16} />
           </button>
@@ -203,8 +203,8 @@ export function SettingsModal({ open, onClose }: Props) {
                       className={[
                         'flex flex-col gap-2 p-2 rounded-[var(--radius-lg)] border text-left',
                         'transition-colors duration-150 cursor-pointer',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]',
-                        'focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                        'focus-visible:outline-none ',
+                        ' ',
                         active
                           ? 'border-primary bg-primary/10'
                           : 'border-border hover:bg-[var(--color-hover)] hover:border-border-strong',

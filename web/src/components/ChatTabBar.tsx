@@ -146,7 +146,7 @@ export function ChatTabBar({
               className={[
                 'group flex items-center gap-2 h-8 pl-2.5 pr-1.5 rounded-[var(--radius-md)]',
                 'text-xs font-medium whitespace-nowrap transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]',
+                'focus-visible:outline-none ',
                 active
                   ? 'bg-primary/10 text-primary border border-primary/30'
                   : 'border border-transparent text-text-secondary hover:bg-[var(--color-hover)] hover:text-foreground',
@@ -191,7 +191,7 @@ export function ChatTabBar({
             aria-expanded={pickerOpen}
             aria-label={t('workspace.open_chat')}
             title={t('workspace.open_chat')}
-            className="inline-flex items-center justify-center h-8 w-8 rounded-[var(--radius-md)] text-text-secondary border border-transparent transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-[var(--radius-md)] text-text-secondary border border-transparent transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none "
           >
             <Plus className="h-4 w-4" />
           </button>

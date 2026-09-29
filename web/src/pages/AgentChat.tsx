@@ -55,7 +55,7 @@ function ContextBar({ contextMaxTokens, contextInputTokens }: {
   const empty = Math.max(0, barWidth - filled);
   const bar = '█'.repeat(filled) + '░'.repeat(empty);
 
-  const label = `ctx: ${fmtTokens(used).padStart(7)} / ${fmtTokens(max).padStart(7)}  [${bar}]  ${pct.toFixed(0)}%`;
+  const label = `ctx: ${fmtTokens(used).padStart(7)} / ${fmtTokens(max).padStart(7)} [${bar}] ${pct.toFixed(0)}%`;
 
   return (
     <div className="px-4 py-1.5 border-b text-[11px] font-mono flex items-center gap-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-card)' }}>
@@ -556,7 +556,7 @@ export function AgentChatInner({
           <span className="text-sm font-medium text-foreground">{agentAlias}</span>
           <Link
             to={`/agent/${encodeURIComponent(agentAlias)}/workspace`}
-            className="inline-flex items-center gap-1 px-2 h-6 rounded-[var(--radius-md)] text-xs font-medium text-text-secondary transition-colors hover:text-foreground hover:bg-[var(--color-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+            className="inline-flex items-center gap-1 px-2 h-6 rounded-[var(--radius-md)] text-xs font-medium text-text-secondary transition-colors hover:text-foreground hover:bg-[var(--color-hover)] focus-visible:outline-none "
             title={t('agentchat.open_workspace')}
           >
             <FolderOpen className="h-3.5 w-3.5" />
@@ -572,7 +572,7 @@ export function AgentChatInner({
               type="button"
               onClick={() => setShowModelDropdown((v) => !v)}
               disabled={modelLoading || typing || (availableModels.length === 0 && currentModel === null)}
-              className="flex items-center gap-2 px-3 h-7 rounded-[var(--radius-md)] text-xs font-medium border border-border bg-secondary text-text-secondary transition-colors hover:text-foreground hover:border-border-strong disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+              className="flex items-center gap-2 px-3 h-7 rounded-[var(--radius-md)] text-xs font-medium border border-border bg-secondary text-text-secondary transition-colors hover:text-foreground hover:border-border-strong disabled:opacity-50 focus-visible:outline-none "
             >
               <span className="max-w-[180px] truncate">
                 {modelLoading

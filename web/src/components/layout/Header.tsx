@@ -98,7 +98,7 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
         <button
           type="button"
           onClick={onOpenPalette}
-          className="hidden sm:flex h-8 items-center gap-2 rounded-lg border border-border bg-transparent pl-2.5 pr-2 text-sm text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          className="hidden sm:flex h-8 items-center gap-2 rounded-lg border border-border bg-transparent pl-2.5 pr-2 text-sm text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none "
           aria-label={t('nav.cmdk.placeholder')}
         >
           <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -122,7 +122,7 @@ export default function Header({ onMenuToggle, onOpenPalette }: HeaderProps) {
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-1.5 h-8 pl-1 pr-1.5 rounded-full hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="flex items-center gap-1.5 h-8 pl-1 pr-1.5 rounded-full hover:bg-accent transition-colors focus-visible:outline-none "
             aria-label={t('header.account')}
             aria-expanded={menuOpen}
           >

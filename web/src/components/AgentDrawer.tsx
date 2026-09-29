@@ -124,7 +124,7 @@ export default function AgentDrawer({
               type="button"
               onClick={() => onToggle(agent)}
               disabled={toggling}
-              className="rounded-full transition-opacity disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+              className="rounded-full transition-opacity disabled:opacity-50 focus-visible:outline-none "
               aria-pressed={agent.enabled}
               aria-label={agent.enabled ? t('agent.disable') : t('agent.enable')}
               title={agent.enabled ? t('agent.disable') : t('agent.enable')}
