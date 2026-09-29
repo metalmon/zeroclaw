@@ -51,8 +51,8 @@
   --color-card: #faf8f5;
   --color-secondary: #fefdfb;
   --color-muted-foreground: #7f7870;
-  --color-border: #e5dfd5;
-  --color-border-strong: #bfb4a3;
+  --color-border: transparent;
+  --color-border-strong: transparent;
   --color-input: #faf8f5;
   /* primary = neutral warm ink (was --color-primary). NOT the beige hover. */
   --color-primary: #393530;
@@ -78,7 +78,7 @@
   --color-popover-foreground: var(--color-foreground);
   --color-secondary-foreground: var(--color-foreground);
   --color-muted: var(--color-secondary);
-  --color-ring: var(--color-primary);
+  --color-ring: transparent;
   --color-brand-foreground: #faf8f5;
   --color-sidebar-foreground: var(--color-muted-foreground);
   --color-sidebar-accent: var(--color-accent);
@@ -140,7 +140,7 @@
   --create-panel-min-width: 480px;
 
   /* Focus ring color — tracks the per-theme primary ink. */
-  --color-focus: var(--color-primary);
+  --color-focus: transparent;
 
   --color-overlay: rgba(0, 0, 0, 0.5);
   --color-hover: rgba(38, 33, 32, 0.05);
@@ -195,8 +195,10 @@ h1, h2 {
 /* Focus ring — solid accent for a strong, legible, WCAG-friendly ring
    (was a low-contrast 30%-alpha color). */
 :focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
+  /* No focus outline anywhere — a 2px-transparent outline still flashes while
+     an element with a transition animates its outline-color to transparent,
+     so remove the outline entirely rather than making it transparent. */
+  outline: none;
 }
 
 :focus:not(:focus-visible) {
@@ -468,8 +470,10 @@ code, kbd, pre {
 
 .input-electric:focus {
   outline: none;
-  border-color: var(--color-accent-dim);
-  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  border-color: transparent;
+  box-shadow: none;
+  /* No outline/ring "обводка" on focus — indicate focus by lifting the fill. */
+  background: var(--color-secondary);
 }
 
 .input-electric::placeholder {

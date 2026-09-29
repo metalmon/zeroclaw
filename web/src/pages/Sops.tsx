@@ -197,7 +197,7 @@ function DiagnosticsPanel({ graph }: { graph: SopGraph }) {
   );
 }
 
-const INPUT_CLS = 'w-full rounded border border-border bg-card px-2 py-1 text-foreground';
+const INPUT_CLS = 'input-electric w-full px-3 py-2 text-sm';
 
 function StepBodyEditor({
   value,

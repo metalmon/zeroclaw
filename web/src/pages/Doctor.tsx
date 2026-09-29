@@ -130,11 +130,11 @@ function SeverityFilterToggle({
       aria-pressed={active}
       title={active ? `${t('doctor.hide_prefix')}${label}` : `${t('doctor.show_prefix')}${label}`}
       className={[
-        'inline-flex items-center gap-2 rounded-[var(--radius-md)] border px-2.5 py-1 transition-colors duration-150 cursor-pointer select-none',
+        'inline-flex items-center gap-2 rounded-[var(--radius-md)] px-2.5 py-1 transition-colors duration-150 cursor-pointer select-none',
         'focus-visible:outline-none ',
         active
-          ? 'border-primary bg-primary/10 text-foreground'
-          : 'border-border bg-transparent text-muted-foreground opacity-60 hover:opacity-100 hover:border-border-strong',
+          ? 'bg-primary/10 text-foreground'
+          : 'bg-transparent text-muted-foreground opacity-60 hover:opacity-100',
       ].join(' ')}
     >
       {icon}

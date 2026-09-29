@@ -87,7 +87,7 @@ export default function ReloadBanner() {
   }
 
   return (
-    <div className="px-4 py-2.5 border-b border-status-warning/25 bg-status-warning/[0.06] flex items-center gap-2.5">
+    <div className="px-4 py-2.5 border-b border-status-warning/25 bg-status-warning/[0.06] flex w-full items-start gap-2.5">
       <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-status-warning" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground">

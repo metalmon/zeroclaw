@@ -131,7 +131,7 @@ export function Select({
           ref={listRef}
           id={listboxId}
           role="listbox"
-          className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card p-1 shadow-[var(--color-shadow-md)]"
+          className="absolute z-30 mt-1 max-h-60 w-max min-w-full max-w-[min(24rem,90vw)] overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card p-1 shadow-[var(--color-shadow-md)]"
         >
           {options.map((o, i) => {
             const sel = o.value === value;

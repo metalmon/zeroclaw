@@ -560,7 +560,11 @@ export default function AcpConsole() {
             </select>
             <Badge tone={statusTone}>
               <Plug className="h-3 w-3" />
-              {status}
+              {status === 'connected'
+                ? t('agent.connected_status')
+                : status === 'connecting'
+                  ? t('agent.connecting')
+                  : t('agent.disconnected_status')}
             </Badge>
             <Button variant="ghost" size="default" onClick={connect} disabled={!hasEnabledAgent}>
               <RefreshCw className="h-4 w-4" />
