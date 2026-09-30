@@ -2762,6 +2762,7 @@ mod sop_step_reassembly_tests {
             config.agents.insert(
                 alias.to_string(),
                 AliasedAgentConfig {
+                    display_name: None,
                     enabled: true,
                     model_provider: "ollama.p".into(),
                     risk_profile: profile.into(),
@@ -2840,6 +2841,7 @@ mod sop_step_reassembly_tests {
         config.agents.insert(
             "restricted".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 enabled: true,
                 model_provider: "ollama.p".into(),
                 risk_profile: "restricted".into(),

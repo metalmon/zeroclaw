@@ -3692,6 +3692,7 @@ export const ru: Record<string, string> = {
   'config.fieldlabel.Directory': "Каталог",
   'config.fieldlabel.Discover Dms': "Обнаружение ЛС",
   'config.fieldlabel.Dispatch': "Диспетчеризация",
+  'config.fieldlabel.Display Name': "Отображаемое имя",
   'config.fieldlabel.Dm Mention Patterns': "Шаблоны упоминаний в ЛС",
   'config.fieldlabel.Dm Only': "Только ЛС",
   'config.fieldlabel.Dm Policy': "Политика ЛС",

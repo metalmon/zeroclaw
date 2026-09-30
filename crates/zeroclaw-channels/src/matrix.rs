@@ -5387,6 +5387,7 @@ mod tests {
             config.agents.insert(
                 "local".to_string(),
                 AliasedAgentConfig {
+                    display_name: None,
                     transcription_provider: "local_whisper.stoa".into(),
                     ..AliasedAgentConfig::default()
                 },

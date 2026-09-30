@@ -4313,6 +4313,7 @@ mod tests {
         config.agents.insert(
             "ops".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 mcp_bundles: vec!["b".to_string()],
                 ..AliasedAgentConfig::default()
             },
@@ -4749,6 +4750,7 @@ mod tests {
         config.agents.insert(
             agent_alias.clone(),
             AliasedAgentConfig {
+                display_name: None,
                 mcp_bundles: vec!["b".to_string()],
                 ..AliasedAgentConfig::default()
             },
@@ -4863,6 +4865,7 @@ mod tests {
         config.agents.insert(
             "ops".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 mcp_bundles: vec!["ab".to_string()],
                 ..AliasedAgentConfig::default()
             },
@@ -4948,6 +4951,7 @@ mod tests {
         config.agents.insert(
             "ops".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 mcp_bundles: vec!["b".to_string()],
                 ..AliasedAgentConfig::default()
             },
@@ -5232,6 +5236,7 @@ mod tests {
         config.agents.insert(
             agent_alias.clone(),
             AliasedAgentConfig {
+                display_name: None,
                 mcp_bundles: vec!["reconnect-bundle".to_string()],
                 ..AliasedAgentConfig::default()
             },
@@ -5744,6 +5749,7 @@ mod tests {
         config.agents.insert(
             agent_alias.clone(),
             zeroclaw_config::schema::AliasedAgentConfig {
+                display_name: None,
                 mcp_bundles: vec!["ab-bundle".to_string()],
                 ..zeroclaw_config::schema::AliasedAgentConfig::default()
             },

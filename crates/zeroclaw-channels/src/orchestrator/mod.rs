@@ -28454,6 +28454,7 @@ BTC is currently around $65,000 based on latest tool output."#
         prompt_config.agents.insert(
             "test-agent".to_string(),
             zeroclaw_config::schema::AliasedAgentConfig {
+                display_name: None,
                 channels: vec![
                     "test-channel.default".into(),
                     "other-channel.default".into(),
@@ -28464,6 +28465,7 @@ BTC is currently around $65,000 based on latest tool output."#
         prompt_config.agents.insert(
             "peer-agent".to_string(),
             zeroclaw_config::schema::AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["test-channel.default".into()],
                 ..zeroclaw_config::schema::AliasedAgentConfig::default()
             },
@@ -28471,6 +28473,7 @@ BTC is currently around $65,000 based on latest tool output."#
         prompt_config.agents.insert(
             "other-agent".to_string(),
             zeroclaw_config::schema::AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["other-channel.default".into()],
                 ..zeroclaw_config::schema::AliasedAgentConfig::default()
             },
@@ -29035,6 +29038,7 @@ BTC is currently around $65,000 based on latest tool output."#
         prompt_config.agents.insert(
             "test-agent".to_string(),
             zeroclaw_config::schema::AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["test-channel.default".into()],
                 ..zeroclaw_config::schema::AliasedAgentConfig::default()
             },
@@ -29042,6 +29046,7 @@ BTC is currently around $65,000 based on latest tool output."#
         prompt_config.agents.insert(
             "peer-agent".to_string(),
             zeroclaw_config::schema::AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["test-channel.default".into()],
                 ..zeroclaw_config::schema::AliasedAgentConfig::default()
             },

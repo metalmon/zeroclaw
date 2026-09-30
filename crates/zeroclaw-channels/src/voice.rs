@@ -148,6 +148,7 @@ mod tests {
         config.agents.insert(
             "default".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 tts_provider: "edge.default".into(),
                 ..AliasedAgentConfig::default()
             },
@@ -185,6 +186,7 @@ mod tests {
         config.agents.insert(
             "default".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 transcription_provider: "groq.default".into(),
                 ..AliasedAgentConfig::default()
             },
@@ -226,12 +228,14 @@ mod tests {
         config.agents.insert(
             "background".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 ..AliasedAgentConfig::default()
             },
         );
         config.agents.insert(
             "primary".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 tts_provider: "edge.default".into(),
                 ..AliasedAgentConfig::default()
             },

@@ -5389,6 +5389,7 @@ mod tests {
             },
         );
         let target_config = AliasedAgentConfig {
+            display_name: None,
             model_provider: "custom.local".into(),
             risk_profile: "agentic_test".into(),
             runtime_profile: "agentic_test".into(),
@@ -6004,6 +6005,7 @@ mod tests {
             config.agents.insert(
                 alias.to_string(),
                 AliasedAgentConfig {
+                    display_name: None,
                     risk_profile: profile.into(),
                     model_provider: "ollama.default".into(),
                     ..AliasedAgentConfig::default()
@@ -6692,6 +6694,7 @@ mod tests {
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 model_provider: "custom.local".into(),
                 risk_profile: "caller_profile".into(),
                 delegates: vec![
@@ -6714,6 +6717,7 @@ mod tests {
             config.agents.insert(
                 alias.to_string(),
                 AliasedAgentConfig {
+                    display_name: None,
                     model_provider: "custom.local".into(),
                     risk_profile: risk_profile.into(),
                     ..AliasedAgentConfig::default()
@@ -6801,6 +6805,7 @@ mod tests {
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 model_provider: "custom.local".into(),
                 risk_profile: "caller_profile".into(),
                 delegates: vec![DelegateTargetConfig {
@@ -6813,6 +6818,7 @@ mod tests {
         config.agents.insert(
             "target".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 model_provider: "custom.local".into(),
                 risk_profile: "target_profile".into(),
                 runtime_profile: "target_agentic".into(),
@@ -7729,6 +7735,7 @@ mod tests {
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "caller".into(),
                 model_provider: "custom.unused".into(),
                 delegates: vec![DelegateTargetConfig {
@@ -7739,6 +7746,7 @@ mod tests {
             },
         );
         let target = AliasedAgentConfig {
+            display_name: None,
             risk_profile: "target".into(),
             runtime_profile: "target-runtime".into(),
             model_provider: "custom.unused".into(),
@@ -9485,6 +9493,7 @@ mod tests {
         config.agents.insert(
             caller_alias.to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "narrow".into(),
                 runtime_profile: "narrow".into(),
                 model_provider: "ollama.caller".into(),
@@ -9494,6 +9503,7 @@ mod tests {
         config.agents.insert(
             target_alias.to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: pick(target_max_actions > caller_max_actions).into(),
                 runtime_profile: pick(target_max_actions > caller_max_actions).into(),
                 model_provider: "ollama.target".into(),
@@ -9545,6 +9555,7 @@ mod tests {
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "caller_profile".into(),
                 runtime_profile: "bounded".into(),
                 model_provider: "ollama.caller".into(),
@@ -9564,6 +9575,7 @@ mod tests {
         config.agents.insert(
             "target".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "target_profile".into(),
                 runtime_profile: "bounded".into(),
                 model_provider: "ollama.target".into(),
@@ -9573,6 +9585,7 @@ mod tests {
         config.agents.insert(
             "peer".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "peer_profile".into(),
                 runtime_profile: "bounded".into(),
                 model_provider: "ollama.peer".into(),
@@ -10058,6 +10071,7 @@ mod tests {
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "caller".into(),
                 model_provider: "ollama.caller".into(),
                 delegates: vec![DelegateTargetConfig {
@@ -10070,6 +10084,7 @@ mod tests {
         config.agents.insert(
             "target".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "target".into(),
                 model_provider: "ollama.target".into(),
                 ..AliasedAgentConfig::default()
@@ -10151,6 +10166,7 @@ mod tests {
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "caller".into(),
                 model_provider: "ollama.caller".into(),
                 delegates: vec![DelegateTargetConfig::bounded("target")],
@@ -10160,6 +10176,7 @@ mod tests {
         config.agents.insert(
             "target".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "target".into(),
                 runtime_profile: "agentic".into(),
                 model_provider: "ollama.target".into(),
@@ -10268,6 +10285,7 @@ mod tests {
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "caller".into(),
                 model_provider: "ollama.caller".into(),
                 delegates: vec![DelegateTargetConfig::bounded("target")],
@@ -10277,6 +10295,7 @@ mod tests {
         config.agents.insert(
             "target".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "target".into(),
                 runtime_profile: "agentic".into(),
                 model_provider: "ollama.target".into(),
@@ -10366,6 +10385,7 @@ mod tests {
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "caller".into(),
                 model_provider: "ollama.caller".into(),
                 delegates: vec![DelegateTargetConfig::bounded("target")],
@@ -10375,6 +10395,7 @@ mod tests {
         config.agents.insert(
             "target".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "target".into(),
                 runtime_profile: "agentic".into(),
                 model_provider: "ollama.target".into(),
@@ -10458,6 +10479,7 @@ mod tests {
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "caller".into(),
                 model_provider: "ollama.caller".into(),
                 delegates: vec![DelegateTargetConfig {
@@ -10470,6 +10492,7 @@ mod tests {
         config.agents.insert(
             "target".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "target".into(),
                 runtime_profile: "agentic".into(),
                 model_provider: "ollama.target".into(),
@@ -10569,6 +10592,7 @@ command = "echo hi"
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "caller".into(),
                 model_provider: "ollama.caller".into(),
                 delegates: vec![DelegateTargetConfig {
@@ -10706,6 +10730,7 @@ command = "rm independent-delegate-marker"
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "caller".into(),
                 model_provider: "ollama.caller".into(),
                 delegates: vec![DelegateTargetConfig {
@@ -10887,6 +10912,7 @@ command = "rm independent-delegate-marker"
         config.agents.insert(
             "caller".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "broad".into(),
                 model_provider: "ollama.caller".into(),
                 ..AliasedAgentConfig::default()
@@ -10895,6 +10921,7 @@ command = "rm independent-delegate-marker"
         config.agents.insert(
             "target".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "narrow".into(),
                 model_provider: "ollama.target".into(),
                 ..AliasedAgentConfig::default()
@@ -11014,6 +11041,7 @@ command = "rm independent-delegate-marker"
             config.agents.insert(
                 agent.to_string(),
                 AliasedAgentConfig {
+                    display_name: None,
                     model_provider: "custom.primary".into(),
                     risk_profile: "delegating".into(),
                     runtime_profile: "review".into(),

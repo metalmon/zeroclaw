@@ -1601,6 +1601,7 @@ mod tests {
         config.agents.insert(
             "default".to_string(),
             zeroclaw_config::schema::AliasedAgentConfig {
+                display_name: None,
                 transcription_provider: "groq.default".into(),
                 ..zeroclaw_config::schema::AliasedAgentConfig::default()
             },

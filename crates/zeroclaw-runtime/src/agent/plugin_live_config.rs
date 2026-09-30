@@ -170,6 +170,7 @@ fn live_agent_config(tmp: &TempDir, plugins_root: &std::path::Path, instance_key
     config.agents.insert(
         "plugin-agent".to_string(),
         AliasedAgentConfig {
+            display_name: None,
             model_provider: "custom.default".into(),
             risk_profile: "test-profile".into(),
             ..AliasedAgentConfig::default()
@@ -235,6 +236,7 @@ fn live_delegating_agent_config(
     config.agents.insert(
         "plugin-target".to_string(),
         AliasedAgentConfig {
+            display_name: None,
             model_provider: "custom.default".into(),
             risk_profile: "test-profile".into(),
             runtime_profile: "agentic-profile".into(),

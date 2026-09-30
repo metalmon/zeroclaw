@@ -198,6 +198,7 @@ fn build_agent_with_runtime(
         .tool_dispatcher(Box::new(NativeToolDispatcher))
         .workspace_dir(workspace.path().to_path_buf())
         .config(zeroclaw_config::schema::AliasedAgentConfig {
+            display_name: None,
             resolved,
             ..zeroclaw_config::schema::AliasedAgentConfig::default()
         })

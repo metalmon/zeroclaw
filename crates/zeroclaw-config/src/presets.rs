@@ -651,6 +651,7 @@ mod tests {
         config.agents.insert(
             "local_agent".into(),
             crate::schema::AliasedAgentConfig {
+                display_name: None,
                 runtime_profile: crate::providers::RuntimeProfileRef::new("local_small"),
                 ..crate::schema::AliasedAgentConfig::default()
             },

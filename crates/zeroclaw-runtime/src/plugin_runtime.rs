@@ -452,6 +452,7 @@ mod tests {
             ),
         ]);
         let agent = AliasedAgentConfig {
+            display_name: None,
             channels: vec![
                 ChannelRef::new("plugin.ops"),
                 ChannelRef::new("plugin.backup"),

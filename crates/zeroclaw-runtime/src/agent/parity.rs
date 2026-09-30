@@ -358,6 +358,7 @@ async fn parity_l2_sop_live_step_agent_isolation() {
     config.agents.insert(
         "restricted".to_string(),
         AliasedAgentConfig {
+            display_name: None,
             enabled: true,
             model_provider: "ollama.restricted-provider".into(),
             risk_profile: "restricted".into(),

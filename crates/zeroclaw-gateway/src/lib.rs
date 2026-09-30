@@ -4649,6 +4649,7 @@ mod tests {
         use zeroclaw_config::schema::AliasedAgentConfig;
 
         let enabled = || AliasedAgentConfig {
+            display_name: None,
             enabled: true,
             ..AliasedAgentConfig::default()
         };
@@ -4670,6 +4671,7 @@ mod tests {
         config.agents.insert(
             "aaa_disabled".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 enabled: false,
                 ..AliasedAgentConfig::default()
             },
@@ -5890,6 +5892,7 @@ path = "{trigger_path}"
         // Enabled agent whose `risk_profile` does not resolve. No
         // matching [risk_profiles.<key>] entry exists.
         let agent = AliasedAgentConfig {
+            display_name: None,
             enabled: true,
             risk_profile: "definitely_not_configured".into(),
             ..AliasedAgentConfig::default()
@@ -10372,6 +10375,7 @@ path = "{trigger_path}"
         config.agents.insert(
             "alpha".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 enabled: true,
                 ..AliasedAgentConfig::default()
             },
@@ -10379,6 +10383,7 @@ path = "{trigger_path}"
         config.agents.insert(
             "beta".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 enabled: true,
                 channels: vec![ChannelRef::new("linq.work")],
                 ..AliasedAgentConfig::default()
@@ -10438,6 +10443,7 @@ path = "{trigger_path}"
         config.agents.insert(
             "alpha".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 enabled: true,
                 ..AliasedAgentConfig::default()
             },
@@ -10445,6 +10451,7 @@ path = "{trigger_path}"
         config.agents.insert(
             "beta".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 enabled: false,
                 channels: vec![ChannelRef::new("linq.work")],
                 ..AliasedAgentConfig::default()

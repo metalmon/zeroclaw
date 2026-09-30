@@ -6471,6 +6471,7 @@ mod tests {
         cfg.agents.insert(
             "writable_sibling".into(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "default".into(),
                 ..AliasedAgentConfig::default()
             },
@@ -6478,12 +6479,14 @@ mod tests {
         cfg.agents.insert(
             "readonly_sibling".into(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "default".into(),
                 ..AliasedAgentConfig::default()
             },
         );
 
         let mut test_agent = AliasedAgentConfig {
+            display_name: None,
             risk_profile: "default".into(),
             ..AliasedAgentConfig::default()
         };
@@ -6583,6 +6586,7 @@ mod tests {
         cfg.agents.insert(
             "agent_a".into(),
             AliasedAgentConfig {
+                display_name: None,
                 risk_profile: "default".into(),
                 ..AliasedAgentConfig::default()
             },
@@ -6624,6 +6628,7 @@ mod tests {
             },
         );
         let mut test_agent = AliasedAgentConfig {
+            display_name: None,
             risk_profile: "default".into(),
             ..AliasedAgentConfig::default()
         };

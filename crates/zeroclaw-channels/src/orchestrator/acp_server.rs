@@ -624,15 +624,16 @@ impl AcpServer {
         // `authorize_principal_for_alias` permitted-decision, inlined here
         // to avoid an audit-log record per listed alias). The list never
         // exceeds what `session/new` would admit for this principal.
-        // `AliasedAgentConfig` has no per-agent display-name field today,
-        // so `display_name` falls back to the alias.
+        // `display_name` is the agent's configured friendly name
+        // (`AliasedAgentConfig::display_name`); it falls back to the alias when
+        // unset or blank.
         //
         // `live_allowed` is recomputed from THIS `config` snapshot, not read
         // from `self.principal.allowed_aliases` — the frozen snapshot taken
         // at connect time — so an `[[authz.profiles]]` edit changes the next
         // `initialize` roster with no reconnect required.
         let live_allowed = Self::live_allowed_agents(&config, &self.principal);
-        let mut entitled_aliases: Vec<&String> = config
+        let mut entitled: Vec<_> = config
             .agents
             .iter()
             .filter(|(alias, agent)| {
@@ -641,15 +642,18 @@ impl AcpServer {
                         .principal
                         .is_entitled_to_alias(alias.as_str(), &live_allowed)
             })
-            .map(|(alias, _)| alias)
             .collect();
-        entitled_aliases.sort();
-        let agents: Vec<serde_json::Value> = entitled_aliases
+        entitled.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+        let agents: Vec<serde_json::Value> = entitled
             .into_iter()
-            .map(|alias| {
+            .map(|(alias, agent)| {
                 serde_json::json!({
                     "alias": alias,
-                    "display_name": alias,
+                    "display_name": agent
+                        .display_name
+                        .as_deref()
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or(alias.as_str()),
                     "default": config.acp.default_agent.as_deref() == Some(alias.as_str()),
                 })
             })
@@ -4160,7 +4164,13 @@ mod tests {
         use zeroclaw_api::principal::{AuthMethod, Principal, PrincipalId};
 
         let cwd = tempfile::tempdir().unwrap();
-        let config = crm_hr_config_with_principal_bound_to_crm(cwd.path(), "alice");
+        let mut config = crm_hr_config_with_principal_bound_to_crm(cwd.path(), "alice");
+        // A configured friendly name flows through to the roster's `display_name`.
+        config
+            .agents
+            .get_mut("crm-bot")
+            .expect("crm-bot is configured")
+            .display_name = Some("CRM Bot".to_string());
         let principal = Principal::new(PrincipalId::from("alice"), "alice", AuthMethod::Native);
         let server = AcpServer::new(config, AcpServerConfig::default()).with_principal(principal);
 
@@ -4176,6 +4186,11 @@ mod tests {
             aliases,
             vec!["crm-bot"],
             "hr-bot is configured and dispatchable but alice is not entitled to it"
+        );
+        assert_eq!(
+            agents[0]["display_name"].as_str(),
+            Some("CRM Bot"),
+            "roster display_name reflects the configured AliasedAgentConfig::display_name"
         );
     }
 

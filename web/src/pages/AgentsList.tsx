@@ -108,7 +108,10 @@ export default function AgentsList() {
                 }
                 title={
                   <span className="flex items-center gap-2">
-                    <span className="font-medium">{agent.alias}</span>
+                    <span className="font-medium">{agent.displayName || agent.alias}</span>
+                    {agent.displayName ? (
+                      <span className="text-xs font-mono text-muted-foreground">{agent.alias}</span>
+                    ) : null}
                     <Badge tone={agent.enabled ? 'ok' : 'neutral'}>
                       <Power className="h-3 w-3" />
                       {agent.enabled ? t('agent.enabled') : t('agent.disabled')}

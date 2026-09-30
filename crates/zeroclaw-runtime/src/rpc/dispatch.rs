@@ -6100,6 +6100,7 @@ mod tests {
         config.agents.insert(
             "unscoped-agent".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 enabled: true,
                 model_provider: template.model_provider.clone(),
                 risk_profile: template.risk_profile.clone(),
@@ -6158,6 +6159,7 @@ mod tests {
         config.agents.insert(
             "unscoped-agent".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 enabled: true,
                 model_provider: template.model_provider.clone(),
                 risk_profile: template.risk_profile.clone(),
@@ -8273,6 +8275,7 @@ mod tests {
         agents.insert(
             "coder".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 enabled: true,
                 runtime_profile: "coding".into(),
                 // No provider context_window configured — the broken path
@@ -8325,6 +8328,7 @@ mod tests {
         agents.insert(
             "coder".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 enabled: true,
                 runtime_profile: "coding".into(),
                 // No provider context_window: the broken path would emit 32_000.

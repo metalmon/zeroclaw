@@ -478,6 +478,7 @@ mod tests {
         config.agents.insert(
             "aa".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.prod".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -485,6 +486,7 @@ mod tests {
         config.agents.insert(
             "beta".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.prod".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -492,6 +494,7 @@ mod tests {
         config.agents.insert(
             "gamma".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.prod".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -528,6 +531,7 @@ mod tests {
         config.agents.insert(
             "aa".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.prod".into(), "telegram.dev".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -535,6 +539,7 @@ mod tests {
         config.agents.insert(
             "beta".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.prod".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -542,6 +547,7 @@ mod tests {
         config.agents.insert(
             "gamma".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.dev".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -583,6 +589,7 @@ mod tests {
         config.agents.insert(
             "aa".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.prod".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -590,6 +597,7 @@ mod tests {
         config.agents.insert(
             "beta".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.prod".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -597,6 +605,7 @@ mod tests {
         config.agents.insert(
             "gamma".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.dev".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -627,6 +636,7 @@ mod tests {
         config.agents.insert(
             "aa".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.prod".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -634,6 +644,7 @@ mod tests {
         config.agents.insert(
             "beta".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.prod".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -677,6 +688,7 @@ mod tests {
                 config.agents.insert(
                     alias.clone(),
                     AliasedAgentConfig {
+                        display_name: None,
                         channels: vec![channel_ref.clone().into()],
                         ..AliasedAgentConfig::default()
                     },
@@ -707,6 +719,7 @@ mod tests {
         config.agents.insert(
             "aa".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: sender_channels,
                 ..AliasedAgentConfig::default()
             },
@@ -966,6 +979,7 @@ mod tests {
         config.agents.insert(
             "sender".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.prod".into()],
                 ..AliasedAgentConfig::default()
             },
@@ -973,6 +987,7 @@ mod tests {
         config.agents.insert(
             "recipient".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec!["telegram.prod".into()],
                 model_provider: "ollama.default".into(),
                 risk_profile: "default".into(),

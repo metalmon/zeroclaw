@@ -1523,6 +1523,7 @@ mod tests {
         cfg.agents.insert(
             "scribe".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 memory: AgentMemoryConfig {
                     backend: ConfigBackend::Markdown,
                 },
@@ -1586,6 +1587,7 @@ mod tests {
         cfg.agents.insert(
             "scribe".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 memory: AgentMemoryConfig {
                     backend: ConfigBackend::Markdown,
                 },
@@ -1623,6 +1625,7 @@ mod tests {
         cfg.agents.insert(
             "ghost".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 memory: AgentMemoryConfig {
                     backend: ConfigBackend::None,
                 },
@@ -1670,6 +1673,7 @@ mod tests {
         cfg.agents.insert(
             "scribe".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 memory: AgentMemoryConfig {
                     backend: ConfigBackend::Markdown,
                 },
@@ -1704,6 +1708,7 @@ mod tests {
         cfg.agents.insert(
             "scribe".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 memory: AgentMemoryConfig {
                     backend: ConfigBackend::Sqlite,
                 },

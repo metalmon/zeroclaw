@@ -2501,6 +2501,7 @@ permissions = ["http_client"]
         config.agents = HashMap::from([(
             "operator".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 channels: vec![zeroclaw_config::providers::ChannelRef::new("plugin.ops")],
                 ..AliasedAgentConfig::default()
             },

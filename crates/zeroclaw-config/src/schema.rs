@@ -3715,6 +3715,13 @@ pub struct AliasedAgentConfig {
     #[tab(General)]
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// Human-friendly name shown for this agent in clients and the dashboard in
+    /// place of the alias. Optional; the alias is used when unset. Purely a
+    /// display label — the alias stays the identifier in URLs, workspace paths,
+    /// and config keys.
+    #[tab(General)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     /// Channel aliases this agent handles (e.g. `["telegram.<alias>", "discord.<alias>"]`).
     /// Each entry is a `ChannelRef` resolving through `[channels.<type>.<alias>]`;
     /// `Config::validate()` fails loud on dangling references.
@@ -3907,6 +3914,7 @@ impl Default for AliasedAgentConfig {
     fn default() -> Self {
         Self {
             enabled: true,
+            display_name: None,
             channels: Vec::new(),
             model_provider: crate::providers::ModelProviderRef::default(),
             risk_profile: crate::providers::RiskProfileRef::default(),
@@ -26505,6 +26513,7 @@ untrusted_outbound_redact = false
         config.agents.insert(
             "aaatools".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 mcp_bundles: vec!["aa".to_string()],
                 ..AliasedAgentConfig::default()
             },
@@ -26743,6 +26752,7 @@ open_skills_enabled = false
         config.agents.insert(
             "override".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 runtime_profile: "compact_profile".into(),
                 ..AliasedAgentConfig::default()
             },
@@ -26750,6 +26760,7 @@ open_skills_enabled = false
         config.agents.insert(
             "unset".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 runtime_profile: "unset_profile".into(),
                 ..AliasedAgentConfig::default()
             },
@@ -26790,6 +26801,7 @@ open_skills_enabled = false
         config.agents.insert(
             "pinned_full".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 runtime_profile: "full_profile".into(),
                 ..AliasedAgentConfig::default()
             },
@@ -29337,6 +29349,7 @@ runtime_profile = "long_turn"
         config.agents.insert(
             "default".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 runtime_profile: "long_turn".into(),
                 ..AliasedAgentConfig::default()
             },
@@ -40955,6 +40968,7 @@ allowed_users = []
         // Agent that targets the model provider, risk profile, and
         // channel. Default workspace is jailed.
         let agent = AliasedAgentConfig {
+            display_name: None,
             channels: vec![ChannelRef::new("telegram.draft")],
             model_provider: crate::providers::ModelProviderRef::new("anthropic.default"),
             risk_profile: "default".into(),
@@ -41186,6 +41200,7 @@ allowed_users = []
 
         // Add a second agent on Postgres.
         let beta = AliasedAgentConfig {
+            display_name: None,
             channels: vec![crate::providers::ChannelRef::new("telegram.draft")],
             model_provider: crate::providers::ModelProviderRef::new("anthropic.default"),
             risk_profile: "default".into(),
@@ -41235,6 +41250,7 @@ allowed_users = []
         config.memory.consolidation_extract_facts = true;
 
         let beta = AliasedAgentConfig {
+            display_name: None,
             channels: vec![crate::providers::ChannelRef::new("telegram.draft")],
             model_provider: crate::providers::ModelProviderRef::new("anthropic.default"),
             risk_profile: "default".into(),
@@ -41326,6 +41342,7 @@ allowed_users = []
             .discord
             .insert("ops".to_string(), DiscordConfig::default());
         let beta = AliasedAgentConfig {
+            display_name: None,
             channels: vec![crate::providers::ChannelRef::new("discord.ops")],
             model_provider: crate::providers::ModelProviderRef::new("anthropic.default"),
             risk_profile: "default".into(),
@@ -41360,6 +41377,7 @@ allowed_users = []
 
         // Beta on the same telegram channel.
         let beta = AliasedAgentConfig {
+            display_name: None,
             channels: vec![crate::providers::ChannelRef::new("telegram.draft")],
             model_provider: crate::providers::ModelProviderRef::new("anthropic.default"),
             risk_profile: "default".into(),
@@ -43653,6 +43671,7 @@ group_policy = "all"
             cfg.agents.insert(
                 alias.to_string(),
                 AliasedAgentConfig {
+                    display_name: None,
                     risk_profile: profile.into(),
                     model_provider: "ollama.default".into(),
                     ..AliasedAgentConfig::default()

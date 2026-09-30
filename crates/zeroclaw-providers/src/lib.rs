@@ -4182,11 +4182,13 @@ mod tests {
             .anthropic
             .insert("work".to_string(), work_alias);
         let work_agent = AliasedAgentConfig {
+            display_name: None,
             model_provider: "anthropic.work".into(),
             ..AliasedAgentConfig::default()
         };
         config.agents.insert("work_agent".to_string(), work_agent);
         let default_agent = AliasedAgentConfig {
+            display_name: None,
             model_provider: "anthropic.default".into(),
             ..AliasedAgentConfig::default()
         };
@@ -4280,6 +4282,7 @@ mod tests {
             .openai
             .insert("alias".to_string(), alias);
         let agent = AliasedAgentConfig {
+            display_name: None,
             model_provider: "openai.alias".into(),
             ..AliasedAgentConfig::default()
         };
@@ -5058,6 +5061,7 @@ mod tests {
         config.agents.insert(
             "openai_agent".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 model_provider: "openai.gpt".into(),
                 ..AliasedAgentConfig::default()
             },
@@ -5065,6 +5069,7 @@ mod tests {
         config.agents.insert(
             "anthropic_agent".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 model_provider: "anthropic.sonnet".into(),
                 ..AliasedAgentConfig::default()
             },

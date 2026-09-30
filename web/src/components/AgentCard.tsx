@@ -86,8 +86,13 @@ export default function AgentCard({ agent, onSelect, selected = false }: AgentCa
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm font-semibold truncate text-foreground">
-            {agent.alias}
+            {agent.displayName || agent.alias}
           </span>
+          {agent.displayName ? (
+            <span className="text-xs font-mono text-muted-foreground truncate flex-shrink-0">
+              {agent.alias}
+            </span>
+          ) : null}
           <Badge tone={agent.enabled ? 'ok' : 'neutral'} className="flex-shrink-0">
             <Power className="h-3 w-3" />
             {agent.enabled ? t('agent.enabled') : t('agent.disabled')}

@@ -5897,6 +5897,7 @@ mod tests {
             zeroclaw_config::schema::RiskProfileConfig::default(),
         );
         let agent_cfg = zeroclaw_config::schema::AliasedAgentConfig {
+            display_name: None,
             model_provider: "custom.default".into(),
             risk_profile: "test-profile".into(),
             ..zeroclaw_config::schema::AliasedAgentConfig::default()
@@ -5963,6 +5964,7 @@ mod tests {
         config.agents.insert(
             "test-agent".to_string(),
             AliasedAgentConfig {
+                display_name: None,
                 model_provider: "openai.codex".into(),
                 risk_profile: "test-profile".into(),
                 ..AliasedAgentConfig::default()
@@ -7389,6 +7391,7 @@ mod tests {
                 .expect("memory creation should succeed with valid config"),
         );
         let agent_config = zeroclaw_config::schema::AliasedAgentConfig {
+            display_name: None,
             resolved: zeroclaw_config::schema::ResolvedRuntime::default(),
             ..zeroclaw_config::schema::AliasedAgentConfig::default()
         };
@@ -10715,6 +10718,7 @@ mod tests {
         // Use a small limit so that pre-filling to the limit forces a trim on
         // the very first new turn.
         let agent_config = zeroclaw_config::schema::AliasedAgentConfig {
+            display_name: None,
             resolved: zeroclaw_config::schema::ResolvedRuntime::default(),
             ..zeroclaw_config::schema::AliasedAgentConfig::default()
         };
