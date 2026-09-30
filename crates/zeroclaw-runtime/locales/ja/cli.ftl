@@ -1,6 +1,6 @@
 cli-about = 最速で最小のAIアシスタント。
 cli-no-command-provided = コマンドが指定されていません。
-cli-try-quickstart = `zeroclaw quickstart` を試して、最初のエージェントを作成してください。
+cli-try-quickstart = `voltd quickstart` を試して、最初のエージェントを作成してください。
 cli-quickstart-about = 最初のエージェントをエンドツーエンドで作成
 cli-agent-about = AIエージェントループを開始
 cli-gateway-about = ゲートウェイサーバー (ウェブフック、ウェブソケット) を管理
@@ -22,8 +22,8 @@ cli-auth-about = プロバイダー サブスクリプション認証プロフ�
 cli-hardware-about = USBハードウェアを発見・内省
 cli-peripheral-about = ハードウェアペリフェラルを管理
 cli-memory-about = エージェントメモリエントリを管理
-cli-config-about = ZeroClaw設定を管理
-cli-update-about = ZeroClaw更新を確認・適用
+cli-config-about = Volt設定を管理
+cli-update-about = Volt更新を確認・適用
 cli-self-test-about = 診断自己テストを実行
 cli-completions-about = シェル補完スクリプトを生成
 cli-desktop-about = コンパニオンデスクトップアプリを起動、またはダウンロードページを開く
@@ -95,23 +95,23 @@ cli-skills-install-tier-official = {$name} v{$version} をインストール中 
 cli-skills-install-tier-community =
     {$name} v{$version} をインストール中 — コミュニティ提出
     このスキルは Volt による監査を受けていません。スキルの内容を確認し、
-    権限を付与したり本番環境で実行したりする前に `zeroclaw skills audit {$name}` を
+    権限を付与したり本番環境で実行したりする前に `voltd skills audit {$name}` を
     実行してください。
 cli-skills-add-scaffolded = スキル {$target} を {$dir} にスキャフォールドしました
 cli-skills-bundle-add-prompt =
     ディレクトリ '{$dir}' でskill-bundle '{$alias}' を作成するには、次を実行してください:
-    zeroclaw config map-key skill-bundles {$alias}
-    zeroclaw config set skill-bundles.{$alias}.directory {$dir}
+    voltd config map-key skill-bundles {$alias}
+    voltd config set skill-bundles.{$alias}.directory {$dir}
 
-    （`zeroclaw skills bundle add` による直接のバンドル作成は、config変更面を重複させてしまいます。）
+    （`voltd skills bundle add` による直接のバンドル作成は、config変更面を重複させてしまいます。）
 cli-skills-bundle-remove-prompt =
     skill-bundle '{$alias}' を削除するには、次を実行してください:
-    zeroclaw config map-key-delete skill-bundles {$alias}
+    voltd config map-key-delete skill-bundles {$alias}
 
     （configエントリを削除します。ディスク上のバンドルのディレクトリはそのまま残ります。）
 cli-skills-bundle-list-empty =
     スキルバンドルが設定されていません。
-    作成するには: zeroclaw config set skill-bundles.default.directory shared/skills/default
+    作成するには: voltd config set skill-bundles.default.directory shared/skills/default
 cli-skills-bundle-list-header = スキルバンドル ({$count}):
 cli-skills-bundle-entry = {$alias} -> {$dir}
 cli-skills-bundle-include = 含む: {$values}
@@ -165,19 +165,19 @@ cli-agent-long-about =
     設定された AI プロバイダーでインタラクティブなチャットセッションを起動します。単一ショットクエリの場合は --message を使用し、インタラクティブモードに入りません。
 
     例:
-    zeroclaw agent                              # インタラクティブセッション
-    zeroclaw agent -m "Summarize today's logs"  # 単一メッセージ
-    zeroclaw agent -p anthropic --model claude-sonnet-4-20250514
-    zeroclaw agent --peripheral nucleo-f401re:/dev/ttyACM0
+    voltd agent                              # インタラクティブセッション
+    voltd agent -m "Summarize today's logs"  # 単一メッセージ
+    voltd agent -p anthropic --model claude-sonnet-4-20250514
+    voltd agent --peripheral nucleo-f401re:/dev/ttyACM0
 cli-gateway-long-about =
     ゲートウェイサーバー（webhook、websocket）を管理します。
 
     受信 webhook イベントと WebSocket 接続を受け入れる HTTP/WebSocket ゲートウェイを起動、再起動、または検査します。
 
     例:
-    zeroclaw gateway start              # ゲートウェイを起動
-    zeroclaw gateway restart            # ゲートウェイを再起動
-    zeroclaw gateway get-paircode       # ペアリングコードを表示
+    voltd gateway start              # ゲートウェイを起動
+    voltd gateway restart            # ゲートウェイを再起動
+    voltd gateway get-paircode       # ペアリングコードを表示
 cli-acp-long-about =
     ACP サーバーを起動します（stdio 上の JSON-RPC 2.0）。
 
@@ -186,19 +186,19 @@ cli-acp-long-about =
     メソッド: initialize、session/new、session/prompt、session/stop。
 
     例:
-    zeroclaw acp                        # ACP サーバーを起動
-    zeroclaw acp --max-sessions 5       # 同時セッション数を制限
+    voltd acp                        # ACP サーバーを起動
+    voltd acp --max-sessions 5       # 同時セッション数を制限
 cli-daemon-long-about =
     長時間実行の自律型デーモンを起動します。
 
     完全な Volt ランタイムを起動します: ゲートウェイサーバー、すべての設定されたチャネル（Telegram、Discord、Slack など）、ハートビートモニター、および cron スケジューラー。これは本番環境またはオンアシスタントとして Volt を実行する推奨方法です。
 
-    デーモンを OS サービス（systemd/launchd）として登録し、ブート時に自動起動するには「zeroclaw service install」を使用してください。
+    デーモンを OS サービス（systemd/launchd）として登録し、ブート時に自動起動するには「voltd service install」を使用してください。
 
     例:
-    zeroclaw daemon                   # 設定デフォルトを使用
-    zeroclaw daemon -p 9090           # ポート 9090 のゲートウェイ
-    zeroclaw daemon --host 127.0.0.1  # ローカルホストのみ
+    voltd daemon                   # 設定デフォルトを使用
+    voltd daemon -p 9090           # ポート 9090 のゲートウェイ
+    voltd daemon --host 127.0.0.1  # ローカルホストのみ
 cli-cron-long-about =
     スケジュール済みタスクを設定および管理します。
 
@@ -207,58 +207,58 @@ cli-cron-long-about =
     Cron 式は標準 5 フィールド形式を使用します: 「min hour day month weekday」。タイムゾーンはデフォルトで UTC です。--tz と IANA タイムゾーン名で上書きしてください。
 
     例:
-    zeroclaw cron list
-    zeroclaw cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
-    zeroclaw cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
-    zeroclaw cron add '*/5 * * * *' 'echo ok' --agent sentinel
-    zeroclaw cron add-at 2099-01-15T14:00:00Z 'Send reminder' --agent sentinel --prompt
-    zeroclaw cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt
-    zeroclaw cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt
-    zeroclaw cron pause TASK_ID
-    zeroclaw cron update TASK_ID --expression '0 8 * * *' --tz Europe/London
+    voltd cron list
+    voltd cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
+    voltd cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
+    voltd cron add '*/5 * * * *' 'echo ok' --agent sentinel
+    voltd cron add-at 2099-01-15T14:00:00Z 'Send reminder' --agent sentinel --prompt
+    voltd cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt
+    voltd cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt
+    voltd cron pause TASK_ID
+    voltd cron update TASK_ID --expression '0 8 * * *' --tz Europe/London
 cli-channel-long-about =
     通信チャネルを管理します。
 
     Volt をメッセージングプラットフォームに接続するチャネルを追加、削除、一覧表示、送信、およびヘルスチェックします。サポートされるチャネルタイプ: telegram、discord、slack、whatsapp、matrix、imessage、email。
 
     例:
-    zeroclaw channel list
-    zeroclaw channel doctor
-    zeroclaw channel add telegram '{ "{" }"bot_token":"..."、"name":"my-bot"{ "}" }'
-    zeroclaw channel remove my-bot
-    zeroclaw channel bind-telegram zeroclaw_user
-    zeroclaw channel send 'Alert!' --channel-id telegram --recipient 123456789
+    voltd channel list
+    voltd channel doctor
+    voltd channel add telegram '{ "{" }"bot_token":"..."、"name":"my-bot"{ "}" }'
+    voltd channel remove my-bot
+    voltd channel bind-telegram zeroclaw_user
+    voltd channel send 'Alert!' --channel-id telegram --recipient 123456789
 cli-hardware-long-about =
     USB ハードウェアを検出して内省します。
 
     接続されている USB デバイスを列挙し、既知の開発ボード（STM32 Nucleo、Arduino、ESP32）を特定し、probe-rs/ST-Link 経由でチップ情報を取得します。
 
     例:
-    zeroclaw hardware discover
-    zeroclaw hardware introspect /dev/ttyACM0
-    zeroclaw hardware info --chip STM32F401RETx
+    voltd hardware discover
+    voltd hardware introspect /dev/ttyACM0
+    voltd hardware info --chip STM32F401RETx
 cli-peripheral-long-about =
     ハードウェアペリフェラルを管理します。
 
     エージェントにツール（GPIO、センサー、アクチュエーター）を公開するハードウェアボードを追加、一覧表示、フラッシュ、および設定します。サポートされるボード: nucleo-f401re、rpi-gpio、esp32、arduino-uno。
 
     例:
-    zeroclaw peripheral list
-    zeroclaw peripheral add nucleo-f401re /dev/ttyACM0
-    zeroclaw peripheral add rpi-gpio native
-    zeroclaw peripheral flash --port /dev/cu.usbmodem12345
-    zeroclaw peripheral flash-nucleo
+    voltd peripheral list
+    voltd peripheral add nucleo-f401re /dev/ttyACM0
+    voltd peripheral add rpi-gpio native
+    voltd peripheral flash --port /dev/cu.usbmodem12345
+    voltd peripheral flash-nucleo
 cli-memory-long-about =
     エージェントメモリエントリを管理します。
 
     エージェントが保存したメモリエントリを一覧表示、検査、クリアします。カテゴリとセッション別のフィルタリング、ページネーション、および確認付きバッククリアをサポートしています。
 
     例:
-    zeroclaw memory stats
-    zeroclaw memory list
-    zeroclaw memory list --category core --limit 10
-    zeroclaw memory get KEY
-    zeroclaw memory clear --category conversation --yes
+    voltd memory stats
+    voltd memory list
+    voltd memory list --category core --limit 10
+    voltd memory get KEY
+    voltd memory clear --category conversation --yes
 cli-config-long-about =
     Volt 設定を管理します。
 
@@ -269,18 +269,18 @@ cli-config-long-about =
     列挙フィールドは、値が省略された場合、インタラクティブ選択を提供します。
 
     例:
-    zeroclaw config list                                  # すべてのプロパティを一覧表示
-    zeroclaw config list --secrets                        # シークレットのみを一覧表示
-    zeroclaw config list --filter channels.matrix         # プレフィックスでフィルタリング
-    zeroclaw config get channels.matrix.mention-only      # 値を取得
-    zeroclaw config set channels.matrix.mention-only true # 値を設定
-    zeroclaw config set channels.matrix.access-token      # シークレット: マスクされた入力
-    zeroclaw config set channels.matrix.stream-mode       # 列挙: インタラクティブ選択
-    zeroclaw config init channels.matrix                  # デフォルト値でセクションを初期化
-    zeroclaw config schema                                # JSON Schema を stdout に出力
-    zeroclaw config schema > schema.json
+    voltd config list                                  # すべてのプロパティを一覧表示
+    voltd config list --secrets                        # シークレットのみを一覧表示
+    voltd config list --filter channels.matrix         # プレフィックスでフィルタリング
+    voltd config get channels.matrix.mention-only      # 値を取得
+    voltd config set channels.matrix.mention-only true # 値を設定
+    voltd config set channels.matrix.access-token      # シークレット: マスクされた入力
+    voltd config set channels.matrix.stream-mode       # 列挙: インタラクティブ選択
+    voltd config init channels.matrix                  # デフォルト値でセクションを初期化
+    voltd config schema                                # JSON Schema を stdout に出力
+    voltd config schema > schema.json
 
-    プロパティパスタブ補完は `zeroclaw completions <shell>` に自動的に含まれます。
+    プロパティパスタブ補完は `voltd completions <shell>` に自動的に含まれます。
 cli-update-long-about =
     Volt 更新を確認して適用します。
 
@@ -291,18 +291,18 @@ cli-update-long-about =
     最新ではなく特定のリリースをターゲットにするには --version を使用してください。
 
     例:
-    zeroclaw update                      # 最新をダウンロードしてインストール
-    zeroclaw update --check              # チェックのみ、インストールしない
-    zeroclaw update --force              # 確認なしでインストール
-    zeroclaw update --version 0.6.0      # 特定のバージョンをインストール
+    voltd update                      # 最新をダウンロードしてインストール
+    voltd update --check              # チェックのみ、インストールしない
+    voltd update --force              # 確認なしでインストール
+    voltd update --version 0.6.0      # 特定のバージョンをインストール
 cli-self-test-long-about =
     診断自己テストを実行して Volt インストールを検証します。
 
     デフォルトでは、ネットワークチェック（ゲートウェイヘルス、メモリラウンドトリップ）を含む完全なテストスイートを実行します。--quick を使用して、ネットワークチェックをスキップしてより高速なオフライン検証を実行してください。
 
     例:
-    zeroclaw self-test             # 完全なスイート
-    zeroclaw self-test --quick     # 高速チェックのみ（ネットワークなし）
+    voltd self-test             # 完全なスイート
+    voltd self-test --quick     # 高速チェックのみ（ネットワークなし）
 cli-skills-install-suggestion =
     このリクエストには `{$name}` スキルが必要なようですが、インストールされていません。
 
@@ -314,14 +314,14 @@ cli-plugin-install-suggestion =
     一致した機能: {$matched}
     次: `{$install_command}` を実行してインストールしてください。
 cli-completions-long-about =
-    `zeroclaw` のシェル補完スクリプトを生成します。
+    `voltd` のシェル補完スクリプトを生成します。
 
     スクリプトは stdout に出力されるため、直接ソースできます:
 
     例:
-    source <(zeroclaw completions bash)
-    zeroclaw completions zsh > ~/.zfunc/_zeroclaw
-    zeroclaw completions fish > ~/.config/fish/completions/zeroclaw.fish
+    source <(voltd completions bash)
+    voltd completions zsh > ~/.zfunc/_voltd
+    voltd completions fish > ~/.config/fish/completions/voltd.fish
 cli-desktop-long-about =
     Volt コンパニオンデスクトップアプリを起動します。
 
@@ -330,8 +330,8 @@ cli-desktop-long-about =
     --install を使用すると、プラットフォーム用のダウンロードページが開きます。それ自体は何もインストールしません。
 
     例:
-    zeroclaw desktop              # コンパニオンアプリを起動
-    zeroclaw desktop --install    # ダウンロードページを開く
+    voltd desktop              # コンパニオンアプリを起動
+    voltd desktop --install    # ダウンロードページを開く
 channel-needs-quickstart-reply = このエージェントはまだ完全にセットアップされていません。返信する前に、オペレーターがQuickstartを実行する必要があります。
 channel-whatsapp-web-feature-missing-warning = ⚠ WhatsApp Web は設定されていますが、'whatsapp-web' 機能がコンパイルされていません。
 channel-whatsapp-web-feature-missing-build = ビルド/実行: cargo build --features whatsapp-web
@@ -398,12 +398,12 @@ onboard-openai-auth-api-key = APIキー
 onboard-openai-auth-codex = Codexサブスクリプション
 onboard-openai-codex-followup =
     Codexサブスクリプションの認証はChatGPTアカウントを使用します。
-    エージェントを起動する前に `zeroclaw auth login --provider openai-codex` を実行して認証してください。
+    エージェントを起動する前に `voltd auth login --provider openai-codex` を実行して認証してください。
 cli-web-dist-dir-reason-tilde = 展開されない `~` で始まっています
 cli-web-dist-dir-reason-dollar = 展開されない `$` が含まれています
 cli-doctor-web-dist-dir-expansion-warning = gateway.web_dist_dir = "{$path}" — {$reason}。gateway.web_dist_dir はそのまま読み込まれるため、値を自分で展開してください（例: 絶対パス）
-cli-doctor-codex-auth-profile-no-slot = OpenAI Codex 認証情報にサインインしていますが、それを使用するモデルプロバイダースロットがありません。OpenAI プロバイダースロットで `requires_openai_auth = true` を設定し、エージェントの `model_provider` をそこへ向けるか、`zeroclaw quickstart` を実行してください。
-cli-doctor-codex-auth-slot-no-profile = OpenAI スロット {$slots} は `requires_openai_auth = true` を設定していますが、OpenAI Codex 認証情報にサインインしていません。`zeroclaw auth login --provider openai-codex` を実行してください。
+cli-doctor-codex-auth-profile-no-slot = OpenAI Codex 認証情報にサインインしていますが、それを使用するモデルプロバイダースロットがありません。OpenAI プロバイダースロットで `requires_openai_auth = true` を設定し、エージェントの `model_provider` をそこへ向けるか、`voltd quickstart` を実行してください。
+cli-doctor-codex-auth-slot-no-profile = OpenAI スロット {$slots} は `requires_openai_auth = true` を設定していますが、OpenAI Codex 認証情報にサインインしていません。`voltd auth login --provider openai-codex` を実行してください。
 cli-doctor-codex-auth-ok = OpenAI Codex 認証情報にサインインしており、モデルプロバイダースロットから参照されています。
 cli-doctor-systemd-linger-enabled = systemd ユーザー linger は有効です
 cli-doctor-systemd-linger-disabled = systemd ユーザー linger は無効です。ログアウト後にユーザーサービスが停止する可能性があります。有効化: loginctl enable-linger {$user}
@@ -414,8 +414,8 @@ cli-self-test-web-dist-dir-pass-literal = {$path}（リテラルパス）
 cli-self-test-web-dist-dir-fail-expansion = 警告: {$path} — {$reason}。gateway.web_dist_dir はそのまま読み込まれるため、値を自分で展開してください（例: 絶対パス）
 cli-service-systemd-linger-disabled-warning = systemd ユーザー linger は無効です。Volt のユーザーサービスはログアウト後に停止する可能性があります。有効化: loginctl enable-linger {$user}
 cli-peripherals-none = 周辺機器が設定されていません。
-cli-peripherals-add-hint = 次のコマンドで追加します: zeroclaw peripheral add <board> <path>
-cli-peripherals-add-example = {"  "}例: zeroclaw peripheral add nucleo-f401re <serial-path>
+cli-peripherals-add-hint = 次のコマンドで追加します: voltd peripheral add <board> <path>
+cli-peripherals-add-example = {"  "}例: voltd peripheral add nucleo-f401re <serial-path>
 cli-peripherals-config-hint = または config.toml に追加します:
 cli-peripherals-configured = 設定済みの周辺機器:
 cli-peripherals-already-configured = ボード {$board} ({$path}) は既に設定されています。
@@ -424,8 +424,8 @@ cli-peripherals-flash-needs-hardware = Arduino のフラッシュには 'hardwar
 cli-peripherals-unoq-needs-hardware = Uno Q のセットアップには 'hardware' 機能が必要です。
 cli-peripherals-nucleo-needs-hardware = Nucleo のフラッシュには 'hardware' 機能が必要です。
 cli-skills-none-installed = スキルがインストールされていません。
-cli-skills-create-hint = {"  "}作成: mkdir -p ~/.zeroclaw/workspace/skills/my-skill
-cli-skills-install-hint = {"  "}またはインストール: zeroclaw skills install <source>
+cli-skills-create-hint = {"  "}作成: mkdir -p ~/.voltd/workspace/skills/my-skill
+cli-skills-install-hint = {"  "}またはインストール: voltd skills install <source>
 cli-skills-installed-header = インストール済みのスキル ({$count}):
 cli-skills-list-group-bundle = バンドル: {$alias}
 cli-skills-list-group-agent = エージェント '{$alias}' によって読み込み
@@ -437,7 +437,7 @@ cli-skills-multiple-locations-path = スキル '{$name}' は複数の場所 ({$l
 cli-skills-tags = タグ:  {$tags}
 cli-skills-skipped-header = スキップ済み ({$count}):
 cli-skills-skipped-reason = {"    "}理由: {$reason}
-cli-skills-skipped-scripts-hint = {"    "}有効にするには、zeroclaw の設定で `skills.allow_scripts = true` を設定してください。
+cli-skills-skipped-scripts-hint = {"    "}有効にするには、voltd の設定で `skills.allow_scripts = true` を設定してください。
 cli-sop-none = SOP が見つかりません。
 cli-sop-pending-none = 承認待ちの SOP 実行はありません。
 cli-sop-pending-header = 承認待ちの SOP 実行:
@@ -518,7 +518,7 @@ cli-cron-delivery-disabled = 無効（出力はどこにも送信されません
 cli-no-command = コマンドが指定されていません。
 cli-press-enter = 終了するにはEnterキーを押してください...
 cli-quickstart-title = クイックスタート — 1つの動作するエージェントをエンドツーエンドで作成します。
-cli-quickstart-needs-tty = クイックスタートは対話式で、stdin と stderr にターミナルが必要です。対話式シェルから実行するか、ヘッドレス設定には `zeroclaw config set <path> <value>` を使用してください。
+cli-quickstart-needs-tty = クイックスタートは対話式で、stdin と stderr にターミナルが必要です。対話式シェルから実行するか、ヘッドレス設定には `voltd config set <path> <value>` を使用してください。
 cli-quickstart-cancelled = クイックスタートをキャンセルしました。設定は書き込まれていません。
 cli-quickstart-incomplete = {"  "}すべてのセレクターがまだ入力されていません。
 cli-quickstart-create-agent = ── エージェントを作成
@@ -540,7 +540,7 @@ cli-quickstart-summary-not-yet-named = 未命名
 cli-quickstart-summary-provider-fresh = {$name} (エイリアス: {$alias}, モデル: {$model})
 cli-quickstart-summary-use-existing = 既存の {$reference} を使用
 cli-quickstart-summary-preset-fresh = プリセット: {$name}
-cli-quickstart-summary-channels-none = なし (`zeroclaw agent` のみでチャット)
+cli-quickstart-summary-channels-none = なし (`voltd agent` のみでチャット)
 cli-quickstart-summary-agent = エイリアス: {$alias}, システムプロンプト: {$chars} 文字, 人格ファイル {$files} 件
 cli-quickstart-summary-peer-groups-none = なし — チャンネルはピアを受け付けません
 cli-quickstart-channel-remove-row = {"  "}{$reference} (削除)
@@ -549,17 +549,17 @@ cli-quickstart-provider-local-label = {$name} (ローカル)
 cli-quickstart-provider-type-prompt = プロバイダータイプ
 cli-quickstart-alias-for = {$name} のエイリアス
 cli-quickstart-openai-auth-mode-label = 認証
-cli-quickstart-openai-auth-mode-help = ChatGPT/Codex サブスクリプションの認証プロファイルを使用する場合は `codex` を選択してください。Codex CLI で既にサインイン済みの場合は `zeroclaw auth login --model-provider openai-codex --import ~/.codex/auth.json` を実行し、そうでない場合は `zeroclaw auth login --model-provider openai-codex` を実行してください。
+cli-quickstart-openai-auth-mode-help = ChatGPT/Codex サブスクリプションの認証プロファイルを使用する場合は `codex` を選択してください。Codex CLI で既にサインイン済みの場合は `voltd auth login --model-provider openai-codex --import ~/.codex/auth.json` を実行し、そうでない場合は `voltd auth login --model-provider openai-codex` を実行してください。
 cli-quickstart-anthropic-auth-mode-label = 認証
 cli-quickstart-anthropic-auth-mode-help = Anthropic Console のキーには `api_key` を選択し、Claude Max 向けに `claude setup-token` を実行して生成したトークンを貼り付ける場合は `setup_token` を選択してください。
 cli-quickstart-anthropic-api-key-help = Anthropic Console の API キー、または `claude setup-token` で生成したトークンを貼り付けてください。
 cli-quickstart-auth-codex-prompt = 今すぐ ChatGPT アカウントで OpenAI Codex にサインインしますか？
 cli-quickstart-auth-codex-import-prompt = 既存の Codex ログイン (~/.codex/auth.json) が見つかりました — 今すぐインポートしますか？
-cli-quickstart-auth-codex-skip-hint = {"  "}後で完了させるには: zeroclaw auth login --model-provider openai-codex
+cli-quickstart-auth-codex-skip-hint = {"  "}後で完了させるには: voltd auth login --model-provider openai-codex
 cli-quickstart-auth-anthropic-prompt = Anthropic プロバイダー `{$alias}` 用に今すぐ `claude setup-token` を実行しますか？
 cli-quickstart-auth-anthropic-token-prompt = `claude setup-token` のトークンを貼り付けてください
 cli-quickstart-auth-anthropic-saved = {"  "}anthropic.{$alias} の Claude setup token を保存しました
-cli-quickstart-auth-anthropic-skip-hint = {"  "}後で完了させるには: claude setup-token を実行し、次に zeroclaw config set providers.models.anthropic.{$alias}.api_key <token>
+cli-quickstart-auth-anthropic-skip-hint = {"  "}後で完了させるには: claude setup-token を実行し、次に voltd config set providers.models.anthropic.{$alias}.api_key <token>
 cli-quickstart-auth-failed = {"  "}認証の設定が完了しませんでした: {$error}
 cli-quickstart-model-field-missing-warning = 警告: スキーマが `{$provider}` の `model` フィールドを生成しませんでした — 手動入力にフォールバックします。報告してください。
 cli-quickstart-model-id-for = {$name} のモデルID
@@ -569,7 +569,7 @@ cli-quickstart-add-channel = + チャンネルを追加
 cli-quickstart-channels-done = 完了 (チャンネルセレクターを訪問済みにします)
 cli-quickstart-channels-prompt = チャンネル (任意, 0..N)
 cli-quickstart-channel-source-prompt = チャンネルソース
-cli-quickstart-all-channels-bound = {"  "}設定済みのすべてのチャンネルは既にエージェントに割り当てられています。ここで再利用する前に `zeroclaw config set agents.<alias>.channels ...` で解放してください。
+cli-quickstart-all-channels-bound = {"  "}設定済みのすべてのチャンネルは既にエージェントに割り当てられています。ここで再利用する前に `voltd config set agents.<alias>.channels ...` で解放してください。
 cli-quickstart-pick-configured-channel = 設定済みチャンネルを選択
 cli-quickstart-channel-type-prompt = チャンネルタイプ
 cli-quickstart-add-peer-group = + ピアグループを追加
@@ -586,7 +586,7 @@ cli-quickstart-personality-skip = スキップ
 cli-quickstart-esc-go-back = {" "}(Escで戻る)
 cli-quickstart-esc-return-checklist = {" "}(Escでチェックリストに戻る)
 cli-quickstart-personality-file-prompt = {$filename}{$position} — 次は?{$back_hint}
-cli-quickstart-next-agent-command = {"  "}zeroclaw agent -a {$alias}  # ターミナルでこのエージェントとチャット
+cli-quickstart-next-agent-command = {"  "}voltd agent -a {$alias}  # ターミナルでこのエージェントとチャット
 cli-quickstart-fix-and-rerun = 既存の設定は変更されていません。次を修正してから quickstart を再実行してください:
 cli-quickstart-could-not-finish = quickstart を完了できませんでした: 修正が必要な問題 {$count} 件
 cli-quickstart-pick-preset = プリセットを選択
@@ -634,8 +634,8 @@ cli-no-channels-compiled = {"  "}このバイナリにコンパイルされて�
 cli-quickstart-complete = クイックスタートが完了しました。エージェント `{$alias}` を作成しました。
 cli-next-steps = 次のステップ:
 cli-agent-not-created = エージェントは作成されませんでした — ディスク上の変更はありません。
-cli-onboard-deprecated = `zeroclaw onboard` は非推奨です — `zeroclaw quickstart` を使用してください。
-cli-otp-initialized = ZeroClaw用のOTPシークレットを初期化しました。
+cli-onboard-deprecated = `voltd onboard` は非推奨です — `voltd quickstart` を使用してください。
+cli-otp-initialized = Volt用のOTPシークレットを初期化しました。
 cli-otp-enrollment-uri = 登録URI: {$uri}
 cli-otp-received = {"  "}✓ OTP受信済
 cli-secret-captured = {"  "}● 値を取得しました — Enterで保存
@@ -651,7 +651,7 @@ cli-pairing-fetch-failed = ❌ ゲートウェイからペアリングコード�
 cli-pairing-no-code = 🔐 ゲートウェイのペアリングは有効ですが、利用可能なアクティブなペアリングコードがありません。
 cli-pairing-requests-accepted = すべてのリクエストが認証なしで受け付けられます。
 cli-pairing-enable-config = ペアリングを有効にするには、[gateway] require_pairing = true を設定してください。
-cli-pairing-show-only = `zeroclaw gateway get-paircode` は既存のアクティブなコードを表示するだけで、新しいコードは発行しません。
+cli-pairing-show-only = `voltd gateway get-paircode` は既存のアクティブなコードを表示するだけで、新しいコードは発行しません。
 cli-pairing-pair-another = 別のデバイスをペアリングするには、次を実行してください:
 cli-pairing-revoke-replace = 既存のペアリングを取り消して置き換えコードを発行するには、次を実行してください:
 cli-pairing-new-code-unavailable = ゲートウェイは新しいペアリングコードを発行しませんでした。コードがすでに保留中か、ペアリングのリセットが必要な可能性があります。
@@ -757,15 +757,15 @@ cli-plugin-no-description = (説明なし)
 cli-plugin-install-resolving = プラグインレジストリから '{$source}' を解決しています...
 cli-plugin-installed-from = プラグインを {$source} からインストールしました
 cli-plugin-installed-name-version = プラグイン {$name} v{$version} をインストールしました
-cli-plugin-config-entry-seeded = '{$name}' の [[plugins.entries]] を作成しました。プラグイン設定値は `zeroclaw config set plugins.entries.{$name}.config.<key>` で設定してください。
+cli-plugin-config-entry-seeded = '{$name}' の [[plugins.entries]] を作成しました。プラグイン設定値は `voltd config set plugins.entries.{$name}.config.<key>` で設定してください。
 cli-plugin-config-entry-key = 設定エントリキー ({$capability}): {$key}
-cli-plugin-config-entry-seed-skipped = 警告: '{$name}' の設定エントリ作成をスキップしました: ディスク上の [plugins] セクションが不正です。修復し、`name = "{$name}"` を含む [[plugins.entries]] ブロックを追加してから、`zeroclaw config set plugins.entries.{$name}.config.<key>` で値を設定してください。
+cli-plugin-config-entry-seed-skipped = 警告: '{$name}' の設定エントリ作成をスキップしました: ディスク上の [plugins] セクションが不正です。修復し、`name = "{$name}"` を含む [[plugins.entries]] ブロックを追加してから、`voltd config set plugins.entries.{$name}.config.<key>` で値を設定してください。
 cli-config-section-degraded = 警告: {$path} の設定セクション `{$section}` は不正なため、この実行ではデフォルト値にリセットされました。そのセクションの値は有効ではありません。`voltd config migrate` を実行して解析エラーを確認し、ファイルを修復してください。
 cli-config-section-retired-wati = 警告: 廃止された WATI チャネル設定セクション `{$section}` は、WATI のサポートが削除されたため無視されます。Cloud API または WhatsApp Web を使用して `[channels.whatsapp.<alias>]` に移行し、未使用の WATI API トークンを失効させてください。
 cli-config-section-retired-node-transport = 警告: 廃止された `[node_transport]` 設定は、レガシー HMAC ノードトランスポートが削除されたため無視されます。config.toml からこのセクションを削除してください。
 cli-plugin-removed = プラグイン '{$name}' を削除しました。
 cli-plugin-not-found = プラグイン '{$name}' が見つかりません。
-cli-plugin-legacy-detected = 注意: レガシーな場所 ({$path}) にあるプラグインはエージェントに読み込まれません。`zeroclaw plugin migrate` を実行して {$target} に移動してください。
+cli-plugin-legacy-detected = 注意: レガシーな場所 ({$path}) にあるプラグインはエージェントに読み込まれません。`voltd plugin migrate` を実行して {$target} に移動してください。
 cli-plugin-migrated = {$count} 個のプラグインを {$path} から {$target} に移動しました。
 cli-plugin-migrate-none = 移行する項目はありません。
 cli-estop-resume-done = Estop の再開が完了しました。
@@ -782,7 +782,7 @@ cli-config-legend = 凡例: 💉 env で上書き  🔒 シークレット
 cli-config-secret-set = {$path} は設定されています(暗号化されたシークレット — 値は表示されません)
 cli-config-secret-unset = {$path} は設定されていません(暗号化されたシークレット)
 cli-config-updated = {$path} を更新しました。
-cli-config-review-hint = `zeroclaw config list` を実行して確認し、必須フィールドを設定してください。
+cli-config-review-hint = `voltd config list` を実行して確認し、必須フィールドを設定してください。
 cli-config-backed-up = {$path} にバックアップしました
 cli-plugin-name-version = プラグイン: {$name} v{$version}
 cli-plugin-description = 説明: {$desc}
@@ -807,8 +807,8 @@ cli-auth-oauth-code = コード:  {$code}
 cli-auth-oauth-fast-link = 高速リンク: {$uri}
 cli-auth-xai-open-oauth-url = ブラウザでこの xAI OAuth URL を開き、アクセスを承認してください:
 cli-auth-callback-capture-failed = コールバックの取得に失敗しました: {$error}
-cli-auth-run-paste-redirect = `zeroclaw auth paste-redirect --model-provider {$provider} --profile {$profile}` を実行してください
-cli-auth-xai-no-pending-login = 保留中の xAI ログインが見つかりません。先に `zeroclaw auth login --model-provider xai` を実行してください。
+cli-auth-run-paste-redirect = `voltd auth paste-redirect --model-provider {$provider} --profile {$profile}` を実行してください
+cli-auth-xai-no-pending-login = 保留中の xAI ログインが見つかりません。先に `voltd auth login --model-provider xai` を実行してください。
 cli-auth-paste-redirect-requires-input = paste-redirect にはリダイレクト URL または OAuth コードが必要です
 cli-locales-fetched = {"  "}{$name} を取得しました -> {$path}
 cli-locales-skipped = {"  "}{$name} をスキップしました: アップストリームに存在しません（{$path}; 試行: {$refs}）
@@ -825,7 +825,7 @@ cli-update-success = v{$version} に正常に更新しました！
 cli-update-prebuilt-channel-note = ビルド済み更新は軽量な標準配布セットを使います。Slack やその他の配布対象外チャンネルを使うには、`./install.sh --source --preset full`、`--features channels-full`、または特定の `channel-*` 機能でソースからビルドしてください。
 cli-update-available = 更新が利用可能です: v{$current} -> v{$latest}
 cli-update-forcing-reinstall = 再インストールを強制します: v{$current} -> v{$latest}
-cli-update-not-writable = インストールディレクトリ {$dir} は書き込みできません（{$error}）。権限を昇格して `zeroclaw update` を再実行してください（macOS/Linux では sudo、Windows では管理者コンソール）
+cli-update-not-writable = インストールディレクトリ {$dir} は書き込みできません（{$error}）。権限を昇格して `voltd update` を再実行してください（macOS/Linux では sudo、Windows では管理者コンソール）
 cli-selftest-all-passed = {$total} 件すべてのチェックに合格しました。
 cli-selftest-some-failed = {$failed}/{$total} 件のチェックが失敗しました。
 cli-selftest-channel-config-uncompiled = コンパイル済みチャンネル種別 {$compiled} 件、コンパイル済みかつ設定済み {$configured} 件。設定済みですが未コンパイル: {$names}。ソースから `./install.sh --source --preset full`、`--features channels-full`、または特定の `channel-*` 機能でビルドしてください。
@@ -835,9 +835,9 @@ cli-channels-notion = {"  "}{$status} Notion
 cli-channels-not-compiled-header = {"  "}設定済みですが、このバイナリにはコンパイルされていません:
 cli-channels-not-compiled-entry = {"  "}🚫 {$name} (設定済み、未コンパイル)
 cli-channels-build-hint = {"  "}ソースから `./install.sh --source --preset full`、`--features channels-full`、または特定の `channel-*` 機能でビルドしてください。
-cli-channels-start-hint = チャンネルを開始するには: zeroclaw channel start
-cli-channels-doctor-hint = 状態を確認するには:    zeroclaw channel doctor
-cli-channels-configure-hint = 設定するには:      zeroclaw config set channels.<name>.<field>=<value>
+cli-channels-start-hint = チャンネルを開始するには: voltd channel start
+cli-channels-doctor-hint = 状態を確認するには:    voltd channel doctor
+cli-channels-configure-hint = 設定するには:      voltd config set channels.<name>.<field>=<value>
 cli-models-set-ok = デフォルトモデルが { $provider } の "{ $model }" に設定されました。
 cli-models-status-current = デフォルトモデル: { $model } (プロバイダー: { $provider })
 cli-models-status-none = デフォルトモデルが設定されていません。
@@ -876,7 +876,7 @@ channel-runtime-model-switch-hint = `/model <model-id>` または `/model <hint>
 channel-runtime-provider-switch-hint = `/models <model_provider>` で model_provider を切り替えます。
 channel-runtime-available-providers-header = 利用可能な model_provider:
 channel-runtime-configured-routes-header = 設定済みモデルルート:
-channel-runtime-no-cached-models = `{ $provider }` のキャッシュ済みモデル一覧が見つかりません。オペレーターに `zeroclaw models refresh --model-provider { $provider }` の実行を依頼してください。
+channel-runtime-no-cached-models = `{ $provider }` のキャッシュ済みモデル一覧が見つかりません。オペレーターに `voltd models refresh --model-provider { $provider }` の実行を依頼してください。
 channel-runtime-cached-model-ids-header = キャッシュ済みモデル ID（上位 { $count } 件）:
 channel-runtime-config-switch-hints =
     `/models <model_provider>` で model_provider を切り替えます。
@@ -967,13 +967,13 @@ cli-bundle-warn-archive = 警告: バンドルディレクトリのアーカイ�
 cli-bundle-deleted = skill_bundles.{$alias} を削除しました（{$count} 件のエージェントから除去しました）
 cli-bundle-warn-move = 警告: バンドルディレクトリの移動に失敗しました: {$error}
 cli-bundle-renamed = skill_bundles.{$from} → skill_bundles.{$to} にリネームしました
-cli-gateway-restart-hint-kubernetes = kubectl rollout restart deployment/zeroclaw
+cli-gateway-restart-hint-kubernetes = kubectl rollout restart deployment/voltd
 cli-gateway-restart-hint-container = docker compose restart
-cli-gateway-restart-hint-systemd = systemctl restart zeroclaw
-cli-gateway-restart-hint-launchd = launchctl kickstart -k <your-zeroclaw-label>
-cli-gateway-restart-hint-process = `zeroclaw daemon` プロセスを再起動してください
-cli-daemon-gateway-already-running = Volt ゲートウェイは既に {$host}:{$port} で実行中です。デーモンは自身のゲートウェイを監視しており、同じアドレスで2つ目を開始しません。そのゲートウェイを停止するか、`zeroclaw config set gateway.port <port>` でデーモンを空きポートに向けてから、もう一度デーモンを実行してください。
-cli-daemon-gateway-port-occupied = ゲートウェイアドレス {$host}:{$port} は別のプロセスで既に使用されています。ポートを解放するか、デーモンを空きポートに向けて (`zeroclaw config set gateway.port <port>`)、もう一度デーモンを実行してください。
+cli-gateway-restart-hint-systemd = systemctl restart voltd
+cli-gateway-restart-hint-launchd = launchctl kickstart -k <your-voltd-label>
+cli-gateway-restart-hint-process = `voltd daemon` プロセスを再起動してください
+cli-daemon-gateway-already-running = Volt ゲートウェイは既に {$host}:{$port} で実行中です。デーモンは自身のゲートウェイを監視しており、同じアドレスで2つ目を開始しません。そのゲートウェイを停止するか、`voltd config set gateway.port <port>` でデーモンを空きポートに向けてから、もう一度デーモンを実行してください。
+cli-daemon-gateway-port-occupied = ゲートウェイアドレス {$host}:{$port} は別のプロセスで既に使用されています。ポートを解放するか、デーモンを空きポートに向けて (`voltd config set gateway.port <port>`)、もう一度デーモンを実行してください。
 cli-daemon-starting-title = 🧠 Volt デーモンを起動しています…
 cli-daemon-starting-detail = 設定済みのデーモンエンドポイントを準備しています
 cli-daemon-started-title = 🧠 Volt デーモンの準備ができました

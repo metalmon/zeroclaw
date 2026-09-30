@@ -26,7 +26,7 @@ cli-doctor-embedding-route-empty-model = маршрут эмбеддингов "
 cli-doctor-embedding-route-invalid-dimensions = маршрут эмбеддингов "{$hint}" имеет недопустимое dimensions=0
 cli-doctor-embedding-hint-no-route = memory.embedding_model использует hint "{$hint}", но нет соответствующей записи [[embedding_routes]]
 cli-doctor-channel-present = настроен хотя бы один канал
-cli-doctor-no-channels = нет настроенных каналов — выполните `zeroclaw quickstart`, чтобы настроить канал
+cli-doctor-no-channels = нет настроенных каналов — выполните `voltd quickstart`, чтобы настроить канал
 cli-doctor-telegram-bot-token-unset = channels.telegram.{$alias}.bot_token не задан, но канал включен — канал не сможет подключиться, пока не задан токен бота
 cli-doctor-discord-bot-token-unset = channels.discord.{$alias}.bot_token не задан, но канал включен — канал не сможет подключиться, пока не задан токен бота
 cli-doctor-agent-invalid-provider = агент "{$name}" использует недействительный model_provider "{$provider}": {$reason}

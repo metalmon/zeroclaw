@@ -1,6 +1,6 @@
 cli-about = 最快、最小的 AI 助手。
 cli-no-command-provided = 未提供命令。
-cli-try-quickstart = 尝试运行 `zeroclaw quickstart` 来创建你的第一个智能体。
+cli-try-quickstart = 尝试运行 `voltd quickstart` 来创建你的第一个智能体。
 cli-quickstart-about = 端到端创建你的第一个智能体
 cli-agent-about = 启动 AI 智能体循环
 cli-gateway-about = 管理网关服务器（webhooks、websockets）
@@ -97,22 +97,22 @@ cli-skills-install-tier-official = 正在安装 {$name} v{$version} — 官方�
 cli-skills-install-tier-community =
     正在安装 {$name} v{$version} — 社区提交
     此技能未经 Volt 审计。请检查技能内容，
-    并在授予任何权限或用于生产前运行 `zeroclaw skills audit {$name}`。
+    并在授予任何权限或用于生产前运行 `voltd skills audit {$name}`。
 cli-skills-add-scaffolded = 已在 {$dir} 搭建技能 {$target}
 cli-skills-bundle-add-prompt =
     要创建目录为 '{$dir}' 的 skill-bundle '{$alias}'，请运行：
-    zeroclaw config map-key skill-bundles {$alias}
-    zeroclaw config set skill-bundles.{$alias}.directory {$dir}
+    voltd config map-key skill-bundles {$alias}
+    voltd config set skill-bundles.{$alias}.directory {$dir}
 
-    （通过 `zeroclaw skills bundle add` 直接创建包会重复配置变更接口。）
+    （通过 `voltd skills bundle add` 直接创建包会重复配置变更接口。）
 cli-skills-bundle-remove-prompt =
     要移除 skill-bundle '{$alias}'，请运行：
-    zeroclaw config map-key-delete skill-bundles {$alias}
+    voltd config map-key-delete skill-bundles {$alias}
 
     （移除配置条目；磁盘上该包的目录会保留。）
 cli-skills-bundle-list-empty =
     未配置技能包。
-    创建一个：zeroclaw config set skill-bundles.default.directory shared/skills/default
+    创建一个：voltd config set skill-bundles.default.directory shared/skills/default
 cli-skills-bundle-list-header = 技能包（{$count}）：
 cli-skills-bundle-entry = {$alias} -> {$dir}
 cli-skills-bundle-include = 包含：{$values}
@@ -166,19 +166,19 @@ cli-agent-long-about =
     与已配置的 AI 提供商启动交互式聊天会话。使用 --message 进行单次查询，无需进入交互模式。
 
     示例：
-    zeroclaw agent                              # 交互式会话
-    zeroclaw agent -m "Summarize today's logs"  # 单条消息
-    zeroclaw agent -p anthropic --model claude-sonnet-4-20250514
-    zeroclaw agent --peripheral nucleo-f401re:/dev/ttyACM0
+    voltd agent                              # 交互式会话
+    voltd agent -m "Summarize today's logs"  # 单条消息
+    voltd agent -p anthropic --model claude-sonnet-4-20250514
+    voltd agent --peripheral nucleo-f401re:/dev/ttyACM0
 cli-gateway-long-about =
     管理网关服务器（webhooks、websockets）。
 
     启动、重启或检查接受传入 webhook 事件和 WebSocket 连接的 HTTP/WebSocket 网关。
 
     示例：
-    zeroclaw gateway start              # 启动网关
-    zeroclaw gateway restart            # 重启网关
-    zeroclaw gateway get-paircode       # 显示配对码
+    voltd gateway start              # 启动网关
+    voltd gateway restart            # 重启网关
+    voltd gateway get-paircode       # 显示配对码
 cli-acp-long-about =
     启动 ACP 服务器（通过 stdio 的 JSON-RPC 2.0）。
 
@@ -187,19 +187,19 @@ cli-acp-long-about =
     方法：initialize、session/new、session/prompt、session/stop。
 
     示例：
-    zeroclaw acp                        # 启动 ACP 服务器
-    zeroclaw acp --max-sessions 5       # 限制并发会话数
+    voltd acp                        # 启动 ACP 服务器
+    voltd acp --max-sessions 5       # 限制并发会话数
 cli-daemon-long-about =
     启动长期运行的自主守护进程。
 
     启动完整的 Volt 运行时：网关服务器、所有已配置的通道（Telegram、Discord、Slack 等）、心跳监视器以及 cron 调度器。这是在生产环境中或作为始终在线助手运行 Volt 的推荐方式。
 
-    使用 'zeroclaw service install' 将守护进程注册为操作系统服务（systemd/launchd），以便开机自动启动。
+    使用 'voltd service install' 将守护进程注册为操作系统服务（systemd/launchd），以便开机自动启动。
 
     示例：
-    zeroclaw daemon                   # 使用配置默认值
-    zeroclaw daemon -p 9090           # 网关在端口 9090
-    zeroclaw daemon --host 127.0.0.1  # 仅 localhost
+    voltd daemon                   # 使用配置默认值
+    voltd daemon -p 9090           # 网关在端口 9090
+    voltd daemon --host 127.0.0.1  # 仅 localhost
 cli-cron-long-about =
     配置和管理计划任务。
 
@@ -208,58 +208,58 @@ cli-cron-long-about =
     Cron 表达式使用标准的 5 字段格式：'min hour day month weekday'。时区默认为 UTC；使用 --tz 和 IANA 时区名称覆盖。
 
     示例：
-    zeroclaw cron list
-    zeroclaw cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
-    zeroclaw cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
-    zeroclaw cron add '*/5 * * * *' 'echo ok' --agent sentinel
-    zeroclaw cron add-at 2099-01-15T14:00:00Z 'Send reminder' --agent sentinel --prompt
-    zeroclaw cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt
-    zeroclaw cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt
-    zeroclaw cron pause TASK_ID
-    zeroclaw cron update TASK_ID --expression '0 8 * * *' --tz Europe/London
+    voltd cron list
+    voltd cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
+    voltd cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
+    voltd cron add '*/5 * * * *' 'echo ok' --agent sentinel
+    voltd cron add-at 2099-01-15T14:00:00Z 'Send reminder' --agent sentinel --prompt
+    voltd cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt
+    voltd cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt
+    voltd cron pause TASK_ID
+    voltd cron update TASK_ID --expression '0 8 * * *' --tz Europe/London
 cli-channel-long-about =
     管理通信通道。
 
     添加、删除、列出、发送以及对将 Volt 连接到消息平台的通道进行健康检查。支持的通道类型：telegram、discord、slack、whatsapp、matrix、imessage、email。
 
     示例：
-    zeroclaw channel list
-    zeroclaw channel doctor
-    zeroclaw channel add telegram '{ "{" }"bot_token":"...","name":"my-bot"{ "}" }'
-    zeroclaw channel remove my-bot
-    zeroclaw channel bind-telegram zeroclaw_user
-    zeroclaw channel send 'Alert!' --channel-id telegram --recipient 123456789
+    voltd channel list
+    voltd channel doctor
+    voltd channel add telegram '{ "{" }"bot_token":"...","name":"my-bot"{ "}" }'
+    voltd channel remove my-bot
+    voltd channel bind-telegram zeroclaw_user
+    voltd channel send 'Alert!' --channel-id telegram --recipient 123456789
 cli-hardware-long-about =
     发现和检视 USB 硬件。
 
     枚举已连接的 USB 设备，识别已知的开发板（STM32 Nucleo、Arduino、ESP32），并通过 probe-rs / ST-Link 检索芯片信息。
 
     示例：
-    zeroclaw hardware discover
-    zeroclaw hardware introspect /dev/ttyACM0
-    zeroclaw hardware info --chip STM32F401RETx
+    voltd hardware discover
+    voltd hardware introspect /dev/ttyACM0
+    voltd hardware info --chip STM32F401RETx
 cli-peripheral-long-about =
     管理硬件外设。
 
     添加、列出、烧录和配置向代理公开工具的硬件板（GPIO、传感器、执行器）。支持的板：nucleo-f401re、rpi-gpio、esp32、arduino-uno。
 
     示例：
-    zeroclaw peripheral list
-    zeroclaw peripheral add nucleo-f401re /dev/ttyACM0
-    zeroclaw peripheral add rpi-gpio native
-    zeroclaw peripheral flash --port /dev/cu.usbmodem12345
-    zeroclaw peripheral flash-nucleo
+    voltd peripheral list
+    voltd peripheral add nucleo-f401re /dev/ttyACM0
+    voltd peripheral add rpi-gpio native
+    voltd peripheral flash --port /dev/cu.usbmodem12345
+    voltd peripheral flash-nucleo
 cli-memory-long-about =
     管理代理记忆条目。
 
     列出、检视和清除代理存储的记忆条目。支持按类别和会话过滤、分页以及带确认的批量清除。
 
     示例：
-    zeroclaw memory stats
-    zeroclaw memory list
-    zeroclaw memory list --category core --limit 10
-    zeroclaw memory get KEY
-    zeroclaw memory clear --category conversation --yes
+    voltd memory stats
+    voltd memory list
+    voltd memory list --category core --limit 10
+    voltd memory get KEY
+    voltd memory clear --category conversation --yes
 cli-config-long-about =
     管理 Volt 配置。
 
@@ -270,18 +270,18 @@ cli-config-long-about =
     枚举字段在省略值时提供交互式选择。
 
     示例：
-    zeroclaw config list                                  # 列出所有属性
-    zeroclaw config list --secrets                        # 仅列出密钥
-    zeroclaw config list --filter channels.matrix         # 按前缀过滤
-    zeroclaw config get channels.matrix.mention-only      # 获取值
-    zeroclaw config set channels.matrix.mention-only true # 设置值
-    zeroclaw config set channels.matrix.access-token      # 密钥：掩码输入
-    zeroclaw config set channels.matrix.stream-mode       # 枚举：交互式选择
-    zeroclaw config init channels.matrix                  # 使用默认值初始化部分
-    zeroclaw config schema                                # 将 JSON Schema 打印到 stdout
-    zeroclaw config schema > schema.json
+    voltd config list                                  # 列出所有属性
+    voltd config list --secrets                        # 仅列出密钥
+    voltd config list --filter channels.matrix         # 按前缀过滤
+    voltd config get channels.matrix.mention-only      # 获取值
+    voltd config set channels.matrix.mention-only true # 设置值
+    voltd config set channels.matrix.access-token      # 密钥：掩码输入
+    voltd config set channels.matrix.stream-mode       # 枚举：交互式选择
+    voltd config init channels.matrix                  # 使用默认值初始化部分
+    voltd config schema                                # 将 JSON Schema 打印到 stdout
+    voltd config schema > schema.json
 
-    属性路径 Tab 补全会自动包含在 `zeroclaw completions <shell>` 中。
+    属性路径 Tab 补全会自动包含在 `voltd completions <shell>` 中。
 cli-update-long-about =
     检查并应用 Volt 更新。
 
@@ -292,18 +292,18 @@ cli-update-long-about =
     使用 --version 指定特定版本而非最新版本。
 
     示例：
-    zeroclaw update                      # 下载并安装最新版本
-    zeroclaw update --check              # 仅检查，不安装
-    zeroclaw update --force              # 不确认直接安装
-    zeroclaw update --version 0.6.0      # 安装特定版本
+    voltd update                      # 下载并安装最新版本
+    voltd update --check              # 仅检查，不安装
+    voltd update --force              # 不确认直接安装
+    voltd update --version 0.6.0      # 安装特定版本
 cli-self-test-long-about =
     运行诊断自检以验证 Volt 安装。
 
     默认情况下，运行完整的测试套件，包括网络检查（网关健康状况、记忆往返）。使用 --quick 跳过网络检查以进行更快的离线验证。
 
     示例：
-    zeroclaw self-test             # 完整套件
-    zeroclaw self-test --quick     # 仅快速检查（无网络）
+    voltd self-test             # 完整套件
+    voltd self-test --quick     # 仅快速检查（无网络）
 cli-skills-install-suggestion =
     看起来此请求需要 `{$name}` 技能，但它尚未安装。
 
@@ -315,14 +315,14 @@ cli-plugin-install-suggestion =
     匹配的能力：{$matched}
     下一步：运行 `{$install_command}` 进行安装。
 cli-completions-long-about =
-    为 `zeroclaw` 生成 shell 补全脚本。
+    为 `voltd` 生成 shell 补全脚本。
 
     脚本会打印到 stdout，以便可以直接 source：
 
     示例：
-    source <(zeroclaw completions bash)
-    zeroclaw completions zsh > ~/.zfunc/_zeroclaw
-    zeroclaw completions fish > ~/.config/fish/completions/zeroclaw.fish
+    source <(voltd completions bash)
+    voltd completions zsh > ~/.zfunc/_voltd
+    voltd completions fish > ~/.config/fish/completions/voltd.fish
 cli-desktop-long-about =
     启动 Volt 配套桌面应用。
 
@@ -331,8 +331,8 @@ cli-desktop-long-about =
     使用 --install 打开适用于您平台的下载页面。它本身不会安装任何东西。
 
     示例：
-    zeroclaw desktop              # 启动配套应用
-    zeroclaw desktop --install    # 打开下载页面
+    voltd desktop              # 启动配套应用
+    voltd desktop --install    # 打开下载页面
 channel-needs-quickstart-reply = 此代理尚未完全设置。操作员需要先运行 Quickstart，然后我才能回复。
 channel-whatsapp-web-feature-missing-warning = ⚠ WhatsApp Web 已配置，但未编译 'whatsapp-web' 功能。
 channel-whatsapp-web-feature-missing-build = 使用以下命令构建/运行：cargo build --features whatsapp-web
@@ -399,12 +399,12 @@ onboard-openai-auth-api-key = API 密钥
 onboard-openai-auth-codex = Codex 订阅
 onboard-openai-codex-followup =
     Codex 订阅身份验证使用您的 ChatGPT 账户。
-    在启动代理之前，运行 `zeroclaw auth login --provider openai-codex` 进行身份验证。
+    在启动代理之前，运行 `voltd auth login --provider openai-codex` 进行身份验证。
 cli-web-dist-dir-reason-tilde = 以不会被展开的 `~` 开头
 cli-web-dist-dir-reason-dollar = 包含不会被展开的 `$`
 cli-doctor-web-dist-dir-expansion-warning = gateway.web_dist_dir = "{$path}" — {$reason}；gateway.web_dist_dir 按原样读取，请自行展开该值（例如使用绝对路径）
-cli-doctor-codex-auth-profile-no-slot = OpenAI Codex 凭据已登录，但没有模型提供方槽位使用它们。请在 OpenAI 提供方槽位上设置 `requires_openai_auth = true`，并将 agent 的 `model_provider` 指向它，或运行 `zeroclaw quickstart`。
-cli-doctor-codex-auth-slot-no-profile = OpenAI 槽位 {$slots} 已设置 `requires_openai_auth = true`，但没有 OpenAI Codex 凭据登录。请运行 `zeroclaw auth login --provider openai-codex`。
+cli-doctor-codex-auth-profile-no-slot = OpenAI Codex 凭据已登录，但没有模型提供方槽位使用它们。请在 OpenAI 提供方槽位上设置 `requires_openai_auth = true`，并将 agent 的 `model_provider` 指向它，或运行 `voltd quickstart`。
+cli-doctor-codex-auth-slot-no-profile = OpenAI 槽位 {$slots} 已设置 `requires_openai_auth = true`，但没有 OpenAI Codex 凭据登录。请运行 `voltd auth login --provider openai-codex`。
 cli-doctor-codex-auth-ok = OpenAI Codex 凭据已登录，并由模型提供方槽位引用。
 cli-doctor-systemd-linger-enabled = systemd 用户 linger 已启用
 cli-doctor-systemd-linger-disabled = systemd 用户 linger 已禁用；用户服务可能会在注销后停止。启用命令：loginctl enable-linger {$user}
@@ -415,8 +415,8 @@ cli-self-test-web-dist-dir-pass-literal = {$path}（字面路径）
 cli-self-test-web-dist-dir-fail-expansion = 警告：{$path} — {$reason}；gateway.web_dist_dir 按原样读取，请自行展开该值（例如使用绝对路径）
 cli-service-systemd-linger-disabled-warning = systemd 用户 linger 已禁用。Volt 的用户服务可能会在注销后停止。启用命令：loginctl enable-linger {$user}
 cli-peripherals-none = 未配置外设。
-cli-peripherals-add-hint = 使用以下命令添加: zeroclaw peripheral add <board> <path>
-cli-peripherals-add-example = {"  "}示例: zeroclaw peripheral add nucleo-f401re <serial-path>
+cli-peripherals-add-hint = 使用以下命令添加: voltd peripheral add <board> <path>
+cli-peripherals-add-example = {"  "}示例: voltd peripheral add nucleo-f401re <serial-path>
 cli-peripherals-config-hint = 或添加到 config.toml:
 cli-peripherals-configured = 已配置的外设:
 cli-peripherals-already-configured = 位于 {$path} 的开发板 {$board} 已配置。
@@ -425,8 +425,8 @@ cli-peripherals-flash-needs-hardware = Arduino 烧录需要 'hardware' 功能。
 cli-peripherals-unoq-needs-hardware = Uno Q 设置需要 'hardware' 功能。
 cli-peripherals-nucleo-needs-hardware = Nucleo 烧录需要 'hardware' 功能。
 cli-skills-none-installed = 未安装技能。
-cli-skills-create-hint = {"  "}创建一个: mkdir -p ~/.zeroclaw/workspace/skills/my-skill
-cli-skills-install-hint = {"  "}或安装: zeroclaw skills install <source>
+cli-skills-create-hint = {"  "}创建一个: mkdir -p ~/.voltd/workspace/skills/my-skill
+cli-skills-install-hint = {"  "}或安装: voltd skills install <source>
 cli-skills-installed-header = 已安装的技能 ({$count}):
 cli-skills-list-group-bundle = 技能包：{$alias}
 cli-skills-list-group-agent = 由代理 '{$alias}' 加载
@@ -438,7 +438,7 @@ cli-skills-multiple-locations-path = 技能 '{$name}' 存在于多个位置（{$
 cli-skills-tags = 标签:  {$tags}
 cli-skills-skipped-header = 已跳过 ({$count}):
 cli-skills-skipped-reason = {"    "}原因: {$reason}
-cli-skills-skipped-scripts-hint = {"    "}在 zeroclaw 配置中设置 `skills.allow_scripts = true` 以启用它。
+cli-skills-skipped-scripts-hint = {"    "}在 Volt 配置中设置 `skills.allow_scripts = true` 以启用它。
 cli-sop-none = 未找到 SOP。
 cli-sop-pending-none = 没有等待审批的 SOP 运行。
 cli-sop-pending-header = 等待审批的 SOP 运行：
@@ -519,7 +519,7 @@ cli-cron-delivery-disabled = 已禁用（输出不会发送到任何地方）
 cli-no-command = 未提供命令。
 cli-press-enter = 按 Enter 退出...
 cli-quickstart-title = Quickstart — 端到端创建一个可用的 agent。
-cli-quickstart-needs-tty = Quickstart 是交互式流程，需要 stdin 和 stderr 连接到终端。请从交互式 shell 中运行，或使用 `zeroclaw config set <path> <value>` 进行无头配置。
+cli-quickstart-needs-tty = Quickstart 是交互式流程，需要 stdin 和 stderr 连接到终端。请从交互式 shell 中运行，或使用 `voltd config set <path> <value>` 进行无头配置。
 cli-quickstart-cancelled = 已取消 quickstart。未写入配置。
 cli-quickstart-incomplete = {"  "}尚未填写所有选择器。
 cli-quickstart-create-agent = ── 创建 agent
@@ -541,7 +541,7 @@ cli-quickstart-summary-not-yet-named = 尚未命名
 cli-quickstart-summary-provider-fresh = {$name}（别名：{$alias}，模型：{$model}）
 cli-quickstart-summary-use-existing = 使用已有 {$reference}
 cli-quickstart-summary-preset-fresh = 预设：{$name}
-cli-quickstart-summary-channels-none = 无（仅通过 `zeroclaw agent` 聊天）
+cli-quickstart-summary-channels-none = 无（仅通过 `voltd agent` 聊天）
 cli-quickstart-summary-agent = 别名：{$alias}，system prompt：{$chars} 个字符，{$files} 个性格文件
 cli-quickstart-summary-peer-groups-none = 无 — 通道不接受任何对等方
 cli-quickstart-channel-remove-row = {"  "}{$reference}（移除）
@@ -550,17 +550,17 @@ cli-quickstart-provider-local-label = {$name}（本地）
 cli-quickstart-provider-type-prompt = 提供方类型
 cli-quickstart-alias-for = {$name} 的别名
 cli-quickstart-openai-auth-mode-label = 身份验证
-cli-quickstart-openai-auth-mode-help = 选择 `codex` 以使用 ChatGPT/Codex 订阅身份验证配置文件。如果你已通过 Codex CLI 登录，请运行 `zeroclaw auth login --model-provider openai-codex --import ~/.codex/auth.json`；否则请运行 `zeroclaw auth login --model-provider openai-codex`。
+cli-quickstart-openai-auth-mode-help = 选择 `codex` 以使用 ChatGPT/Codex 订阅身份验证配置文件。如果你已通过 Codex CLI 登录，请运行 `voltd auth login --model-provider openai-codex --import ~/.codex/auth.json`；否则请运行 `voltd auth login --model-provider openai-codex`。
 cli-quickstart-anthropic-auth-mode-label = 身份验证
 cli-quickstart-anthropic-auth-mode-help = 如需 Anthropic Console 密钥，请选择 `api_key`；如果你打算为 Claude Max 运行 `claude setup-token` 并粘贴生成的令牌，请选择 `setup_token`。
 cli-quickstart-anthropic-api-key-help = 粘贴 Anthropic Console API 密钥或由 `claude setup-token` 生成的令牌。
 cli-quickstart-auth-codex-prompt = 现在使用你的 ChatGPT 账户登录 OpenAI Codex 吗？
 cli-quickstart-auth-codex-import-prompt = 发现已有的 Codex 登录 (~/.codex/auth.json) — 现在导入吗？
-cli-quickstart-auth-codex-skip-hint = {"  "}稍后完成：zeroclaw auth login --model-provider openai-codex
+cli-quickstart-auth-codex-skip-hint = {"  "}稍后完成：voltd auth login --model-provider openai-codex
 cli-quickstart-auth-anthropic-prompt = 现在为 Anthropic 提供方 `{$alias}` 运行 `claude setup-token` 吗？
 cli-quickstart-auth-anthropic-token-prompt = 粘贴 `claude setup-token` 生成的令牌
 cli-quickstart-auth-anthropic-saved = {"  "}已为 anthropic.{$alias} 保存 Claude setup token。
-cli-quickstart-auth-anthropic-skip-hint = {"  "}稍后完成：claude setup-token，然后 zeroclaw config set providers.models.anthropic.{$alias}.api_key <token>
+cli-quickstart-auth-anthropic-skip-hint = {"  "}稍后完成：claude setup-token，然后 voltd config set providers.models.anthropic.{$alias}.api_key <token>
 cli-quickstart-auth-failed = {"  "}身份验证设置未完成：{$error}
 cli-quickstart-model-field-missing-warning = 警告：架构没有为 `{$provider}` 生成 `model` 字段 — 将退回到手动输入。请报告此问题。
 cli-quickstart-model-id-for = {$name} 的模型 ID
@@ -570,7 +570,7 @@ cli-quickstart-add-channel = + 添加通道
 cli-quickstart-channels-done = 完成（通道选择器会记为已访问）
 cli-quickstart-channels-prompt = 通道（可选，0..N）
 cli-quickstart-channel-source-prompt = 通道来源
-cli-quickstart-all-channels-bound = {"  "}所有已配置的通道都已经绑定到 agent。若要在这里复用，请先用 `zeroclaw config set agents.<alias>.channels ...` 释放一个通道。
+cli-quickstart-all-channels-bound = {"  "}所有已配置的通道都已经绑定到 agent。若要在这里复用，请先用 `voltd config set agents.<alias>.channels ...` 释放一个通道。
 cli-quickstart-pick-configured-channel = 选择已配置的通道
 cli-quickstart-channel-type-prompt = 通道类型
 cli-quickstart-add-peer-group = + 添加对等组
@@ -587,7 +587,7 @@ cli-quickstart-personality-skip = 跳过
 cli-quickstart-esc-go-back = {" "}（Esc 返回）
 cli-quickstart-esc-return-checklist = {" "}（Esc 返回检查清单）
 cli-quickstart-personality-file-prompt = {$filename}{$position} — 下一步？{$back_hint}
-cli-quickstart-next-agent-command = {"  "}zeroclaw agent -a {$alias}  # 在终端中与此 agent 聊天
+cli-quickstart-next-agent-command = {"  "}voltd agent -a {$alias}  # 在终端中与此 agent 聊天
 cli-quickstart-fix-and-rerun = 现有配置未被修改。请修复以下问题，然后重新运行 quickstart：
 cli-quickstart-could-not-finish = quickstart 无法完成：需要修复 {$count} 个问题
 cli-quickstart-pick-preset = 选择预设
@@ -635,7 +635,7 @@ cli-no-channels-compiled = {"  "}此二进制文件中未编译任何通道类�
 cli-quickstart-complete = Quickstart 完成。已创建 agent `{$alias}`。
 cli-next-steps = 后续步骤：
 cli-agent-not-created = 未创建您的 agent — 磁盘上没有任何更改。
-cli-onboard-deprecated = `zeroclaw onboard` 已弃用 — 请使用 `zeroclaw quickstart`。
+cli-onboard-deprecated = `voltd onboard` 已弃用 — 请使用 `voltd quickstart`。
 cli-otp-initialized = 已为 Volt 初始化 OTP 密钥。
 cli-otp-enrollment-uri = 注册 URI：{$uri}
 cli-otp-received = {"  "}✓ OTP 已接收
@@ -652,7 +652,7 @@ cli-pairing-fetch-failed = ❌ 无法从 gateway 获取配对码：{$endpoint}
 cli-pairing-no-code = 🔐 gateway 配对已启用，但当前没有可用的活动配对码。
 cli-pairing-requests-accepted = 所有请求都将在没有身份验证的情况下接受。
 cli-pairing-enable-config = 要启用配对，请设置 [gateway] require_pairing = true。
-cli-pairing-show-only = `zeroclaw gateway get-paircode` 只显示现有的活动配对码，不会生成新配对码。
+cli-pairing-show-only = `voltd gateway get-paircode` 只显示现有的活动配对码，不会生成新配对码。
 cli-pairing-pair-another = 要配对另一台设备，请运行：
 cli-pairing-revoke-replace = 要撤销现有配对并生成替换配对码，请运行：
 cli-pairing-new-code-unavailable = gateway 未生成新的配对码。可能已有配对码待处理，或需要重置配对。
@@ -758,15 +758,15 @@ cli-plugin-no-description = （无描述）
 cli-plugin-install-resolving = 正在从插件注册表解析 '{$source}'...
 cli-plugin-installed-from = 已从 {$source} 安装插件
 cli-plugin-installed-name-version = 已安装插件 {$name} v{$version}
-cli-plugin-config-entry-seeded = 已为 '{$name}' 创建 [[plugins.entries]]。使用 `zeroclaw config set plugins.entries.{$name}.config.<key>` 设置插件配置值。
+cli-plugin-config-entry-seeded = 已为 '{$name}' 创建 [[plugins.entries]]。使用 `voltd config set plugins.entries.{$name}.config.<key>` 设置插件配置值。
 cli-plugin-config-entry-key = 配置条目键（{$capability}）：{$key}
-cli-plugin-config-entry-seed-skipped = 警告：已跳过为 '{$name}' 创建配置条目：磁盘上的 [plugins] 部分格式不正确。请修复它，添加带有 `name = "{$name}"` 的 [[plugins.entries]] 块，然后使用 `zeroclaw config set plugins.entries.{$name}.config.<key>` 设置值。
+cli-plugin-config-entry-seed-skipped = 警告：已跳过为 '{$name}' 创建配置条目：磁盘上的 [plugins] 部分格式不正确。请修复它，添加带有 `name = "{$name}"` 的 [[plugins.entries]] 块，然后使用 `voltd config set plugins.entries.{$name}.config.<key>` 设置值。
 cli-config-section-degraded = 警告：{$path} 中的配置部分 `{$section}` 格式不正确，本次运行已重置为默认值。该部分中的值不会生效。请运行 `voltd config migrate` 查看解析错误，然后修复文件。
 cli-config-section-retired-wati = 警告：已弃用的 WATI 频道配置部分 `{$section}` 将被忽略，因为 WATI 支持已移除。请使用 Cloud API 或 WhatsApp Web 迁移到 `[channels.whatsapp.<alias>]`，然后撤销未使用的 WATI API 令牌。
 cli-config-section-retired-node-transport = 警告：已弃用的 `[node_transport]` 配置将被忽略，因为旧版 HMAC 节点传输已移除。请从 config.toml 中删除该部分。
 cli-plugin-removed = 已移除插件“{$name}”。
 cli-plugin-not-found = 未找到插件“{$name}”。
-cli-plugin-legacy-detected = 注意：位于旧位置（{$path}）的插件未被代理加载。请运行 `zeroclaw plugin migrate` 将其移动到 {$target}。
+cli-plugin-legacy-detected = 注意：位于旧位置（{$path}）的插件未被代理加载。请运行 `voltd plugin migrate` 将其移动到 {$target}。
 cli-plugin-migrated = 已将 {$count} 个插件从 {$path} 移动到 {$target}。
 cli-plugin-migrate-none = 没有需要迁移的内容。
 cli-estop-resume-done = 急停恢复已完成。
@@ -783,7 +783,7 @@ cli-config-legend = 图例：💉 env 已覆盖  🔒 密钥
 cli-config-secret-set = {$path} 已设置（加密密钥——不显示值）
 cli-config-secret-unset = {$path} 未设置（加密密钥）
 cli-config-updated = {$path} 已更新。
-cli-config-review-hint = 运行 `zeroclaw config list` 进行查看，然后设置必填字段。
+cli-config-review-hint = 运行 `voltd config list` 进行查看，然后设置必填字段。
 cli-config-backed-up = 已备份至 {$path}
 cli-plugin-name-version = 插件：{$name} v{$version}
 cli-plugin-description = 描述：{$desc}
@@ -808,8 +808,8 @@ cli-auth-oauth-code = 代码：  {$code}
 cli-auth-oauth-fast-link = 快速链接：{$uri}
 cli-auth-xai-open-oauth-url = 在浏览器中打开此 xAI OAuth URL 并授权访问：
 cli-auth-callback-capture-failed = 回调捕获失败：{$error}
-cli-auth-run-paste-redirect = 运行 `zeroclaw auth paste-redirect --model-provider {$provider} --profile {$profile}`
-cli-auth-xai-no-pending-login = 未找到待处理的 xAI 登录。请先运行 `zeroclaw auth login --model-provider xai`。
+cli-auth-run-paste-redirect = 运行 `voltd auth paste-redirect --model-provider {$provider} --profile {$profile}`
+cli-auth-xai-no-pending-login = 未找到待处理的 xAI 登录。请先运行 `voltd auth login --model-provider xai`。
 cli-auth-paste-redirect-requires-input = paste-redirect 需要重定向 URL 或 OAuth 代码
 cli-locales-fetched = {"  "}已获取 {$name} -> {$path}
 cli-locales-skipped = {"  "}已跳过 {$name}：不在上游（{$path}；已尝试 {$refs}）
@@ -826,7 +826,7 @@ cli-update-success = 已成功更新至 v{$version}！
 cli-update-prebuilt-channel-note = 预构建更新使用精简的标准发行集。如需 Slack 和其他未包含在该发行集中的通道，请从源码构建：`./install.sh --source --preset full`、`--features channels-full`，或指定对应的 `channel-*` 功能。
 cli-update-available = 有可用更新：v{$current} -> v{$latest}
 cli-update-forcing-reinstall = 强制重新安装：v{$current} -> v{$latest}
-cli-update-not-writable = 安装目录 {$dir} 不可写（{$error}）；请使用更高权限重新运行 `zeroclaw update`（在 macOS/Linux 上使用 sudo，在 Windows 上使用管理员控制台）
+cli-update-not-writable = 安装目录 {$dir} 不可写（{$error}）；请使用更高权限重新运行 `voltd update`（在 macOS/Linux 上使用 sudo，在 Windows 上使用管理员控制台）
 cli-selftest-all-passed = 全部 {$total} 项检查通过。
 cli-selftest-some-failed = {$failed}/{$total} 项检查失败。
 cli-selftest-channel-config-uncompiled = {$compiled} 个通道类型已编译，{$configured} 个已编译且已配置；已配置但未编译：{$names}。请从源码构建：`./install.sh --source --preset full`、`--features channels-full`，或指定对应的 `channel-*` 功能。
@@ -836,9 +836,9 @@ cli-channels-notion = {"  "}{$status} Notion
 cli-channels-not-compiled-header = {"  "}已配置但未编译进此二进制文件：
 cli-channels-not-compiled-entry = {"  "}🚫 {$name}（已配置，未编译）
 cli-channels-build-hint = {"  "}请从源码构建：`./install.sh --source --preset full`、`--features channels-full`，或指定对应的 `channel-*` 功能。
-cli-channels-start-hint = 启动渠道：zeroclaw channel start
-cli-channels-doctor-hint = 检查健康状况：    zeroclaw channel doctor
-cli-channels-configure-hint = 配置方法：      zeroclaw config set channels.<name>.<field>=<value>
+cli-channels-start-hint = 启动渠道：voltd channel start
+cli-channels-doctor-hint = 检查健康状况：    voltd channel doctor
+cli-channels-configure-hint = 配置方法：      voltd config set channels.<name>.<field>=<value>
 cli-models-set-ok = 默认模型已设置为 "{ $model }" (provider: { $provider })。
 cli-models-status-current = 默认模型: { $model } (provider: { $provider })
 cli-models-status-none = 未配置默认模型。
@@ -877,7 +877,7 @@ channel-runtime-model-switch-hint = 使用 `/model <model-id>` 或 `/model <hint
 channel-runtime-provider-switch-hint = 使用 `/models <model_provider>` 切换 model_provider。
 channel-runtime-available-providers-header = 可用的 model_provider：
 channel-runtime-configured-routes-header = 已配置的模型路由：
-channel-runtime-no-cached-models = 未找到 `{ $provider }` 的缓存模型列表。请让操作者运行 `zeroclaw models refresh --model-provider { $provider }`。
+channel-runtime-no-cached-models = 未找到 `{ $provider }` 的缓存模型列表。请让操作者运行 `voltd models refresh --model-provider { $provider }`。
 channel-runtime-cached-model-ids-header = 缓存的模型 ID（前 { $count } 个）：
 channel-runtime-config-switch-hints =
     使用 `/models <model_provider>` 切换 model_provider。
@@ -968,13 +968,13 @@ cli-bundle-warn-archive = 警告：bundle 目录归档失败：{$error}
 cli-bundle-deleted = 已删除 skill_bundles.{$alias}（已从 {$count} 个 agent 中移除）
 cli-bundle-warn-move = 警告：bundle 目录移动失败：{$error}
 cli-bundle-renamed = 已重命名 skill_bundles.{$from} → skill_bundles.{$to}
-cli-gateway-restart-hint-kubernetes = kubectl rollout restart deployment/zeroclaw
+cli-gateway-restart-hint-kubernetes = kubectl rollout restart deployment/voltd
 cli-gateway-restart-hint-container = docker compose restart
-cli-gateway-restart-hint-systemd = systemctl restart zeroclaw
-cli-gateway-restart-hint-launchd = launchctl kickstart -k <your-zeroclaw-label>
-cli-gateway-restart-hint-process = 重启 `zeroclaw daemon` 进程
-cli-daemon-gateway-already-running = Volt gateway 已在 {$host}:{$port} 运行。daemon 会管理自己的 gateway，不会在同一地址启动第二个 gateway。请停止该 gateway（或使用 `zeroclaw config set gateway.port <port>` 将 daemon 指向空闲端口），然后重新运行 daemon。
-cli-daemon-gateway-port-occupied = Gateway 地址 {$host}:{$port} 已被另一个进程占用。请释放该端口或将 daemon 指向空闲端口（`zeroclaw config set gateway.port <port>`），然后重新运行 daemon。
+cli-gateway-restart-hint-systemd = systemctl restart voltd
+cli-gateway-restart-hint-launchd = launchctl kickstart -k <your-voltd-label>
+cli-gateway-restart-hint-process = 重启 `voltd daemon` 进程
+cli-daemon-gateway-already-running = Volt gateway 已在 {$host}:{$port} 运行。daemon 会管理自己的 gateway，不会在同一地址启动第二个 gateway。请停止该 gateway（或使用 `voltd config set gateway.port <port>` 将 daemon 指向空闲端口），然后重新运行 daemon。
+cli-daemon-gateway-port-occupied = Gateway 地址 {$host}:{$port} 已被另一个进程占用。请释放该端口或将 daemon 指向空闲端口（`voltd config set gateway.port <port>`），然后重新运行 daemon。
 cli-daemon-starting-title = 🧠 Volt daemon 正在启动…
 cli-daemon-starting-detail = 正在准备已配置的 daemon endpoint
 cli-daemon-started-title = 🧠 Volt daemon 已就绪

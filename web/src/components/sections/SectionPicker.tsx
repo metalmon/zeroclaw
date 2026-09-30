@@ -1,5 +1,5 @@
 // Picker view used by /config to mirror the TUI's
-// ZeroClaw Sections › Providers › [filter:_____] › <pickable list>
+// Volt Sections › Providers › [filter:_____] › <pickable list>
 // flow. Items come from /api/config/sections/<section> (gateway derives
 // them from list_providers / selectable_memory_backends / schema-walk).
 //
