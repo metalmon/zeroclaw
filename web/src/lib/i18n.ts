@@ -14063,7 +14063,16 @@ export function normalizeConfigFieldPath(path: string): string {
  */
 export function fieldLabel(path: string, fallback: string): string {
   const key = `config.field.${normalizeConfigFieldPath(path)}.label`;
-  return translations[currentLocale]?.[key] ?? fallback;
+  const byPath = translations[currentLocale]?.[key];
+  if (byPath !== undefined) return byPath;
+  // No hand-authored per-path label. Fall back to a label keyed by the
+  // computed humanized string itself (`config.fieldlabel.<humanized>`): the
+  // title is a pure function of the leaf segment, so one entry covers every
+  // field that humanizes the same way. Path-independent and future-proof —
+  // unlike the per-path catalog it needs no `normalizeConfigFieldPath`
+  // dynamic-section entry for each map. `fallback` is the humanized label the
+  // caller already computed (see `humanizeFieldLabel`).
+  return translations[currentLocale]?.[`config.fieldlabel.${fallback}`] ?? fallback;
 }
 
 /**

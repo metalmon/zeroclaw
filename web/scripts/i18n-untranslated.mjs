@@ -107,8 +107,28 @@ function collectPaths(root) {
   return [...out];
 }
 
+// Humanized leaf label — mirrors humanizeFieldLabel in FieldForm.tsx (the
+// title is a pure function of the leaf segment). Used to check the path-
+// independent `config.fieldlabel.<humanized>` fallback catalog.
+const LABEL_ACRONYMS = new Set(["api","url","uri","id","ip","ui","os","db","vm","ai","llm","mcp","tts","acp","ttl","sop","cpu","ram","gpu","dns","ssl","tls","json","toml","yaml","csv","sql","jwt","sse","ws","wss","http","https","rpc","grpc","cli","sdk","pdf","cwd","env"]);
+function humanizeLeaf(path) {
+  return (path.split(".").pop() ?? path)
+    .replace(/[-_]/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => (LABEL_ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
 function catalogHas(ru, path, kind) {
-  return Object.prototype.hasOwnProperty.call(ru, `config.field.${path}.${kind}`);
+  if (Object.prototype.hasOwnProperty.call(ru, `config.field.${path}.${kind}`)) return true;
+  // A field TITLE also counts as covered when the humanized-label fallback
+  // catalog (config.fieldlabel.<humanized>) has an entry — see fieldLabel().
+  if (kind === "label") {
+    return Object.prototype.hasOwnProperty.call(ru, `config.fieldlabel.${humanizeLeaf(path)}`);
+  }
+  return false;
 }
 
 function main() {
