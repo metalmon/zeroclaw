@@ -15,10 +15,11 @@ import { ChevronDown, ChevronRight, Pin, Plus, Trash2 } from 'lucide-react';
 import { t } from '@/lib/i18n';
 import { localizeToolArgDesc } from '@/lib/toolDescriptionsRu';
 import { HelpTip } from '@/components/ui';
+import { Select } from '@/components/ui/Select';
 import type { PlannedToolCall, StepToolCall } from '@/lib/sops';
 import { loadCatalog, type CatalogEntry } from '@/components/ToolPicker';
 
-const INPUT_CLS = 'w-full rounded border border-border bg-card px-2 py-1 text-foreground';
+const INPUT_CLS = 'input-electric w-full px-2 py-1';
 
 /// Shared, cached load of the tool catalog (built-in agent tools + CLI tools).
 /// `loadCatalog` is process-cached, so every mounted editor resolves instantly
@@ -283,18 +284,16 @@ function SchemaField({
     return (
       <label className="block text-xs">
         {label}
-        <select
+        <Select
           value={value === undefined || value === null ? '' : String(value)}
-          onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
-          className={`${INPUT_CLS} font-mono text-xs`}
-        >
-          <option value="">{t('sops.arg_unset')}</option>
-          {prop.enum.map((opt) => (
-            <option key={String(opt)} value={String(opt)}>
-              {String(opt)}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => onChange(v === '' ? undefined : v)}
+          options={[
+            { value: '', label: t('sops.arg_unset') },
+            ...prop.enum.map((opt) => ({ value: String(opt), label: String(opt) })),
+          ]}
+          className="w-full"
+          triggerClassName="font-mono text-xs"
+        />
       </label>
     );
   }

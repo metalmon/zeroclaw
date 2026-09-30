@@ -9,6 +9,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/cn";
 
 export interface SelectOption {
   value: string;
@@ -21,10 +22,15 @@ export interface SelectProps {
   onChange: (value: string) => void;
   options: SelectOption[];
   id?: string;
+  disabled?: boolean;
   /** Shown when no option is selected. */
   placeholder?: string;
-  /** Extra classes for the root wrapper. */
+  /** Extra classes for the root wrapper (layout: width, flex, margin). */
   className?: string;
+  /** Extra classes merged onto the trigger button (padding, text size, insets). */
+  triggerClassName?: string;
+  /** Native tooltip on the trigger button. */
+  title?: string;
   "aria-label"?: string;
 }
 
@@ -33,8 +39,11 @@ export function Select({
   onChange,
   options,
   id,
+  disabled = false,
   placeholder,
   className = "",
+  triggerClassName,
+  title,
   "aria-label": ariaLabel,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
@@ -117,9 +126,14 @@ export function Select({
         aria-expanded={open}
         aria-controls={listboxId}
         aria-label={ariaLabel}
-        onClick={() => setOpen((o) => !o)}
+        title={title}
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((o) => !o)}
         onKeyDown={onKeyDown}
-        className="input-electric flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm"
+        className={cn(
+          "input-electric flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm disabled:opacity-50 disabled:cursor-not-allowed",
+          triggerClassName,
+        )}
       >
         <span className={selected ? "truncate" : "truncate text-text-faint"}>
           {selected ? selected.label : (placeholder ?? "")}

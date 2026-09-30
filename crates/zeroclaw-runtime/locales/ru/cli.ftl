@@ -206,3 +206,28 @@ gateway-session-delete-failed = Не удалось удалить сессию:
 gateway-session-name-required = требуется name
 gateway-session-rename-failed = Не удалось переименовать сессию: {$err}
 gateway-session-state-failed = Не удалось получить состояние сессии: {$err}
+
+# ── Конструктор условий SOP-триггера: подписи полей ─────────────
+sop-cond-field-event-type = Тип события
+sop-cond-field-repository = Репозиторий
+sop-cond-field-issue-pr-number = Номер issue/PR
+sop-cond-field-author = Автор
+sop-cond-field-title = Заголовок
+sop-cond-field-body = Текст
+sop-cond-field-sender = Отправитель
+sop-cond-field-message-text = Текст сообщения
+sop-cond-field-channel-instance = Экземпляр канала
+sop-cond-field-change-kind = Тип изменения
+sop-cond-field-path = Путь
+sop-cond-field-event-id = Идентификатор события
+sop-cond-field-event-title = Название события
+sop-cond-field-expected-start = Ожидаемое начало
+sop-cond-field-signal-value = Значение сигнала
+
+# ── Конструктор условий SOP-триггера: подписи операторов ────────
+sop-cond-op-is = равно
+sop-cond-op-is-not = не равно
+sop-cond-op-is-greater-than = больше чем
+sop-cond-op-is-less-than = меньше чем
+sop-cond-op-is-at-least = не меньше чем
+sop-cond-op-is-at-most = не больше чем

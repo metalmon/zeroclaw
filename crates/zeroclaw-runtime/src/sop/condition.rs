@@ -181,6 +181,21 @@ impl ConditionOp {
         }
     }
 
+    /// The Fluent key for this operator's localized label, mirroring the
+    /// `label()` match arms. `label()` must stay `&'static str` (the parser and
+    /// tokens depend on it), so the catalog resolves the display label through
+    /// this key instead.
+    fn label_key(self) -> &'static str {
+        match self {
+            Self::Eq => "sop-cond-op-is",
+            Self::Neq => "sop-cond-op-is-not",
+            Self::Gt => "sop-cond-op-is-greater-than",
+            Self::Lt => "sop-cond-op-is-less-than",
+            Self::Gte => "sop-cond-op-is-at-least",
+            Self::Lte => "sop-cond-op-is-at-most",
+        }
+    }
+
     /// The full operator catalog in canonical display order (equality first,
     /// then ordering), for authoring surfaces to render verbatim.
     pub fn catalog() -> Vec<ConditionOpSpec> {
@@ -198,7 +213,7 @@ impl ConditionOp {
             debug_assert!(Self::iter().any(|variant| variant == op));
             ConditionOpSpec {
                 token: op.token().to_string(),
-                label: op.label().to_string(),
+                label: crate::i18n::get_required_cli_string(op.label_key()),
             }
         })
         .collect()

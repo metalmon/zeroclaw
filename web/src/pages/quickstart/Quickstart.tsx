@@ -27,6 +27,7 @@ import {
   quickstartFields,
 } from "@/lib/api";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
+import { Select } from "@/components/ui/Select";
 import { plural, t } from "@/lib/i18n";
 import {
   requiredQuickstartSelectionsComplete,
@@ -669,17 +670,12 @@ function LabeledSelect({
           {help}
         </div>
       ) : null}
-      <select
-        className={INPUT_CLASS}
+      <Select
+        className="w-full"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
+        onChange={onChange}
+        options={options.map((option) => ({ value: option, label: option }))}
+      />
     </label>
   );
 }
@@ -779,25 +775,21 @@ function ProviderForm({
         <div className="text-xs uppercase tracking-wider mb-1" style={MUTED}>
           {t("quickstart.provider_type")}
         </div>
-        <select
-          className={INPUT_CLASS}
+        <Select
+          className="w-full"
           value={type}
-          onChange={(e) => {
-            const next = e.target.value;
-            setType(next);
+          onChange={(v) => {
+            setType(v);
             setModel("");
           }}
-        >
-          <option value="" disabled>
-            {t("quickstart.pick_provider")}
-          </option>
-          {state?.model_provider_types.map((opt) => (
-            <option key={opt.kind} value={opt.kind}>
-              {opt.display_name}
-              {opt.local ? ` ${t("quickstart.local_suffix")}` : ""}
-            </option>
-          ))}
-        </select>
+          placeholder={t("quickstart.pick_provider")}
+          options={(state?.model_provider_types ?? []).map((opt) => ({
+            value: opt.kind,
+            label: `${opt.display_name}${
+              opt.local ? ` ${t("quickstart.local_suffix")}` : ""
+            }`,
+          }))}
+        />
       </label>
 
       <LabeledInput label={t("quickstart.alias")} value={alias} onChange={setAlias} />
@@ -1080,17 +1072,12 @@ function PeerGroupAddForm({
         <div className="text-xs uppercase tracking-wider mb-1" style={MUTED}>
           {t("quickstart.channel_label")}
         </div>
-        <select
-          className={INPUT_CLASS}
+        <Select
+          className="w-full"
           value={channel}
-          onChange={(e) => setChannel(e.target.value)}
-        >
-          {availableChannels.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setChannel(v)}
+          options={availableChannels.map((r) => ({ value: r, label: r }))}
+        />
       </label>
 
       <LabeledInput

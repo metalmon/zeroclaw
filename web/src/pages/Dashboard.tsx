@@ -165,6 +165,7 @@ import { useSSE } from "@/hooks/useSSE";
 import { usePolling } from "@/hooks/usePolling";
 import { t, fmtDate, fmtNumber, fmtRelative, plural } from "@/lib/i18n";
 import { StatCard, PageHeader, ConfirmDialog } from "@/components/ui";
+import { Select } from "@/components/ui/Select";
 import { Spinner } from "@/components/ui/spinner";
 
 type TabId =
@@ -1188,57 +1189,49 @@ function SessionsTab() {
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
               style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SessionSort)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setSortBy(v as SessionSort)}
+              options={SESSION_SORT_OPTIONS.map((o) => ({
+                value: o.value,
+                label: t(o.labelKey),
+              }))}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.session_sort_title")}
               aria-label={t("dashboard.session_sort_title")}
-            >
-              {SESSION_SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {t(o.labelKey)}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="relative">
             <Bot
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
               style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={agentFilter}
-              onChange={(e) => setAgentFilter(e.target.value)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setAgentFilter(v)}
+              options={[
+                { value: "", label: t("dashboard.all_agents") },
+                ...knownAgents.map((a) => ({ value: a, label: a })),
+              ]}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.filter_agent_title")}
-            >
-              <option value="">{t("dashboard.all_agents")}</option>
-              {knownAgents.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="relative">
             <Filter
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
               style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={channelFilter}
-              onChange={(e) => setChannelFilter(e.target.value)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setChannelFilter(v)}
+              options={[
+                { value: "", label: t("dashboard.all_channels") },
+                ...knownChannels.map((c) => ({ value: c, label: c })),
+              ]}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.filter_channel_title")}
-            >
-              <option value="">{t("dashboard.all_channels")}</option>
-              {knownChannels.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
       </div>
@@ -2043,17 +2036,15 @@ function CostTab({
         >
           {t("dashboard.cost.window")}
         </label>
-        <select
+        <Select
           value={costWindow}
-          onChange={(e) => onWindowChange(e.target.value as CostWindow)}
-          className="input-electric text-sm px-2 py-1 appearance-none cursor-pointer"
-        >
-          {COST_WINDOW_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {t(opt.labelKey)}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => onWindowChange(v as CostWindow)}
+          options={COST_WINDOW_OPTIONS.map((opt) => ({
+            value: opt.value,
+            label: t(opt.labelKey),
+          }))}
+          triggerClassName="px-2 py-1"
+        />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-5 animate-slide-in-up">
@@ -2460,57 +2451,49 @@ function MemoriesTab() {
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
               style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as MemorySort)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setSortBy(v as MemorySort)}
+              options={MEMORY_SORT_OPTIONS.map((o) => ({
+                value: o.value,
+                label: t(o.labelKey),
+              }))}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.mem.sort_title")}
               aria-label={t("dashboard.mem.sort_aria")}
-            >
-              {MEMORY_SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {t(o.labelKey)}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="relative">
             <Bot
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
               style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={agentFilter}
-              onChange={(e) => setFilter("agent", e.target.value)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setFilter("agent", v)}
+              options={[
+                { value: "", label: t("dashboard.all_agents") },
+                ...knownAgents.map((a) => ({ value: a, label: a })),
+              ]}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.filter_agent_title")}
-            >
-              <option value="">{t("dashboard.all_agents")}</option>
-              {knownAgents.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="relative">
             <Filter
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
               style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={categoryFilter}
-              onChange={(e) => setFilter("category", e.target.value)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setFilter("category", v)}
+              options={[
+                { value: "", label: t("dashboard.mem.all_categories") },
+                ...knownCategories.map((c) => ({ value: c, label: c })),
+              ]}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.mem.filter_category_title")}
-            >
-              <option value="">{t("dashboard.mem.all_categories")}</option>
-              {knownCategories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
       </div>
@@ -2685,18 +2668,15 @@ function MemoriesTab() {
                 >
                   {t("dashboard.mem.field_agent")}
                 </label>
-                <select
+                <Select
                   value={formAgent}
-                  onChange={(e) => setFormAgent(e.target.value)}
-                  className="input-electric w-full px-3 py-2.5 text-sm appearance-none cursor-pointer"
-                >
-                  <option value="">{t("dashboard.mem.install_wide")}</option>
-                  {knownAgents.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setFormAgent(v)}
+                  options={[
+                    { value: "", label: t("dashboard.mem.install_wide") },
+                    ...knownAgents.map((a) => ({ value: a, label: a })),
+                  ]}
+                  className="w-full"
+                />
                 <p
                   className="text-[11px] mt-1"
                   style={{ color: "var(--color-text-faint)" }}

@@ -1435,3 +1435,28 @@ gateway-session-delete-failed = Failed to delete session: {$err}
 gateway-session-name-required = name is required
 gateway-session-rename-failed = Failed to rename session: {$err}
 gateway-session-state-failed = Failed to get session state: {$err}
+
+# ── SOP trigger condition builder: field labels ─────────────────
+sop-cond-field-event-type = Event type
+sop-cond-field-repository = Repository
+sop-cond-field-issue-pr-number = Issue/PR number
+sop-cond-field-author = Author
+sop-cond-field-title = Title
+sop-cond-field-body = Body
+sop-cond-field-sender = Sender
+sop-cond-field-message-text = Message text
+sop-cond-field-channel-instance = Channel instance
+sop-cond-field-change-kind = Change kind
+sop-cond-field-path = Path
+sop-cond-field-event-id = Event ID
+sop-cond-field-event-title = Event title
+sop-cond-field-expected-start = Expected start
+sop-cond-field-signal-value = Signal value
+
+# ── SOP trigger condition builder: operator labels ──────────────
+sop-cond-op-is = is
+sop-cond-op-is-not = is not
+sop-cond-op-is-greater-than = is greater than
+sop-cond-op-is-less-than = is less than
+sop-cond-op-is-at-least = is at least
+sop-cond-op-is-at-most = is at most

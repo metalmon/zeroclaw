@@ -14,6 +14,7 @@ import {
 import { agentBoundChannels, type AgentBoundChannel } from '@/lib/agentChannels';
 import { t, fmtDate } from '@/lib/i18n';
 import { Badge, Button, Card, PageHeader, Switch } from '@/components/ui';
+import { Select } from '@/components/ui/Select';
 import { SpinnerScreen } from '@/components/ui/spinner';
 import ToolPicker from '@/components/ToolPicker';
 import type { CronJob, CronRun } from '@/types/api';
@@ -667,21 +668,16 @@ export default function Cron() {
                   </span>
                 ) : (
                   <>
-                    <select
+                    <Select
                       value={formAgent}
-                      onChange={(e) => setFormAgent(e.target.value)}
-                      className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm appearance-none cursor-pointer"
-                    >
-                      {agentOptions.length === 0 ? (
-                        <option value="">{t('cron.no_configured_agents')}</option>
-                      ) : (
-                        agentOptions.map((alias) => (
-                          <option key={alias} value={alias}>
-                            agents.{alias}
-                          </option>
-                        ))
-                      )}
-                    </select>
+                      onChange={(v) => setFormAgent(v)}
+                      options={agentOptions.map((alias) => ({
+                        value: alias,
+                        label: `agents.${alias}`,
+                      }))}
+                      placeholder={t('cron.no_configured_agents')}
+                      className="w-full"
+                    />
                     <p className="text-xs mt-1 text-text-faint">
                       {t('cron.agent_help')}
                     </p>
@@ -921,23 +917,20 @@ export default function Cron() {
                   </div>
                   {formDeliveryMode === 'announce' && (
                     <div className="space-y-2">
-                      <select
+                      <Select
                         value={formDeliveryChannel}
-                        onChange={(e) => setFormDeliveryChannel(e.target.value)}
-                        className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2 text-sm appearance-none cursor-pointer"
-                      >
-                        <option value="">
-                          {boundChannels.length === 0
+                        onChange={(v) => setFormDeliveryChannel(v)}
+                        options={boundChannels.map((ch) => ({
+                          value: ch.composite,
+                          label: `${ch.composite}${ch.identity ? ` — ${ch.identity}` : ''}`,
+                        }))}
+                        placeholder={
+                          boundChannels.length === 0
                             ? t('cron.no_channels_bound')
-                            : t('cron.select_channel')}
-                        </option>
-                        {boundChannels.map((ch) => (
-                          <option key={ch.composite} value={ch.composite}>
-                            {ch.composite}
-                            {ch.identity ? ` — ${ch.identity}` : ''}
-                          </option>
-                        ))}
-                      </select>
+                            : t('cron.select_channel')
+                        }
+                        className="w-full"
+                      />
                       <input
                         type="text"
                         value={formDeliveryTo}

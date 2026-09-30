@@ -16,6 +16,8 @@ import { Badge, Button, Card, EmptyState, PageHeader, HelpTip } from '@/componen
 import { SettingsPageShell, SettingsListBody, SettingsSelectableRow } from '@/components/ui/settings-list';
 import { IconTile } from '@/components/ui/icon-tile';
 import { Spinner, SpinnerScreen } from '@/components/ui/spinner';
+import { Select, type SelectOption } from '@/components/ui/Select';
+import { isChannelAllowed } from '@/lib/channelAllowlist';
 import SopCanvas from './SopCanvas';
 import MarkdownEditor from '@/components/MarkdownEditor';
 import ToolPicker from '@/components/ToolPicker';
@@ -279,32 +281,28 @@ function SelectField({
   onChange,
   options,
   disabled,
-  children,
+  placeholder,
   help,
 }: {
   label: string;
   value: string;
   onChange: (next: string) => void;
-  options?: readonly string[];
+  options: SelectOption[];
   disabled?: boolean;
-  children?: ReactNode;
+  placeholder?: string;
   help?: string | null;
 }) {
   return (
     <Field label={label} help={help}>
-      <select
+      <Select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
+        options={options}
         disabled={disabled}
-        className={INPUT_CLS}
-      >
-        {children}
-        {(options ?? []).map((opt) => (
-          <option key={opt} value={opt}>
-            {enumLabel(opt)}
-          </option>
-        ))}
-      </select>
+        placeholder={placeholder}
+        className="w-full"
+        aria-label={label}
+      />
     </Field>
   );
 }
@@ -448,10 +446,10 @@ function StepEditor({
           title={sopFieldHelp('SopStep', 'title') ?? undefined}
           className="flex-1 rounded border border-border bg-card px-2 py-1 text-sm text-foreground"
         />
-        <select
+        <Select
           value={step.kind ?? 'execute'}
-          onChange={(e) => {
-            const kind = e.target.value as SopStep['kind'];
+          onChange={(v) => {
+            const kind = v as SopStep['kind'];
             // Leaving the capability kind clears its now-orphaned config so it
             // isn't silently serialized into the SOP (the Capability section is
             // hidden for non-capability kinds).
@@ -461,16 +459,14 @@ function StepEditor({
                 : { kind, capability: undefined, with: undefined },
             );
           }}
-          className="rounded border border-border bg-card px-1.5 py-1 text-xs text-foreground"
+          options={sopStepKinds.map((kind) => ({
+            value: kind,
+            label: t(`sops.kind_${kind}`),
+          }))}
+          triggerClassName="px-1.5 py-1 text-xs"
           aria-label={t('sops.step_kind')}
           title={sopFieldHelp('SopStep', 'kind') ?? undefined}
-        >
-          {sopStepKinds.map((kind) => (
-            <option key={kind} value={kind}>
-              {t(`sops.kind_${kind}`)}
-            </option>
-          ))}
-        </select>
+        />
         <button
           type="button"
           onClick={() => onMove(-1)}
@@ -508,21 +504,18 @@ function StepEditor({
           <span className="mb-1 block text-muted-foreground text-sm">
             <HelpTip text={sopFieldHelp('SopStep', 'agent')}>{t('sops.step_agent_label')}</HelpTip>
           </span>
-          <select
+          <Select
             value={step.agent ?? ''}
-            onChange={(e) => onChange({ agent: e.target.value === '' ? null : e.target.value })}
-            className="w-full rounded border border-border bg-card px-2 py-1 text-sm text-foreground"
-          >
-            <option value="">
-              {t('sops.step_agent_inherit')}
-              {parentAgent ? ` (${parentAgent})` : ''}
-            </option>
-            {agentAliases.map((alias) => (
-              <option key={alias} value={alias}>
-                {alias}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => onChange({ agent: v === '' ? null : v })}
+            options={[
+              {
+                value: '',
+                label: `${t('sops.step_agent_inherit')}${parentAgent ? ` (${parentAgent})` : ''}`,
+              },
+              ...agentAliases.map((alias) => ({ value: alias, label: alias })),
+            ]}
+            className="w-full"
+          />
         </div>
       </StepSection>
 
@@ -623,11 +616,12 @@ function StepEditor({
             value={fkind}
             help={sopFieldHelp('SopStep', 'on_failure')}
             onChange={(v) => setFailure(v as 'fail' | 'retry' | 'goto')}
-          >
-            <option value="fail">{t('sops.failure_fail')}</option>
-            <option value="retry">{t('sops.failure_retry')}</option>
-            <option value="goto">{t('sops.failure_goto')}</option>
-          </SelectField>
+            options={[
+              { value: 'fail', label: t('sops.failure_fail') },
+              { value: 'retry', label: t('sops.failure_retry') },
+              { value: 'goto', label: t('sops.failure_goto') },
+            ]}
+          />
           {fkind === 'retry' && step.on_failure && typeof step.on_failure === 'object' && 'retry' in step.on_failure ? (
             <Field label={t('sops.failure_max')}>
               <input
@@ -843,7 +837,13 @@ function blankTrigger(
   registry: TriggerSourceRegistry | null,
 ): SopTrigger {
   if (source === CHANNEL_SOURCE) {
-    const firstChannel = registry?.channels[0]?.channel ?? '';
+    // Default a new channel trigger to the first ALLOWED channel (the panel
+    // curates which channel kinds it offers via the Volt allowlist), falling
+    // back to the first walked kind if none is allowlisted.
+    const firstChannel =
+      registry?.channels.find((c) => isChannelAllowed(c.channel))?.channel ??
+      registry?.channels[0]?.channel ??
+      '';
     return { type: 'channel', channel: firstChannel, alias: null, condition: null };
   }
   if (source === MANUAL_SOURCE) return { type: 'manual' };
@@ -928,13 +928,12 @@ function TriggerFieldInput({
     const current = typeof value === 'string' ? value : '';
     return (
       <Field label={triggerFieldLabel(name)} hint={hint} help={help}>
-        <select value={current} onChange={(e) => onChange(e.target.value)} className={INPUT_CLS}>
-          {options.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={current}
+          onChange={(v) => onChange(v)}
+          options={options.map((opt) => ({ value: opt, label: opt }))}
+          className="w-full"
+        />
       </Field>
     );
   }
@@ -1048,7 +1047,7 @@ function ConditionBuilder({
           {t('sops.trigger_condition')}
         </HelpTip>
       </legend>
-      <div className="grid grid-cols-[1.4fr_auto_1.4fr] items-end gap-2">
+      <div className="flex flex-col gap-2">
         {isDirect ? (
           <div className="text-xs text-text-faint">{t('sops.condition_direct_payload')}</div>
         ) : isOpen ? (
@@ -1065,52 +1064,38 @@ function ConditionBuilder({
           </Field>
         ) : (
           <Field label={t('sops.condition_field')}>
-            <select
+            <Select
               value={parsed.path ?? ''}
-              onChange={(e) => emit({ path: e.target.value, op: parsed.op, value: parsed.value })}
-              className={INPUT_CLS}
-            >
-              <option value="">{t('sops.condition_pick_field')}</option>
-              {fields.map((f) => (
-                <option key={f.path} value={f.path}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => emit({ path: v, op: parsed.op, value: parsed.value })}
+              options={fields.map((f) => ({ value: f.path, label: f.label }))}
+              placeholder={t('sops.condition_pick_field')}
+              className="w-full"
+            />
           </Field>
         )}
         <Field label={t('sops.condition_operator')}>
-          <select
+          <Select
             value={parsed.op}
-            onChange={(e) =>
-              emit({ path: parsed.path, op: e.target.value, value: parsed.value })
-            }
-            className={INPUT_CLS}
-          >
-            <option value="">{t('sops.condition_any')}</option>
-            {operators.map((op) => (
-              <option key={op.token} value={op.token}>
-                {op.label} ({op.token})
-              </option>
-            ))}
-          </select>
+            onChange={(v) => emit({ path: parsed.path, op: v, value: parsed.value })}
+            options={[
+              { value: '', label: t('sops.condition_any') },
+              ...operators.map((op) => ({
+                value: op.token,
+                label: `${op.label} (${op.token})`,
+              })),
+            ]}
+            className="w-full"
+          />
         </Field>
         {selectedField?.options && selectedField.options.length > 0 ? (
           <Field label={t('sops.condition_value')}>
-            <select
+            <Select
               value={parsed.value}
-              onChange={(e) =>
-                emit({ path: parsed.path, op: parsed.op, value: e.target.value })
-              }
-              className={INPUT_CLS}
-            >
-              <option value="">{t('sops.condition_pick_value')}</option>
-              {selectedField.options.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => emit({ path: parsed.path, op: parsed.op, value: v })}
+              options={selectedField.options.map((opt) => ({ value: opt, label: opt }))}
+              placeholder={t('sops.condition_pick_value')}
+              className="w-full"
+            />
           </Field>
         ) : (
           <Field label={t('sops.condition_value')}>
@@ -1148,7 +1133,13 @@ function ChannelTriggerFields({
   registry: TriggerSourceRegistry | null;
   onChange: (patch: Partial<Extract<SopTrigger, { type: 'channel' }>>) => void;
 }) {
-  const channels = registry?.channels ?? [];
+  // Curate the offered channel kinds through the Volt allowlist (same filter
+  // the Config channel picker and Integrations use), but always keep the
+  // currently-selected channel present so an existing trigger on a now-hidden
+  // channel still renders and isn't silently dropped.
+  const channels = (registry?.channels ?? []).filter(
+    (c) => isChannelAllowed(c.channel) || c.channel === trigger.channel,
+  );
   const selected = channels.find((c) => c.channel === trigger.channel);
   return (
     <div className="space-y-2">
@@ -1157,7 +1148,7 @@ function ChannelTriggerFields({
           label={t('sops.trigger_channel')}
           value={trigger.channel}
           onChange={(v) => onChange({ channel: v, alias: null })}
-          options={channels.map((c) => c.channel)}
+          options={channels.map((c) => ({ value: c.channel, label: enumLabel(c.channel) }))}
           help={sopFieldHelp('SopTrigger', 'channel')}
         />
         <SelectField
@@ -1165,11 +1156,12 @@ function ChannelTriggerFields({
           value={trigger.alias ?? ''}
           onChange={(v) => onChange({ alias: v.length > 0 ? v : null })}
           disabled={!selected?.configured}
-          options={(selected?.aliases ?? []).map((a) => a.alias)}
+          options={[
+            { value: '', label: t('sops.trigger_alias_any') },
+            ...(selected?.aliases ?? []).map((a) => ({ value: a.alias, label: enumLabel(a.alias) })),
+          ]}
           help={sopFieldHelp('SopTrigger', 'alias')}
-        >
-          <option value="">{t('sops.trigger_alias_any')}</option>
-        </SelectField>
+        />
       </div>
       {selected && !selected.configured ? (
         <div className="flex items-center gap-2 text-xs text-status-warning">
@@ -1227,7 +1219,7 @@ function TriggerEditor({
   return (
     <div
       className={`space-y-2 rounded border bg-card p-2 ${
-        selected ? 'border-brand' : 'border-border'
+        selected ? 'border-border-strong' : 'border-border'
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -1236,7 +1228,7 @@ function TriggerEditor({
             label={t('sops.trigger_source')}
             value={source}
             onChange={(v) => onChange(blankTrigger(v, registry))}
-            options={sources}
+            options={sources.map((s) => ({ value: s, label: enumLabel(s) }))}
           />
         </div>
         <button
@@ -1314,7 +1306,7 @@ function StepListRow({
   return (
     <div
       className={`flex items-center gap-2 rounded border px-2 py-1.5 ${
-        selected ? 'border-brand' : 'border-border'
+        selected ? 'border-border-strong' : 'border-border'
       }`}
     >
       <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-2 text-left">
@@ -1453,39 +1445,32 @@ function DraftSidebar({
           value={draft.priority}
           onChange={(v) => onField({ priority: v as Sop['priority'] })}
           help={sopFieldHelp('Sop', 'priority')}
-        >
-          {sopPriorities.map((p) => (
-            <option key={p} value={p}>
-              {t(`sops.priority_${p}`)}
-            </option>
-          ))}
-        </SelectField>
+          options={sopPriorities.map((p) => ({
+            value: p,
+            label: t(`sops.priority_${p}`),
+          }))}
+        />
       </div>
       <SelectField
         label={t('sops.field_execution_mode')}
         value={draft.execution_mode}
         onChange={(v) => onField({ execution_mode: v as Sop['execution_mode'] })}
         help={sopFieldHelp('Sop', 'execution_mode')}
-      >
-        {sopExecutionModes.map((m) => (
-          <option key={m} value={m}>
-            {t(`sops.exec_${m}`)}
-          </option>
-        ))}
-      </SelectField>
+        options={sopExecutionModes.map((m) => ({
+          value: m,
+          label: t(`sops.exec_${m}`),
+        }))}
+      />
       <SelectField
         label={t('sops.field_agent')}
         value={draft.agent ?? ''}
         onChange={(v) => onField({ agent: v === '' ? null : v })}
         help={sopFieldHelp('Sop', 'agent')}
-      >
-        <option value="">{t('sops.agent_none')}</option>
-        {agentAliases.map((alias) => (
-          <option key={alias} value={alias}>
-            {alias}
-          </option>
-        ))}
-      </SelectField>
+        options={[
+          { value: '', label: t('sops.agent_none') },
+          ...agentAliases.map((alias) => ({ value: alias, label: alias })),
+        ]}
+      />
       <StepSection title={t('sops.section_scheduling')} defaultOpen={false}>
         <Field
           label={t('sops.field_cooldown_secs')}
@@ -1518,13 +1503,11 @@ function DraftSidebar({
           value={draft.admission_policy ?? 'parallel'}
           help={sopFieldHelp('Sop', 'admission_policy')}
           onChange={(v) => onField({ admission_policy: v as Sop['admission_policy'] })}
-        >
-          {sopAdmissionPolicies.map((p) => (
-            <option key={p} value={p}>
-              {t(`sops.admission_${p}`)}
-            </option>
-          ))}
-        </SelectField>
+          options={sopAdmissionPolicies.map((p) => ({
+            value: p,
+            label: t(`sops.admission_${p}`),
+          }))}
+        />
         <Field
           label={t('sops.field_max_pending_approvals')}
           help={sopFieldHelp('Sop', 'max_pending_approvals')}

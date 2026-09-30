@@ -247,8 +247,16 @@ fn condition_contract_for(source: crate::sop::types::SopTriggerSource) -> Option
                 open: false,
                 direct: false,
                 fields: vec![
-                    ConditionField::enumerated("event", "Change kind", kinds),
-                    ConditionField::new("path", "Path", ConditionValueType::String),
+                    ConditionField::enumerated(
+                        "event",
+                        &crate::i18n::get_required_cli_string("sop-cond-field-change-kind"),
+                        kinds,
+                    ),
+                    ConditionField::new(
+                        "path",
+                        &crate::i18n::get_required_cli_string("sop-cond-field-path"),
+                        ConditionValueType::String,
+                    ),
                 ],
             })
         }
@@ -256,11 +264,19 @@ fn condition_contract_for(source: crate::sop::types::SopTriggerSource) -> Option
             open: false,
             direct: false,
             fields: vec![
-                ConditionField::new("event_id", "Event ID", ConditionValueType::String),
-                ConditionField::new("event_title", "Event title", ConditionValueType::String),
+                ConditionField::new(
+                    "event_id",
+                    &crate::i18n::get_required_cli_string("sop-cond-field-event-id"),
+                    ConditionValueType::String,
+                ),
+                ConditionField::new(
+                    "event_title",
+                    &crate::i18n::get_required_cli_string("sop-cond-field-event-title"),
+                    ConditionValueType::String,
+                ),
                 ConditionField::new(
                     "expected_start",
-                    "Expected start",
+                    &crate::i18n::get_required_cli_string("sop-cond-field-expected-start"),
                     ConditionValueType::DateTime,
                 ),
             ],
@@ -270,7 +286,7 @@ fn condition_contract_for(source: crate::sop::types::SopTriggerSource) -> Option
             direct: true,
             fields: vec![ConditionField::new(
                 "",
-                "Signal value",
+                &crate::i18n::get_required_cli_string("sop-cond-field-signal-value"),
                 ConditionValueType::Number,
             )],
         }),
@@ -315,21 +331,49 @@ fn channel_condition_fields(kind: ChannelKind) -> PayloadContract {
         ChannelKind::Git => vec![
             ConditionField::enumerated(
                 "event_type",
-                "Event type",
+                &crate::i18n::get_required_cli_string("sop-cond-field-event-type"),
                 FORGE_EVENT_TYPES.iter().map(|s| (*s).to_string()).collect(),
             ),
-            ConditionField::new("repo", "Repository", ConditionValueType::String),
-            ConditionField::new("number", "Issue/PR number", ConditionValueType::Number),
-            ConditionField::new("author.login", "Author", ConditionValueType::String),
-            ConditionField::new("title", "Title", ConditionValueType::String),
-            ConditionField::new("body", "Body", ConditionValueType::String),
+            ConditionField::new(
+                "repo",
+                &crate::i18n::get_required_cli_string("sop-cond-field-repository"),
+                ConditionValueType::String,
+            ),
+            ConditionField::new(
+                "number",
+                &crate::i18n::get_required_cli_string("sop-cond-field-issue-pr-number"),
+                ConditionValueType::Number,
+            ),
+            ConditionField::new(
+                "author.login",
+                &crate::i18n::get_required_cli_string("sop-cond-field-author"),
+                ConditionValueType::String,
+            ),
+            ConditionField::new(
+                "title",
+                &crate::i18n::get_required_cli_string("sop-cond-field-title"),
+                ConditionValueType::String,
+            ),
+            ConditionField::new(
+                "body",
+                &crate::i18n::get_required_cli_string("sop-cond-field-body"),
+                ConditionValueType::String,
+            ),
         ],
         _ => vec![
-            ConditionField::new("sender", "Sender", ConditionValueType::String),
-            ConditionField::new("content", "Message text", ConditionValueType::String),
+            ConditionField::new(
+                "sender",
+                &crate::i18n::get_required_cli_string("sop-cond-field-sender"),
+                ConditionValueType::String,
+            ),
+            ConditionField::new(
+                "content",
+                &crate::i18n::get_required_cli_string("sop-cond-field-message-text"),
+                ConditionValueType::String,
+            ),
             ConditionField::new(
                 "channel_alias",
-                "Channel instance",
+                &crate::i18n::get_required_cli_string("sop-cond-field-channel-instance"),
                 ConditionValueType::String,
             ),
         ],

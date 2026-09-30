@@ -2897,7 +2897,7 @@ export const ru: Record<string, string> = {
   'sops.condition_field_placeholder': 'path.to.field',
   'sops.condition_operator': 'Оператор',
   'sops.condition_value': 'Значение',
-  'sops.condition_any': 'Любое (срабатывает всегда)',
+  'sops.condition_any': 'Любое',
   'sops.condition_pick_field': 'Выберите поле',
   'sops.condition_pick_value': 'Выберите значение',
   'sops.condition_value_placeholder': 'значение',

@@ -1418,7 +1418,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.condition_field_placeholder': 'path.to.field',
     'sops.condition_operator': 'Operator',
     'sops.condition_value': 'Value',
-    'sops.condition_any': 'Any (fires always)',
+    'sops.condition_any': 'Any',
     'sops.condition_pick_field': 'Pick a field',
     'sops.condition_pick_value': 'Pick a value',
     'sops.condition_value_placeholder': 'value',

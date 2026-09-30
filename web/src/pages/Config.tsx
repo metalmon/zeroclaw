@@ -53,6 +53,7 @@ import CostRatesEditor, {
   type CostRatesCategory,
 } from "../components/sections/CostRatesEditor";
 import { Badge, Button, Card } from "@/components/ui";
+import { Select } from "@/components/ui/Select";
 import { Spinner } from "@/components/ui/spinner";
 import { t, plural, sectionDesc, sectionLabel, displayAlias, badgeLabel } from "@/lib/i18n";
 import { filterSections } from "@/lib/sectionFilter";
@@ -1236,23 +1237,18 @@ function AgentPeerGroupsTab({
         <span className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
           {t("config.add_agent_to")}
         </span>
-        <select
+        <Select
           value={pickerValue}
-          onChange={(e) => setPickerValue(e.target.value)}
+          onChange={(v) => setPickerValue(v)}
           disabled={adding || nonMembers.length === 0}
-          className="input-electric text-xs px-2 py-1 appearance-none cursor-pointer"
-        >
-          <option value="">
-            {nonMembers.length === 0
+          triggerClassName="px-2 py-1 text-xs"
+          placeholder={
+            nonMembers.length === 0
               ? t("config.no_other_groups")
-              : t("config.select_a_group")}
-          </option>
-          {nonMembers.map((g) => (
-            <option key={g} value={g}>
-              {g}
-            </option>
-          ))}
-        </select>
+              : t("config.select_a_group")
+          }
+          options={nonMembers.map((g) => ({ value: g, label: g }))}
+        />
         <button
           type="button"
           onClick={addToGroup}

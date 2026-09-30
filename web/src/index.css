@@ -51,9 +51,9 @@
   --color-card: #faf8f5;
   --color-secondary: #fefdfb;
   --color-muted-foreground: #7f7870;
-  --color-border: transparent;
-  --color-border-strong: transparent;
-  --color-input: #faf8f5;
+  --color-border: #e5dfd5;
+  --color-border-strong: #bfb4a3;
+  --color-input: #e9e4dd;
   /* primary = neutral warm ink (was --color-primary). NOT the beige hover. */
   --color-primary: #393530;
   --color-primary-foreground: #faf8f5;
@@ -470,10 +470,10 @@ code, kbd, pre {
 
 .input-electric:focus {
   outline: none;
-  border-color: transparent;
   box-shadow: none;
-  /* No outline/ring "обводка" on focus — indicate focus by lifting the fill. */
-  background: var(--color-secondary);
+  /* Thunderbolt-style focus: darken the border to border-strong. No glow/ring
+     "обводка", no fill swap — just the border stepping up on focus. */
+  border-color: var(--color-border-strong);
 }
 
 .input-electric::placeholder {

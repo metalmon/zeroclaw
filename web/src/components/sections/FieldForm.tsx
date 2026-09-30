@@ -2197,19 +2197,19 @@ function FieldRow({
             <AgentEmptyAliasFallback fieldKind={agentSingleAliasKind} />
           ) : (
             <div className="flex items-center gap-2">
-              <select
+              <Select
                 id={entry.path}
                 value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="input-electric flex-1 px-3 py-2 text-sm appearance-none cursor-pointer"
-              >
-                <option value="">{t("fieldform.option_none")}</option>
-                {(agentOptions[agentSingleAliasKind] ?? []).map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => onChange(v)}
+                className="flex-1"
+                options={[
+                  { value: "", label: t("fieldform.option_none") },
+                  ...(agentOptions[agentSingleAliasKind] ?? []).map((a) => ({
+                    value: a,
+                    label: a,
+                  })),
+                ]}
+              />
               {value && (
                 <Link
                   to={agentAliasJumpPath(agentSingleAliasKind, value)}
@@ -2766,18 +2766,15 @@ function ObjectArrayField({
           />
         </div>
       ) : meta.kind === "enum" && meta.enumVariants ? (
-        <select
+        <Select
           value={display}
-          onChange={(e) => onChange(e.target.value)}
-          className="input-electric w-full px-2 py-1 mt-1 text-sm appearance-none cursor-pointer"
-        >
-          <option value="">—</option>
-          {meta.enumVariants.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => onChange(v)}
+          className="w-full mt-1"
+          options={[
+            { value: "", label: "—" },
+            ...meta.enumVariants.map((v) => ({ value: v, label: v })),
+          ]}
+        />
       ) : meta.kind === "integer" || meta.kind === "float" ? (
         <input
           type="number"

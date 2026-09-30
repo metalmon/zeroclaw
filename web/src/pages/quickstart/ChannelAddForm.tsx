@@ -7,6 +7,7 @@ import type {
 import { quickstartFields } from "../../lib/api";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { Select } from "@/components/ui/Select";
 import { t } from "../../lib/i18n";
 import {
   channelFieldStateReducer,
@@ -14,8 +15,6 @@ import {
 } from "./channel-fields";
 import { LabeledInput } from "./quickstart-form-controls";
 
-const INPUT_CLASS =
-  "w-full h-9 px-3 rounded-[var(--radius-md)] border border-border bg-input text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-primary/40";
 const MUTED = { color: "var(--color-muted-foreground)" } as const;
 const ERROR = { color: "var(--color-status-error)" } as const;
 
@@ -140,17 +139,12 @@ export function ChannelAddForm({
             {t("quickstart.no_unassigned_channels")}
           </div>
         ) : (
-          <select
-            className={INPUT_CLASS}
+          <Select
+            className="w-full"
             value={existingRef}
-            onChange={(e) => setExistingRef(e.target.value)}
-          >
-            {reusable.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setExistingRef(v)}
+            options={reusable.map((r) => ({ value: r, label: r }))}
+          />
         )
       ) : (
         <>
@@ -158,27 +152,22 @@ export function ChannelAddForm({
             <div className="text-xs uppercase tracking-wider mb-1" style={MUTED}>
               {t("quickstart.channel_type")}
             </div>
-            <select
-              className={INPUT_CLASS}
+            <Select
+              className="w-full"
               value={type}
-              onChange={(e) => {
-                const next = e.target.value;
+              onChange={(v) => {
                 dispatchChannelFields({
                   kind: "channel-type-changed",
-                  channelType: next,
+                  channelType: v,
                 });
-                setAlias((prev) => (prev === "" || prev === type ? next : prev));
+                setAlias((prev) => (prev === "" || prev === type ? v : prev));
               }}
-            >
-              <option value="" disabled>
-                {t("quickstart.pick_channel_type")}
-              </option>
-              {state?.channel_types.map((opt) => (
-                <option key={opt.kind} value={opt.kind}>
-                  {opt.display_name}
-                </option>
-              ))}
-            </select>
+              placeholder={t("quickstart.pick_channel_type")}
+              options={(state?.channel_types ?? []).map((opt) => ({
+                value: opt.kind,
+                label: opt.display_name,
+              }))}
+            />
           </label>
 
           <LabeledInput label={t("quickstart.alias_label")} value={alias} onChange={setAlias} />
