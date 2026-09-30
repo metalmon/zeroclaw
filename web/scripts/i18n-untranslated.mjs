@@ -49,32 +49,46 @@ async function loadRu() {
   return mod.ru;
 }
 
+// RU field-description overrides, keyed by the exact EN Rust doc (see
+// fieldDesc in i18n.ts). Empty when the file is absent.
+function loadDescOverrides() {
+  const p = resolve(__dirname, "../src/locales/fieldDescRu.json");
+  try {
+    return JSON.parse(readFileSync(p, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
 // Walk a schemars JSON Schema, collecting leaf field paths. Named-property
 // objects recurse; map objects (additionalProperties) collapse their instance
 // key to "*"; Option<T> (anyOf/oneOf with a null branch) recurses into the
 // real branch; everything else (scalars, enums, arrays) is a leaf.
 function collectPaths(root) {
   const defs = root.$defs ?? {};
-  const out = new Set();
+  const out = new Map(); // path -> EN description (for the desc-hash fallback)
   const seen = new Set(); // "typeName@path" recursion guard
 
+  const descOf = (s) =>
+    s && typeof s === "object" && typeof s.description === "string" ? s.description : "";
   const branchesOf = (schema) => {
     const list = schema.anyOf ?? schema.oneOf ?? null;
     if (!list) return null;
     return list.filter((b) => b && b.type !== "null" && !(b.enum && b.enum.length === 1 && b.enum[0] === null));
   };
 
-  function walk(schema, path) {
+  function walk(schema, path, inheritedDesc) {
     if (!schema || typeof schema !== "object") {
-      if (path) out.add(path);
+      if (path) out.set(path, inheritedDesc);
       return;
     }
+    const d = descOf(schema) || inheritedDesc;
     if (schema.$ref) {
       const name = schema.$ref.replace("#/$defs/", "");
       const key = `${name}@${path}`;
       if (seen.has(key)) return;
       seen.add(key);
-      return walk(defs[name], path);
+      return walk(defs[name], path, d);
     }
     const branches = branchesOf(schema);
     if (branches) {
@@ -83,28 +97,28 @@ function collectPaths(root) {
         (b) => b.$ref || b.properties || b.additionalProperties,
       );
       if (structured.length === 0) {
-        if (path) out.add(path);
+        if (path) out.set(path, d);
         return;
       }
-      for (const b of structured) walk(b, path);
+      for (const b of structured) walk(b, path, d);
       return;
     }
     if (schema.properties && Object.keys(schema.properties).length > 0) {
       for (const [k, v] of Object.entries(schema.properties)) {
-        walk(v, path ? `${path}.${k}` : k);
+        walk(v, path ? `${path}.${k}` : k, "");
       }
       return;
     }
     if (schema.additionalProperties && typeof schema.additionalProperties === "object") {
-      walk(schema.additionalProperties, path ? `${path}.*` : "*");
+      walk(schema.additionalProperties, path ? `${path}.*` : "*", d);
       return;
     }
     // scalar / enum / array / empty object -> leaf
-    if (path) out.add(path);
+    if (path) out.set(path, d);
   }
 
-  walk(root, "");
-  return [...out];
+  walk(root, "", "");
+  return [...out.entries()];
 }
 
 // Humanized leaf label — mirrors humanizeFieldLabel in FieldForm.tsx (the
@@ -121,29 +135,41 @@ function humanizeLeaf(path) {
     .join(" ");
 }
 
-function catalogHas(ru, path, kind) {
+function catalogHas(ru, descOverrides, path, kind, enDesc) {
   if (Object.prototype.hasOwnProperty.call(ru, `config.field.${path}.${kind}`)) return true;
   // A field TITLE also counts as covered when the humanized-label fallback
   // catalog (config.fieldlabel.<humanized>) has an entry — see fieldLabel().
   if (kind === "label") {
     return Object.prototype.hasOwnProperty.call(ru, `config.fieldlabel.${humanizeLeaf(path)}`);
   }
+  // A DESCRIPTION counts as covered when the fieldDescRu overrides (keyed by
+  // the exact EN text — see fieldDesc) contain it. A field with no EN
+  // description at all has nothing to translate.
+  if (kind === "desc") {
+    if (!enDesc || !enDesc.trim()) return true;
+    return Object.prototype.hasOwnProperty.call(descOverrides, enDesc);
+  }
   return false;
 }
 
 function main() {
   return Promise.all([loadSchema(), loadRu()]).then(([schema, ru]) => {
+    const descOverrides = loadDescOverrides();
     // Collapse map-instance keys the same way the catalog does
     // (normalizeConfigFieldPath: agents.<alias>, providers.models.<type>.<alias>,
     // authz.principals.<id>, ...), then dedup — so one catalog key covers all
     // runtime instances and we don't count a shared field once per instance.
-    const paths = [
-      ...new Set(collectPaths(schema).map(normalizeConfigFieldPath)),
-    ].sort();
+    // Keep the EN description per normalized path for the desc-hash check.
+    const descByPath = new Map();
+    for (const [rawPath, enDesc] of collectPaths(schema)) {
+      const n = normalizeConfigFieldPath(rawPath);
+      if (!descByPath.has(n)) descByPath.set(n, enDesc);
+    }
+    const paths = [...descByPath.keys()].sort();
     const onlyLabels = flags.has("--labels");
 
-    const missingLabel = paths.filter((p) => !catalogHas(ru, p, "label"));
-    const missingDesc = paths.filter((p) => !catalogHas(ru, p, "desc"));
+    const missingLabel = paths.filter((p) => !catalogHas(ru, descOverrides, p, "label"));
+    const missingDesc = paths.filter((p) => !catalogHas(ru, descOverrides, p, "desc", descByPath.get(p)));
 
     const bySection = (list) => {
       const m = new Map();

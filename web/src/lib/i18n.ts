@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getStatus } from './api';
 import { ru } from '@/locales/ru';
+// RU field-description overrides, keyed by the exact EN Rust doc (see
+// fieldDesc). Kept as a standalone data file (not inlined in ru.ts) because
+// the descriptions are long prose shared across many field paths.
+import ruFieldDesc from '@/locales/fieldDescRu.json';
 
 // ---------------------------------------------------------------------------
 // Translation dictionaries
@@ -14081,9 +14085,41 @@ export function fieldLabel(path: string, fallback: string): string {
  * Falls back to `fallback` (today: the Rust `///` doc comment resolved via
  * `descriptionForPath`) when no catalog entry exists.
  */
+// Stable FNV-1a hash (base36) of a field description. Descriptions are long
+// prose with newlines, so the humanized-label trick used for titles doesn't
+// apply and a full-text catalog key would be unwieldy — instead the fallback
+// desc catalog (`config.fielddesc.<hash>`) is keyed by this hash of the EN text
+// the caller already has. MUST match scripts/i18n-untranslated.mjs.
+function descHash(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+// EN-doc-hash -> RU description, built once from the fieldDescRu.json overrides
+// (keyed there by the exact EN text). Path-independent: one entry localizes
+// every field that shares the same Rust doc (pricing/enabled/… repeat across
+// dozens of paths).
+const ruFieldDescByHash: Record<string, string> = {};
+for (const [en, ruText] of Object.entries(ruFieldDesc as Record<string, string>)) {
+  ruFieldDescByHash[descHash(en)] = ruText;
+}
+
 export function fieldDesc(path: string, fallback: string | null): string | null {
   const key = `config.field.${normalizeConfigFieldPath(path)}.desc`;
-  return translations[currentLocale]?.[key] ?? fallback;
+  const byPath = translations[currentLocale]?.[key];
+  if (byPath !== undefined) return byPath;
+  // No per-path desc. For RU, fall back to a description keyed by a hash of the
+  // EN text itself — `fallback` is exactly `descriptionForPath(schema, path)`,
+  // the schema's own description, so the hash matches what the generator saw.
+  if (fallback && currentLocale === 'ru') {
+    const byText = ruFieldDescByHash[descHash(fallback)];
+    if (byText !== undefined) return byText;
+  }
+  return fallback;
 }
 
 // ---------------------------------------------------------------------------
