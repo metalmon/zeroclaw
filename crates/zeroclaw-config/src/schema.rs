@@ -7938,6 +7938,13 @@ pub struct GatewayConfig {
     #[nested]
     pub tls: Option<GatewayTlsConfig>,
 
+    /// Public-surface gateway configuration (`[gateway.public]`), for
+    /// deployments that expose a separate public-facing listener distinct
+    /// from the primary gateway bind.
+    #[serde(default)]
+    #[nested]
+    pub public: GatewayPublicConfig,
+
     /// HTTP request timeout (seconds) for gateway routes other than the
     /// long-running cron-trigger endpoint. Default: 30s.
     #[serde(default = "default_gateway_request_timeout_secs")]
@@ -8043,10 +8050,52 @@ impl Default for GatewayConfig {
             pairing_dashboard: PairingDashboardConfig::default(),
             web_dist_dir: None,
             tls: None,
+            public: GatewayPublicConfig::default(),
             request_timeout_secs: default_gateway_request_timeout_secs(),
             long_running_request_timeout_secs: default_gateway_long_running_request_timeout_secs(),
             check_updates: true,
             allow_self_upgrade: false,
+        }
+    }
+}
+
+/// Public-surface gateway configuration (`[gateway.public]`).
+///
+/// When enabled, the gateway binds a SECOND listener that serves ONLY the
+/// `/acp` WebSocket endpoint (the client-facing surface). Every other route
+/// (`/api/*`, `/admin/*`, `/pair`, webhooks, the dashboard) stays on the
+/// primary `[gateway].host`/`port` bind, which is loopback by default. The
+/// public listener is TLS-only (`[gateway.tls]` is mandatory when this is
+/// enabled; the gateway refuses to start otherwise).
+#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[prefix = "gateway.public"]
+pub struct GatewayPublicConfig {
+    /// Enable the public-surface gateway listener (default: false).
+    #[serde(default)]
+    pub enabled: bool,
+    /// Bind host for the public-surface listener.
+    #[serde(default = "default_gateway_public_host")]
+    pub host: String,
+    /// Bind port for the public-surface listener.
+    #[serde(default = "default_gateway_public_port")]
+    pub port: u16,
+}
+
+fn default_gateway_public_host() -> String {
+    "0.0.0.0".into()
+}
+
+fn default_gateway_public_port() -> u16 {
+    443
+}
+
+impl Default for GatewayPublicConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            host: default_gateway_public_host(),
+            port: default_gateway_public_port(),
         }
     }
 }
@@ -35719,6 +35768,16 @@ allowed_numbers = ["+1", "+2"]
             !g.allow_public_bind,
             "Public bind must be blocked by default"
         );
+    }
+
+    #[test]
+    async fn gateway_public_parses_and_defaults() {
+        let c: Config = toml::from_str("[gateway.public]\nenabled=true\nport=8443\n").unwrap();
+        assert!(c.gateway.public.enabled);
+        assert_eq!(c.gateway.public.port, 8443);
+        assert_eq!(c.gateway.public.host, "0.0.0.0");
+        assert!(!Config::default().gateway.public.enabled);
+        assert_eq!(Config::default().gateway.public.port, 443);
     }
 
     #[test]
