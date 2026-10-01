@@ -30,7 +30,7 @@ RPI_PORT="${RPI_PORT:-22}"
 RPI_DIR="${RPI_DIR:-/home/${RPI_USER}/zeroclaw}"
 TARGET="aarch64-unknown-linux-gnu"
 FEATURES="hardware,peripheral-rpi"
-BINARY="target/${TARGET}/release/zeroclaw"
+BINARY="target/${TARGET}/release/voltd"
 SSH_OPTS="-p ${RPI_PORT} -o StrictHostKeyChecking=no -o ConnectTimeout=10"
 # scp uses -P (uppercase) for port; ssh uses -p (lowercase)
 SCP_OPTS="-P ${RPI_PORT} -o StrictHostKeyChecking=no -o ConnectTimeout=10"

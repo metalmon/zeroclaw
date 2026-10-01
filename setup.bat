@@ -204,7 +204,7 @@ if %ERRORLEVEL% NEQ 0 (
     echo   %GREEN%OK%RESET% Added to PATH
 )
 
-echo   %GREEN%OK%RESET% Binary installed to %USERPROFILE%\.zeroclaw\bin\zeroclaw.exe
+echo   %GREEN%OK%RESET% Binary installed to %USERPROFILE%\.zeroclaw\bin\voltd.exe
 if exist "%USERPROFILE%\.zeroclaw\bin\zerocode.exe" (
     echo   %GREEN%OK%RESET% TUI installed to %USERPROFILE%\.zeroclaw\bin\zerocode.exe
 )
@@ -293,19 +293,19 @@ if %ERRORLEVEL% NEQ 0 (
 echo.
 echo %BOLD%[4/5] Installing binary...%RESET%
 mkdir "%USERPROFILE%\.zeroclaw\bin" 2>nul
-copy /Y "target\%TARGET%\release\zeroclaw.exe" "%USERPROFILE%\.zeroclaw\bin\zeroclaw.exe" >nul
+copy /Y "target\%TARGET%\release\voltd.exe" "%USERPROFILE%\.zeroclaw\bin\voltd.exe" >nul
 if exist "target\%TARGET%\release\zerocode.exe" (
     copy /Y "target\%TARGET%\release\zerocode.exe" "%USERPROFILE%\.zeroclaw\bin\zerocode.exe" >nul
     echo   %GREEN%OK%RESET% TUI installed to %USERPROFILE%\.zeroclaw\bin\zerocode.exe
 )
-set "BIN_PATH=%USERPROFILE%\.zeroclaw\bin\zeroclaw.exe"
+set "BIN_PATH=%USERPROFILE%\.zeroclaw\bin\voltd.exe"
 for /f %%S in ('powershell -NoProfile -Command "[math]::Round(((Get-Item -LiteralPath ''%BIN_PATH%'').Length / 1MB), 2)"') do (
     set "BINARY_MB=%%S"
 )
 if defined BINARY_MB (
-    echo   %GREEN%OK%RESET% Installed to %USERPROFILE%\.zeroclaw\bin\zeroclaw.exe ^(%BINARY_MB% MB^)
+    echo   %GREEN%OK%RESET% Installed to %USERPROFILE%\.zeroclaw\bin\voltd.exe ^(%BINARY_MB% MB^)
 ) else (
-    echo   %GREEN%OK%RESET% Installed to %USERPROFILE%\.zeroclaw\bin\zeroclaw.exe ^(size unavailable^)
+    echo   %GREEN%OK%RESET% Installed to %USERPROFILE%\.zeroclaw\bin\voltd.exe ^(size unavailable^)
 )
 
 :: Add to PATH if not already there
@@ -347,9 +347,9 @@ goto verify
 echo.
 echo %BOLD%[5/5] Verifying installation...%RESET%
 
-"%USERPROFILE%\.zeroclaw\bin\zeroclaw.exe" --version >nul 2>&1
+"%USERPROFILE%\.zeroclaw\bin\voltd.exe" --version >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    for /f "tokens=*" %%v in ('"%USERPROFILE%\.zeroclaw\bin\zeroclaw.exe" --version 2^>nul') do (
+    for /f "tokens=*" %%v in ('"%USERPROFILE%\.zeroclaw\bin\voltd.exe" --version 2^>nul') do (
         echo   %GREEN%OK%RESET% %%v
     )
 ) else (

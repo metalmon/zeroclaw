@@ -2,7 +2,7 @@
 # Exercise zeroclaw quickstart's provider input paths via its non-interactive flags.
 set -euo pipefail
 
-BIN="${BIN:-./target/debug/zeroclaw}"
+BIN="${BIN:-./target/debug/voltd}"
 TMPROOT="$(mktemp -d)"
 trap 'rm -rf "$TMPROOT"' EXIT
 
