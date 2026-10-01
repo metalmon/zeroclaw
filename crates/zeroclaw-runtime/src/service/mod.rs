@@ -3062,7 +3062,7 @@ fn warn_if_binary_in_home(exe_path: &Path) {
         eprintln!(
             "⚠️  Warning: Binary path '{}' appears to be in a user home directory.\n\
              For system-wide OpenRC service, consider installing to /usr/local/bin:\n\
-             sudo cp '{}' /usr/local/bin/zeroclaw",
+             sudo cp '{}' /usr/local/bin/voltd",
             exe_path.display().to_string(),
             exe_path.display()
         );
@@ -3109,7 +3109,7 @@ start_pre() {{
 }
 
 fn resolve_openrc_executable() -> Result<PathBuf> {
-    let preferred = Path::new("/usr/local/bin/zeroclaw");
+    let preferred = Path::new("/usr/local/bin/voltd");
     if preferred.exists() {
         return Ok(preferred.to_path_buf());
     }
@@ -3129,7 +3129,7 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
     let exe = resolve_openrc_executable()?;
     if !openrc_executable_path_is_safe(&exe) {
         bail!(
-            "OpenRC service executable path contains unsupported shell characters: {}. Install ZeroClaw at /usr/local/bin/zeroclaw and retry",
+            "OpenRC service executable path contains unsupported shell characters: {}. Install ZeroClaw at /usr/local/bin/voltd and retry",
             exe.display()
         );
     }

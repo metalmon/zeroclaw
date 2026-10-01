@@ -203,7 +203,7 @@ jobs:
       - name: Smoke Alpine binaries
         if: matrix.dockerfile == 'Dockerfile.alpine' && matrix.platform == 'linux/amd64' && !matrix.cargo_flags
         run: |
-          docker run --rm --entrypoint zeroclaw "${{ matrix.tag }}" --version
+          docker run --rm --entrypoint voltd "${{ matrix.tag }}" --version
           docker run --rm --entrypoint zerocode "${{ matrix.tag }}" --version
 
       - name: Smoke Alpine Compose runtime
