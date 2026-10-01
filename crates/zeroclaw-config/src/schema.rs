@@ -4171,6 +4171,13 @@ pub struct AliasedAgentConfig {
     #[tab(General)]
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// Human-friendly name shown for this agent in clients and the dashboard in
+    /// place of the alias. Optional; the alias is used when unset. Purely a
+    /// display label — the alias stays the identifier in URLs, workspace paths,
+    /// and config keys.
+    #[tab(General)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     /// Channel aliases this agent handles (e.g. `["telegram.<alias>", "discord.<alias>"]`).
     /// Each entry is a `ChannelRef` resolving through `[channels.<type>.<alias>]`;
     /// `Config::validate()` fails loud on dangling references.
@@ -4367,6 +4374,7 @@ impl Default for AliasedAgentConfig {
     fn default() -> Self {
         Self {
             enabled: true,
+            display_name: None,
             channels: Vec::new(),
             model_provider: crate::providers::ModelProviderRef::default(),
             risk_profile: crate::providers::RiskProfileRef::default(),
