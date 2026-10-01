@@ -2950,7 +2950,7 @@ mod tests {
         let mut starting = Vec::new();
         echo_daemon_starting_to_terminal(&mut starting).unwrap();
         let starting = String::from_utf8(starting).unwrap();
-        assert!(starting.contains("ZeroClaw"));
+        assert!(starting.contains("Volt"));
         assert!(!starting.contains("http://"));
         assert!(!starting.contains("Socket:"));
 

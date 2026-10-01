@@ -828,7 +828,7 @@ mod tests {
         let success = format_ftl_message(zh_cn, "zh-CN", "cli-wechat-bound-success", &[])
             .expect("zh-CN bind success should format");
         assert!(success.contains("WeChat"));
-        assert!(success.contains("ZeroClaw"));
+        assert!(success.contains("Volt"));
     }
 
     #[test]
@@ -2185,7 +2185,7 @@ mod tests {
             format_ftl_message(en, "en", "cli-daemon-gateway-already-running", args)
                 .expect("cli-daemon-gateway-already-running should format");
         assert!(already_running.contains("127.0.0.1:9090"));
-        assert!(already_running.contains("ZeroClaw gateway is already running"));
+        assert!(already_running.contains("Volt gateway is already running"));
         assert!(already_running.contains("gateway.port"));
 
         let port_occupied = format_ftl_message(en, "en", "cli-daemon-gateway-port-occupied", args)

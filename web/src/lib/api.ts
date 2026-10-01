@@ -408,7 +408,7 @@ export type VersionCheckResponse = components["schemas"]["VersionCheckResponse"]
 /**
  * GET /api/version/check — is a newer release available?
  *
- * Backed by `zeroclaw update --check --json`, cached server-side for 1h.
+ * Backed by `voltd update --check --json`, cached server-side for 1h.
  * Pass `force` to bypass the cache, or `version` to check a specific tag.
  */
 export function checkVersion(opts?: {
@@ -432,7 +432,7 @@ export type UpgradeAcceptedResponse =
   components["schemas"]["UpgradeAcceptedResponse"];
 
 /**
- * POST /api/version/upgrade — apply an upgrade via `zeroclaw update`.
+ * POST /api/version/upgrade — apply an upgrade via `voltd update`.
  *
  * Returns a `handoff_id`; poll {@link getUpgradeStatus} for progress. Requires
  * `gateway.allow_self_upgrade`. `auto_restart` is only honoured under a
@@ -2227,7 +2227,7 @@ export interface BindChannelResponse {
 
 /**
  * Authorize an inbound identity on a pairing channel (telegram/wechat/line)
- * — the GUI equivalent of `zeroclaw channel bind-<type> <id> --alias <alias>`.
+ * — the GUI equivalent of `voltd channel bind-<type> <id> --alias <alias>`.
  * The bound user can message the bot immediately, with no `/bind` round trip.
  */
 export function bindChannelIdentity(

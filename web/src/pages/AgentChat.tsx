@@ -4,7 +4,7 @@ import { Send, Square, Bot, User, AlertCircle, Copy, Check, X, Trash2, Minimize2
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAgent, type ChatMessage } from '@/contexts/AgentContext';
-import { ApiError, uploadChatImage } from '@/lib/api';
+import { ApiError, getProp, uploadChatImage } from '@/lib/api';
 import { useDraft } from '@/hooks/useDraft';
 import { t } from '@/lib/i18n';
 import {
@@ -128,6 +128,25 @@ export function AgentChatInner({
     contextModelWindow,
     contextInputTokens,
   } = useAgent();
+
+  // Friendly agent name for the header, from `[agents.<alias>].display_name`;
+  // falls back to the alias (kept visible as the identifier) when unset.
+  const [agentDisplayName, setAgentDisplayName] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getProp(`agents.${agentAlias}.display_name`)
+      .then((p) => {
+        if (cancelled) return;
+        const v = typeof p.value === 'string' && p.value !== '<unset>' ? p.value.trim() : '';
+        setAgentDisplayName(v || null);
+      })
+      .catch(() => {
+        if (!cancelled) setAgentDisplayName(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agentAlias]);
 
   // Keyed by conversation, not just alias: with the same agent open in two
   // panes an alias-only key would make both share one draft, so typing in one
@@ -560,7 +579,10 @@ export function AgentChatInner({
       <div className="flex items-center justify-between px-4 py-2 border-b border-pc-border bg-pc-surface">
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-pc-accent" />
-          <span className="text-sm font-medium text-pc-text">{agentAlias}</span>
+          <span className="text-sm font-medium text-pc-text">{agentDisplayName || agentAlias}</span>
+          {agentDisplayName ? (
+            <span className="text-xs font-mono text-pc-text-muted">{agentAlias}</span>
+          ) : null}
           <Link
             to={`/agent/${encodeURIComponent(agentAlias)}/workspace`}
             className="inline-flex items-center gap-1 px-2 h-6 rounded-[var(--radius-md)] text-xs font-medium text-pc-text-secondary transition-colors hover:text-pc-text hover:bg-[var(--pc-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]"
