@@ -379,6 +379,53 @@ fn build_provider_registry(
     registry
 }
 
+/// Whether a pairing-shaped bearer may be handed to the pairing provider at
+/// all: when pairing is required it must currently be a paired token
+/// (`PairingGuard::is_authenticated`, which is `true` unconditionally when
+/// pairing is NOT required — that deployment trusts its transport and the
+/// provider's own pin/binding lookup is the only gate). Pure so the
+/// revocation contract is unit-testable without a socket.
+#[must_use]
+fn pairing_bearer_is_live(require_pairing: bool, token_is_paired: bool) -> bool {
+    !require_pairing || token_is_paired
+}
+
+/// Drop the `TokenBindingStore` entry for a token that was just revoked —
+/// rotate-device, `DELETE /api/pairing/devices/..`, or a pairing rolled
+/// back after a failed registry/persist step. Companion to every
+/// `PairingGuard::revoke_token_hash` call in the gateway. The revocation
+/// itself is the paired-set removal (`resolve_principal` refuses an unpaired
+/// bearer regardless of bindings); this keeps the on-disk
+/// `token_hash -> principal_id` map from accumulating rows that no paired
+/// token can ever match again. A persist failure is logged, never fatal: the
+/// in-memory removal already happened.
+pub(crate) fn unbind_token_hash(state: &AppState, token_hash: &str) {
+    if let Err(e) = state.token_bindings.remove(token_hash) {
+        ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                .with_attrs(::serde_json::json!({"error": e.to_string()})),
+            "token revoked but persisting the token->principal binding removal failed; the binding is gone in-process"
+        );
+    }
+}
+
+/// Companion to `PairingGuard::revoke_all_tokens` (rotate-all): no paired
+/// token is left, so no binding may remain either. Same logging posture as
+/// [`unbind_token_hash`].
+pub(crate) fn unbind_all_tokens(state: &AppState) {
+    if let Err(e) = state.token_bindings.clear() {
+        ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                .with_attrs(::serde_json::json!({"error": e.to_string()})),
+            "all tokens revoked but persisting the token->principal binding clear failed; the bindings are gone in-process"
+        );
+    }
+}
+
 /// Drain the binding a just-redeemed, principal-tagged pairing code left
 /// behind (`PairingGuard::take_pending_binding`) into the live
 /// `TokenBindingStore`, so the new bearer resolves to that
@@ -442,6 +489,29 @@ pub(crate) async fn resolve_principal(
         );
         return None;
     };
+    // Pairing liveness, fail-closed: a bearer routed to the pairing provider
+    // must ALSO still be in the paired set whenever pairing is required. A
+    // `[[authz.principals]].token_hashes` pin or a `TokenBindingStore`
+    // binding names a token by hash, but neither IS a pairing — once the
+    // operator revokes the token (`get-paircode --rotate`/`--rotate-device`,
+    // `DELETE /api/pairing/devices/..`, a config edit removing it from
+    // `gateway.paired_tokens`) it must stop resolving even though the
+    // pin/binding may still name it.
+    if provider == "pairing"
+        && let Credential::Bearer(token) = &credential
+        && !pairing_bearer_is_live(
+            state.pairing.require_pairing(),
+            state.pairing.is_authenticated(token),
+        )
+    {
+        ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Failure),
+            "ACP: pairing-shaped bearer is not (or no longer) a paired token; denying"
+        );
+        return None;
+    }
     let registry = build_provider_registry(&config, Arc::clone(&state.token_bindings));
     let outcome = registry.resolve_named(&provider, &credential).await;
     let identity = match outcome {
@@ -992,6 +1062,129 @@ mod provider_select_tests {
             "thunderbolt",
             "https://idp"
         )])));
+    }
+}
+
+#[cfg(test)]
+mod revocation_tests {
+    //! Revocation must cut off a token even when a
+    //! `[[authz.principals]].token_hashes` pin or a `TokenBindingStore`
+    //! binding still names it: `resolve_principal` requires pairing
+    //! liveness before the pairing provider ever sees the bearer, and every
+    //! revoke path drops the binding too.
+
+    use super::*;
+    use zeroclaw_config::authz::{PrincipalRecord, TokenBindingStore};
+    use zeroclaw_config::pairing::{PairingCodePolicy, PairingGuard};
+    use zeroclaw_config::schema::PermissionProfileConfig;
+
+    /// `require_pairing = true`, `paired` as the live paired set, `alice`
+    /// configured with one entitled agent, `bound` pre-seeded into the live
+    /// binding store, `pinned` as alice's `token_hashes`.
+    fn state_with(paired: &[&str], bound: &[&str], pinned: &[&str]) -> AppState {
+        let mut config = Config::default();
+        config.gateway.require_pairing = true;
+        config.permission_profiles.insert(
+            "crm".to_string(),
+            PermissionProfileConfig {
+                allowed_agents: vec!["crm-bot".to_string()],
+                ..PermissionProfileConfig::default()
+            },
+        );
+        config.authz.principals.push(PrincipalRecord {
+            id: "alice".to_string(),
+            token_hashes: pinned.iter().map(|t| PairingGuard::token_hash(t)).collect(),
+            profiles: vec!["crm".to_string()],
+        });
+        let mut state = crate::api::tests::test_state(config);
+        let paired: Vec<String> = paired.iter().map(|t| (*t).to_string()).collect();
+        state.pairing = Arc::new(PairingGuard::new(
+            true,
+            &paired,
+            PairingCodePolicy::default(),
+        ));
+        let bindings = TokenBindingStore::new_ephemeral();
+        for token in bound {
+            bindings
+                .set(PairingGuard::token_hash(token), "alice".to_string())
+                .unwrap();
+        }
+        state.token_bindings = Arc::new(bindings);
+        state
+    }
+
+    #[test]
+    fn liveness_requires_a_paired_token_only_when_pairing_is_required() {
+        assert!(pairing_bearer_is_live(false, false));
+        assert!(pairing_bearer_is_live(false, true));
+        assert!(!pairing_bearer_is_live(true, false));
+        assert!(pairing_bearer_is_live(true, true));
+    }
+
+    #[tokio::test]
+    async fn bound_but_unpaired_token_is_denied() {
+        // The binding store still names the token (revocation never
+        // reached it, or the operator edited `gateway.paired_tokens` by
+        // hand) — the token is NOT in the paired set, so it must not
+        // resolve.
+        let state = state_with(&[], &["zc_bound"], &[]);
+        assert!(resolve_principal(&state, Some("zc_bound")).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn pinned_but_unpaired_token_is_denied() {
+        let state = state_with(&[], &[], &["zc_pinned"]);
+        assert!(resolve_principal(&state, Some("zc_pinned")).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn bound_and_paired_token_resolves_to_its_principal() {
+        let state = state_with(&["zc_bound"], &["zc_bound"], &[]);
+        let (principal, grants) = resolve_principal(&state, Some("zc_bound"))
+            .await
+            .expect("a paired AND bound token resolves");
+        assert!(principal.is_authenticated(), "a distinct Roster principal");
+        assert_eq!(principal.display_id, "alice");
+        assert!(grants.may_use_agent("crm-bot"));
+    }
+
+    #[tokio::test]
+    async fn revoking_the_pairing_cuts_off_a_bound_token() {
+        let state = state_with(&["zc_bound"], &["zc_bound"], &[]);
+        assert!(resolve_principal(&state, Some("zc_bound")).await.is_some());
+        let hash = PairingGuard::token_hash("zc_bound");
+        assert!(state.pairing.revoke_token_hash(&hash));
+        assert!(
+            resolve_principal(&state, Some("zc_bound")).await.is_none(),
+            "a revoked token must stop resolving even though its binding still exists"
+        );
+        unbind_token_hash(&state, &hash);
+        assert!(state.token_bindings.get(&hash).is_none());
+    }
+
+    #[test]
+    fn unbind_all_tokens_clears_every_binding() {
+        let state = state_with(&["a", "b"], &["a", "b"], &[]);
+        assert!(
+            state
+                .token_bindings
+                .get(&PairingGuard::token_hash("a"))
+                .is_some()
+        );
+        state.pairing.revoke_all_tokens();
+        unbind_all_tokens(&state);
+        assert!(
+            state
+                .token_bindings
+                .get(&PairingGuard::token_hash("a"))
+                .is_none()
+        );
+        assert!(
+            state
+                .token_bindings
+                .get(&PairingGuard::token_hash("b"))
+                .is_none()
+        );
     }
 }
 
