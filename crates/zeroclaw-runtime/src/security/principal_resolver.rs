@@ -734,12 +734,13 @@ mod tests {
         use zeroclaw_config::authz::PrincipalRecord;
         use zeroclaw_config::schema::PermissionProfileConfig;
         let mut config = Config::default();
-        config
-            .permission_profiles
-            .insert("crm".to_string(), PermissionProfileConfig {
+        config.permission_profiles.insert(
+            "crm".to_string(),
+            PermissionProfileConfig {
                 allowed_agents: vec!["crm-bot".to_string()],
                 ..PermissionProfileConfig::default()
-            });
+            },
+        );
         config.authz.principals.push(PrincipalRecord {
             id: "device-alice".to_string(),
             token_hashes: vec!["abc123".to_string()],
@@ -775,8 +776,7 @@ mod tests {
             token_hashes: vec!["zzz".to_string()],
             profiles: vec![],
         });
-        let resolver =
-            PrincipalResolver::new(ResolverPolicy::from_config(&config).expect("valid"));
+        let resolver = PrincipalResolver::new(ResolverPolicy::from_config(&config).expect("valid"));
         let identity = AuthenticatedIdentity::new(
             IdentitySubject::Roster {
                 principal_id: "pending-device".to_string(),

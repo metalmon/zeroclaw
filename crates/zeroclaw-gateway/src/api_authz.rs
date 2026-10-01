@@ -88,18 +88,18 @@ fn forbidden_error() -> (StatusCode, Json<serde_json::Value>) {
 /// `[permission_profiles.<alias>]` it is bound to has `admin = true`.
 /// Unknown profile names grant nothing (deny-by-default, same as the
 /// resolver's roster merge).
-pub(crate) fn principal_is_admin(config: &zeroclaw_config::schema::Config, principal_id: &str) -> bool {
-    config
-        .authz
-        .by_id(principal_id)
-        .is_some_and(|record| {
-            record.profiles.iter().any(|profile| {
-                config
-                    .permission_profiles
-                    .get(profile.trim())
-                    .is_some_and(|p| p.admin)
-            })
+pub(crate) fn principal_is_admin(
+    config: &zeroclaw_config::schema::Config,
+    principal_id: &str,
+) -> bool {
+    config.authz.by_id(principal_id).is_some_and(|record| {
+        record.profiles.iter().any(|profile| {
+            config
+                .permission_profiles
+                .get(profile.trim())
+                .is_some_and(|p| p.admin)
         })
+    })
 }
 
 // ── Principals listing ──────────────────────────────────────────────
@@ -273,8 +273,7 @@ mod tests {
     async fn list_principals_returns_panel_shape_for_an_admin() {
         let tmp = tempfile::tempdir().unwrap();
         let (state, alice, _) = enforced_state(&tmp);
-        let response =
-            handle_list_principals(State(state), bearer_headers(alice)).await;
+        let response = handle_list_principals(State(state), bearer_headers(alice)).await;
         let (status, json) = response_json(response).await;
         assert_eq!(status, StatusCode::OK, "{json}");
         let principals = json["principals"].as_array().expect("principals array");
