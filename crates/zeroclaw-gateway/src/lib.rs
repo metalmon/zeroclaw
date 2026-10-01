@@ -3057,6 +3057,7 @@ async fn handle_pair(
                         "device registry insert failed after successful legacy /pair; rolling back in-process token"
                     );
                     state.pairing.revoke_token_hash(&token_hash);
+                    acp::unbind_token_hash(&state, &token_hash);
                     let body = serde_json::json!({
                         "paired": false,
                         "persisted": false,
@@ -3081,6 +3082,7 @@ async fn handle_pair(
                     "pairing token persistence failed; rolling back in-process token"
                 );
                 state.pairing.revoke_token_hash(&token_hash);
+                acp::unbind_token_hash(&state, &token_hash);
                 let body = serde_json::json!({
                     "paired": false,
                     "persisted": false,
@@ -5275,6 +5277,7 @@ async fn handle_admin_paircode_new(
     let revocation_message = match rotate {
         Some("all") => {
             let revoked = state.pairing.revoke_all_tokens();
+            acp::unbind_all_tokens(&state);
             if let Some(registry) = state.device_registry.as_ref() {
                 if let Err(e) = registry.clear() {
                     let body = serde_json::json!({
@@ -5343,6 +5346,7 @@ async fn handle_admin_paircode_new(
                 }
             };
             state.pairing.revoke_token_hash(&token_hash);
+            acp::unbind_token_hash(&state, &token_hash);
             if let Err(e) = persist_pairing_tokens(
                 state.config.clone(),
                 &state.pairing,
