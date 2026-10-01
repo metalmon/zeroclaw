@@ -35759,6 +35759,7 @@ allowed_numbers = ["+1", "+2"]
             pairing_dashboard: PairingDashboardConfig::default(),
             web_dist_dir: None,
             tls: None,
+            public: GatewayPublicConfig::default(),
             request_timeout_secs: 30,
             long_running_request_timeout_secs: 600,
             check_updates: true,
