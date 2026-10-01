@@ -252,7 +252,7 @@ enum ConnAuth {
 /// relationship turns enforcement on. An OIDC-only deployment (no pairing
 /// principals at all) must never fall back to the shared operator either.
 #[must_use]
-fn authz_enforced(config: &Config) -> bool {
+pub(crate) fn authz_enforced(config: &Config) -> bool {
     config.authz.is_enforced() || !config.oidc.is_empty()
 }
 

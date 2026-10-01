@@ -42,15 +42,16 @@ use crate::principal_gate::{ConfigWriteSet, RequestPrincipal, authorize_config_w
 /// way `acp::resolve_principal` resolves an `/acp` connection's bearer — and
 /// require its resolved grants to carry `admin`.
 ///
-/// Lockout fallback (CRITICAL): while authz is UNCONFIGURED (no
-/// `[[authz.principals]]` exists, i.e. `!authz.is_enforced()`), this
-/// delegates entirely to [`require_auth`] (the existing paired-guard)
-/// instead of demanding an admin principal. A fresh install has no
-/// principals yet, so requiring admin unconditionally would lock the
-/// operator out of their own control plane. The instant any principal is
-/// configured, this fallback stops applying: an unresolved credential, a
-/// credential the auth provider denies, or a credential that resolves to a
-/// principal not bound to any `admin` profile are all a flat 403.
+/// Lockout fallback (CRITICAL): while authz is UNCONFIGURED — the same
+/// predicate `/acp` uses, [`crate::acp::authz_enforced`]: no
+/// `[[authz.principals]]` AND no `[oidc.<alias>]` — this delegates entirely
+/// to [`require_auth`] (the existing paired-guard) instead of demanding an
+/// admin principal. A fresh install has no principals yet, so requiring
+/// admin unconditionally would lock the operator out of their own control
+/// plane. The instant any principal or OIDC trust is configured, this
+/// fallback stops applying: an unresolved credential, a credential the auth
+/// provider denies, or a credential that resolves to a principal not bound
+/// to any `admin` profile are all a flat 403.
 ///
 /// Safe only because the two-listener split keeps this whole control plane
 /// off the public listener entirely: while unconfigured, ANY paired bearer
@@ -65,7 +66,7 @@ pub(crate) async fn require_admin(
     state: &AppState,
     headers: &HeaderMap,
 ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
-    if !state.config.read().authz.is_enforced() {
+    if !crate::acp::authz_enforced(&state.config.read()) {
         return require_auth(state, headers);
     }
 
