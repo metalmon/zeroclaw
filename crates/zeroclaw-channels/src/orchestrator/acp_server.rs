@@ -776,7 +776,12 @@ impl AcpServer {
         // enforces). The list never exceeds what `session/new` would admit
         // for this principal. `display_name` is the agent's configured
         // friendly name (`AliasedAgentConfig::display_name`); it falls back
-        // to the alias when unset or blank.
+        // to the alias when unset or blank. `default` marks the alias a
+        // `session/new` WITHOUT `agentAlias` on THIS connection would use —
+        // the connection-scoped `?agent=` when set, else `[acp].default_agent`
+        // (then the sole configured agent) — so the client sees the same
+        // precedence `default_session_agent_alias` applies.
+        let roster_default = self.default_session_agent_alias(&config);
         let mut entitled: Vec<(&String, &zeroclaw_config::schema::AliasedAgentConfig)> = config
             .agents
             .iter()
@@ -795,7 +800,7 @@ impl AcpServer {
                         .as_deref()
                         .filter(|s| !s.is_empty())
                         .unwrap_or(alias.as_str()),
-                    "default": config.acp.default_agent.as_deref() == Some(alias.as_str()),
+                    "default": roster_default.as_deref() == Some(alias.as_str()),
                 })
             })
             .collect();
@@ -5560,7 +5565,57 @@ mod tests {
             Some("Alpha Bot"),
             "roster display_name reflects the configured AliasedAgentConfig::display_name"
         );
-        assert_eq!(agents[0]["default"], false);
+        assert_eq!(
+            agents[0]["default"], false,
+            "no ?agent=, no [acp].default_agent, three agents: nothing is the default"
+        );
+    }
+
+    /// The roster's `default` flag follows the CONNECTION default — the
+    /// `?agent=` alias when set, else `[acp].default_agent` — i.e. exactly
+    /// what a `session/new` without `agentAlias` on this connection would
+    /// bind, not `[acp].default_agent` alone.
+    #[test]
+    fn initialize_roster_default_follows_the_connection_default() {
+        let roster_defaults = |server: &AcpServer| -> Vec<(String, bool)> {
+            let resp = server.handle_initialize(&serde_json::json!({})).unwrap();
+            resp["_meta"]["zeroclaw"]["agents"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|a| {
+                    (
+                        a["alias"].as_str().unwrap().to_string(),
+                        a["default"].as_bool().unwrap(),
+                    )
+                })
+                .collect()
+        };
+
+        let cwd = tempfile::tempdir().unwrap();
+        let mut config = two_agent_config(cwd.path());
+        config.acp.default_agent = Some("agent-beta".to_string());
+
+        // Config default only: `[acp].default_agent` is the default.
+        let server = AcpServer::new(config.clone(), AcpServerConfig::default());
+        assert!(
+            roster_defaults(&server)
+                .iter()
+                .all(|(alias, default)| *default == (alias == "agent-beta")),
+            "got: {:?}",
+            roster_defaults(&server)
+        );
+
+        // `?agent=` overrides `[acp].default_agent`, as it does at `session/new`.
+        let server = AcpServer::new(config, AcpServerConfig::default())
+            .with_connection_default_agent(Some("agent-alpha".to_string()));
+        assert!(
+            roster_defaults(&server)
+                .iter()
+                .all(|(alias, default)| *default == (alias == "agent-alpha")),
+            "got: {:?}",
+            roster_defaults(&server)
+        );
     }
 
     /// Without a configured `display_name` the roster falls back to the
