@@ -168,6 +168,19 @@ pub struct AcpServer {
     /// default for new sessions (restore keeps the operator-controlled chain).
     connection_default_agent: Option<String>,
     client_elicitation_caps: std::sync::RwLock<ElicitationCapabilities>,
+    /// The authenticated gateway principal bound to this connection
+    /// (`/acp`'s pairing-over-ACP gate, see `zeroclaw-gateway`'s
+    /// `acp::handle_socket`). Defaults to
+    /// [`zeroclaw_api::principal::Principal::shared_operator`] — unmodified
+    /// standalone/stdio ACP (`zeroclaw acp`, no gateway) never calls
+    /// [`Self::with_principal`], so it keeps today's NULL-owner behavior
+    /// unchanged.
+    principal: zeroclaw_api::principal::Principal,
+    /// The resolved grants for [`Self::principal`], sibling field set
+    /// together via [`Self::with_grants`]. Defaults to
+    /// [`zeroclaw_api::grants::ResolvedGrants::all`], matching the
+    /// shared-operator default's full access.
+    grants: zeroclaw_api::grants::ResolvedGrants,
 }
 
 impl AcpServer {
@@ -312,6 +325,8 @@ impl AcpServer {
             sop_audit: None,
             connection_default_agent: None,
             client_elicitation_caps: std::sync::RwLock::new(ElicitationCapabilities::default()),
+            principal: zeroclaw_api::principal::Principal::shared_operator(),
+            grants: zeroclaw_api::grants::ResolvedGrants::all(),
         }
     }
 
@@ -426,6 +441,28 @@ impl AcpServer {
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(str::to_string);
+        self
+    }
+
+    /// Bind the authenticated gateway principal to this connection
+    /// (`/acp`'s pairing-over-ACP gate). `session/new` on this connection is
+    /// then gated against [`Self::grants`] at
+    /// [`Self::validate_dispatchable_agent_alias`]'s caller. Defaults to
+    /// [`zeroclaw_api::principal::Principal::shared_operator`] (unmodified
+    /// NULL-owner behavior) when never called — standalone/stdio ACP.
+    #[must_use]
+    pub fn with_principal(mut self, principal: zeroclaw_api::principal::Principal) -> Self {
+        self.principal = principal;
+        self
+    }
+
+    /// Bind the resolved grants for [`Self::with_principal`]'s principal.
+    /// Always set together with `with_principal` by the caller that
+    /// resolved both from the same identity (`/acp`'s `resolve_principal`).
+    /// Defaults to [`zeroclaw_api::grants::ResolvedGrants::all`].
+    #[must_use]
+    pub fn with_grants(mut self, grants: zeroclaw_api::grants::ResolvedGrants) -> Self {
+        self.grants = grants;
         self
     }
 
@@ -896,6 +933,40 @@ impl AcpServer {
                 data: None,
             })?;
         Self::validate_dispatchable_agent_alias(&config, &agent_alias)?;
+        // Fork-local per-agent entitlement gate (RFC 7141 F2, the gap
+        // upstream's own doc comment at the session-persistence call site
+        // below names as unbuilt future work): a connection bound to a
+        // distinct principal (via `/acp`'s pairing-over-ACP gate) must be
+        // entitled to THIS alias. The standalone/stdio default
+        // (`Principal::shared_operator` + `ResolvedGrants::all()`) always
+        // passes, so unmodified non-gateway ACP is unaffected. This check
+        // is LIVE, not a frozen snapshot: `self.grants` was resolved from
+        // config at auth time, but `PrincipalResolver`'s roster re-resolves
+        // whenever its generation moves — callers that care about a
+        // same-connection config edit taking effect without reconnect
+        // re-resolve `grants` via that generation check before it goes
+        // stale; this gate simply consults whatever `self.grants` currently
+        // holds. The wire shape (code, `data.reason`) is FROZEN — existing
+        // fork clients (Volt/Thunderbolt) already parse it.
+        if !self.grants.may_use_agent(&agent_alias) {
+            ::zeroclaw_log::record!(
+                INFO,
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                    .with_category(::zeroclaw_log::EventCategory::Channel)
+                    .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                    .with_attrs(::serde_json::json!({
+                        "principal": self.principal.id.as_str(),
+                        "agent": agent_alias,
+                        "decision": "deny",
+                    })),
+                "ACP agent authorization decision"
+            );
+            return Err(RpcError {
+                code: INVALID_PARAMS,
+                message: format!("Agent `{agent_alias}` is not permitted for this principal"),
+                data: Some(serde_json::json!({ "reason": "agent_not_permitted" })),
+            });
+        }
         let admission = self
             .agent_lifecycle
             .reserve_admission(agent_alias.clone())
@@ -5268,6 +5339,118 @@ mod tests {
         assert_eq!(
             session_agent_alias(&server, session_id).await,
             "agent-alpha"
+        );
+    }
+
+    /// FROZEN wire contract (RFC 7141 F2 gate, `/acp` pairing-over-ACP): a
+    /// connection bound to a distinct, authenticated principal whose
+    /// `ResolvedGrants` do not entitle it to the requested agent alias must
+    /// get EXACTLY `-32602` with `data.reason == "agent_not_permitted"` and
+    /// the message `Agent \`<alias>\` is not permitted for this principal`.
+    /// Existing fork clients (Volt/Thunderbolt) already parse this shape —
+    /// changing it is a breaking wire change, not a refactor.
+    #[tokio::test]
+    async fn session_new_denies_a_non_permitted_agent_with_the_frozen_wire_shape() {
+        use zeroclaw_api::grants::ResolvedGrants;
+        use zeroclaw_api::principal::{
+            AgentAlias, AuthMethod, AuthenticatedIdentity, IdentitySubject, Principal,
+        };
+
+        let cwd = tempfile::tempdir().unwrap();
+        let identity = AuthenticatedIdentity::new(
+            IdentitySubject::Roster {
+                principal_id: "alice".to_string(),
+            },
+            AuthMethod::Native,
+        );
+        let principal = Principal::from_identity(&identity);
+        let mut grants = ResolvedGrants::none();
+        grants.allowed_agents = vec![AgentAlias("agent-alpha".to_string())];
+
+        let server = AcpServer::new(two_agent_config(cwd.path()), AcpServerConfig::default())
+            .with_principal(principal.clone())
+            .with_grants(grants);
+
+        let err = server
+            .handle_session_new(&serde_json::json!({
+                "agentAlias": "agent-beta",
+                "cwd": cwd.path().to_string_lossy(),
+                "mcpServers": []
+            }))
+            .await
+            .expect_err("a principal not entitled to agent-beta must be denied");
+
+        assert_eq!(err.code, INVALID_PARAMS);
+        assert_eq!(err.code, -32602);
+        assert_eq!(
+            err.message,
+            "Agent `agent-beta` is not permitted for this principal"
+        );
+        assert_eq!(
+            err.data,
+            Some(serde_json::json!({ "reason": "agent_not_permitted" }))
+        );
+    }
+
+    /// The same principal/grants IS entitled to its bound alias — proves the
+    /// gate is a real allow/deny check, not a blanket deny.
+    #[tokio::test]
+    async fn session_new_permits_an_entitled_agent() {
+        use zeroclaw_api::grants::ResolvedGrants;
+        use zeroclaw_api::principal::{
+            AgentAlias, AuthMethod, AuthenticatedIdentity, IdentitySubject, Principal,
+        };
+
+        let cwd = tempfile::tempdir().unwrap();
+        let identity = AuthenticatedIdentity::new(
+            IdentitySubject::Roster {
+                principal_id: "alice".to_string(),
+            },
+            AuthMethod::Native,
+        );
+        let principal = Principal::from_identity(&identity);
+        let mut grants = ResolvedGrants::none();
+        grants.allowed_agents = vec![AgentAlias("agent-alpha".to_string())];
+
+        let server = AcpServer::new(two_agent_config(cwd.path()), AcpServerConfig::default())
+            .with_principal(principal)
+            .with_grants(grants);
+
+        let result = server
+            .handle_session_new(&serde_json::json!({
+                "agentAlias": "agent-alpha",
+                "cwd": cwd.path().to_string_lossy(),
+                "mcpServers": []
+            }))
+            .await
+            .expect("a principal entitled to agent-alpha must be permitted");
+        let session_id = result["sessionId"].as_str().unwrap();
+        assert_eq!(
+            session_agent_alias(&server, session_id).await,
+            "agent-alpha"
+        );
+    }
+
+    /// Default (no `with_principal`/`with_grants` call) is the
+    /// shared-operator / all-access posture — unmodified standalone/stdio
+    /// ACP (`zeroclaw acp`, no gateway) must be unaffected by this gate.
+    #[tokio::test]
+    async fn session_new_default_principal_is_shared_operator_with_full_access() {
+        let cwd = tempfile::tempdir().unwrap();
+        let server = AcpServer::new(two_agent_config(cwd.path()), AcpServerConfig::default());
+
+        let result = server
+            .handle_session_new(&serde_json::json!({
+                "agentAlias": "agent-beta",
+                "cwd": cwd.path().to_string_lossy(),
+                "mcpServers": []
+            }))
+            .await
+            .expect("the default shared-operator principal must reach any configured agent");
+        let session_id = result["sessionId"].as_str().unwrap();
+        assert_eq!(
+            session_agent_alias(&server, session_id).await,
+            "agent-beta"
         );
     }
 

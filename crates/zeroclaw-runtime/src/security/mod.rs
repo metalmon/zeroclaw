@@ -20,6 +20,7 @@ pub mod landlock;
 pub mod leak_detector;
 pub mod otp;
 pub mod pairing;
+pub mod pairing_auth_provider;
 pub mod playbook;
 pub mod policy;
 pub mod principal_resolver;
