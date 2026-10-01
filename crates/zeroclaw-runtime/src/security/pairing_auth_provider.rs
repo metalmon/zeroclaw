@@ -2,12 +2,15 @@
 //! [`IdentitySubject::Roster`] identity via `[[authz.principals]]` (fork-local
 //! principal → bound-profile map) plus the live [`TokenBindingStore`].
 //!
-//! Fail-closed contract: once any principal is configured
-//! (`authz.is_enforced()`), an unmapped bearer is `Denied { BadCredential }`
-//! — never a silent allow. When no principal is configured (legacy/default
-//! config), any non-empty bearer is `Verified` as the
-//! [`AuthenticatedIdentity::shared_operator`] sentinel, preserving today's
-//! single-operator behaviour unchanged.
+//! Fail-closed contract: this provider NEVER returns the shared-operator
+//! sentinel. A bearer that maps to no configured principal — including when
+//! no `[[authz.principals]]` exists at all — is `Denied { NotEntitled }`; an
+//! empty bearer is `Denied { BadCredential }`. The legacy single-operator
+//! fallback (`Principal::shared_operator` + `ResolvedGrants::all()`) lives
+//! ONLY in the gateway's `/acp` callers, guarded by their own enforcement
+//! predicate (any `[[authz.principals]]` OR any `[oidc.<alias>]`), so an
+//! OIDC-only deployment can never reach the shared operator through this
+//! provider either.
 //!
 //! This provider emits IDENTITY ONLY (Rev 8 contract, same as every other
 //! `AuthProvider`): it never computes grants. A `Roster{principal_id}`
@@ -37,8 +40,8 @@ use zeroclaw_config::pairing::PairingGuard;
 use super::auth_provider::{AuthProvider, Credential};
 
 /// Maps a paired bearer token to a distinct `Roster` identity via
-/// `[[authz.principals]]` plus the live [`TokenBindingStore`]. Fail-closed
-/// when authz is enforced; legacy shared-operator otherwise.
+/// `[[authz.principals]]` plus the live [`TokenBindingStore`]. Always
+/// fail-closed: an unmapped bearer is denied, never the shared operator.
 pub struct PairingAuthProvider {
     authz: AuthzConfig,
     /// Live, shared runtime binding store: `token_hash -> principal_id`
@@ -75,14 +78,13 @@ impl AuthProvider for PairingAuthProvider {
                 reason: DenyReason::NoCredential,
             };
         };
-        // 1. No principals configured → legacy shared-operator (unchanged).
-        if !self.authz.is_enforced() {
-            return AuthOutcome::Verified(AuthenticatedIdentity::shared_operator(
-                AuthMethod::Native,
-            ));
+        if token.is_empty() {
+            return AuthOutcome::Denied {
+                reason: DenyReason::BadCredential,
+            };
         }
         let hash = PairingGuard::token_hash(token);
-        // 2. Live runtime binding store (auto-managed when a principal-tagged
+        // 1. Live runtime binding store (auto-managed when a principal-tagged
         //    token is bound). A binding names a principal id; it only grants
         //    identity if that id still resolves in config. If the admin
         //    removed the principal, the stale binding fails closed (Denied)
@@ -96,11 +98,11 @@ impl AuthProvider for PairingAuthProvider {
                     AuthMethod::Native,
                 )),
                 None => AuthOutcome::Denied {
-                    reason: DenyReason::BadCredential,
+                    reason: DenyReason::NotEntitled,
                 },
             };
         }
-        // 3. Manual config pins (`token_hashes`).
+        // 2. Manual config pins (`token_hashes`).
         match self.authz.lookup(&hash) {
             Some(rec) => AuthOutcome::Verified(AuthenticatedIdentity::new(
                 IdentitySubject::Roster {
@@ -108,9 +110,12 @@ impl AuthProvider for PairingAuthProvider {
                 },
                 AuthMethod::Native,
             )),
-            // 4. Neither bound nor pinned under enforcement → fail closed.
+            // 3. Neither bound nor pinned → no principal, fail closed. This
+            //    includes the zero-principals config: the shared-operator
+            //    fallback is the gateway caller's decision, never this
+            //    provider's.
             None => AuthOutcome::Denied {
-                reason: DenyReason::BadCredential,
+                reason: DenyReason::NotEntitled,
             },
         }
     }
@@ -154,6 +159,18 @@ mod tests {
     async fn unmapped_token_is_denied_when_enforced() {
         let p = provider_with("alice", "tok-a", vec!["crm".into()]);
         let out = p.verify(&Credential::Bearer("wrong".into())).await;
+        assert!(matches!(
+            out,
+            AuthOutcome::Denied {
+                reason: DenyReason::NotEntitled
+            }
+        ));
+    }
+
+    #[tokio::test]
+    async fn empty_bearer_is_a_bad_credential() {
+        let p = provider_with("alice", "tok-a", vec!["crm".into()]);
+        let out = p.verify(&Credential::Bearer(String::new())).await;
         assert!(matches!(
             out,
             AuthOutcome::Denied {
@@ -207,22 +224,43 @@ mod tests {
         assert!(matches!(
             out,
             AuthOutcome::Denied {
-                reason: DenyReason::BadCredential
+                reason: DenyReason::NotEntitled
             }
         ));
     }
 
+    /// With ZERO principals configured the provider still denies: it never
+    /// returns the shared-operator sentinel. The legacy fallback is the
+    /// gateway caller's decision under its own enforcement predicate.
     #[tokio::test]
-    async fn legacy_mode_is_shared_operator() {
+    async fn zero_principals_denies_and_never_returns_shared_operator() {
         let p = PairingAuthProvider::new(
             AuthzConfig::default(),
             Arc::new(TokenBindingStore::new_ephemeral()),
         );
         let out = p.verify(&Credential::Bearer("anything".into())).await;
-        let AuthOutcome::Verified(identity) = out else {
-            panic!("expected Verified, got {out:?}");
-        };
-        assert_eq!(identity.subject, IdentitySubject::SharedOperator);
+        assert!(
+            matches!(
+                out,
+                AuthOutcome::Denied {
+                    reason: DenyReason::NotEntitled
+                }
+            ),
+            "got {out:?}"
+        );
+    }
+
+    /// A binding alone cannot authenticate when no principal is configured
+    /// either (the bound id has nothing to resolve to).
+    #[tokio::test]
+    async fn zero_principals_with_a_binding_still_denies() {
+        let store = TokenBindingStore::new_ephemeral();
+        store
+            .set(PairingGuard::token_hash("tok-d"), "alice".into())
+            .unwrap();
+        let p = PairingAuthProvider::new(AuthzConfig::default(), Arc::new(store));
+        let out = p.verify(&Credential::Bearer("tok-d".into())).await;
+        assert!(matches!(out, AuthOutcome::Denied { .. }), "got {out:?}");
     }
 
     #[tokio::test]
