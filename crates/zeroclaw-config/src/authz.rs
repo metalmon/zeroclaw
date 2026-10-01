@@ -190,8 +190,10 @@ impl TokenBindingStore {
         self.persist(&snapshot)
     }
 
-    /// Remove any binding for `token_hash` and persist. For future token
-    /// revocation. No-op if the token was not bound.
+    /// Remove any binding for `token_hash` and persist. Companion to every
+    /// single-token revocation (`PairingGuard::revoke_token_hash`): a
+    /// binding only means something for a paired token. No-op if the token
+    /// was not bound.
     pub fn remove(&self, token_hash: &str) -> anyhow::Result<()> {
         let snapshot = {
             let mut guard = self
@@ -199,6 +201,21 @@ impl TokenBindingStore {
                 .write()
                 .expect("token binding store lock poisoned");
             guard.remove(token_hash);
+            guard.clone()
+        };
+        self.persist(&snapshot)
+    }
+
+    /// Drop every binding and persist the (now empty) map. Companion to
+    /// `PairingGuard::revoke_all_tokens`: once no token is paired, no
+    /// binding may keep naming one. No-op on an already-empty store.
+    pub fn clear(&self) -> anyhow::Result<()> {
+        let snapshot = {
+            let mut guard = self
+                .inner
+                .write()
+                .expect("token binding store lock poisoned");
+            guard.clear();
             guard.clone()
         };
         self.persist(&snapshot)
@@ -336,6 +353,21 @@ mod tests {
         store.set("h1".into(), "alice".into()).unwrap();
         store.remove("h1").unwrap();
         assert!(store.get("h1").is_none());
+    }
+
+    #[test]
+    fn binding_store_clear_drops_every_binding_and_persists() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = TokenBindingStore::new(dir.path());
+        store.set("h1".into(), "alice".into()).unwrap();
+        store.set("h2".into(), "bob".into()).unwrap();
+        store.clear().unwrap();
+        assert!(store.get("h1").is_none());
+        assert!(store.get("h2").is_none());
+        // The empty map reached disk: a fresh store over the same dir is empty.
+        let reloaded = TokenBindingStore::new(dir.path());
+        assert!(reloaded.get("h1").is_none());
+        assert!(reloaded.get("h2").is_none());
     }
 
     #[test]

@@ -435,6 +435,7 @@ pub async fn submit_pairing_enhanced(
                         "device registry insert failed after successful pairing; rolling back in-process token"
                     );
                     state.pairing.revoke_token_hash(&token_hash);
+                    super::acp::unbind_token_hash(&state, &token_hash);
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(serde_json::json!({
@@ -462,6 +463,7 @@ pub async fn submit_pairing_enhanced(
                     "pairing token persistence failed; rolling back in-process token"
                 );
                 state.pairing.revoke_token_hash(&token_hash);
+                super::acp::unbind_token_hash(&state, &token_hash);
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(serde_json::json!({
@@ -575,6 +577,7 @@ pub async fn revoke_device(
     };
 
     state.pairing.revoke_token_hash(&token_hash);
+    super::acp::unbind_token_hash(&state, &token_hash);
 
     if let Err(e) = super::persist_pairing_tokens(
         state.config.clone(),
@@ -681,6 +684,7 @@ pub async fn rotate_token(
     };
 
     state.pairing.revoke_token_hash(&token_hash);
+    super::acp::unbind_token_hash(&state, &token_hash);
 
     // Same persist-fail caveat as `revoke_device`: device row + in-memory
     // token are already gone; surfacing the persist error tells the caller
