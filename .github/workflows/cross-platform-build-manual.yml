@@ -258,7 +258,7 @@ jobs:
           FEATURES="$(cargo run --quiet -p xtask --bin generate -- features --selection "${{ inputs.distribution }}" --target "${{ matrix.target }}")"
           echo "Resolved features: $FEATURES"
           $BUILD_CMD --release --locked --no-default-features --features "${FEATURES}" --target ${{ matrix.target }}
-          binary="target/${{ matrix.target }}/release/${{ runner.os == 'Windows' && 'zeroclaw.exe' || 'zeroclaw' }}"
+          binary="target/${{ matrix.target }}/release/${{ runner.os == 'Windows' && 'voltd.exe' || 'voltd' }}"
           bytes="$(wc -c < "$binary" | tr -d ' ')"
           {
             echo "### ${{ inputs.distribution }} / ${{ matrix.target }}"
@@ -269,7 +269,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: zeroclaw-manual-${{ inputs.distribution }}-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/${{ runner.os == 'Windows' && 'zeroclaw.exe' || 'zeroclaw' }}
+          path: target/${{ matrix.target }}/release/${{ runner.os == 'Windows' && 'voltd.exe' || 'voltd' }}
           if-no-files-found: error
           retention-days: 1
       - name: Build ZeroCode companion

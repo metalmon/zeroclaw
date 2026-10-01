@@ -7,7 +7,7 @@
 #   web           — build the Vite/TS dashboard (web/dist) once; upload as artifact
 #   test          — fmt + clippy + tests on Linux (fast red/green)
 #   build-windows — release build of the deploy binaries; uploads
-#                   zeroclaw.exe, zeroclaw-acp-bridge.exe, zerocode.exe
+#                   voltd.exe, zeroclaw-acp-bridge.exe, zerocode.exe
 # `web` runs first because the `embedded-web` feature's build.rs requires
 # web/dist/index.html (a gitignored artifact absent from a clean checkout). The
 # dist is platform-independent, so both downstream jobs reuse the one artifact.

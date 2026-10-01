@@ -29,16 +29,13 @@ unsafe extern "C" {
     fn kill(pid: i32, signal: i32) -> i32;
 }
 
-/// Filename of the kernel binary on the current platform.
+/// Filename of the kernel binary on the current platform (the `voltd`
+/// bin target of the `zeroclaw` crate).
 fn zeroclaw_exe_name() -> &'static str {
-    if cfg!(windows) {
-        "zeroclaw.exe"
-    } else {
-        "zeroclaw"
-    }
+    if cfg!(windows) { "voltd.exe" } else { "voltd" }
 }
 
-/// Find the `zeroclaw` binary. Checks, in order: the directory next to this
+/// Find the `voltd` binary. Checks, in order: the directory next to this
 /// app (installed side-by-side), every `PATH` entry, then the common install
 /// locations a GUI launch's minimal `PATH` usually misses.
 pub fn find_zeroclaw_binary() -> Option<PathBuf> {

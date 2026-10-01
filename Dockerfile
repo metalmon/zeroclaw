@@ -200,6 +200,8 @@ RUN --mount=type=cache,id=zeroclaw-cargo-registry,target=/usr/local/cargo/regist
            target/"$RUST_TARGET"/release/incremental/zeroclaw-* \
            target/"$RUST_TARGET"/release/deps/zeroclaw_* \
            target/"$RUST_TARGET"/release/incremental/zeroclaw_* \
+           target/"$RUST_TARGET"/release/deps/voltd-* \
+           target/"$RUST_TARGET"/release/incremental/voltd-* \
            target/"$RUST_TARGET"/release/.fingerprint/xtask-* \
            target/"$RUST_TARGET"/release/deps/xtask-* \
            target/"$RUST_TARGET"/release/.fingerprint/fill-translations-* \
@@ -215,10 +217,10 @@ RUN --mount=type=cache,id=zeroclaw-cargo-registry,target=/usr/local/cargo/regist
     else \
       cargo build --release --locked --target "$RUST_TARGET" -p zeroclaw -p zerocode; \
     fi && \
-    cp target/"$RUST_TARGET"/release/zeroclaw /app/zeroclaw && \
+    cp target/"$RUST_TARGET"/release/voltd /app/voltd && \
     cp target/"$RUST_TARGET"/release/zerocode /app/zerocode && \
-    "$STRIP" /app/zeroclaw /app/zerocode
-RUN for b in zeroclaw zerocode; do \
+    "$STRIP" /app/voltd /app/zerocode
+RUN for b in voltd zerocode; do \
       size=$(stat -c%s "/app/$b") && \
       if [ "$size" -lt 1000000 ]; then echo "ERROR: $b too small (${size} bytes), likely dummy build artifact" && exit 1; fi; \
     done
@@ -257,7 +259,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /zeroclaw-data /zeroclaw-data
-COPY --from=builder /app/zeroclaw /usr/local/bin/zeroclaw
+COPY --from=builder /app/voltd /usr/local/bin/voltd
 COPY --from=builder /app/zerocode /usr/local/bin/zerocode
 # Install the dashboard at /usr/share/zeroclawlabs/web/dist (outside the
 # documented /zeroclaw-data mount) so user volumes do not shadow it (#6400).
@@ -285,14 +287,14 @@ WORKDIR /zeroclaw-data
 USER 65534:65534
 EXPOSE 42617
 HEALTHCHECK --interval=60s --timeout=10s --retries=3 --start-period=10s \
-    CMD ["zeroclaw", "status", "--format=exit-code"]
-ENTRYPOINT ["zeroclaw"]
+    CMD ["voltd", "status", "--format=exit-code"]
+ENTRYPOINT ["voltd"]
 CMD ["daemon"]
 
 # ── Stage 3: Production Runtime (Distroless) ─────────────────
 FROM ${ZEROCLAW_BASE_DISTROLESS} AS release
 
-COPY --from=builder /app/zeroclaw /usr/local/bin/zeroclaw
+COPY --from=builder /app/voltd /usr/local/bin/voltd
 COPY --from=builder /app/zerocode /usr/local/bin/zerocode
 COPY --from=builder /zeroclaw-data /zeroclaw-data
 # Install the dashboard at /usr/share/zeroclawlabs/web/dist (outside the
@@ -315,6 +317,6 @@ WORKDIR /zeroclaw-data
 USER 65534:65534
 EXPOSE 42617
 HEALTHCHECK --interval=60s --timeout=10s --retries=3 --start-period=10s \
-    CMD ["zeroclaw", "status", "--format=exit-code"]
-ENTRYPOINT ["zeroclaw"]
+    CMD ["voltd", "status", "--format=exit-code"]
+ENTRYPOINT ["voltd"]
 CMD ["daemon"]

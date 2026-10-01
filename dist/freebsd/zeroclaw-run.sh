@@ -14,4 +14,4 @@
 # Install as /usr/local/libexec/zeroclaw-run.sh (see dist/freebsd/README.md).
 
 export PATH="/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:${HOME}/bin"
-exec /usr/local/bin/zeroclaw daemon --config-dir "${HOME}/.zeroclaw"
+exec /usr/local/bin/voltd daemon --config-dir "${HOME}/.zeroclaw"
