@@ -14,7 +14,7 @@
       "type": "lldb",
       "request": "launch",
       "name": "Debug: Agent",
-      "program": "${workspaceFolder}/target/debug/zeroclaw",
+      "program": "${workspaceFolder}/target/debug/voltd",
       "args": ["agent"],
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "Build: Debug"
@@ -23,7 +23,7 @@
       "type": "lldb",
       "request": "launch",
       "name": "Debug: Gateway",
-      "program": "${workspaceFolder}/target/debug/zeroclaw",
+      "program": "${workspaceFolder}/target/debug/voltd",
       "args": ["gateway"],
       "cwd": "${workspaceFolder}",
       "env": { "ZEROCLAW_REQUIRE_PAIRING": "false" },
@@ -33,7 +33,7 @@
       "type": "lldb",
       "request": "launch",
       "name": "Debug: Daemon",
-      "program": "${workspaceFolder}/target/debug/zeroclaw",
+      "program": "${workspaceFolder}/target/debug/voltd",
       "args": ["daemon"],
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "Build: Debug"
@@ -42,7 +42,7 @@
       "type": "lldb",
       "request": "launch",
       "name": "Debug: Status",
-      "program": "${workspaceFolder}/target/debug/zeroclaw",
+      "program": "${workspaceFolder}/target/debug/voltd",
       "args": ["status"],
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "Build: Debug"
@@ -51,7 +51,7 @@
       "type": "lldb",
       "request": "launch",
       "name": "Debug: Quickstart",
-      "program": "${workspaceFolder}/target/debug/zeroclaw",
+      "program": "${workspaceFolder}/target/debug/voltd",
       "args": ["quickstart"],
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "Build: Debug"

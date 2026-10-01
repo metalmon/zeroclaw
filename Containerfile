@@ -207,7 +207,7 @@ RUN --mount=type=cache,target=/root/.cargo/registry,sharing=locked \
         -p zerocode
 
     mkdir -p /rootfs/usr/bin /rootfs/usr/share/zeroclawlabs/web/dist
-    cp /target/${TARGET}/release/zeroclaw /rootfs/usr/bin/zeroclaw
+    cp /target/${TARGET}/release/voltd /rootfs/usr/bin/voltd
     cp /target/${TARGET}/release/zerocode /rootfs/usr/bin/zerocode
 EOF
 
@@ -234,9 +234,9 @@ USER 65534:65534
 EXPOSE 42617
 
 HEALTHCHECK --interval=60s --timeout=10s --retries=3 --start-period=10s \
-    CMD ["zeroclaw", "status", "--format=exit-code"]
+    CMD ["voltd", "status", "--format=exit-code"]
 
-ENTRYPOINT ["/usr/bin/zeroclaw"]
+ENTRYPOINT ["/usr/bin/voltd"]
 CMD ["daemon"]
 
 # ── Stage: build-fat (zeroclaw + zerocode, all channels) ────
@@ -296,7 +296,7 @@ RUN --mount=type=cache,target=/root/.cargo/registry,sharing=locked \
         -p zerocode
 
     mkdir -p /rootfs/usr/bin /rootfs/usr/share/zeroclawlabs/web/dist
-    cp /target/${TARGET}/release/zeroclaw /rootfs/usr/bin/zeroclaw
+    cp /target/${TARGET}/release/voltd /rootfs/usr/bin/voltd
     cp /target/${TARGET}/release/zerocode /rootfs/usr/bin/zerocode
 EOF
 
@@ -323,7 +323,7 @@ USER 65534:65534
 EXPOSE 42617
 
 HEALTHCHECK --interval=60s --timeout=10s --retries=3 --start-period=10s \
-    CMD ["zeroclaw", "status", "--format=exit-code"]
+    CMD ["voltd", "status", "--format=exit-code"]
 
-ENTRYPOINT ["/usr/bin/zeroclaw"]
+ENTRYPOINT ["/usr/bin/voltd"]
 CMD ["daemon"]

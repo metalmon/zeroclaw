@@ -86,7 +86,7 @@ build_kernel() {
   fi
   local dir="release"
   [[ "$PROFILE" != "release" ]] && dir="$PROFILE"
-  echo "$REPO_ROOT/target/$triple/$dir/zeroclaw$exe"
+  echo "$REPO_ROOT/target/$triple/$dir/voltd$exe"
 }
 
 # Strip a copy of the kernel into place; re-sign on macOS (stripping

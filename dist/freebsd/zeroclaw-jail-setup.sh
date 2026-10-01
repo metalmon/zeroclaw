@@ -169,8 +169,8 @@ Next steps (run inside the jail):
   doas jexec ${JAIL_NAME} pkg install -y rust git
   doas jexec ${JAIL_NAME} /bin/sh -c 'cd /root && git clone \\
       https://github.com/zeroclaw-labs/zeroclaw && cd zeroclaw && \\
-      cargo build --release && install -m 755 target/release/zeroclaw \\
-      /usr/local/bin/zeroclaw'
+      cargo build --release && install -m 755 target/release/voltd \\
+      /usr/local/bin/voltd'
 
   # 2. Set up provider auth for the '${ZEROCLAW_USER}' account, then start it:
   doas jexec ${JAIL_NAME} service zeroclaw start

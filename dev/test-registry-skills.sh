@@ -27,9 +27,9 @@ warn() { printf "  ${YELLOW}⚠${RESET} %s\n" "$*"; }
 # ── Resolve zeroclaw binary ─────────────────────────────────────
 ZEROCLAW=""
 for candidate in \
-  "$REPO_ROOT/target/debug/zeroclaw" \
-  "$REPO_ROOT/target/release/zeroclaw" \
-  "$(command -v zeroclaw 2>/dev/null || true)"; do
+  "$REPO_ROOT/target/debug/voltd" \
+  "$REPO_ROOT/target/release/voltd" \
+  "$(command -v voltd 2>/dev/null || true)"; do
   if [ -n "$candidate" ] && [ -x "$candidate" ]; then
     ZEROCLAW="$candidate"
     break

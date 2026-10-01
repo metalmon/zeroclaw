@@ -21,9 +21,9 @@ case "$PROFILE" in
 esac
 
 if [ "$PROFILE" = release ]; then
-  BIN="$REPO_ROOT/target/release/zeroclaw"
+  BIN="$REPO_ROOT/target/release/voltd"
 else
-  BIN="$REPO_ROOT/target/debug/zeroclaw"
+  BIN="$REPO_ROOT/target/debug/voltd"
 fi
 
 echo

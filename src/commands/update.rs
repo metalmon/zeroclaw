@@ -421,10 +421,10 @@ fn should_install(is_newer: bool, force: bool) -> bool {
 /// **wholesale** into `staging` using each archive crate's own `unpack`/`extract`
 /// — both reject `..` and absolute-root entries internally, so we do not need
 /// a hand-written traversal guard. A non-archive URL is treated as a bare
-/// binary and written through as `staging/zeroclaw`, preserving the legacy
+/// binary and written through as `staging/voltd`, preserving the legacy
 /// single-file behavior for older release channels.
 ///
-/// Returns the path to the freshly unpacked main `zeroclaw` (or `zeroclaw.exe`)
+/// Returns the path to the freshly unpacked main `voltd` (or `voltd.exe`)
 /// binary, which is the only artifact the caller needs by name — everything
 /// else in the archive is installed later by walking `staging` generically.
 async fn download_release(
@@ -582,12 +582,10 @@ fn is_sha256_hex(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
+/// File name of the main daemon binary inside a release archive: the
+/// `voltd` bin target (crate and config-dir names stay `zeroclaw`).
 fn main_binary_name() -> &'static str {
-    if cfg!(windows) {
-        "zeroclaw.exe"
-    } else {
-        "zeroclaw"
-    }
+    if cfg!(windows) { "voltd.exe" } else { "voltd" }
 }
 
 /// Names of top-level *file* artifacts (not directories) the release archive is
@@ -652,10 +650,10 @@ fn unpack_zip(archive_bytes: &[u8], staging: &Path) -> Result<()> {
 
 /// Find the freshly unpacked main binary in `staging`.
 ///
-/// Walks the staged tree looking for a `zeroclaw` (or `zeroclaw.exe`) file. The
+/// Walks the staged tree looking for a `voltd` (or `voltd.exe`) file. The
 /// release archive is flat — the binary sits at the staging root — but we walk
 /// in case a future archive layout introduces a wrapper directory (e.g.
-/// `zeroclaw-v0.9/zeroclaw.exe`, which Windows zip tooling sometimes produces).
+/// `zeroclaw-v0.9/voltd.exe`, which Windows zip tooling sometimes produces).
 fn locate_main_binary(staging: &Path) -> Result<PathBuf> {
     let target_name = main_binary_name();
     for entry in walk_files(staging) {
@@ -2033,12 +2031,12 @@ mod tests {
         zip_buf
     }
 
-    /// Regression: verify the zip unpacker writes the zeroclaw.exe
+    /// Regression: verify the zip unpacker writes the voltd.exe
     /// binary bytes from a minimal Windows ZIP release asset.
     #[test]
-    fn unpack_zip_writes_zeroclaw_exe() {
-        let fake_exe = b"fake zeroclaw windows binary content";
-        let zip_buf = make_zip(&[("zeroclaw.exe", fake_exe)]);
+    fn unpack_zip_writes_voltd_exe() {
+        let fake_exe = b"fake voltd windows binary content";
+        let zip_buf = make_zip(&[("voltd.exe", fake_exe)]);
 
         let tmp = tempfile::tempdir().unwrap();
         let staging = tmp.path().join("staging");
@@ -2047,19 +2045,16 @@ mod tests {
 
         // locate_main_binary searches by platform-specific name; assert by
         // staging path to keep the test cross-platform.
-        assert_eq!(
-            std::fs::read(staging.join("zeroclaw.exe")).unwrap(),
-            fake_exe
-        );
+        assert_eq!(std::fs::read(staging.join("voltd.exe")).unwrap(), fake_exe);
     }
 
     #[test]
-    fn unpack_zip_finds_zeroclaw_exe_in_subdirectory() {
+    fn unpack_zip_finds_voltd_exe_in_subdirectory() {
         // Windows archive tools sometimes produce paths like
-        // `zeroclaw-v0.9/zeroclaw.exe`. `locate_main_binary` walks the tree, so
+        // `zeroclaw-v0.9/voltd.exe`. `locate_main_binary` walks the tree, so
         // a nested binary is still found.
-        let fake_exe = b"zeroclaw-exe-in-subdir";
-        let zip_buf = make_zip(&[("zeroclaw-v0.9/zeroclaw.exe", fake_exe)]);
+        let fake_exe = b"voltd-exe-in-subdir";
+        let zip_buf = make_zip(&[("zeroclaw-v0.9/voltd.exe", fake_exe)]);
 
         let tmp = tempfile::tempdir().unwrap();
         let staging = tmp.path().join("staging");
@@ -2067,21 +2062,21 @@ mod tests {
         unpack_zip(&zip_buf, &staging).unwrap();
 
         // We don't go through locate_main_binary here because its platform
-        // gate hides zeroclaw.exe on non-Windows hosts — assert the staged
+        // gate hides voltd.exe on non-Windows hosts — assert the staged
         // path directly so the test runs everywhere CI does.
         assert_eq!(
-            std::fs::read(staging.join("zeroclaw-v0.9/zeroclaw.exe")).unwrap(),
+            std::fs::read(staging.join("zeroclaw-v0.9/voltd.exe")).unwrap(),
             fake_exe
         );
     }
 
     #[test]
     fn unpack_zip_extracts_full_tree() {
-        let zeroclaw = b"fake zeroclaw.exe";
+        let voltd = b"fake voltd.exe";
         let zerocode = b"fake zerocode.exe";
         let index = b"<!doctype html>";
         let zip_buf = make_zip(&[
-            ("zeroclaw.exe", zeroclaw),
+            ("voltd.exe", voltd),
             ("zerocode.exe", zerocode),
             ("web/dist/index.html", index),
         ]);
@@ -2091,10 +2086,7 @@ mod tests {
         std::fs::create_dir_all(&staging).unwrap();
         unpack_zip(&zip_buf, &staging).unwrap();
 
-        assert_eq!(
-            std::fs::read(staging.join("zeroclaw.exe")).unwrap(),
-            zeroclaw
-        );
+        assert_eq!(std::fs::read(staging.join("voltd.exe")).unwrap(), voltd);
         assert_eq!(
             std::fs::read(staging.join("zerocode.exe")).unwrap(),
             zerocode
@@ -2109,7 +2101,7 @@ mod tests {
     /// to write entries that would escape the destination root.
     #[test]
     fn unpack_zip_refuses_path_traversal() {
-        let zip_buf = make_zip(&[("zeroclaw.exe", b"fake"), ("../escape.txt", b"evil")]);
+        let zip_buf = make_zip(&[("voltd.exe", b"fake"), ("../escape.txt", b"evil")]);
 
         let tmp = tempfile::tempdir().unwrap();
         let staging = tmp.path().join("staging");
