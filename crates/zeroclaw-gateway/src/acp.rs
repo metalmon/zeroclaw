@@ -143,7 +143,7 @@ pub async fn handle_ws_acp(
             state,
             params.agent,
             client_id,
-            ConnAuth::Authenticated(principal, grants),
+            ConnAuth::Authenticated(Box::new((principal, grants))),
         )
     })
     .into_response()
@@ -178,7 +178,9 @@ fn connection_is_authenticated(
 /// the same connection, by a successful `zeroclaw/pair`/`volt/pair` — see
 /// `run_pre_auth`.
 enum ConnAuth {
-    Authenticated(Principal, ResolvedGrants),
+    /// Boxed: the authenticated payload is ~240 bytes against a unit
+    /// `PreAuth`, and the value is built once per connection.
+    Authenticated(Box<(Principal, ResolvedGrants)>),
     PreAuth,
 }
 
@@ -272,8 +274,10 @@ fn select_provider(credential: &Credential, config: &Config) -> Option<String> {
 /// rebuilding one per connection would re-fetch the issuer's documents on
 /// every `/acp` connect; a config edit changes the fingerprint and
 /// transparently rebuilds just that alias.
-static ACP_OIDC_PROVIDERS: OnceLock<Mutex<HashMap<String, (Value, Arc<OidcAuthProvider>)>>> =
-    OnceLock::new();
+static ACP_OIDC_PROVIDERS: OnceLock<OidcProviderCache> = OnceLock::new();
+
+/// alias → (config fingerprint, provider built from that config).
+type OidcProviderCache = Mutex<HashMap<String, (Value, Arc<OidcAuthProvider>)>>;
 
 /// The `oidc.<alias>` providers for the live config, rebuilt only for
 /// aliases whose config changed. An alias whose provider cannot be
@@ -473,7 +477,7 @@ async fn handle_socket(
     let (mut sender, mut receiver) = socket.split();
 
     let (principal, grants) = match auth {
-        ConnAuth::Authenticated(principal, grants) => (principal, grants),
+        ConnAuth::Authenticated(auth) => *auth,
         ConnAuth::PreAuth => {
             match run_pre_auth(&mut sender, &mut receiver, &state, &client_id).await {
                 Some(pg) => pg,
