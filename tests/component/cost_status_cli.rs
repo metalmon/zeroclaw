@@ -85,7 +85,7 @@ fn run_status(records: &[Value]) -> Output {
     ledger.push('\n');
     std::fs::write(state_dir.join("costs.jsonl"), ledger).unwrap();
 
-    Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+    Command::new(env!("CARGO_BIN_EXE_voltd"))
         .env("RUST_LOG", "off")
         .arg("--config-dir")
         .arg(config_dir.path())

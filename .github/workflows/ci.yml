@@ -784,7 +784,7 @@ jobs:
       - name: Run root CLI plugin tests
         if: steps.changed.outputs.run == 'true' && matrix.suite == 'runtime'
         run: |
-          cargo test --locked --features plugins-wasm-cranelift --bin zeroclaw
+          cargo test --locked --features plugins-wasm-cranelift --bin voltd
           cargo test --locked --features plugins-wasm-cranelift --test component -- plugin_info_cli
 
   msrv:

@@ -138,7 +138,7 @@ fn test_state(config: Config) -> AppState {
 }
 
 fn run_cli_patch_output(config_dir: &std::path::Path, patch_doc: &[u8]) -> Output {
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
     Command::new(bin)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
@@ -164,7 +164,7 @@ fn run_cli_patch_output(config_dir: &std::path::Path, patch_doc: &[u8]) -> Outpu
 /// Run `zeroclaw config patch - ` **without** `--json`, exercising the
 /// human-readable failure branch of `config_patch_fail_json_or_human`.
 fn run_cli_patch_output_human(config_dir: &std::path::Path, patch_doc: &[u8]) -> Output {
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
     Command::new(bin)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
@@ -788,7 +788,7 @@ fn config_patch_replace_on_dotted_resource_id_does_not_plant_phantom_sibling() {
 }
 
 fn run_cli_init(config_dir: &std::path::Path, section: &str) -> serde_json::Value {
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
     let output = Command::new(bin)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
@@ -807,7 +807,7 @@ fn run_cli_init(config_dir: &std::path::Path, section: &str) -> serde_json::Valu
 }
 
 fn run_cli_get(config_dir: &std::path::Path, path: &str) -> serde_json::Value {
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
     let output = Command::new(bin)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
@@ -827,7 +827,7 @@ fn run_cli_get(config_dir: &std::path::Path, path: &str) -> serde_json::Value {
 
 /// Run one non-interactive property write in a fresh CLI process.
 fn run_cli_set(config_dir: &std::path::Path, path: &str, value: &str) {
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
     let output = Command::new(bin)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
@@ -965,7 +965,7 @@ fn agent_targeting_config_commands_fail_closed_while_daemon_owns_config() {
     std::fs::create_dir_all(&data_dir).expect("create resolved config data directory");
     let _owner = zeroclaw_runtime::live_config_authority::ConfigOwnershipGuard::acquire(&data_dir)
         .expect("hold daemon config ownership");
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
 
     let commands: &[(&[&str], Option<&[u8]>)] = &[
         (
@@ -1030,7 +1030,7 @@ fn standalone_agent_ownership_uses_resolved_temp_data_dir_and_preserves_alias_va
     );
 
     let run_agent = || {
-        Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+        Command::new(env!("CARGO_BIN_EXE_voltd"))
             .env("ZEROCLAW_CONFIG_DIR", config_dir.path())
             .env_remove("ZEROCLAW_DATA_DIR")
             .env_remove("ZEROCLAW_WORKSPACE")
@@ -1088,7 +1088,7 @@ fn standalone_acp_ownership_refuses_before_store_open_and_retains_stdio_authorit
     let store_path = resolved_data_dir.join("sessions/acp-sessions.db");
     assert!(!store_path.exists());
     let run_acp = || {
-        Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+        Command::new(env!("CARGO_BIN_EXE_voltd"))
             .env("ZEROCLAW_CONFIG_DIR", config_dir.path())
             .env_remove("ZEROCLAW_DATA_DIR")
             .env_remove("ZEROCLAW_WORKSPACE")

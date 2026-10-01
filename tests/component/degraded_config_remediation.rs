@@ -89,7 +89,7 @@ level = "autonomous"
         "PATH zeroclaw must accept the fixture config\nstdout:\n{path_stdout}\nstderr:\n{path_stderr}"
     );
 
-    let daemon_bin = Path::new(env!("CARGO_BIN_EXE_zeroclaw"));
+    let daemon_bin = Path::new(env!("CARGO_BIN_EXE_voltd"));
     let output = Command::new(daemon_bin)
         .arg("--config-dir")
         .arg(config_dir.path())
@@ -137,7 +137,7 @@ level = "autonomous"
     )
     .expect("write degraded config");
 
-    let zeroclaw = Path::new(env!("CARGO_BIN_EXE_zeroclaw"));
+    let zeroclaw = Path::new(env!("CARGO_BIN_EXE_voltd"));
     let output = Command::new(zeroclaw)
         .arg("--config-dir")
         .arg(config_dir.path())

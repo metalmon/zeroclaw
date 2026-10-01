@@ -33,7 +33,7 @@ risk_profile = "default"
 "#;
 
 fn run(config_dir: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+    Command::new(env!("CARGO_BIN_EXE_voltd"))
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
         .args(args)
