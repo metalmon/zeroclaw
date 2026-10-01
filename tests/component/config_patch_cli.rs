@@ -85,6 +85,7 @@ fn test_state(config: Config) -> AppState {
             &[],
             zeroclaw_config::pairing::PairingCodePolicy::default(),
         )),
+        token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
         trust_forwarded_headers: false,
         rate_limiter: Arc::new(gateway::GatewayRateLimiter::new(100, 100, 100)),
         auth_limiter: Arc::new(gateway::auth_rate_limit::AuthRateLimiter::new()),
