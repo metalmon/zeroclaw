@@ -899,6 +899,27 @@ async fn run_pre_auth(
                 // works identically whether redeemed over REST or in-band.
                 bind_pending_principal(state);
 
+                // Persist the new token to `gateway.paired_tokens` the same
+                // way REST `/pair` and `/api/pair` do, so an in-band-paired
+                // device survives a daemon restart (the paired set is
+                // otherwise in-memory only). Logged, not fatal: the token is
+                // live in-process either way, and this socket proceeds on it.
+                if let Err(e) = super::persist_pairing_tokens(
+                    state.config.clone(),
+                    &state.pairing,
+                    state.config_write_lock.clone(),
+                )
+                .await
+                {
+                    ::zeroclaw_log::record!(
+                        ERROR,
+                        ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
+                            .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                            .with_attrs(::serde_json::json!({"error": e.to_string()})),
+                        "in-band pairing succeeded but persisting the paired token to config failed; the token is active in-process only"
+                    );
+                }
+
                 let authz_enforced = authz_enforced(&state.config.read());
                 let principal_and_grants = match resolve_principal(state, Some(&token)).await {
                     Resolution::Resolved(principal_and_grants) => *principal_and_grants,
