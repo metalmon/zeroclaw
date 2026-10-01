@@ -124,17 +124,38 @@ impl ResolverPolicy {
                 roster_conflict = true;
             }
         }
+        // Fork-local SECOND roster source: `[[authz.principals]]`
+        // (bearer-token-bound principals, no OS uid — see `zeroclaw_config::authz`).
+        // Merged into the SAME `roster` map as `[users]`, through the SAME
+        // `HashMap::insert(..).is_some()` collision check, so a principal_id
+        // configured on BOTH sides is caught here exactly like a [users]-vs-[users]
+        // collision — never silently resolved to one side's grants.
+        for principal in &config.authz.principals {
+            let pid = principal.id.clone();
+            let profiles: Vec<String> = principal
+                .profiles
+                .iter()
+                .map(|p| p.trim().to_owned())
+                .filter(|p| !p.is_empty())
+                .collect();
+            if roster.insert(pid, profiles).is_some() {
+                roster_conflict = true;
+            }
+        }
         if roster_conflict {
-            // Unreachable after `validate_auth`, kept as defense in depth for
-            // the roster build itself: never install an ambiguous roster.
+            // Unreachable after `validate_auth` (which rejects a [users]-vs-
+            // [users] OR [users]-vs-[[authz.principals]] principal_id
+            // collision up front), kept as defense in depth for the roster
+            // build itself: never install an ambiguous roster from either
+            // source.
             ::zeroclaw_log::record!(
                 WARN,
                 ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                     .with_outcome(::zeroclaw_log::EventOutcome::Failure),
-                "Two [users] entries share an effective principal_id; refusing to compile the roster (fail closed) rather than authorizing one arbitrarily. Repair the duplicate principal_id/entry name."
+                "Two roster entries ([users] and/or [[authz.principals]]) share an effective principal_id; refusing to compile the roster (fail closed) rather than authorizing one arbitrarily. Repair the duplicate principal_id/entry name."
             );
             anyhow::bail!(
-                "two [users] entries share an effective principal_id; refusing to compile an ambiguous roster"
+                "two roster entries ([users] and/or [[authz.principals]]) share an effective principal_id; refusing to compile an ambiguous roster"
             );
         }
         Ok(Self {
@@ -702,6 +723,129 @@ mod tests {
         // Two entries resolving to one durable principal id would silently
         // link accounts: policy compilation must refuse outright rather than
         // install a roster whose winner depends on iteration order.
+        let err = ResolverPolicy::from_config(&config)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("principal id"), "got: {err}");
+    }
+
+    #[test]
+    fn authz_principal_merges_into_the_roster_alongside_users() {
+        use zeroclaw_config::authz::PrincipalRecord;
+        use zeroclaw_config::schema::PermissionProfileConfig;
+        let mut config = Config::default();
+        config
+            .permission_profiles
+            .insert("crm".to_string(), PermissionProfileConfig {
+                allowed_agents: vec!["crm-bot".to_string()],
+                ..PermissionProfileConfig::default()
+            });
+        config.authz.principals.push(PrincipalRecord {
+            id: "device-alice".to_string(),
+            token_hashes: vec!["abc123".to_string()],
+            profiles: vec!["crm".to_string()],
+        });
+        let policy = ResolverPolicy::from_config(&config).expect("merges cleanly");
+        assert!(!policy.roster_conflict);
+        assert_eq!(
+            policy.roster.get("device-alice"),
+            Some(&vec!["crm".to_string()])
+        );
+
+        let resolver = PrincipalResolver::new(policy);
+        let identity = AuthenticatedIdentity::new(
+            IdentitySubject::Roster {
+                principal_id: "device-alice".to_string(),
+            },
+            AuthMethod::Native,
+        );
+        let resolved = resolver
+            .resolve(&identity)
+            .expect("bearer-bound principal resolves via the merged roster");
+        assert!(resolved.grants.may_use_agent("crm-bot"));
+        assert!(!resolved.grants.may_use_agent("hr-bot"));
+    }
+
+    #[test]
+    fn authz_principal_with_no_bound_profiles_resolves_to_no_grants() {
+        use zeroclaw_config::authz::PrincipalRecord;
+        let mut config = Config::default();
+        config.authz.principals.push(PrincipalRecord {
+            id: "pending-device".to_string(),
+            token_hashes: vec!["zzz".to_string()],
+            profiles: vec![],
+        });
+        let resolver =
+            PrincipalResolver::new(ResolverPolicy::from_config(&config).expect("valid"));
+        let identity = AuthenticatedIdentity::new(
+            IdentitySubject::Roster {
+                principal_id: "pending-device".to_string(),
+            },
+            AuthMethod::Native,
+        );
+        let resolved = resolver.resolve(&identity).expect("known, empty-grant id");
+        assert!(!resolved.grants.may_use_agent("anything"));
+        assert!(!resolved.grants.admin);
+    }
+
+    #[test]
+    fn unknown_authz_principal_id_is_denied_never_shared_operator() {
+        let resolver = PrincipalResolver::new(policy());
+        let identity = AuthenticatedIdentity::new(
+            IdentitySubject::Roster {
+                principal_id: "nobody".to_string(),
+            },
+            AuthMethod::Native,
+        );
+        assert!(matches!(
+            resolver.resolve(&identity),
+            Err(DenyReason::NotEntitled)
+        ));
+    }
+
+    #[test]
+    fn authz_principal_id_colliding_with_a_users_entry_is_rejected_by_validate_auth() {
+        // The fail-closed guarantee must hold BEFORE the resolver roster is
+        // even compiled: `ResolverPolicy::from_config` calls `validate_auth`
+        // first, so a collision between [[authz.principals]] and [users] is
+        // caught at config-validation time, not silently resolved to one
+        // side's grants.
+        use zeroclaw_config::authz::PrincipalRecord;
+        use zeroclaw_config::schema::{PermissionProfileConfig, UserConfig};
+        let mut config = Config::default();
+        config
+            .permission_profiles
+            .insert("reader".to_string(), PermissionProfileConfig::default());
+        config.users.insert(
+            "alice".to_string(),
+            UserConfig {
+                principal_id: Some("shared-id".to_string()),
+                uid: Some(1000),
+                permission_profiles: vec!["reader".to_string()],
+            },
+        );
+        config.authz.principals.push(PrincipalRecord {
+            id: "shared-id".to_string(),
+            token_hashes: vec!["tok".to_string()],
+            profiles: vec!["reader".to_string()],
+        });
+        let err = ResolverPolicy::from_config(&config)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("principal id"), "got: {err}");
+    }
+
+    #[test]
+    fn duplicate_authz_principal_ids_are_rejected_by_validate_auth() {
+        use zeroclaw_config::authz::PrincipalRecord;
+        let mut config = Config::default();
+        for tok in ["tok-a", "tok-b"] {
+            config.authz.principals.push(PrincipalRecord {
+                id: "dup-device".to_string(),
+                token_hashes: vec![tok.to_string()],
+                profiles: vec![],
+            });
+        }
         let err = ResolverPolicy::from_config(&config)
             .unwrap_err()
             .to_string();

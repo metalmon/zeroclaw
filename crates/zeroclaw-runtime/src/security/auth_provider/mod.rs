@@ -276,6 +276,16 @@ fn bind_provenance(provider: &dyn AuthProvider, outcome: AuthOutcome) -> AuthOut
     let subject_ok = matches!(
         (identity.method, &identity.subject),
         (AuthMethod::Native, IdentitySubject::SharedOperator)
+            // Fork-local pairing-over-ACP (`PairingAuthProvider`, name
+            // "pairing"): a bearer token bound to a `[[authz.principals]]`
+            // record resolves to a DISTINCT roster principal, not just the
+            // shared-operator sentinel — upstream's own `"native"` provider
+            // never emits this combination (it always maps to
+            // SharedOperator, see `auth_provider::native`'s module doc), so
+            // adding it here does not loosen what `"native"` itself can
+            // assert; it only lets a SEPARATELY-named, SEPARATELY-registered
+            // provider assert it.
+            | (AuthMethod::Native, IdentitySubject::Roster { .. })
             | (AuthMethod::Peercred, IdentitySubject::SharedOperator)
             | (AuthMethod::Peercred, IdentitySubject::Roster { .. })
             | (AuthMethod::Oidc, IdentitySubject::Oidc { .. })
