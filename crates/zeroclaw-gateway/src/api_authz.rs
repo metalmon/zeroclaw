@@ -63,9 +63,10 @@ pub(crate) async fn require_admin(
     // `resolve_principal` builds its provider registry from LIVE config on
     // every call (no frozen snapshot), so a profile edit or a freshly bound
     // `--principal` token is visible here without a reload.
-    let is_admin = crate::acp::resolve_principal(state, token)
-        .await
-        .is_some_and(|(_, grants)| grants.admin);
+    let is_admin = matches!(
+        crate::acp::resolve_principal(state, token).await,
+        crate::acp::Resolution::Resolved(principal_and_grants) if principal_and_grants.1.admin
+    );
 
     if is_admin {
         return Ok(());
