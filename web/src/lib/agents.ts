@@ -2,6 +2,9 @@ import { getCost, getMapKeys, getMemory, getSessions, listProps, patchConfig } f
 
 export interface AgentSummary {
   alias: string;
+  /** Friendly name from `[agents.<alias>].display_name`; empty string when
+   *  unset (callers show the alias instead). */
+  displayName: string;
   enabled: boolean;
   modelProvider: string;
   channels: string[];
@@ -104,6 +107,7 @@ export async function loadAgentSummaries(): Promise<AgentSummary[]> {
       };
       return {
         alias,
+        displayName: stringField('display_name'),
         enabled: entryValue(lookup('enabled') ?? { populated: false }) === 'true',
         modelProvider: stringField('model_provider'),
         channels: entryAsStringArray(lookup('channels')),

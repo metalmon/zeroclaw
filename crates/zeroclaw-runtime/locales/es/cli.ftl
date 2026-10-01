@@ -1,6 +1,6 @@
 cli-about = El asistente de IA más rápido y pequeño.
 cli-no-command-provided = No se proporcionó ningún comando.
-cli-try-quickstart = Prueba `zeroclaw quickstart` para crear tu primer agente.
+cli-try-quickstart = Prueba `voltd quickstart` para crear tu primer agente.
 cli-quickstart-about = Crea tu primer agente de principio a fin
 cli-agent-about = Inicia el bucle del agente de IA
 cli-gateway-about = Gestiona el servidor gateway (webhooks, websockets)
@@ -40,8 +40,8 @@ cli-auth-about = Gestiona los perfiles de autenticación de suscripción del pro
 cli-hardware-about = Descubre e inspecciona hardware USB
 cli-peripheral-about = Gestiona los periféricos de hardware
 cli-memory-about = Gestiona las entradas de memoria del agente
-cli-config-about = Gestiona la configuración de ZeroClaw
-cli-update-about = Comprueba y aplica las actualizaciones de ZeroClaw
+cli-config-about = Gestiona la configuración de Volt
+cli-update-about = Comprueba y aplica las actualizaciones de Volt
 cli-self-test-about = Ejecuta autopruebas de diagnóstico
 cli-completions-about = Genera scripts de autocompletado del shell
 cli-desktop-about = Inicia la aplicación de escritorio complementaria, o abre su página de descarga
@@ -77,7 +77,7 @@ cli-wechat-scanned-confirm = 👀 ¡Escaneado! Confirma en tu teléfono...
 cli-wechat-qr-expired-refreshing = ⏳ Código QR caducado, actualizando...
 cli-wechat-login-confirmed-missing-field = Inicio de sesión confirmado pero falta {$field}.
 cli-wechat-connected = ✅ ¡WeChat conectado!
-cli-wechat-bound-success = ✅ Cuenta de WeChat vinculada correctamente. Ya puedes hablar con ZeroClaw.
+cli-wechat-bound-success = ✅ Cuenta de WeChat vinculada correctamente. Ya puedes hablar con Volt.
 cli-wechat-invalid-bind-code = ❌ Código de vinculación no válido. Inténtalo de nuevo.
 cli-wechat-bind-denied = ❌ Esta cuenta está bloqueada por una entrada `ignore` en la configuración. Pide al operador que la elimine y vuelve a intentarlo con el mismo código.
 cli-wechat-bind-not-saved = ❌ No se pudo guardar el enlace, así que nada cambió. Tu código sigue siendo válido; pide al operador que revise el archivo de configuración y vuelve a intentarlo.
@@ -116,24 +116,24 @@ cli-skills-removed-global = { "  " }{$status} La skill '{$name}' se eliminó del
 cli-skills-install-tier-official = Instalando {$name} v{$version} — Oficial (mantenida por zeroclaw-labs)
 cli-skills-install-tier-community =
     Instalando {$name} v{$version} — Envío de la comunidad
-    Esta skill no está auditada por ZeroClaw. Revisa el contenido de la skill
-    y ejecuta `zeroclaw skills audit {$name}` antes de otorgar cualquier
+    Esta skill no está auditada por Volt. Revisa el contenido de la skill
+    y ejecuta `voltd skills audit {$name}` antes de otorgar cualquier
     permiso o ejecutarla en producción.
 cli-skills-add-scaffolded = Skill {$target} estructurada en {$dir}
 cli-skills-bundle-add-prompt =
     Para crear el skill-bundle '{$alias}' con el directorio '{$dir}', ejecuta:
-    zeroclaw config map-key skill-bundles {$alias}
-    zeroclaw config set skill-bundles.{$alias}.directory {$dir}
+    voltd config map-key skill-bundles {$alias}
+    voltd config set skill-bundles.{$alias}.directory {$dir}
 
-    (La creación directa de paquetes mediante `zeroclaw skills bundle add` duplicaría la superficie de mutación de configuración.)
+    (La creación directa de paquetes mediante `voltd skills bundle add` duplicaría la superficie de mutación de configuración.)
 cli-skills-bundle-remove-prompt =
     Para eliminar el skill-bundle '{$alias}', ejecuta:
-    zeroclaw config map-key-delete skill-bundles {$alias}
+    voltd config map-key-delete skill-bundles {$alias}
 
     (Elimina la entrada de configuración; el directorio del paquete en disco se mantiene.)
 cli-skills-bundle-list-empty =
     No hay paquetes de skills configurados.
-    Crea uno: zeroclaw config set skill-bundles.default.directory shared/skills/default
+    Crea uno: voltd config set skill-bundles.default.directory shared/skills/default
 cli-skills-bundle-list-header = Paquetes de skills ({$count}):
 cli-skills-bundle-entry = {$alias} -> {$dir}
 cli-skills-bundle-include = incluir: {$values}
@@ -184,11 +184,11 @@ cli-hardware-introspect-about = Inspecciona un dispositivo por su número de ser
 cli-hardware-info-about = Obtiene información del chip vía USB usando probe-rs sobre ST-Link
 cli-peripheral-list-about = Lista los periféricos configurados
 cli-peripheral-add-about = Agrega un periférico por tipo de placa y ruta de transporte
-cli-peripheral-flash-about = Flashea el firmware de ZeroClaw a una placa Arduino
+cli-peripheral-flash-about = Flashea el firmware de Volt a una placa Arduino
 cli-sop-list-about = Lista los SOP cargados
 cli-sop-validate-about = Valida las definiciones de SOP
 cli-sop-show-about = Muestra los detalles de un SOP
-cli-migrate-openclaw-about = Importa memoria de un espacio de trabajo OpenClaw a este espacio de trabajo ZeroClaw
+cli-migrate-openclaw-about = Importa memoria de un espacio de trabajo OpenClaw a este espacio de trabajo Volt
 cli-migrate-openclaw-qdrant-unsupported = Qdrant no es compatible actualmente como destino de migración de OpenClaw. Establece memory.backend en sqlite, lucid o markdown y vuelve a intentarlo.
 cli-agent-long-about =
     Inicia el bucle del agente de IA.
@@ -196,19 +196,19 @@ cli-agent-long-about =
     Lanza una sesión de chat interactiva con el proveedor de IA configurado. Usa --message para consultas de una sola vez sin entrar en modo interactivo.
 
     Ejemplos:
-    zeroclaw agent                              # sesión interactiva
-    zeroclaw agent -m "Summarize today's logs"  # mensaje único
-    zeroclaw agent -p anthropic --model claude-sonnet-4-20250514
-    zeroclaw agent --peripheral nucleo-f401re:/dev/ttyACM0
+    voltd agent                              # sesión interactiva
+    voltd agent -m "Summarize today's logs"  # mensaje único
+    voltd agent -p anthropic --model claude-sonnet-4-20250514
+    voltd agent --peripheral nucleo-f401re:/dev/ttyACM0
 cli-gateway-long-about =
     Gestiona el servidor de gateway (webhooks, websockets).
 
     Inicia, reinicia o inspecciona el gateway HTTP/WebSocket que acepta eventos de webhook entrantes y conexiones WebSocket.
 
     Ejemplos:
-    zeroclaw gateway start              # iniciar gateway
-    zeroclaw gateway restart            # reiniciar gateway
-    zeroclaw gateway get-paircode       # mostrar código de emparejamiento
+    voltd gateway start              # iniciar gateway
+    voltd gateway restart            # reiniciar gateway
+    voltd gateway get-paircode       # mostrar código de emparejamiento
 cli-acp-long-about =
     Inicia el servidor ACP (JSON-RPC 2.0 sobre stdio).
 
@@ -217,20 +217,20 @@ cli-acp-long-about =
     Métodos: initialize, session/new, session/prompt, session/stop.
 
     Ejemplos:
-    zeroclaw acp                        # iniciar servidor ACP
-    zeroclaw acp --agent fable         # usar fable como agente predeterminado para sesiones nuevas
-    zeroclaw acp --max-sessions 5       # limitar sesiones concurrentes
+    voltd acp                        # iniciar servidor ACP
+    voltd acp --agent fable         # usar fable como agente predeterminado para sesiones nuevas
+    voltd acp --max-sessions 5       # limitar sesiones concurrentes
 cli-daemon-long-about =
     Inicia el daemon autónomo de larga duración.
 
-    Lanza el entorno de ejecución completo de ZeroClaw: servidor de gateway, todos los canales configurados (Telegram, Discord, Slack, etc.), monitor de heartbeat y el programador cron. Esta es la forma recomendada de ejecutar ZeroClaw en producción o como un asistente siempre activo.
+    Lanza el entorno de ejecución completo de Volt: servidor de gateway, todos los canales configurados (Telegram, Discord, Slack, etc.), monitor de heartbeat y el programador cron. Esta es la forma recomendada de ejecutar Volt en producción o como un asistente siempre activo.
 
-    Usa 'zeroclaw service install' para registrar el daemon como un servicio del SO (systemd/launchd) para que se inicie automáticamente al arrancar.
+    Usa 'voltd service install' para registrar el daemon como un servicio del SO (systemd/launchd) para que se inicie automáticamente al arrancar.
 
     Ejemplos:
-    zeroclaw daemon                   # usar valores predeterminados de config
-    zeroclaw daemon -p 9090           # gateway en el puerto 9090
-    zeroclaw daemon --host 127.0.0.1  # solo localhost
+    voltd daemon                   # usar valores predeterminados de config
+    voltd daemon -p 9090           # gateway en el puerto 9090
+    voltd daemon --host 127.0.0.1  # solo localhost
 cli-cron-long-about =
     Configura y gestiona tareas programadas.
 
@@ -239,60 +239,60 @@ cli-cron-long-about =
     Las expresiones cron usan el formato estándar de 5 campos: 'min hora día mes díasemana'. Las zonas horarias predeterminadas son UTC; anúlalas con --tz y un nombre de zona horaria IANA.
 
     Ejemplos:
-    zeroclaw cron list
-    zeroclaw cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
-    zeroclaw cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
-    zeroclaw cron add '*/5 * * * *' 'echo ok' --agent sentinel
-    zeroclaw cron add-at 2099-01-15T14:00:00Z 'Send reminder' --agent sentinel --prompt
-    zeroclaw cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt
-    zeroclaw cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt
-    zeroclaw cron pause TASK_ID
-    zeroclaw cron update TASK_ID --expression '0 8 * * *' --tz Europe/London
+    voltd cron list
+    voltd cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
+    voltd cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
+    voltd cron add '*/5 * * * *' 'echo ok' --agent sentinel
+    voltd cron add-at 2099-01-15T14:00:00Z 'Send reminder' --agent sentinel --prompt
+    voltd cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt
+    voltd cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt
+    voltd cron pause TASK_ID
+    voltd cron update TASK_ID --expression '0 8 * * *' --tz Europe/London
 cli-channel-long-about =
     Gestiona los canales de comunicación.
 
-    Agrega, elimina, lista, envía y verifica el estado de los canales que conectan ZeroClaw con plataformas de mensajería. Tipos de canal admitidos: telegram, discord, slack, whatsapp, matrix, imessage, email.
+    Agrega, elimina, lista, envía y verifica el estado de los canales que conectan Volt con plataformas de mensajería. Tipos de canal admitidos: telegram, discord, slack, whatsapp, matrix, imessage, email.
 
     Ejemplos:
-    zeroclaw channel list
-    zeroclaw channel doctor
-    zeroclaw channel add telegram '{ "{" }"bot_token":"...","name":"my-bot"{ "}" }'
-    zeroclaw channel remove my-bot
-    zeroclaw channel bind-telegram zeroclaw_user
-    zeroclaw channel send 'Alert!' --channel-id telegram --recipient 123456789
+    voltd channel list
+    voltd channel doctor
+    voltd channel add telegram '{ "{" }"bot_token":"...","name":"my-bot"{ "}" }'
+    voltd channel remove my-bot
+    voltd channel bind-telegram zeroclaw_user
+    voltd channel send 'Alert!' --channel-id telegram --recipient 123456789
 cli-hardware-long-about =
     Descubre e inspecciona hardware USB.
 
     Enumera dispositivos USB conectados, identifica placas de desarrollo conocidas (STM32 Nucleo, Arduino, ESP32) y recupera información del chip mediante probe-rs / ST-Link.
 
     Ejemplos:
-    zeroclaw hardware discover
-    zeroclaw hardware introspect /dev/ttyACM0
-    zeroclaw hardware info --chip STM32F401RETx
+    voltd hardware discover
+    voltd hardware introspect /dev/ttyACM0
+    voltd hardware info --chip STM32F401RETx
 cli-peripheral-long-about =
     Gestiona los periféricos de hardware.
 
     Agrega, lista, flashea y configura placas de hardware que exponen herramientas al agente (GPIO, sensores, actuadores). Placas admitidas: nucleo-f401re, rpi-gpio, esp32, arduino-uno.
 
     Ejemplos:
-    zeroclaw peripheral list
-    zeroclaw peripheral add nucleo-f401re /dev/ttyACM0
-    zeroclaw peripheral add rpi-gpio native
-    zeroclaw peripheral flash --port /dev/cu.usbmodem12345
-    zeroclaw peripheral flash-nucleo
+    voltd peripheral list
+    voltd peripheral add nucleo-f401re /dev/ttyACM0
+    voltd peripheral add rpi-gpio native
+    voltd peripheral flash --port /dev/cu.usbmodem12345
+    voltd peripheral flash-nucleo
 cli-memory-long-about =
     Gestiona las entradas de memoria del agente.
 
     Lista, inspecciona y borra entradas de memoria almacenadas por el agente. Admite filtrado por categoría y sesión, paginación y borrado por lotes con confirmación.
 
     Ejemplos:
-    zeroclaw memory stats
-    zeroclaw memory list
-    zeroclaw memory list --category core --limit 10
-    zeroclaw memory get KEY
-    zeroclaw memory clear --category conversation --yes
+    voltd memory stats
+    voltd memory list
+    voltd memory list --category core --limit 10
+    voltd memory get KEY
+    voltd memory clear --category conversation --yes
 cli-config-long-about =
-    Gestiona la configuración de ZeroClaw.
+    Gestiona la configuración de Volt.
 
     Visualiza, establece o inicializa propiedades de configuración mediante una ruta con puntos. Usa 'schema' para volcar el esquema JSON completo del archivo de configuración.
 
@@ -301,20 +301,20 @@ cli-config-long-about =
     Los campos enum ofrecen selección interactiva cuando se omite el valor.
 
     Ejemplos:
-    zeroclaw config list                                  # listar todas las propiedades
-    zeroclaw config list --secrets                        # listar solo secretos
-    zeroclaw config list --filter channels.matrix         # filtrar por prefijo
-    zeroclaw config get channels.matrix.mention-only      # obtener un valor
-    zeroclaw config set channels.matrix.mention-only true # establecer un valor
-    zeroclaw config set channels.matrix.access-token      # secreto: entrada enmascarada
-    zeroclaw config set channels.matrix.stream-mode       # enum: selección interactiva
-    zeroclaw config init channels.matrix                  # iniciar sección con valores predeterminados
-    zeroclaw config schema                                # imprimir esquema JSON en stdout
-    zeroclaw config schema > schema.json
+    voltd config list                                  # listar todas las propiedades
+    voltd config list --secrets                        # listar solo secretos
+    voltd config list --filter channels.matrix         # filtrar por prefijo
+    voltd config get channels.matrix.mention-only      # obtener un valor
+    voltd config set channels.matrix.mention-only true # establecer un valor
+    voltd config set channels.matrix.access-token      # secreto: entrada enmascarada
+    voltd config set channels.matrix.stream-mode       # enum: selección interactiva
+    voltd config init channels.matrix                  # iniciar sección con valores predeterminados
+    voltd config schema                                # imprimir esquema JSON en stdout
+    voltd config schema > schema.json
 
-    El autocompletado de la ruta de propiedades se incluye automáticamente en `zeroclaw completions <shell>`.
+    El autocompletado de la ruta de propiedades se incluye automáticamente en `voltd completions <shell>`.
 cli-update-long-about =
-    Comprueba y aplica actualizaciones de ZeroClaw.
+    Comprueba y aplica actualizaciones de Volt.
 
     De forma predeterminada, descarga e instala la última versión con un pipeline de 6 fases: verificación previa, descarga, copia de seguridad, validación, intercambio y prueba de humo. Reversión automática en caso de fallo.
 
@@ -323,18 +323,18 @@ cli-update-long-about =
     Usa --version para apuntar a una versión específica en lugar de la última.
 
     Ejemplos:
-    zeroclaw update                      # descargar e instalar la última
-    zeroclaw update --check              # solo comprobar, no instalar
-    zeroclaw update --force              # instalar sin confirmación
-    zeroclaw update --version 0.6.0      # instalar versión específica
+    voltd update                      # descargar e instalar la última
+    voltd update --check              # solo comprobar, no instalar
+    voltd update --force              # instalar sin confirmación
+    voltd update --version 0.6.0      # instalar versión específica
 cli-self-test-long-about =
-    Ejecuta autodiagnósticos para verificar la instalación de ZeroClaw.
+    Ejecuta autodiagnósticos para verificar la instalación de Volt.
 
     De forma predeterminada, ejecuta la suite de pruebas completa, incluidas las comprobaciones de red (estado del gateway, ida y vuelta de memoria). Usa --quick para omitir las comprobaciones de red y validar más rápido sin conexión.
 
     Ejemplos:
-    zeroclaw self-test             # suite completa
-    zeroclaw self-test --quick     # solo comprobaciones rápidas (sin red)
+    voltd self-test             # suite completa
+    voltd self-test --quick     # solo comprobaciones rápidas (sin red)
 cli-skills-install-suggestion =
     Parece que esta solicitud necesita la habilidad `{$name}`, pero no está instalada.
 
@@ -346,24 +346,24 @@ cli-plugin-install-suggestion =
     Capacidad coincidente: {$matched}
     Siguiente: Ejecuta `{$install_command}` para instalarlo.
 cli-completions-long-about =
-    Genera scripts de autocompletado de shell para `zeroclaw`.
+    Genera scripts de autocompletado de shell para `voltd`.
 
     El script se imprime en stdout para que pueda obtenerse directamente:
 
     Ejemplos:
-    source <(zeroclaw completions bash)
-    zeroclaw completions zsh > ~/.zfunc/_zeroclaw
-    zeroclaw completions fish > ~/.config/fish/completions/zeroclaw.fish
+    source <(voltd completions bash)
+    voltd completions zsh > ~/.zfunc/_voltd
+    voltd completions fish > ~/.config/fish/completions/voltd.fish
 cli-desktop-long-about =
-    Lanza la aplicación de escritorio complementaria de ZeroClaw.
+    Lanza la aplicación de escritorio complementaria de Volt.
 
     La aplicación complementaria es una aplicación ligera de barra de menú / bandeja del sistema que se conecta al mismo gateway que la CLI. Proporciona acceso rápido al panel, monitoreo de estado y emparejamiento de dispositivos.
 
     Usa --install para abrir la página de descarga para tu plataforma. No instala nada por sí mismo.
 
     Ejemplos:
-    zeroclaw desktop              # lanzar la aplicación complementaria
-    zeroclaw desktop --install    # abrir la página de descarga
+    voltd desktop              # lanzar la aplicación complementaria
+    voltd desktop --install    # abrir la página de descarga
 channel-needs-quickstart-reply = Este agente aún no está completamente configurado. El operador debe ejecutar Quickstart antes de que pueda responder.
 channel-whatsapp-web-feature-missing-warning = ⚠ WhatsApp Web está configurado pero la característica 'whatsapp-web' no está compilada.
 channel-whatsapp-web-feature-missing-build = Compila/ejecuta con: cargo build --features whatsapp-web
@@ -432,12 +432,12 @@ onboard-openai-auth-api-key = Clave de API
 onboard-openai-auth-codex = Suscripción de Codex
 onboard-openai-codex-followup =
     La autenticación con la suscripción de Codex usa tu cuenta de ChatGPT.
-    Ejecuta `zeroclaw auth login --provider openai-codex` para autenticarte antes de iniciar tu agente.
+    Ejecuta `voltd auth login --provider openai-codex` para autenticarte antes de iniciar tu agente.
 cli-web-dist-dir-reason-tilde = comienza con `~`, que no se expande
 cli-web-dist-dir-reason-dollar = contiene `$`, que no se expande
 cli-doctor-web-dist-dir-expansion-warning = gateway.web_dist_dir = "{$path}" — {$reason}; gateway.web_dist_dir se lee literalmente, así que expande el valor tú mismo (p. ej., una ruta absoluta)
-cli-doctor-codex-auth-profile-no-slot = Las credenciales de OpenAI Codex tienen sesión iniciada, pero ningún slot de proveedor de modelo las usa. Establece `requires_openai_auth = true` en un slot de proveedor OpenAI y apunta el `model_provider` de un agente a él, o ejecuta `zeroclaw quickstart`.
-cli-doctor-codex-auth-slot-no-profile = Los slots OpenAI {$slots} tienen `requires_openai_auth = true`, pero no hay credenciales de OpenAI Codex con sesión iniciada. Ejecuta `zeroclaw auth login --provider openai-codex`.
+cli-doctor-codex-auth-profile-no-slot = Las credenciales de OpenAI Codex tienen sesión iniciada, pero ningún slot de proveedor de modelo las usa. Establece `requires_openai_auth = true` en un slot de proveedor OpenAI y apunta el `model_provider` de un agente a él, o ejecuta `voltd quickstart`.
+cli-doctor-codex-auth-slot-no-profile = Los slots OpenAI {$slots} tienen `requires_openai_auth = true`, pero no hay credenciales de OpenAI Codex con sesión iniciada. Ejecuta `voltd auth login --provider openai-codex`.
 cli-doctor-codex-auth-ok = Las credenciales de OpenAI Codex tienen sesión iniciada y están referenciadas por un slot de proveedor de modelo.
 cli-doctor-bootstrap-file-truncated-compact = [{$alias}] {$file}: en los turnos del bucle de agente y de canales que lo inyectan, el límite por archivo retiene {$retained} de {$total} caracteres ({$discarded} descartados, antes del presupuesto de todo el prompt). compact_context está activado para este agente y limita cada archivo de arranque a {$limit} caracteres. Establece `compact_context = false` en `[runtime_profiles.{$profile}]` o acorta el archivo.
 cli-doctor-bootstrap-file-truncated-compact-no-profile = [{$alias}] {$file}: en los turnos del bucle de agente y de canales que lo inyectan, el límite por archivo retiene {$retained} de {$total} caracteres ({$discarded} descartados, antes del presupuesto de todo el prompt). compact_context está activado para este agente (el valor predeterminado, sin perfil de ejecución asignado) y limita cada archivo de arranque a {$limit} caracteres. Añade un `[runtime_profiles.<name>]` con `compact_context = false` y asigna `runtime_profile = "<name>"` al agente, o acorta el archivo.
@@ -449,10 +449,10 @@ cli-self-test-web-dist-dir-name = web_dist_dir
 cli-self-test-web-dist-dir-pass-unset = no establecido (usando detección automática)
 cli-self-test-web-dist-dir-pass-literal = {$path} (ruta literal)
 cli-self-test-web-dist-dir-fail-expansion = ADVERTENCIA: {$path} — {$reason}; gateway.web_dist_dir se lee literalmente, así que expande el valor tú mismo (p. ej., una ruta absoluta)
-cli-service-systemd-linger-disabled-warning = la permanencia de usuario de systemd está deshabilitada. El servicio de usuario de ZeroClaw puede detenerse tras cerrar sesión. Habilítala con: loginctl enable-linger {$user}
+cli-service-systemd-linger-disabled-warning = la permanencia de usuario de systemd está deshabilitada. El servicio de usuario de Volt puede detenerse tras cerrar sesión. Habilítala con: loginctl enable-linger {$user}
 cli-peripherals-none = No hay periféricos configurados.
-cli-peripherals-add-hint = Agregue uno con: zeroclaw peripheral add <board> <path>
-cli-peripherals-add-example = {"  "}Ejemplo: zeroclaw peripheral add nucleo-f401re <serial-path>
+cli-peripherals-add-hint = Agregue uno con: voltd peripheral add <board> <path>
+cli-peripherals-add-example = {"  "}Ejemplo: voltd peripheral add nucleo-f401re <serial-path>
 cli-peripherals-config-hint = O agregue a config.toml:
 cli-peripherals-configured = Periféricos configurados:
 cli-peripherals-already-configured = La placa {$board} en {$path} ya está configurada.
@@ -461,8 +461,8 @@ cli-peripherals-flash-needs-hardware = El flasheo de Arduino requiere la caracte
 cli-peripherals-unoq-needs-hardware = La configuración de Uno Q requiere la característica 'hardware'.
 cli-peripherals-nucleo-needs-hardware = El flasheo de Nucleo requiere la característica 'hardware'.
 cli-skills-none-installed = No hay skills instaladas.
-cli-skills-create-hint = {"  "}Cree uno: mkdir -p ~/.zeroclaw/workspace/skills/my-skill
-cli-skills-install-hint = {"  "}O instale: zeroclaw skills install <source>
+cli-skills-create-hint = {"  "}Cree uno: mkdir -p ~/.voltd/workspace/skills/my-skill
+cli-skills-install-hint = {"  "}O instale: voltd skills install <source>
 cli-skills-installed-header = Skills instaladas ({$count}):
 cli-skills-list-group-bundle = paquete: {$alias}
 cli-skills-list-group-agent = cargada por el agente '{$alias}'
@@ -474,7 +474,7 @@ cli-skills-multiple-locations-path = la skill '{$name}' existe en múltiples ubi
 cli-skills-tags = Etiquetas:  {$tags}
 cli-skills-skipped-header = Omitidas ({$count}):
 cli-skills-skipped-reason = {"    "}Motivo: {$reason}
-cli-skills-skipped-scripts-hint = {"    "}Establece `skills.allow_scripts = true` en tu configuración de zeroclaw para habilitarla.
+cli-skills-skipped-scripts-hint = {"    "}Establece `skills.allow_scripts = true` en tu configuración de Volt para habilitarla.
 cli-sop-none = No se encontraron SOP.
 cli-sop-pending-none = No hay ejecuciones de SOP esperando aprobación.
 cli-sop-pending-header = Ejecuciones de SOP esperando aprobación:
@@ -555,8 +555,8 @@ cli-cron-delivery-disabled = desactivada (la salida no se envía a ninguna parte
 cli-no-command = No se proporcionó ningún comando.
 cli-press-enter = Presiona Enter para salir...
 cli-quickstart-title = Quickstart — crea un agente funcional de principio a fin.
-cli-quickstart-needs-tty = Quickstart es interactivo y necesita una terminal en stdin y stderr. Ejecútalo desde una shell interactiva, o usa `zeroclaw config set <path> <value>` para configuración sin interfaz.
-cli-quickstart-terminal-size-unknown = Quickstart no pudo determinar el tamaño de la terminal, así que no puede verificar que la lista quepa. Ejecútalo desde una terminal que informe sus dimensiones, o usa `zeroclaw config set <path> <value>` para configuración sin interfaz.
+cli-quickstart-needs-tty = Quickstart es interactivo y necesita una terminal en stdin y stderr. Ejecútalo desde una shell interactiva, o usa `voltd config set <path> <value>` para configuración sin interfaz.
+cli-quickstart-terminal-size-unknown = Quickstart no pudo determinar el tamaño de la terminal, así que no puede verificar que la lista quepa. Ejecútalo desde una terminal que informe sus dimensiones, o usa `voltd config set <path> <value>` para configuración sin interfaz.
 cli-quickstart-terminal-too-narrow = Quickstart necesita una terminal de al menos {$min_width} columnas de ancho; la terminal actual tiene {$width} columnas. Amplía la terminal e inténtalo de nuevo.
 cli-quickstart-terminal-too-short = Quickstart necesita una terminal de al menos {$min_height} filas de alto; la terminal actual tiene {$height} filas. Aumenta la altura de la terminal e inténtalo de nuevo.
 cli-quickstart-terminal-resized = La terminal cambió de {$initial_width}x{$initial_height} a {$current_width}x{$current_height} mientras la lista de Quickstart estaba abierta. Vuelve a abrir la lista para continuar.
@@ -582,7 +582,7 @@ cli-quickstart-summary-not-yet-named = aún sin nombre
 cli-quickstart-summary-provider-fresh = {$name} (alias: {$alias}, modelo: {$model})
 cli-quickstart-summary-use-existing = usar existente {$reference}
 cli-quickstart-summary-preset-fresh = preset: {$name}
-cli-quickstart-summary-channels-none = ninguno (chatea solo con `zeroclaw agent`)
+cli-quickstart-summary-channels-none = ninguno (chatea solo con `voltd agent`)
 cli-quickstart-summary-agent = alias: {$alias}, prompt del sistema: {$chars} caracteres, {$files} archivo(s) de personalidad
 cli-quickstart-summary-peer-groups-none = ninguno — los canales no aceptan pares
 cli-quickstart-channel-remove-row = {"  "}{$reference} (quitar)
@@ -591,17 +591,17 @@ cli-quickstart-provider-local-label = {$name} (local)
 cli-quickstart-provider-type-prompt = Tipo de proveedor
 cli-quickstart-alias-for = Alias para {$name}
 cli-quickstart-openai-auth-mode-label = Autenticación
-cli-quickstart-openai-auth-mode-help = Elige `codex` para usar un perfil de autenticación de suscripción de ChatGPT/Codex. Si ya iniciaste sesión con el CLI de Codex, ejecuta `zeroclaw auth login --model-provider openai-codex --import ~/.codex/auth.json`; de lo contrario ejecuta `zeroclaw auth login --model-provider openai-codex`.
+cli-quickstart-openai-auth-mode-help = Elige `codex` para usar un perfil de autenticación de suscripción de ChatGPT/Codex. Si ya iniciaste sesión con el CLI de Codex, ejecuta `voltd auth login --model-provider openai-codex --import ~/.codex/auth.json`; de lo contrario ejecuta `voltd auth login --model-provider openai-codex`.
 cli-quickstart-anthropic-auth-mode-label = Autenticación
 cli-quickstart-anthropic-auth-mode-help = Elige `api_key` para una clave de Anthropic Console, o `setup_token` si vas a ejecutar `claude setup-token` para Claude Max y pegar el token generado.
 cli-quickstart-anthropic-api-key-help = Pega una clave API de Anthropic Console o el token generado por `claude setup-token`.
 cli-quickstart-auth-codex-prompt = ¿Iniciar sesión en OpenAI Codex con tu cuenta de ChatGPT ahora?
 cli-quickstart-auth-codex-import-prompt = Se encontró un inicio de sesión existente de Codex (~/.codex/auth.json) — ¿importarlo ahora?
-cli-quickstart-auth-codex-skip-hint = {"  "}Termina más tarde con: zeroclaw auth login --model-provider openai-codex
+cli-quickstart-auth-codex-skip-hint = {"  "}Termina más tarde con: voltd auth login --model-provider openai-codex
 cli-quickstart-auth-anthropic-prompt = ¿Ejecutar `claude setup-token` para el proveedor de Anthropic `{$alias}` ahora?
 cli-quickstart-auth-anthropic-token-prompt = Pega el token de `claude setup-token`
 cli-quickstart-auth-anthropic-saved = {"  "}Token de configuración de Claude guardado para anthropic.{$alias}
-cli-quickstart-auth-anthropic-skip-hint = {"  "}Termina más tarde con: claude setup-token, luego zeroclaw config set providers.models.anthropic.{$alias}.api_key <token>
+cli-quickstart-auth-anthropic-skip-hint = {"  "}Termina más tarde con: claude setup-token, luego voltd config set providers.models.anthropic.{$alias}.api_key <token>
 cli-quickstart-auth-failed = {"  "}La configuración de autenticación no se completó: {$error}
 cli-quickstart-model-field-missing-warning = ADVERTENCIA: el esquema no produjo un campo `model` para `{$provider}` — se usará entrada manual. Informa de esto.
 cli-quickstart-model-id-for = ID de modelo para {$name}
@@ -611,7 +611,7 @@ cli-quickstart-add-channel = + Agregar canal
 cli-quickstart-channels-done = Listo (el selector de canales cuenta como visitado)
 cli-quickstart-channels-prompt = Canales (opcional, 0..N)
 cli-quickstart-channel-source-prompt = Origen del canal
-cli-quickstart-all-channels-bound = {"  "}Todos los canales configurados ya están vinculados a un agente. Libera uno con `zeroclaw config set agents.<alias>.channels ...` antes de reutilizarlo aquí.
+cli-quickstart-all-channels-bound = {"  "}Todos los canales configurados ya están vinculados a un agente. Libera uno con `voltd config set agents.<alias>.channels ...` antes de reutilizarlo aquí.
 cli-quickstart-pick-configured-channel = Elegir un canal configurado
 cli-quickstart-channel-type-prompt = Tipo de canal
 cli-quickstart-add-peer-group = + Agregar grupo de pares
@@ -628,7 +628,7 @@ cli-quickstart-personality-skip = Omitir
 cli-quickstart-esc-go-back = {" "}(Esc para volver)
 cli-quickstart-esc-return-checklist = {" "}(Esc para volver a la lista)
 cli-quickstart-personality-file-prompt = {$filename}{$position} — ¿qué sigue?{$back_hint}
-cli-quickstart-next-agent-command = {"  "}zeroclaw agent -a {$alias}  # chatea con este agente en tu terminal
+cli-quickstart-next-agent-command = {"  "}voltd agent -a {$alias}  # chatea con este agente en tu terminal
 cli-quickstart-fix-and-rerun = Tu configuración existente no se modificó. Corrige lo siguiente y vuelve a ejecutar quickstart:
 cli-quickstart-could-not-finish = quickstart no pudo terminar: {$count} problema(s) por corregir
 cli-quickstart-pick-preset = Elegir un preset
@@ -676,8 +676,8 @@ cli-no-channels-compiled = {"  "}No hay tipos de canal compilados en este binari
 cli-quickstart-complete = Quickstart completado. Se creó el agente `{$alias}`.
 cli-next-steps = Siguientes pasos:
 cli-agent-not-created = Tu agente no fue creado — y no se cambió nada en el disco.
-cli-onboard-deprecated = `zeroclaw onboard` está obsoleto — usa `zeroclaw quickstart`.
-cli-otp-initialized = Secreto OTP inicializado para ZeroClaw.
+cli-onboard-deprecated = `voltd onboard` está obsoleto — usa `voltd quickstart`.
+cli-otp-initialized = Secreto OTP inicializado para Volt.
 cli-otp-enrollment-uri = URI de inscripción: {$uri}
 cli-otp-received = {"  "}✓ OTP recibido
 cli-secret-captured = {"  "}● Valor capturado — pulse Enter para guardar
@@ -693,7 +693,7 @@ cli-pairing-fetch-failed = ❌ No se pudo obtener el código de emparejamiento d
 cli-pairing-no-code = 🔐 El emparejamiento del gateway está habilitado, pero no hay ningún código de emparejamiento activo disponible.
 cli-pairing-requests-accepted = Todas las solicitudes se aceptarán sin autenticación.
 cli-pairing-enable-config = Para habilitar el emparejamiento, establece [gateway] require_pairing = true.
-cli-pairing-show-only = `zeroclaw gateway get-paircode` solo muestra un código activo existente; no genera uno nuevo.
+cli-pairing-show-only = `voltd gateway get-paircode` solo muestra un código activo existente; no genera uno nuevo.
 cli-pairing-pair-another = Para emparejar otro dispositivo, ejecuta:
 cli-pairing-revoke-replace = Para revocar los emparejamientos existentes y generar un código de reemplazo, ejecuta:
 cli-pairing-new-code-unavailable = El gateway no generó un código de emparejamiento nuevo. Puede que ya haya un código pendiente o que sea necesario restablecer el emparejamiento.
@@ -702,8 +702,8 @@ cli-pairing-rotate-no-code = La solicitud de rotación terminó sin devolver un 
 cli-pairing-check-enabled = Comprueba si el emparejamiento está habilitado y solicita un código para el nuevo dispositivo:
 cli-pairing-inspect = Para inspeccionar el gateway en ejecución:
 cli-gateway-running-q = {"   "}¿Está el gateway en ejecución? Inícialo con:
-cli-status-title = 🦀 Estado de ZeroClaw
-cli-security-status-title = Estado de seguridad de ZeroClaw
+cli-status-title = 🦀 Estado de Volt
+cli-security-status-title = Estado de seguridad de Volt
 cli-security-status-source = Origen:      {$v}
 cli-security-status-agent = Agente:       {$v}
 cli-security-status-agent-enabled = Agente habilitado: {$enabled}
@@ -736,10 +736,10 @@ cli-status-service-stopped = 🔴 Servicio:       detenido
 cli-status-channels = Canales:
 cli-status-cli-always = {"  "}CLI:      ✅ siempre
 cli-status-peripherals = Periféricos:
-cli-desktop-download = Abriendo la página de descargas de la aplicación complementaria ZeroClaw:
+cli-desktop-download = Abriendo la página de descargas de la aplicación complementaria Volt:
 cli-desktop-homebrew = O instálala con Homebrew (próximamente):
 cli-desktop-linux-pkg = {"  "}La página ofrece archivos .deb y .AppImage para tu arquitectura.
-cli-desktop-launching = Iniciando la aplicación complementaria de ZeroClaw...
+cli-desktop-launching = Iniciando la aplicación complementaria de Volt...
 cli-status-version = Versión:     {$v}
 cli-status-workspace = Espacio de trabajo:   {$v}
 cli-status-config = Configuración:      {$v}
@@ -784,7 +784,7 @@ cli-status-word-not-configured = no configurado
 cli-status-channel-configured = ✅ {$status}
 cli-status-channel-not-configured = ❌ {$status}
 cli-status-channel-not-compiled = 🚫 configurado, no compilado
-cli-desktop-not-installed = La aplicación complementaria de ZeroClaw no está instalada.
+cli-desktop-not-installed = La aplicación complementaria de Volt no está instalada.
 cli-desktop-blurb1 = La aplicación complementaria es una ligera app de la barra de menú que
 cli-desktop-blurb2 = se conecta a la misma puerta de enlace que la CLI.
 cli-config-all-configured = Todas las secciones ya están configuradas.
@@ -800,9 +800,9 @@ cli-plugin-no-description = (sin descripción)
 cli-plugin-install-resolving = Resolviendo '{$source}' desde el registro de complementos...
 cli-plugin-installed-from = Complemento instalado desde {$source}
 cli-plugin-installed-name-version = Complemento instalado {$name} v{$version}
-cli-plugin-config-entry-seeded = Se creó [[plugins.entries]] para '{$name}'. Establece los valores de configuración del plugin con `zeroclaw config set plugins.entries.{$name}.config.<key>`.
+cli-plugin-config-entry-seeded = Se creó [[plugins.entries]] para '{$name}'. Establece los valores de configuración del plugin con `voltd config set plugins.entries.{$name}.config.<key>`.
 cli-plugin-config-entry-key = Clave de configuración ({$capability}): {$key}
-cli-plugin-config-entry-seed-skipped = advertencia: se omitió crear la entrada de configuración para '{$name}': la sección [plugins] en disco está mal formada. Repárala, agrega un bloque [[plugins.entries]] con `name = "{$name}"`, y luego establece valores con `zeroclaw config set plugins.entries.{$name}.config.<key>`.
+cli-plugin-config-entry-seed-skipped = advertencia: se omitió crear la entrada de configuración para '{$name}': la sección [plugins] en disco está mal formada. Repárala, agrega un bloque [[plugins.entries]] con `name = "{$name}"`, y luego establece valores con `voltd config set plugins.entries.{$name}.config.<key>`.
 cli-plugin-egress-seeded = Se concedió salida de red a '{$name}' según la declaración de su manifiesto ({$count} destino(s)):
 cli-plugin-egress-destination = → {$host}
 cli-plugin-egress-edit-command = Edita esta concesión más adelante con: {$command}
@@ -815,9 +815,9 @@ cli-plugin-egress-never-extended = La concesión de salida existente para '{$nam
 cli-plugin-egress-inherited = El complemento '{$name}' no declara salida, pero su entrada de configuración existente sigue concediendo {$grants}. El paquete instalado hereda esa concesión; edítela o elimínela en plugins.entries.{$key}.
 cli-plugin-egress-gap = {$name}: declara {$hosts}, que su entrada de configuración no concede — las solicitudes a esos destinos se deniegan. Concede con: {$command}
 cli-plugin-egress-gap-legacy = {$name}: declara {$hosts}, que su entrada de configuración no concede — las solicitudes a esos destinos se deniegan. Su fila de configuración todavía usa el formato de clave anterior a 1.0, así que migra la fila antes de conceder:
-cli-plugin-egress-migrate-step = 1) migra la fila: cambia el nombre de la fila [[plugins.entries]] llamada '{$legacy}' por '{$key}' en tu archivo de configuración y guarda. `zeroclaw plugin info {$name}` muestra esa clave.
+cli-plugin-egress-migrate-step = 1) migra la fila: cambia el nombre de la fila [[plugins.entries]] llamada '{$legacy}' por '{$key}' en tu archivo de configuración y guarda. `voltd plugin info {$name}` muestra esa clave.
 cli-plugin-egress-grant-step = 2) concede: {$command}
-cli-plugin-egress-legacy-inert = {$name}: su fila de configuración todavía usa el formato de clave anterior a 1.0, que el runtime no lee — su concesión de egreso no está en vigor y las solicitudes se deniegan. Cambia el nombre de la fila [[plugins.entries]] llamada '{$legacy}' por '{$key}' en tu archivo de configuración y guarda. `zeroclaw plugin info {$name}` muestra esa clave.
+cli-plugin-egress-legacy-inert = {$name}: su fila de configuración todavía usa el formato de clave anterior a 1.0, que el runtime no lee — su concesión de egreso no está en vigor y las solicitudes se deniegan. Cambia el nombre de la fila [[plugins.entries]] llamada '{$legacy}' por '{$key}' en tu archivo de configuración y guarda. `voltd plugin info {$name}` muestra esa clave.
 cli-plugin-egress-invalid-grant = {$name}: el runtime rechaza su concesión de egreso ({$reason}) — todas las solicitudes se deniegan hasta que se corrija. Reemplaza la concesión con: {$command}
 cli-plugin-egress-invalid-grant-legacy = {$name}: el runtime rechaza su concesión de egreso ({$reason}) — todas las solicitudes se deniegan hasta que se corrija. Su fila de configuración todavía usa el formato de clave anterior a 1.0, así que migra la fila y luego reemplaza la concesión:
 cli-plugin-egress-repair-incomplete = {$name}: después del comando impreso el runtime seguiría rechazando la concesión ({$reason}). Corrige `plugins.entries.{$key}.egress_allow_private` para que coincida con los hosts concedidos, o elimina la excepción.
@@ -827,13 +827,13 @@ cli-plugin-install-verify-bypassed = nota: se omite la comprobación de carga en
 cli-plugin-list-entry-loads = {$name} v{$version} — {$description} [se carga]
 cli-plugin-list-entry-failed = {$name} v{$version} — {$description} [no se carga: {$error}]
 cli-plugin-list-entry-no-component = {$name} v{$version} — {$description} [sin componente que cargar]
-cli-config-section-degraded = advertencia: la sección de configuración `{$section}` en {$path} está mal formada y se restableció a los valores predeterminados para esta ejecución. Los valores de esa sección NO están en efecto. Ejecuta `zeroclaw config migrate` para ver el error de análisis y luego repara el archivo.
+cli-config-section-degraded = advertencia: la sección de configuración `{$section}` en {$path} está mal formada y se restableció a los valores predeterminados para esta ejecución. Los valores de esa sección NO están en efecto. Ejecuta `voltd config migrate` para ver el error de análisis y luego repara el archivo.
 cli-config-section-retired-wati = advertencia: la sección de configuración de WATI obsoleta `{$section}` se ignora porque se eliminó la compatibilidad con WATI. Migra a `[channels.whatsapp.<alias>]` mediante Cloud API o WhatsApp Web y, después, revoca el token de API de WATI no utilizado.
 cli-config-section-retired-node-transport = advertencia: la configuración obsoleta de `[node_transport]` se ignora porque se eliminó el transporte de nodos HMAC heredado. Elimina la sección de config.toml.
 cli-plugin-removed = Complemento '{$name}' eliminado.
 cli-plugin-removed-grant-kept = Su entrada de configuración '{$key}' se conserva, con su concesión de salida ({$grants}): un paquete instalado después como '{$name}' la hereda. Elimine la fila [[plugins.entries]] llamada '{$key}' para retirar la concesión.
 cli-plugin-not-found = No se encontró el complemento '{$name}'.
-cli-plugin-legacy-detected = Nota: los complementos en una ubicación heredada ({$path}) no se cargan en el agente. Ejecuta `zeroclaw plugin migrate` para moverlos a {$target}.
+cli-plugin-legacy-detected = Nota: los complementos en una ubicación heredada ({$path}) no se cargan en el agente. Ejecuta `voltd plugin migrate` para moverlos a {$target}.
 cli-plugin-migrated = Se movieron {$count} complemento(s) de {$path} a {$target}.
 cli-plugin-migrate-none = No hay nada que migrar.
 cli-estop-resume-done = Reanudación de la parada de emergencia completada.
@@ -850,7 +850,7 @@ cli-config-legend = Leyenda: 💉 anulado por entorno  🔒 secreto
 cli-config-secret-set = {$path} está establecido (secreto cifrado — valor no mostrado)
 cli-config-secret-unset = {$path} no está establecido (secreto cifrado)
 cli-config-updated = {$path} actualizado.
-cli-config-review-hint = Ejecuta `zeroclaw config list` para revisar y luego establece los campos requeridos.
+cli-config-review-hint = Ejecuta `voltd config list` para revisar y luego establece los campos requeridos.
 cli-config-catalog-unavailable-manual = {"  "}⚠ El catálogo de {$provider} no está disponible ({$error}); introduce manualmente el ID del modelo.
 model-switch-catalog-failed = No se pudo cargar el catálogo del perfil de proveedor configurado {$provider}: {$error}
 cli-config-backed-up = Copia de seguridad en {$path}
@@ -883,8 +883,8 @@ cli-auth-oauth-code = Código:  {$code}
 cli-auth-oauth-fast-link = Enlace rápido: {$uri}
 cli-auth-xai-open-oauth-url = Abre esta URL OAuth de xAI en tu navegador y autoriza el acceso:
 cli-auth-callback-capture-failed = No se pudo capturar la devolución de llamada: {$error}
-cli-auth-run-paste-redirect = Ejecuta `zeroclaw auth paste-redirect --model-provider {$provider} --profile {$profile}`
-cli-auth-xai-no-pending-login = No se encontró un inicio de sesión pendiente de xAI. Ejecuta `zeroclaw auth login --model-provider xai` primero.
+cli-auth-run-paste-redirect = Ejecuta `voltd auth paste-redirect --model-provider {$provider} --profile {$profile}`
+cli-auth-xai-no-pending-login = No se encontró un inicio de sesión pendiente de xAI. Ejecuta `voltd auth login --model-provider xai` primero.
 cli-auth-paste-redirect-requires-input = paste-redirect requiere la URL de redirección o el código OAuth
 cli-locales-fetched = {"  "}descargado {$name} -> {$path}
 cli-locales-skipped = {"  "}omitido {$name}: no está en upstream ({$path}; se intentó {$refs})
@@ -901,7 +901,7 @@ cli-update-success = ¡Actualizado correctamente a v{$version}!
 cli-update-prebuilt-channel-note = Las actualizaciones precompiladas usan la distribución estándar ligera. Compila desde el código fuente con `./install.sh --source --preset full`, `--features channels-full` o una característica `channel-*` específica para Slack y otros canales no incluidos en esa distribución.
 cli-update-available = Actualización disponible: v{$current} -> v{$latest}
 cli-update-forcing-reinstall = Forzando la reinstalación: v{$current} -> v{$latest}
-cli-update-not-writable = el directorio de instalación {$dir} no admite escritura ({$error}); vuelve a ejecutar `zeroclaw update` con privilegios elevados (sudo en macOS/Linux, una consola de administrador en Windows)
+cli-update-not-writable = el directorio de instalación {$dir} no admite escritura ({$error}); vuelve a ejecutar `voltd update` con privilegios elevados (sudo en macOS/Linux, una consola de administrador en Windows)
 cli-selftest-all-passed = Las {$total} comprobaciones pasaron.
 cli-selftest-some-failed = {$failed}/{$total} comprobaciones fallaron.
 cli-selftest-channel-config-uncompiled = {$compiled} tipos de canal compilados, {$configured} compilados/configurados; configurados pero no compilados: {$names}. Compila desde el código fuente con `./install.sh --source --preset full`, `--features channels-full` o la característica `channel-*` específica.
@@ -911,9 +911,9 @@ cli-channels-notion = {"  "}{$status} Notion
 cli-channels-not-compiled-header = {"  "}Configurados pero no compilados en este binario:
 cli-channels-not-compiled-entry = {"  "}🚫 {$name} (configurado, no compilado)
 cli-channels-build-hint = {"  "}Compila desde el código fuente con `./install.sh --source --preset full`, `--features channels-full` o la característica `channel-*` específica.
-cli-channels-start-hint = Para iniciar canales: zeroclaw channel start
-cli-channels-doctor-hint = Para comprobar el estado:    zeroclaw channel doctor
-cli-channels-configure-hint = Para configurar:      zeroclaw config set channels.<name>.<field>=<value>
+cli-channels-start-hint = Para iniciar canales: voltd channel start
+cli-channels-doctor-hint = Para comprobar el estado:    voltd channel doctor
+cli-channels-configure-hint = Para configurar:      voltd config set channels.<name>.<field>=<value>
 cli-models-set-ok = Modelo predeterminado establecido en "{ $model }" en { $provider }.
 cli-models-status-current = Modelo predeterminado: { $model } (proveedor: { $provider })
 cli-models-status-none = No hay ningún modelo predeterminado configurado.
@@ -957,7 +957,7 @@ channel-runtime-model-switch-hint = Cambia el modelo con `/model <model-id>` o `
 channel-runtime-provider-switch-hint = Cambia el model_provider con `/models <model_provider>`.
 channel-runtime-available-providers-header = model_providers disponibles:
 channel-runtime-configured-routes-header = Rutas de modelo configuradas:
-channel-runtime-no-cached-models = No se encontró una lista de modelos en caché para `{ $provider }`. Pide al operador que ejecute `zeroclaw models refresh --model-provider { $provider }`.
+channel-runtime-no-cached-models = No se encontró una lista de modelos en caché para `{ $provider }`. Pide al operador que ejecute `voltd models refresh --model-provider { $provider }`.
 channel-runtime-cached-model-ids-header = IDs de modelo en caché (primeros { $count }):
 channel-runtime-config-switch-hints =
     Usa `/models <model_provider>` para cambiar el model_provider.
@@ -1048,16 +1048,16 @@ cli-bundle-warn-archive = advertencia: falló el archivado del directorio del bu
 cli-bundle-deleted = eliminado skill_bundles.{$alias} (eliminado de {$count} agente(s))
 cli-bundle-warn-move = advertencia: falló el movimiento del directorio del bundle: {$error}
 cli-bundle-renamed = renombrado skill_bundles.{$from} → skill_bundles.{$to}
-cli-gateway-restart-hint-kubernetes = kubectl rollout restart deployment/zeroclaw
+cli-gateway-restart-hint-kubernetes = kubectl rollout restart deployment/voltd
 cli-gateway-restart-hint-container = docker compose restart
-cli-gateway-restart-hint-systemd = systemctl restart zeroclaw
-cli-gateway-restart-hint-launchd = launchctl kickstart -k <your-zeroclaw-label>
-cli-gateway-restart-hint-process = reinicie el proceso `zeroclaw daemon`
-cli-daemon-gateway-already-running = Ya hay un gateway de ZeroClaw ejecutándose en {$host}:{$port}. El daemon supervisa su propio gateway y no iniciará un segundo en la misma dirección. Detén ese gateway (o apunta el daemon a un puerto libre con `zeroclaw config set gateway.port <port>`) y luego vuelve a ejecutar el daemon.
-cli-daemon-gateway-port-occupied = La dirección del gateway {$host}:{$port} ya está en uso por otro proceso. Libera el puerto o apunta el daemon a un puerto libre (`zeroclaw config set gateway.port <port>`) y luego vuelve a ejecutar el daemon.
-cli-daemon-starting-title = 🧠 El daemon de ZeroClaw se está iniciando…
+cli-gateway-restart-hint-systemd = systemctl restart voltd
+cli-gateway-restart-hint-launchd = launchctl kickstart -k <your-voltd-label>
+cli-gateway-restart-hint-process = reinicie el proceso `voltd daemon`
+cli-daemon-gateway-already-running = Ya hay un gateway de Volt ejecutándose en {$host}:{$port}. El daemon supervisa su propio gateway y no iniciará un segundo en la misma dirección. Detén ese gateway (o apunta el daemon a un puerto libre con `voltd config set gateway.port <port>`) y luego vuelve a ejecutar el daemon.
+cli-daemon-gateway-port-occupied = La dirección del gateway {$host}:{$port} ya está en uso por otro proceso. Libera el puerto o apunta el daemon a un puerto libre (`voltd config set gateway.port <port>`) y luego vuelve a ejecutar el daemon.
+cli-daemon-starting-title = 🧠 El daemon de Volt se está iniciando…
 cli-daemon-starting-detail = Preparando los endpoints configurados del daemon
-cli-daemon-started-title = 🧠 El daemon de ZeroClaw está listo
+cli-daemon-started-title = 🧠 El daemon de Volt está listo
 cli-daemon-started-gateway = Gateway:  {$url}
 cli-daemon-started-socket = Socket:   {$path}
 cli-daemon-started-pairing = Emparejamiento: activado (consulta arriba el estado actual del gateway)
@@ -1122,8 +1122,8 @@ cli-doctor-ctxwin-none = No se necesitan actualizaciones.
 cli-doctor-ctxwin-write-failed = {$provider_ref}: error al escribir context_window: {$error}
 cli-doctor-cache-write-failed = No se pudo guardar la caché del modelo: {$error}
 cli-doctor-probe-timeout-message = La comprobación de modelos agotó el tiempo de espera. Es posible que algunos catálogos de proveedores no estén accesibles. Puede volver a ejecutar Doctor para actualizar.
-cli-doctor-degraded-security = Sección de configuración CRÍTICA PARA LA SEGURIDAD `{$path}` no es válida y se restableció a sus valores predeterminados para que el daemon pueda arrancar; la postura en ejecución puede ser MÁS DÉBIL de lo previsto. Ejecute `zeroclaw config migrate` para ver el error de análisis y luego repare el archivo.
-cli-doctor-degraded-section = La sección de configuración `{$path}` está mal formada y se restableció a sus valores predeterminados; los valores de esa sección NO están en efecto. Ejecute `zeroclaw config migrate` para ver el error de análisis y luego repare el archivo.
+cli-doctor-degraded-security = Sección de configuración CRÍTICA PARA LA SEGURIDAD `{$path}` no es válida y se restableció a sus valores predeterminados para que el daemon pueda arrancar; la postura en ejecución puede ser MÁS DÉBIL de lo previsto. Ejecute `voltd config migrate` para ver el error de análisis y luego repare el archivo.
+cli-doctor-degraded-section = La sección de configuración `{$path}` está mal formada y se restableció a sus valores predeterminados; los valores de esa sección NO están en efecto. Ejecute `voltd config migrate` para ver el error de análisis y luego repare el archivo.
 cli-doctor-verifiable-intent-tool-withheld = verifiable_intent.enabled está configurado, pero la herramienta vi_verify se mantiene oculta del registro visible para el modelo hasta que exista un verificador de la cadena de credenciales. Habilitar la sección no habilita la verificación de credenciales en las llamadas a herramientas de comercio. Las rutas de las bibliotecas de emisión y verificación no se ven afectadas.
 sop-approval-deferred-at-capacity = No se pudo reanudar la ejecución {$run_id}: los cupos de ejecución están llenos. La aprobación sigue en espera; inténtalo de nuevo cuando se libere un cupo.
 sop-approval-policy-unavailable = La aprobación falló porque el paso de SOP en espera no está disponible: {$reason}. La ejecución sigue en espera.

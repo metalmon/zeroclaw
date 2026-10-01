@@ -1,6 +1,6 @@
 // Operator-bind form: authorize a user on a pairing channel (Telegram /
 // WeChat / LINE) by adding their native id to the channel's allowlist — the
-// GUI equivalent of `zeroclaw channel bind-<type> <id> --alias <alias>`. The
+// GUI equivalent of `voltd channel bind-<type> <id> --alias <alias>`. The
 // bound user can message the bot immediately, with no `/bind` code round trip.
 
 import { useEffect, useMemo, useState } from "react";
@@ -83,7 +83,7 @@ export default function BindChannelForm({
   // there; for WeChat/LINE the button is the bind surface.
   const cliCommand =
     channelType === "telegram" && identity.trim()
-      ? `zeroclaw channel bind-telegram ${identity.trim()}${
+      ? `voltd channel bind-telegram ${identity.trim()}${
           alias === "default" ? "" : ` --alias ${alias}`
         }`
       : "";
