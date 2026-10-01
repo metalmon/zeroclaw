@@ -205,12 +205,48 @@ fn build_provider_registry(
     registry
 }
 
+/// Drain the binding a just-redeemed, principal-tagged pairing code left
+/// behind (`PairingGuard::take_pending_binding`) into the live
+/// `TokenBindingStore`, so the new bearer resolves to that
+/// `[[authz.principals]]` record from its very next connect. Shared by every
+/// pairing redemption point (in-band `zeroclaw/pair`, REST `/pair`, enhanced
+/// `/api/pair`). Returns the binding (if any) so REST callers can echo it.
+/// A persist failure is logged, not fatal: the binding is live in-process
+/// and the device is paired; the next redemption/restart retries.
+pub(crate) fn bind_pending_principal(
+    state: &AppState,
+) -> Option<zeroclaw_config::pairing::PrincipalBinding> {
+    let binding = state.pairing.take_pending_binding()?;
+    match state
+        .token_bindings
+        .set(binding.token_hash.clone(), binding.principal_id.clone())
+    {
+        Ok(()) => ::zeroclaw_log::record!(
+            INFO,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_attrs(::serde_json::json!({ "principal_id": binding.principal_id })),
+            "device paired with a principal-tagged code; token bound to principal in the runtime binding store"
+        ),
+        Err(e) => ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                .with_attrs(::serde_json::json!({
+                    "principal_id": binding.principal_id,
+                    "error": e.to_string(),
+                })),
+            "device paired with a principal-tagged code but persisting the token->principal binding failed; the binding is active in-process"
+        ),
+    }
+    Some(binding)
+}
+
 /// Resolve a presented bearer to a [`Principal`] + its [`ResolvedGrants`]
 /// via the ACP-dedicated registry (`"pairing"` provider) and the shared
 /// [`PrincipalResolver`]. `None` means the credential was denied (or
 /// absent); the caller decides whether that is a hard reject (authz
 /// enforced) or the shared-operator fallback (legacy).
-async fn resolve_principal(
+pub(crate) async fn resolve_principal(
     state: &AppState,
     token: Option<&str>,
 ) -> Option<(Principal, ResolvedGrants)> {
@@ -482,6 +518,14 @@ async fn run_pre_auth(
 
         match state.pairing.try_pair(code, client_id).await {
             Ok(Some(token)) => {
+                // A principal-tagged code (`get-paircode --new --principal
+                // <id>`) stashes a binding that must be drained into the live
+                // runtime store BEFORE the token is resolved below — mirrors
+                // the REST `/pair` handlers (`lib.rs::handle_pair`,
+                // `api_pairing::submit_pairing_enhanced`) so a tagged code
+                // works identically whether redeemed over REST or in-band.
+                bind_pending_principal(state);
+
                 let authz_enforced = state.config.read().authz.is_enforced();
                 let principal_and_grants = match resolve_principal(state, Some(&token)).await {
                     Some(pg) => pg,
