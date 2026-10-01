@@ -186,6 +186,25 @@ pub fn gateway_request_timeout_secs(cfg: &zeroclaw_config::schema::GatewayConfig
     cfg.request_timeout_secs
 }
 
+/// Resolve the private and (optional) public bind addresses from typed
+/// config. Pure — no I/O, no binding. The private address always comes from
+/// `[gateway].host`/`port` (today's single-listener bind); the public
+/// address is present iff `[gateway.public].enabled`, in which case it comes
+/// from `[gateway.public].host`/`port`. Host parsing mirrors the existing
+/// gateway bind path (`zeroclaw_infra::effective_gateway_bind_socket_addr`),
+/// so an unparsable host falls back to loopback on the given port rather
+/// than erroring, matching `run_gateway`'s own bind fallback.
+pub fn resolve_listeners(
+    g: &zeroclaw_config::schema::GatewayConfig,
+) -> (SocketAddr, Option<SocketAddr>) {
+    let private = zeroclaw_infra::effective_gateway_bind_socket_addr(&g.host, g.port);
+    let public = g
+        .public
+        .enabled
+        .then(|| zeroclaw_infra::effective_gateway_bind_socket_addr(&g.public.host, g.public.port));
+    (private, public)
+}
+
 /// Manual cron-trigger request timeout (seconds), exempt from the
 /// gateway-wide [`gateway_request_timeout_secs`] limit so synchronous agent
 /// jobs can run to completion. Reads from typed config.
@@ -1947,6 +1966,15 @@ pub async fn run_gateway_with_plugin_webhooks(
         .map(|controls| (controls.shutdown_tx.clone(), Some(controls)))
         .unwrap_or((owned_shutdown_tx, None));
     let mut shutdown_rx = shutdown_tx.subscribe();
+    // A second, independent shutdown receiver for the public-surface serve
+    // loop in dual-listener mode (`[gateway.public].enabled`). Subscribed
+    // here, before `shutdown_tx` is moved into `AppState` below, and kept
+    // as `None` in single-listener mode so it costs nothing there.
+    let public_shutdown_rx = config
+        .gateway
+        .public
+        .enabled
+        .then(|| shutdown_tx.subscribe());
 
     // Node registry for dynamic node discovery
     let node_registry = Arc::new(nodes::NodeRegistry::new(config.nodes.max_nodes));
@@ -2379,8 +2407,10 @@ pub async fn run_gateway_with_plugin_webhooks(
         // ── SSE event stream ──
         .route("/api/events", get(sse::handle_sse_events))
         .route("/api/events/history", get(sse::handle_events_history))
-        // ── ACP client bridge ──
-        .route("/acp", get(acp::handle_ws_acp))
+        // ── ACP client bridge: NOT here. `/acp` lives solely on
+        // `public_router` (merged below in single-listener mode, or served on
+        // its own `[gateway.public]` listener in dual-listener mode) so the
+        // control plane never leaks onto the public surface. ──
         // ── WebSocket agent chat ──
         .route("/ws/chat", get(ws::handle_ws_chat))
         // ── WebSocket SOP runs feed ──
@@ -2432,7 +2462,7 @@ pub async fn run_gateway_with_plugin_webhooks(
     #[cfg(feature = "a2a")]
     let long_running_router = long_running_router.merge(a2a::a2a_task_route());
     let long_running_router: Router = long_running_router
-        .with_state(state)
+        .with_state(state.clone())
         .layer(RequestBodyLimitLayer::new(MAX_BODY_SIZE))
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,
@@ -2440,6 +2470,161 @@ pub async fn run_gateway_with_plugin_webhooks(
         ));
 
     let inner = inner.merge(long_running_router);
+
+    // ── Surface split ──────────────────────────────────────────────
+    // `inner` is the PRIVATE (control-plane) surface: admin, pairing,
+    // webhooks, the full `/api/*` dashboard surface, WebSocket feeds and
+    // static assets. `/acp` — the only client-facing route — lives solely
+    // on `public_router`.
+    //
+    // Single-listener mode (default): merge `public_router` into `inner` so
+    // the one `[gateway].host:port` listener serves everything, exactly as
+    // before the split. The merge is MANDATORY there: serving `inner` alone
+    // would silently drop `/acp` and break every ACP client.
+    //
+    // Dual-listener mode (`[gateway.public].enabled`): `/acp` is served by
+    // a SECOND, TLS-only listener spawned below; `inner` stays on the
+    // primary (loopback-default) listener as plain TCP, so the control
+    // plane is never reachable from the public socket.
+    let public_enabled = config.gateway.public.enabled;
+    let public_task = if public_enabled {
+        // Fail-closed: the public listener puts live traffic on the
+        // network, so — unlike the primary listener, which may fall back
+        // to plaintext — it never does. `[gateway.tls]` is mandatory
+        // whenever `[gateway.public]` is enabled; refuse to start rather
+        // than expose plaintext `/acp`.
+        let Some(tls_cfg) = config.gateway.tls.as_ref().filter(|t| t.enabled) else {
+            anyhow::bail!(
+                "[gateway.public] is enabled but [gateway.tls] is absent or disabled; \
+                 refusing to start a public /acp listener without TLS (fail-closed — no \
+                 plaintext ACP exposed to the network)"
+            );
+        };
+        // Footgun guard: pairing is the only authentication boundary on
+        // `/acp`. With `require_pairing = false`, the public listener hands
+        // every network client an unauthenticated shared-operator session
+        // (TLS-encrypted, but no pairing). Warn loudly; the operator's
+        // config still wins.
+        if !config.gateway.require_pairing {
+            ::zeroclaw_log::record!(
+                WARN,
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
+                "[gateway.public] enabled with require_pairing=false: the public /acp listener accepts UNAUTHENTICATED network clients (TLS-encrypted, but no pairing). Set [gateway] require_pairing=true to require in-band pairing on the public surface."
+            );
+        }
+        let has_mtls = tls_cfg.client_auth.as_ref().is_some_and(|ca| ca.enabled);
+        ::zeroclaw_log::record!(
+            INFO,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_attrs(::serde_json::json!({ "mtls": has_mtls })),
+            "public /acp listener: TLS enabled"
+        );
+        let public_tls_acceptor = tls::build_tls_acceptor(tls_cfg)?;
+
+        // Resolve through the tested helper rather than re-deriving the
+        // address inline, so the unit-tested code path IS the bind path.
+        // The private side keeps using the pre-existing `listener` (bound
+        // above from the function's `host`/`port` args, which also carry
+        // CLI-override handling `resolve_listeners` doesn't duplicate), so
+        // only the public half is taken from the resolver here.
+        let (_, resolved_public_addr) = resolve_listeners(&config.gateway);
+        let public_addr = resolved_public_addr
+            .expect("resolve_listeners returns Some when [gateway.public].enabled is true, which gated entry into this branch");
+        let public_listener = tokio::net::TcpListener::bind(public_addr).await?;
+        ::zeroclaw_log::record!(
+            INFO,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_attrs(::serde_json::json!({ "addr": public_addr.to_string() })),
+            "public /acp listener bound"
+        );
+
+        let public_app = public_router(state.clone())
+            .layer(axum::middleware::from_fn(security_headers::apply_with_hsts));
+        let public_app = if let Some(prefix) = path_prefix {
+            let redirect_target = prefix.to_string();
+            Router::new().nest(prefix, public_app).route(
+                &format!("{prefix}/"),
+                get(|| async move { axum::response::Redirect::permanent(&redirect_target) }),
+            )
+        } else {
+            public_app
+        };
+
+        // Public surface runs on its own task — a manual TLS accept loop,
+        // mirroring the single-listener TLS path below — so it serves
+        // concurrently with the private surface, which stays on the
+        // current task. `zeroclaw_spawn::spawn!`, not raw `tokio::spawn`,
+        // per workspace policy.
+        let public_shutdown_signal = public_shutdown_rx
+            .expect("subscribed above because [gateway.public].enabled is true here");
+        Some(zeroclaw_spawn::spawn!(async move {
+            let mut public_app = public_app.into_make_service_with_connect_info::<SocketAddr>();
+            let mut shutdown_signal = public_shutdown_signal;
+            loop {
+                tokio::select! {
+                    conn = public_listener.accept() => {
+                        let (tcp_stream, remote_addr) = match conn {
+                            Ok(pair) => pair,
+                            Err(e) => {
+                                if is_recoverable_accept_error(&e) {
+                                    ::zeroclaw_log::record!(WARN, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_outcome(::zeroclaw_log::EventOutcome::Unknown).with_attrs(::serde_json::json!({"error": format!("{}", e)})), "public gateway accept() failed with a transient error; backing off and continuing");
+                                    tokio::time::sleep(Duration::from_millis(ACCEPT_ERROR_BACKOFF_MS)).await;
+                                    continue;
+                                }
+                                ::zeroclaw_log::record!(ERROR, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail).with_outcome(::zeroclaw_log::EventOutcome::Failure).with_attrs(::serde_json::json!({"error": format!("{}", e)})), "public gateway listener stopped accepting connections");
+                                break;
+                            }
+                        };
+                        let tls_acceptor = public_tls_acceptor.clone();
+                        let svc = tower::MakeService::<
+                            SocketAddr,
+                            hyper::Request<hyper::body::Incoming>,
+                        >::make_service(&mut public_app, remote_addr)
+                        .await
+                        .expect("infallible make_service");
+
+                        zeroclaw_spawn::spawn!(async move {
+                            let tls_stream = match tls_acceptor.accept(tcp_stream).await {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    ::zeroclaw_log::record!(DEBUG, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_attrs(::serde_json::json!({"error": format!("{}", e), "remote_addr": remote_addr})), "public /acp TLS handshake failed from");
+                                    return;
+                                }
+                            };
+                            let io = hyper_util::rt::TokioIo::new(tls_stream);
+                            let hyper_svc = hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
+                                let mut svc = svc.clone();
+                                async move {
+                                    tower::Service::call(&mut svc, req).await
+                                }
+                            });
+                            // `/acp` is a WebSocket upgrade, so the connection
+                            // MUST be served with upgrade support.
+                            if let Err(e) = hyper_util::server::conn::auto::Builder::new(
+                                hyper_util::rt::TokioExecutor::new(),
+                            )
+                            .serve_connection_with_upgrades(io, hyper_svc)
+                            .await
+                            {
+                                ::zeroclaw_log::record!(DEBUG, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_attrs(::serde_json::json!({"error": format!("{}", e), "remote_addr": remote_addr})), "public /acp connection error from");
+                            }
+                        });
+                    }
+                    _ = shutdown_signal.changed() => {
+                        ::zeroclaw_log::record!(INFO, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note), "public /acp gateway listener shutting down");
+                        break;
+                    }
+                }
+            }
+        }))
+    } else {
+        None
+    };
+    let inner = if public_enabled {
+        inner
+    } else {
+        inner.merge(public_router(state.clone()))
+    };
 
     // Nest under path prefix when configured (axum strips prefix before routing).
     // nest() at "/prefix" handles both "/prefix" and "/prefix/*" but not "/prefix/"
@@ -2454,11 +2639,16 @@ pub async fn run_gateway_with_plugin_webhooks(
         inner
     };
 
-    let tls_enabled = config
-        .gateway
-        .tls
-        .as_ref()
-        .is_some_and(|tls_cfg| tls_cfg.enabled);
+    // In dual-listener mode the primary listener is the PRIVATE surface
+    // (loopback by default) and stays plain TCP: `[gateway.tls]` is consumed
+    // by the public `/acp` listener spawned above, not by the control plane
+    // the local dashboard/CLI talk to over loopback.
+    let tls_enabled = !public_enabled
+        && config
+            .gateway
+            .tls
+            .as_ref()
+            .is_some_and(|tls_cfg| tls_cfg.enabled);
     let app = if tls_enabled {
         app.layer(axum::middleware::from_fn(security_headers::apply_with_hsts))
     } else {
@@ -2467,7 +2657,7 @@ pub async fn run_gateway_with_plugin_webhooks(
 
     // ── TLS / mTLS setup ───────────────────────────────────────────
     let tls_acceptor = match &config.gateway.tls {
-        Some(tls_cfg) if tls_cfg.enabled => {
+        Some(tls_cfg) if tls_cfg.enabled && !public_enabled => {
             let has_mtls = tls_cfg.client_auth.as_ref().is_some_and(|ca| ca.enabled);
             if has_mtls {
                 ::zeroclaw_log::record!(
@@ -2571,6 +2761,22 @@ pub async fn run_gateway_with_plugin_webhooks(
         .await?;
     }
 
+    // Join the public-surface task so its errors (if any) surface in logs
+    // rather than being silently dropped once `run_gateway` returns. Its
+    // shutdown is driven by `public_shutdown_rx` above via the same watch
+    // channel as the private surface, so both stop together.
+    if let Some(task) = public_task
+        && let Err(err) = task.await
+    {
+        ::zeroclaw_log::record!(
+            ERROR,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
+                .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                .with_attrs(::serde_json::json!({"error": format!("{err}")})),
+            "public gateway listener task join failed"
+        );
+    }
+
     if let Some(task) = mdns_task {
         let mut task = task;
         tokio::select! {
@@ -2593,6 +2799,31 @@ pub async fn run_gateway_with_plugin_webhooks(
 
     drop(broadcast_hook_guard);
     Ok(())
+}
+
+/// Public (client-facing) router: ONLY `/acp`. This is the one surface a
+/// `[gateway.public]` listener ever serves; every control-plane route
+/// (`/api/*`, `/admin/*`, `/pair`, webhooks, dashboard assets) stays on the
+/// private router assembled inline in `run_gateway`. `/acp` authenticates
+/// in-band (pairing-over-ACP, see `acp::handle_ws_acp`) and resolves its own
+/// principal at upgrade time, so nothing on this router depends on the
+/// private surface's admin-token / localhost guards.
+///
+/// Carries the same gateway-wide baseline layers (`RequestBodyLimitLayer`
+/// and `TimeoutLayer`) that `/acp` already receives on the private router,
+/// so behavior is unchanged: `/acp` is a WS upgrade, so both layers are
+/// harmless (the upgrade response returns immediately and the socket then
+/// runs in its own task, outside the HTTP layer stack).
+pub fn public_router(state: AppState) -> Router {
+    let timeout_secs = gateway_request_timeout_secs(&state.config.read().gateway);
+    Router::new()
+        .route("/acp", get(acp::handle_ws_acp))
+        .with_state(state)
+        .layer(RequestBodyLimitLayer::new(MAX_BODY_SIZE))
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(timeout_secs),
+        ))
 }
 
 fn static_file_routes() -> Router<AppState> {
@@ -5313,6 +5544,55 @@ mod tests {
     fn gateway_timeout_uses_typed_config_default() {
         let cfg = zeroclaw_config::schema::GatewayConfig::default();
         assert_eq!(gateway_request_timeout_secs(&cfg), 30);
+    }
+
+    #[test]
+    fn resolve_listeners_public_only_when_enabled() {
+        let mut g = zeroclaw_config::schema::GatewayConfig::default();
+        assert!(resolve_listeners(&g).1.is_none());
+        g.public.enabled = true;
+        g.public.host = "0.0.0.0".into();
+        g.public.port = 443;
+        assert_eq!(resolve_listeners(&g).1.unwrap().port(), 443);
+    }
+
+    /// `public_router` is the ONLY surface a `[gateway.public]` listener
+    /// serves: it must carry `/acp` and nothing else — in particular none of
+    /// the control-plane routes (`/api/*`, `/admin/*`, `/pair`).
+    #[tokio::test]
+    async fn public_router_serves_only_acp() {
+        let tmp = tempfile::tempdir().unwrap();
+        let state = admin_paircode_state(&tmp, false, false);
+        let app = public_router(state);
+
+        let acp_response = app
+            .clone()
+            .oneshot(Request::builder().uri("/acp").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_ne!(
+            acp_response.status(),
+            StatusCode::NOT_FOUND,
+            "public_router must serve /acp"
+        );
+
+        for private_path in ["/api/status", "/admin/paircode", "/pair/code", "/health"] {
+            let private_response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(private_path)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                private_response.status(),
+                StatusCode::NOT_FOUND,
+                "public_router must not serve private control-plane route {private_path}"
+            );
+        }
     }
 
     #[test]
