@@ -5425,9 +5425,7 @@ async fn handle_admin_paircode_new(
         (None, Some(principal_id)) => format!(
             "New pairing code generated — the token it issues will be bound to principal '{principal_id}'"
         ),
-        (None, None) => {
-            "New pairing code generated — use this one-time code to pair".to_string()
-        }
+        (None, None) => "New pairing code generated — use this one-time code to pair".to_string(),
     };
 
     let body = serde_json::json!({
@@ -6511,10 +6509,14 @@ path = "{trigger_path}"
             .await
             .unwrap()
             .expect("tagged code must redeem");
-        let binding = acp::bind_pending_principal(&state).expect("tagged redemption yields a binding");
+        let binding =
+            acp::bind_pending_principal(&state).expect("tagged redemption yields a binding");
         assert_eq!(binding.principal_id, "alice");
         assert_eq!(
-            state.token_bindings.get(&PairingGuard::token_hash(&token)).as_deref(),
+            state
+                .token_bindings
+                .get(&PairingGuard::token_hash(&token))
+                .as_deref(),
             Some("alice"),
             "the issued token must resolve to alice via the live binding store"
         );

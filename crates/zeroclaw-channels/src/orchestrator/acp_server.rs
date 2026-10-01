@@ -5524,7 +5524,10 @@ mod tests {
         let server = AcpServer::new(two_agent_config(cwd.path()), AcpServerConfig::default());
 
         let resp = server.handle_initialize(&serde_json::json!({})).unwrap();
-        let agents = resp["_meta"]["zeroclaw"]["agents"].as_array().unwrap().clone();
+        let agents = resp["_meta"]["zeroclaw"]["agents"]
+            .as_array()
+            .unwrap()
+            .clone();
         let aliases: Vec<&str> = agents
             .iter()
             .map(|a| a["alias"].as_str().unwrap())
@@ -5553,10 +5556,7 @@ mod tests {
             .await
             .expect("the default shared-operator principal must reach any configured agent");
         let session_id = result["sessionId"].as_str().unwrap();
-        assert_eq!(
-            session_agent_alias(&server, session_id).await,
-            "agent-beta"
-        );
+        assert_eq!(session_agent_alias(&server, session_id).await, "agent-beta");
     }
 
     #[tokio::test]

@@ -28,7 +28,9 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use zeroclaw_api::principal::{AuthMethod, AuthOutcome, AuthenticatedIdentity, DenyReason, IdentitySubject};
+use zeroclaw_api::principal::{
+    AuthMethod, AuthOutcome, AuthenticatedIdentity, DenyReason, IdentitySubject,
+};
 use zeroclaw_config::authz::{AuthzConfig, TokenBindingStore};
 use zeroclaw_config::pairing::PairingGuard;
 
