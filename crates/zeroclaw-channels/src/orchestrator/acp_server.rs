@@ -769,6 +769,38 @@ impl AcpServer {
             zeroclaw_meta["defaultModel"] = serde_json::json!(model);
         }
 
+        // Principal-scoped agent roster (`_meta.zeroclaw.agents`): configured,
+        // dispatchable agents (the same eligibility `alias_if_dispatchable`
+        // applies at `session/new`) intersected with this connection's
+        // entitlement (`grants.may_use_agent`, the very gate `session/new`
+        // enforces). The list never exceeds what `session/new` would admit
+        // for this principal. `display_name` is the agent's configured
+        // friendly name (`AliasedAgentConfig::display_name`); it falls back
+        // to the alias when unset or blank.
+        let mut entitled: Vec<(&String, &zeroclaw_config::schema::AliasedAgentConfig)> = config
+            .agents
+            .iter()
+            .filter(|(alias, agent)| {
+                agent.is_dispatchable() && self.grants.may_use_agent(alias.as_str())
+            })
+            .collect();
+        entitled.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+        let agents: Vec<Value> = entitled
+            .into_iter()
+            .map(|(alias, agent)| {
+                serde_json::json!({
+                    "alias": alias,
+                    "display_name": agent
+                        .display_name
+                        .as_deref()
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or(alias.as_str()),
+                    "default": config.acp.default_agent.as_deref() == Some(alias.as_str()),
+                })
+            })
+            .collect();
+        zeroclaw_meta["agents"] = serde_json::json!(agents);
+
         let session_capabilities = if self.store.is_some() {
             serde_json::json!({ "resume": {}, "close": {} })
         } else {
@@ -5429,6 +5461,79 @@ mod tests {
             session_agent_alias(&server, session_id).await,
             "agent-alpha"
         );
+    }
+
+    /// The `initialize` roster (`_meta.zeroclaw.agents`) is scoped by the
+    /// same `may_use_agent` gate `session/new` enforces, and carries the
+    /// configured `display_name` (alias fallback when unset).
+    #[test]
+    fn initialize_lists_only_entitled_agents() {
+        use zeroclaw_api::grants::ResolvedGrants;
+        use zeroclaw_api::principal::{
+            AgentAlias, AuthMethod, AuthenticatedIdentity, IdentitySubject, Principal,
+        };
+
+        let cwd = tempfile::tempdir().unwrap();
+        let mut config = two_agent_config(cwd.path());
+        // A configured friendly name flows through to the roster's `display_name`.
+        config
+            .agents
+            .get_mut("agent-alpha")
+            .expect("agent-alpha is configured")
+            .display_name = Some("Alpha Bot".to_string());
+        let identity = AuthenticatedIdentity::new(
+            IdentitySubject::Roster {
+                principal_id: "alice".to_string(),
+            },
+            AuthMethod::Native,
+        );
+        let principal = Principal::from_identity(&identity);
+        let mut grants = ResolvedGrants::none();
+        grants.allowed_agents = vec![AgentAlias("agent-alpha".to_string())];
+
+        let server = AcpServer::new(config, AcpServerConfig::default())
+            .with_principal(principal)
+            .with_grants(grants);
+
+        let resp = server.handle_initialize(&serde_json::json!({})).unwrap();
+        let agents = &resp["_meta"]["zeroclaw"]["agents"];
+        let aliases: Vec<&str> = agents
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|a| a["alias"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            aliases,
+            vec!["agent-alpha"],
+            "agent-beta is configured and dispatchable but alice is not entitled to it"
+        );
+        assert_eq!(
+            agents[0]["display_name"].as_str(),
+            Some("Alpha Bot"),
+            "roster display_name reflects the configured AliasedAgentConfig::display_name"
+        );
+        assert_eq!(agents[0]["default"], false);
+    }
+
+    /// Without a configured `display_name` the roster falls back to the
+    /// alias, and the shared-operator default lists every dispatchable agent.
+    #[test]
+    fn initialize_roster_falls_back_to_alias_and_lists_all_for_shared_operator() {
+        let cwd = tempfile::tempdir().unwrap();
+        let server = AcpServer::new(two_agent_config(cwd.path()), AcpServerConfig::default());
+
+        let resp = server.handle_initialize(&serde_json::json!({})).unwrap();
+        let agents = resp["_meta"]["zeroclaw"]["agents"].as_array().unwrap().clone();
+        let aliases: Vec<&str> = agents
+            .iter()
+            .map(|a| a["alias"].as_str().unwrap())
+            .collect();
+        // `two_agent_config` builds on `make_test_config`, which already
+        // carries `test-agent`; the roster is alias-sorted.
+        assert_eq!(aliases, vec!["agent-alpha", "agent-beta", "test-agent"]);
+        assert_eq!(agents[0]["display_name"].as_str(), Some("agent-alpha"));
+        assert_eq!(agents[1]["display_name"].as_str(), Some("agent-beta"));
     }
 
     /// Default (no `with_principal`/`with_grants` call) is the
