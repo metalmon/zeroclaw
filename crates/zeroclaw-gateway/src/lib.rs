@@ -2520,13 +2520,12 @@ pub async fn run_gateway_with_plugin_webhooks(
     // ── Surface split ──────────────────────────────────────────────
     // `inner` is the PRIVATE (control-plane) surface: admin, pairing,
     // webhooks, the full `/api/*` dashboard surface, WebSocket feeds and
-    // static assets. `/acp` — the only client-facing route — lives solely
-    // on `public_router`.
+    // static assets. It carries `/acp` as well — the dashboard's ACP console
+    // and local tooling reach the agent through it.
     //
-    // Single-listener mode (default): merge `public_router` into `inner` so
-    // the one `[gateway].host:port` listener serves everything, exactly as
-    // before the split. The merge is MANDATORY there: serving `inner` alone
-    // would silently drop `/acp` and break every ACP client.
+    // Single-listener mode (default): `inner` alone serves everything,
+    // `/acp` included. Do NOT merge `public_router` in: `/acp` is already
+    // registered here and a second registration makes axum panic at startup.
     //
     // Dual-listener mode (`[gateway.public].enabled`): `/acp` is served by
     // a SECOND, TLS-only listener spawned below; `inner` stays on the
