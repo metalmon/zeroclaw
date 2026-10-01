@@ -43,7 +43,27 @@ use zeroclaw_runtime::security::auth_provider::{
 use zeroclaw_runtime::security::pairing_auth_provider::PairingAuthProvider;
 use zeroclaw_runtime::security::principal_resolver::PrincipalResolver;
 
-const ACP_WS_PROTOCOL: &str = "zeroclaw.acp.v1";
+/// The ACP WebSocket subprotocols this endpoint speaks, in preference
+/// order: the fork's own name first, upstream's second. Both carry the
+/// identical frame contract; a client may offer either (or both, alongside
+/// its `bearer.<token>` entry), and the gateway echoes back the one it
+/// picked so a browser/WebView2 handshake — which aborts when the server
+/// answers with no `Sec-WebSocket-Protocol` — completes.
+const ACP_WS_PROTOCOLS: [&str; 2] = ["volt.acp.v1", "zeroclaw.acp.v1"];
+
+/// Pick the subprotocol to echo for a client's `Sec-WebSocket-Protocol`
+/// offer: `volt.acp.v1` when offered (even if `zeroclaw.acp.v1` is offered
+/// too, regardless of the client's order), else `zeroclaw.acp.v1` when
+/// offered, else `None` (nothing is echoed; a client that offered only a
+/// `bearer.<token>` entry, or nothing, upgrades without a subprotocol as
+/// before).
+#[must_use]
+fn select_acp_subprotocol(offered: Option<&str>) -> Option<&'static str> {
+    let offered = offered?;
+    ACP_WS_PROTOCOLS
+        .into_iter()
+        .find(|known| offered.split(',').any(|p| p.trim() == *known))
+}
 
 /// How long an unauthenticated `/acp` connection may sit in pre-auth mode
 /// (only `zeroclaw/pair`/`volt/pair` accepted) before the gateway drops it.
@@ -93,14 +113,16 @@ pub async fn handle_ws_acp(
         resolved.as_ref().map(|(principal, _)| principal),
     );
 
-    let ws = if headers
-        .get("sec-websocket-protocol")
-        .and_then(|v| v.to_str().ok())
-        .is_some_and(|protos| protos.split(',').any(|p| p.trim() == ACP_WS_PROTOCOL))
-    {
-        ws.protocols([ACP_WS_PROTOCOL])
-    } else {
-        ws
+    // Exactly one known subprotocol is handed to axum, so the echo is the
+    // one `select_acp_subprotocol` chose rather than whichever the client
+    // happened to list first.
+    let ws = match select_acp_subprotocol(
+        headers
+            .get(axum::http::header::SEC_WEBSOCKET_PROTOCOL)
+            .and_then(|v| v.to_str().ok()),
+    ) {
+        Some(protocol) => ws.protocols([protocol]),
+        None => ws,
     };
 
     if !authenticated {
@@ -1053,6 +1075,57 @@ mod provider_select_tests {
             select_provider(&Credential::Bearer(token), &config).as_deref(),
             Some("oidc.alpha")
         );
+    }
+
+    #[test]
+    fn subprotocol_echo_prefers_volt_then_zeroclaw_and_keeps_bearer_entries_out() {
+        assert_eq!(select_acp_subprotocol(None), None);
+        assert_eq!(select_acp_subprotocol(Some("")), None);
+        assert_eq!(select_acp_subprotocol(Some("bearer.zc_tok")), None);
+        assert_eq!(
+            select_acp_subprotocol(Some("volt.acp.v1")),
+            Some("volt.acp.v1")
+        );
+        assert_eq!(
+            select_acp_subprotocol(Some("zeroclaw.acp.v1")),
+            Some("zeroclaw.acp.v1")
+        );
+        // Both offered: volt wins regardless of the client's order.
+        assert_eq!(
+            select_acp_subprotocol(Some("zeroclaw.acp.v1, volt.acp.v1")),
+            Some("volt.acp.v1")
+        );
+        assert_eq!(
+            select_acp_subprotocol(Some("volt.acp.v1,zeroclaw.acp.v1")),
+            Some("volt.acp.v1")
+        );
+        // The frozen client shape: subprotocol + bearer entry, any order.
+        assert_eq!(
+            select_acp_subprotocol(Some("volt.acp.v1, bearer.zc_tok")),
+            Some("volt.acp.v1")
+        );
+        assert_eq!(
+            select_acp_subprotocol(Some("bearer.zc_tok, zeroclaw.acp.v1")),
+            Some("zeroclaw.acp.v1")
+        );
+        // Unknown names are never echoed.
+        assert_eq!(select_acp_subprotocol(Some("acp.v2, volt.acp.v2")), None);
+    }
+
+    #[test]
+    fn ws_token_is_extracted_from_the_bearer_subprotocol_entry() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::SEC_WEBSOCKET_PROTOCOL,
+            "volt.acp.v1, bearer.zc_tok".parse().unwrap(),
+        );
+        assert_eq!(extract_ws_token(&headers, None), Some("zc_tok"));
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::SEC_WEBSOCKET_PROTOCOL,
+            "bearer.zc_tok,zeroclaw.acp.v1".parse().unwrap(),
+        );
+        assert_eq!(extract_ws_token(&headers, Some("ignored")), Some("zc_tok"));
     }
 
     #[test]
