@@ -44,7 +44,7 @@ zeroize = "1.8"
 name = "zeroclaw"
 # Workspace crates are publish = false during microkernel transition.
 publish = true
-default-run = "zeroclaw"
+default-run = "voltd"
 version.workspace = true
 edition.workspace = true
 authors = ["theonlyhennygod"]
@@ -69,7 +69,7 @@ include = [
 ]
 
 [[bin]]
-name = "zeroclaw"
+name = "voltd"
 path = "src/main.rs"
 
 [[bin]]

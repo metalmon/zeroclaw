@@ -1,7 +1,7 @@
 use std::process::{Command, Output};
 
 fn run_zeroclaw(config_dir: &std::path::Path, args: &[&str]) -> Output {
-    let bin = env!("CARGO_BIN_EXE_zeroclaw");
+    let bin = env!("CARGO_BIN_EXE_voltd");
     Command::new(bin)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
