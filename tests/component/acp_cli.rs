@@ -33,7 +33,7 @@ runtime_profile = "default"
     )
     .expect("write ACP config");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_voltd"))
         .env("ZEROCLAW_CONFIG_DIR", config_dir.path())
         .env("RUST_LOG", "off")
         .args(["acp", "--agent", "fable"])
@@ -78,7 +78,7 @@ runtime_profile = "default"
             let output = child.wait_with_output().expect("collect failed ACP");
             panic!(
                 "standalone ACP initialize failed ({error}); binary={}; status_before_kill={status_before_kill:?}; stderr:\n{}",
-                env!("CARGO_BIN_EXE_zeroclaw"),
+                env!("CARGO_BIN_EXE_voltd"),
                 String::from_utf8_lossy(&output.stderr)
             );
         }

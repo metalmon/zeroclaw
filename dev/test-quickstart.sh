@@ -15,8 +15,8 @@ BOLD='\033[1m'
 RESET='\033[0m'
 
 case "$PROFILE" in
-  release) cargo build --release --bin zeroclaw ;;
-  dev|"")  cargo build --bin zeroclaw ;;
+  release) cargo build --release --bin voltd ;;
+  dev|"")  cargo build --bin voltd ;;
   *) echo "Usage: $0 [dev|release]" >&2; exit 2 ;;
 esac
 

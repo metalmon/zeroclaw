@@ -244,7 +244,7 @@ runtime_profile = "default"
 
     let config_dir_arg = config_dir.path().to_path_buf();
     let output = std::thread::spawn(move || {
-        Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+        Command::new(env!("CARGO_BIN_EXE_voltd"))
             .env("RUST_LOG", "off")
             .args([
                 "--config-dir",
@@ -330,7 +330,7 @@ runtime_profile = "default"
 
     let config_dir_arg = config_dir.path().to_path_buf();
     let output = std::thread::spawn(move || {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_voltd"))
             .env("RUST_LOG", "off")
             .args([
                 "--config-dir",

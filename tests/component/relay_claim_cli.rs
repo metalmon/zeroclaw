@@ -39,7 +39,7 @@ async fn relay_claim_binary_writes_config_on_success() {
     let control = server.uri();
     let dir = config_dir.path().to_path_buf();
     let output = std::thread::spawn(move || {
-        Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+        Command::new(env!("CARGO_BIN_EXE_voltd"))
             .env("RUST_LOG", "off")
             .args([
                 "--config-dir",
@@ -102,7 +102,7 @@ async fn relay_claim_binary_refuses_cleartext_non_loopback_control() {
 
     let dir = config_dir.path().to_path_buf();
     let output = std::thread::spawn(move || {
-        Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+        Command::new(env!("CARGO_BIN_EXE_voltd"))
             .env("RUST_LOG", "off")
             .args([
                 "--config-dir",

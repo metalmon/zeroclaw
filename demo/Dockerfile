@@ -41,7 +41,7 @@ RUN --mount=type=cache,id=zeroclaw-cargo-registry,target=/usr/local/cargo/regist
         --example esp32_sim \
         --features "hardware dev-sim" \
     && cargo build \
-        --bin zeroclaw \
+        --bin voltd \
         --no-default-features \
         --features "agent-runtime hardware dev-sim" \
     && cp /build/target/debug/zeroclaw /tmp/zeroclaw \

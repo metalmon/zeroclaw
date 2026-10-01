@@ -67,7 +67,7 @@ fn trace_path(dir: &Path) -> std::path::PathBuf {
 /// with it the trace file two of these tests measure. Silencing logs here would
 /// make the control below pass while proving nothing.
 fn doctor_stdout(dir: &Path) -> String {
-    let out = Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+    let out = Command::new(env!("CARGO_BIN_EXE_voltd"))
         .env("ZEROCLAW_CONFIG_DIR", dir)
         .arg("doctor")
         .output()
@@ -204,7 +204,7 @@ fn the_withheld_notice_is_recorded_once_per_config_application() {
     let dir = tempfile::TempDir::new().expect("temp config dir");
     write_config(dir.path(), true, "rolling");
 
-    let out = Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+    let out = Command::new(env!("CARGO_BIN_EXE_voltd"))
         .env("ZEROCLAW_CONFIG_DIR", dir.path())
         .args(["peripheral", "add", "rpi-gpio", "native"])
         .output()
@@ -295,7 +295,7 @@ fn enabling_the_section_through_config_patch_records_the_notice_once() {
     )
     .expect("write patch.json");
 
-    let out = Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+    let out = Command::new(env!("CARGO_BIN_EXE_voltd"))
         .env("ZEROCLAW_CONFIG_DIR", dir.path())
         .args(["config", "patch"])
         .arg(&patch)
@@ -358,7 +358,7 @@ fn a_patch_that_does_not_enable_the_section_adds_no_second_record() {
     )
     .expect("write patch.json");
 
-    let out = Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+    let out = Command::new(env!("CARGO_BIN_EXE_voltd"))
         .env("ZEROCLAW_CONFIG_DIR", dir.path())
         .args(["config", "patch"])
         .arg(&patch)

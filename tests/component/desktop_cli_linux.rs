@@ -16,7 +16,7 @@ fn make_executable(path: &Path, contents: &str) {
 }
 
 fn desktop_command(config: &Path, home: &Path, xdg_data: &Path, path: &Path) -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_zeroclaw"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_voltd"));
     command
         .env_clear()
         .env("HOME", home)

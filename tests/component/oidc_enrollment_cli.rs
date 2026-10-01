@@ -45,7 +45,7 @@ service_profile_map = {{ "svc" = "service" }}
 }
 
 fn run_enrollment(config_dir: &std::path::Path) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+    Command::new(env!("CARGO_BIN_EXE_voltd"))
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
         .env("RUST_LOG", "off")
         .args(["oidc", "token", "corp"])

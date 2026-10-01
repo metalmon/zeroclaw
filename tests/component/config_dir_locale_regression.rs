@@ -34,7 +34,7 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    let out = Command::new(env!("CARGO_BIN_EXE_zeroclaw"))
+    let out = Command::new(env!("CARGO_BIN_EXE_voltd"))
         .args(args)
         .output()
         .expect("failed to run zeroclaw --help");
