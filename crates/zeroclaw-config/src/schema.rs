@@ -545,6 +545,16 @@ pub struct Config {
     #[nested]
     pub permission_profiles: HashMap<String, PermissionProfileConfig>,
 
+    /// Fork-local principal-tagged pairing (`[[authz.principals]]`): a
+    /// bearer token bound to a durable `principal_id`, entitled to the
+    /// `[permission_profiles.<alias>]` names it lists. Feeds
+    /// `PrincipalResolver`'s roster alongside `[users.<name>]` — see
+    /// `crate::authz` and `PrincipalResolver::from_config`'s roster merge.
+    #[serde(default)]
+    #[nested]
+    #[group = "Operations"]
+    pub authz: crate::authz::AuthzConfig,
+
     /// Named runtime/LLM execution profiles (`[runtime_profiles.<alias>]`).
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     #[nested]
@@ -14188,6 +14198,41 @@ impl Config {
             }
         }
 
+        // Fork-local principal-tagged pairing (`[[authz.principals]]`):
+        // dangling profile references and principal-id collisions are
+        // rejected here, same posture as the `[users]` loop above, so
+        // `PrincipalResolver::from_config`'s roster merge never has to
+        // tolerate an invalid input (it keeps its own defense-in-depth
+        // check too — see that function's `roster_conflict` comment).
+        let mut authz_ids: Vec<&String> = self.authz.principals.iter().map(|p| &p.id).collect();
+        authz_ids.sort();
+        for id in &authz_ids {
+            if let Some(other) = principal_owners.get(id.as_str()).copied() {
+                validation_bail!(
+                    ValidationFailed,
+                    format!("authz.principals.{id}"),
+                    "authz.principals.{id} resolves to principal id {id:?} which is already used by {other:?}; principal ids must be unique across [users] and [[authz.principals]]",
+                );
+            }
+            principal_owners.insert(id.as_str(), id.as_str());
+        }
+        for principal in &self.authz.principals {
+            for profile in &principal.profiles {
+                let trimmed = profile.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                if !self.permission_profiles.contains_key(trimmed) {
+                    validation_bail!(
+                        DanglingReference,
+                        format!("authz.principals.{}.profiles", principal.id),
+                        "authz.principals.{}.profiles names {trimmed:?} but [permission_profiles.{trimmed}] is not configured",
+                        principal.id,
+                    );
+                }
+            }
+        }
+
         let mut profile_aliases: Vec<&String> = self.permission_profiles.keys().collect();
         profile_aliases.sort();
         for alias in profile_aliases {
@@ -21085,6 +21130,7 @@ impl Default for Config {
             oidc: HashMap::new(),
             users: HashMap::new(),
             permission_profiles: HashMap::new(),
+            authz: crate::authz::AuthzConfig::default(),
             runtime_profiles: HashMap::new(),
             skill_bundles: HashMap::new(),
             knowledge_bundles: HashMap::new(),
@@ -32679,6 +32725,7 @@ auto_save = true
             oidc: HashMap::new(),
             users: HashMap::new(),
             permission_profiles: HashMap::new(),
+            authz: crate::authz::AuthzConfig::default(),
             risk_profiles: {
                 let mut m = HashMap::new();
                 m.insert(
@@ -34024,6 +34071,7 @@ default_temperature = 0.7
             oidc: HashMap::new(),
             users: HashMap::new(),
             permission_profiles: HashMap::new(),
+            authz: crate::authz::AuthzConfig::default(),
             runtime_profiles: HashMap::new(),
             skill_bundles: HashMap::new(),
             knowledge_bundles: HashMap::new(),
