@@ -20,20 +20,26 @@ use axum::{
     http::HeaderMap,
     response::IntoResponse,
 };
+use base64::Engine as _;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
+use parking_lot::Mutex;
 use serde::Deserialize;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use zeroclaw_api::grants::ResolvedGrants;
 use zeroclaw_api::jsonrpc::{JSONRPC_VERSION, JsonRpcError, JsonRpcResponse, error_codes};
 use zeroclaw_api::principal::{AuthOutcome, Principal};
 use zeroclaw_channels::orchestrator::acp_server::{AcpServer, AcpServerConfig};
+use zeroclaw_config::schema::Config;
 use zeroclaw_infra::acp_session_store::AcpSessionStore;
-use zeroclaw_runtime::security::auth_provider::{Credential, ProviderRegistry};
+use zeroclaw_runtime::security::auth_provider::{
+    AuthProvider, Credential, OidcAuthProvider, ProviderRegistry,
+};
 use zeroclaw_runtime::security::pairing_auth_provider::PairingAuthProvider;
 use zeroclaw_runtime::security::principal_resolver::PrincipalResolver;
 
@@ -117,7 +123,7 @@ pub async fn handle_ws_acp(
     // operator so the legacy single-operator path (including no-pairing
     // deployments) is unchanged. A presented-but-Denied bearer is still
     // rejected with a hard 401 here.
-    let authz_enforced = state.config.read().authz.is_enforced();
+    let authz_enforced = authz_enforced(&state.config.read());
     let (principal, grants) = match resolved {
         Some(pg) => pg,
         None if !authz_enforced => (Principal::shared_operator(), ResolvedGrants::all()),
@@ -176,21 +182,173 @@ enum ConnAuth {
     PreAuth,
 }
 
-/// Build the ACP-dedicated connection auth registry: just the
-/// [`PairingAuthProvider`], registered under the name `"pairing"` —
-/// distinct from (and never selected instead of) upstream's own `"native"`
-/// provider used by the daemon's other RPC transports. Kept as its own
-/// registry (rather than joining the daemon's main one) to minimize blast
-/// radius: ACP's bearer-to-principal resolution stays self-contained. Built
-/// fresh per connection from the live config snapshot, so a config edit
-/// (new/removed principal, rebound profile) applies with no reload.
+/// Whether `/acp` is in fail-closed (distinct-principal) mode: any
+/// `[[authz.principals]]` roster entry OR any `[oidc.<alias>]` trust
+/// relationship turns enforcement on. An OIDC-only deployment (no pairing
+/// principals at all) must never fall back to the shared operator either.
+#[must_use]
+fn authz_enforced(config: &Config) -> bool {
+    config.authz.is_enforced() || !config.oidc.is_empty()
+}
+
+/// The provider class a presented bearer belongs to, decided from the
+/// credential's FORMAT (upstream's registry selects providers by name and
+/// has no fallback chain; `/acp` clients name no provider — `bearer.<token>`
+/// is all the frozen client contract carries — so the gateway routes by
+/// shape). A string that parses as a JWT (three non-empty dot-separated
+/// segments whose header is base64url JSON carrying `alg`) is an OIDC
+/// access token and NEVER a pairing token; everything else is a pairing
+/// token (`zc_…`).
+#[derive(Debug, PartialEq, Eq)]
+enum BearerShape {
+    Pairing,
+    /// A JWT; `issuer` is the UNVERIFIED `iss` claim, used only to pick
+    /// which `oidc.<alias>` provider verifies it (the provider re-checks
+    /// `iss` against its configured issuer after signature validation).
+    Jwt {
+        issuer: Option<String>,
+    },
+}
+
+fn classify_bearer(token: &str) -> BearerShape {
+    let mut parts = token.split('.');
+    let (Some(header), Some(payload), Some(signature), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return BearerShape::Pairing;
+    };
+    if header.is_empty() || payload.is_empty() || signature.is_empty() {
+        return BearerShape::Pairing;
+    }
+    let decode = |segment: &str| {
+        base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(segment)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+    };
+    let Some(header) = decode(header) else {
+        return BearerShape::Pairing;
+    };
+    if !header.get("alg").is_some_and(Value::is_string) {
+        return BearerShape::Pairing;
+    }
+    let issuer = decode(payload)
+        .and_then(|claims| claims.get("iss").and_then(Value::as_str).map(str::to_owned));
+    BearerShape::Jwt { issuer }
+}
+
+/// Pick the registry name that must verify `credential`: `"pairing"` for
+/// pairing tokens (and for an absent credential, which the pairing provider
+/// denies itself), `oidc.<alias>` for a JWT whose `iss` matches that
+/// alias's configured issuer. `None` = no provider may see it (a JWT for an
+/// issuer this daemon does not trust) — the caller denies.
+fn select_provider(credential: &Credential, config: &Config) -> Option<String> {
+    let Credential::Bearer(token) = credential else {
+        return Some("pairing".to_owned());
+    };
+    match classify_bearer(token) {
+        BearerShape::Pairing => Some("pairing".to_owned()),
+        BearerShape::Jwt { issuer } => {
+            let issuer = issuer?;
+            // Deterministic when two aliases name one issuer (config
+            // validation rejects that, but the load path tolerates an
+            // invalid config so an operator can boot to repair it).
+            let mut aliases: Vec<&String> = config
+                .oidc
+                .iter()
+                .filter(|(_, oidc)| oidc.issuer == issuer)
+                .map(|(alias, _)| alias)
+                .collect();
+            aliases.sort();
+            aliases.first().map(|alias| format!("oidc.{alias}"))
+        }
+    }
+}
+
+/// Per-alias cache of the `oidc.<alias>` providers the ACP registry
+/// reuses across connections, keyed by the alias and pinned to the exact
+/// config it was built from. An [`OidcAuthProvider`] owns its discovery
+/// and JWKS caches (bounded refresh cooldowns, key-rotation handling), so
+/// rebuilding one per connection would re-fetch the issuer's documents on
+/// every `/acp` connect; a config edit changes the fingerprint and
+/// transparently rebuilds just that alias.
+static ACP_OIDC_PROVIDERS: OnceLock<Mutex<HashMap<String, (Value, Arc<OidcAuthProvider>)>>> =
+    OnceLock::new();
+
+/// The `oidc.<alias>` providers for the live config, rebuilt only for
+/// aliases whose config changed. An alias whose provider cannot be
+/// constructed is skipped (and logged): a JWT for that issuer then finds no
+/// provider and is denied — fail closed, never fall through to pairing.
+fn oidc_providers(config: &Config) -> Vec<Arc<OidcAuthProvider>> {
+    let cache = ACP_OIDC_PROVIDERS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut cache = cache.lock();
+    cache.retain(|alias, _| config.oidc.contains_key(alias));
+    let mut aliases: Vec<&String> = config.oidc.keys().collect();
+    aliases.sort();
+    let mut providers = Vec::with_capacity(aliases.len());
+    for alias in aliases {
+        let oidc = &config.oidc[alias];
+        let fingerprint = match serde_json::to_value(oidc) {
+            Ok(value) => value,
+            Err(e) => {
+                ::zeroclaw_log::record!(
+                    WARN,
+                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                        .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                        .with_attrs(::serde_json::json!({"alias": alias, "error": e.to_string()})),
+                    "ACP OIDC: cannot fingerprint [oidc.<alias>] config; provider skipped (fail closed)"
+                );
+                continue;
+            }
+        };
+        if let Some((cached_fingerprint, provider)) = cache.get(alias)
+            && *cached_fingerprint == fingerprint
+        {
+            providers.push(Arc::clone(provider));
+            continue;
+        }
+        match OidcAuthProvider::new(alias.clone(), oidc.clone()) {
+            Ok(provider) => {
+                let provider = Arc::new(provider);
+                cache.insert(alias.clone(), (fingerprint, Arc::clone(&provider)));
+                providers.push(provider);
+            }
+            Err(e) => {
+                cache.remove(alias);
+                ::zeroclaw_log::record!(
+                    WARN,
+                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                        .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                        .with_attrs(::serde_json::json!({"alias": alias, "error": e.to_string()})),
+                    "ACP OIDC: failed to build the oidc.<alias> provider; its tokens are denied (fail closed)"
+                );
+            }
+        }
+    }
+    providers
+}
+
+/// Build the ACP-dedicated connection auth registry: the
+/// [`PairingAuthProvider`] under the name `"pairing"` plus one
+/// `oidc.<alias>` provider per `[oidc.<alias>]` entry (the same
+/// [`OidcAuthProvider`] upstream registers on its own RPC transports) —
+/// never upstream's `"native"` provider, which maps every paired token to
+/// the shared operator. Kept as its own registry (rather than joining the
+/// daemon's main one) to minimize blast radius: ACP's bearer-to-principal
+/// resolution stays self-contained. Built per connection from the live
+/// config snapshot, so a config edit (new/removed principal, rebound
+/// profile, changed issuer) applies with no reload; the OIDC providers
+/// themselves are cached (see [`oidc_providers`]).
 #[must_use]
 fn build_provider_registry(
-    authz: zeroclaw_config::authz::AuthzConfig,
+    config: &Config,
     bindings: Arc<zeroclaw_config::authz::TokenBindingStore>,
 ) -> ProviderRegistry {
     let mut registry = ProviderRegistry::new();
-    if let Err(e) = registry.register(Arc::new(PairingAuthProvider::new(authz, bindings))) {
+    if let Err(e) = registry.register(Arc::new(PairingAuthProvider::new(
+        config.authz.clone(),
+        bindings,
+    ))) {
         // Unreachable in practice: "pairing" is a fixed, fork-owned name
         // registered exactly once into a brand-new registry. Fail safe
         // (empty registry => default-deny) rather than panic if it ever is.
@@ -201,6 +359,18 @@ fn build_provider_registry(
                 .with_attrs(::serde_json::json!({"error": e.to_string()})),
             "failed to register the ACP pairing auth provider"
         );
+    }
+    for provider in oidc_providers(config) {
+        let name = provider.name().to_owned();
+        if let Err(e) = registry.register(provider) {
+            ::zeroclaw_log::record!(
+                ERROR,
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
+                    .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                    .with_attrs(::serde_json::json!({"provider": name, "error": e.to_string()})),
+                "failed to register an ACP OIDC auth provider; its tokens are denied"
+            );
+        }
     }
     registry
 }
@@ -242,7 +412,8 @@ pub(crate) fn bind_pending_principal(
 }
 
 /// Resolve a presented bearer to a [`Principal`] + its [`ResolvedGrants`]
-/// via the ACP-dedicated registry (`"pairing"` provider) and the shared
+/// via the ACP-dedicated registry (the provider [`select_provider`] picks
+/// by credential shape: `"pairing"` or `oidc.<alias>`) and the shared
 /// [`PrincipalResolver`]. `None` means the credential was denied (or
 /// absent); the caller decides whether that is a hard reject (authz
 /// enforced) or the shared-operator fallback (legacy).
@@ -256,8 +427,19 @@ pub(crate) async fn resolve_principal(
         None => Credential::None,
     };
     let config = state.config.read().clone();
-    let registry = build_provider_registry(config.authz.clone(), Arc::clone(&state.token_bindings));
-    let outcome = registry.resolve_named("pairing", &credential).await;
+    let Some(provider) = select_provider(&credential, &config) else {
+        // A JWT for an issuer this daemon does not trust (or with no `iss`
+        // at all). It is never handed to the pairing provider.
+        ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Failure),
+            "ACP: bearer is a JWT from an issuer with no [oidc.<alias>] trust entry; denying"
+        );
+        return None;
+    };
+    let registry = build_provider_registry(&config, Arc::clone(&state.token_bindings));
+    let outcome = registry.resolve_named(&provider, &credential).await;
     let identity = match outcome {
         AuthOutcome::Verified(identity) => identity,
         AuthOutcome::Denied { .. } => return None,
@@ -530,7 +712,7 @@ async fn run_pre_auth(
                 // works identically whether redeemed over REST or in-band.
                 bind_pending_principal(state);
 
-                let authz_enforced = state.config.read().authz.is_enforced();
+                let authz_enforced = authz_enforced(&state.config.read());
                 let principal_and_grants = match resolve_principal(state, Some(&token)).await {
                     Some(pg) => pg,
                     None if !authz_enforced => {
@@ -674,6 +856,139 @@ fn extract_ws_token<'a>(headers: &'a HeaderMap, query_token: Option<&'a str>) ->
                 .filter(|token| !token.is_empty())
         })
         .or_else(|| query_token.filter(|token| !token.is_empty()))
+}
+
+#[cfg(test)]
+mod provider_select_tests {
+    //! The bearer-shape router: a JWT goes to the `oidc.<alias>` provider
+    //! whose issuer it names and NEVER to the pairing provider; everything
+    //! else is a pairing token.
+
+    use super::*;
+    use zeroclaw_config::schema::OidcConfig;
+
+    fn b64(s: &str) -> String {
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(s)
+    }
+
+    fn jwt(header: &str, payload: &str) -> String {
+        format!("{}.{}.{}", b64(header), b64(payload), b64("sig"))
+    }
+
+    fn config_with_issuers(entries: &[(&str, &str)]) -> Config {
+        let mut config = Config::default();
+        for (alias, issuer) in entries {
+            config.oidc.insert(
+                (*alias).to_owned(),
+                OidcConfig {
+                    issuer: (*issuer).to_owned(),
+                    ..OidcConfig::default()
+                },
+            );
+        }
+        config
+    }
+
+    #[test]
+    fn non_jwt_bearers_are_pairing_shaped() {
+        for token in [
+            "zc_0123456789abcdef",
+            "a.b",
+            "a..c",
+            "..",
+            "not.base64!.x",
+            "x.y.z.w",
+        ] {
+            assert_eq!(classify_bearer(token), BearerShape::Pairing, "{token}");
+        }
+        // Three segments whose header is base64url but not JSON.
+        assert_eq!(
+            classify_bearer(&format!("{}.{}.{}", b64("hello"), b64("{}"), b64("s"))),
+            BearerShape::Pairing
+        );
+    }
+
+    #[test]
+    fn jwt_shape_requires_an_alg_header() {
+        assert_eq!(
+            classify_bearer(&jwt(r#"{"typ":"JWT"}"#, r#"{"iss":"https://idp"}"#)),
+            BearerShape::Pairing
+        );
+        assert_eq!(
+            classify_bearer(&jwt(
+                r#"{"alg":"ES256","kid":"k"}"#,
+                r#"{"iss":"https://idp"}"#
+            )),
+            BearerShape::Jwt {
+                issuer: Some("https://idp".to_owned())
+            }
+        );
+        assert_eq!(
+            classify_bearer(&jwt(r#"{"alg":"none"}"#, r#"{"sub":"x"}"#)),
+            BearerShape::Jwt { issuer: None }
+        );
+    }
+
+    #[test]
+    fn pairing_tokens_and_absent_credentials_select_the_pairing_provider() {
+        let config = config_with_issuers(&[("thunderbolt", "https://idp")]);
+        assert_eq!(
+            select_provider(&Credential::Bearer("zc_token".into()), &config).as_deref(),
+            Some("pairing")
+        );
+        assert_eq!(
+            select_provider(&Credential::None, &config).as_deref(),
+            Some("pairing")
+        );
+    }
+
+    #[test]
+    fn jwt_selects_the_alias_whose_issuer_it_names() {
+        let config =
+            config_with_issuers(&[("corp", "https://corp"), ("thunderbolt", "https://idp")]);
+        let token = jwt(
+            r#"{"alg":"ES256"}"#,
+            r#"{"iss":"https://idp","sub":"alice"}"#,
+        );
+        assert_eq!(
+            select_provider(&Credential::Bearer(token), &config).as_deref(),
+            Some("oidc.thunderbolt")
+        );
+    }
+
+    #[test]
+    fn jwt_for_an_untrusted_issuer_selects_nothing_and_never_falls_back() {
+        let config = config_with_issuers(&[("thunderbolt", "https://idp")]);
+        let foreign = jwt(r#"{"alg":"ES256"}"#, r#"{"iss":"https://evil"}"#);
+        assert_eq!(select_provider(&Credential::Bearer(foreign), &config), None);
+        let no_iss = jwt(r#"{"alg":"ES256"}"#, r#"{"sub":"alice"}"#);
+        assert_eq!(select_provider(&Credential::Bearer(no_iss), &config), None);
+        // No OIDC trust configured at all: a JWT is still not a pairing token.
+        let token = jwt(r#"{"alg":"ES256"}"#, r#"{"iss":"https://idp"}"#);
+        assert_eq!(
+            select_provider(&Credential::Bearer(token), &Config::default()),
+            None
+        );
+    }
+
+    #[test]
+    fn duplicate_issuers_resolve_deterministically_by_alias_order() {
+        let config = config_with_issuers(&[("zeta", "https://idp"), ("alpha", "https://idp")]);
+        let token = jwt(r#"{"alg":"ES256"}"#, r#"{"iss":"https://idp"}"#);
+        assert_eq!(
+            select_provider(&Credential::Bearer(token), &config).as_deref(),
+            Some("oidc.alpha")
+        );
+    }
+
+    #[test]
+    fn oidc_trust_alone_turns_enforcement_on() {
+        assert!(!authz_enforced(&Config::default()));
+        assert!(authz_enforced(&config_with_issuers(&[(
+            "thunderbolt",
+            "https://idp"
+        )])));
+    }
 }
 
 #[cfg(test)]
@@ -867,13 +1182,15 @@ mod tests {
         cfg.gateway.paired_tokens = vec!["zc_paired_but_unbound".to_string()];
         // Authz IS enforced (one principal configured), but it is bound to a
         // DIFFERENT token than the one this connection presents.
-        cfg.authz.principals.push(zeroclaw_config::authz::PrincipalRecord {
-            id: "someone-else".to_string(),
-            token_hashes: vec![zeroclaw_config::pairing::PairingGuard::token_hash(
-                "zc_some_other_token",
-            )],
-            profiles: vec![],
-        });
+        cfg.authz
+            .principals
+            .push(zeroclaw_config::authz::PrincipalRecord {
+                id: "someone-else".to_string(),
+                token_hashes: vec![zeroclaw_config::pairing::PairingGuard::token_hash(
+                    "zc_some_other_token",
+                )],
+                profiles: vec![],
+            });
         std::fs::create_dir_all(&cfg.data_dir).unwrap();
 
         let probe = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
