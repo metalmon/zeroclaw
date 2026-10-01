@@ -4216,22 +4216,22 @@ mod registry_tests {
     fn build_install_tier_banner_community_warns() {
         let banner = english_tier_banner("discord-moderator", Some("0.1.2"), SkillTier::Community);
         assert!(banner.contains("Community submission"));
-        assert!(banner.contains("not audited by ZeroClaw"));
-        assert!(banner.contains("zeroclaw skills audit discord-moderator"));
+        assert!(banner.contains("not audited by Volt"));
+        assert!(banner.contains("voltd skills audit discord-moderator"));
     }
 
     #[test]
     fn build_install_tier_banner_featured_uses_community_warning() {
         let banner = english_tier_banner("hand-picked", Some("1.0"), SkillTier::Featured);
         assert!(banner.contains("Community submission"));
-        assert!(banner.contains("not audited by ZeroClaw"));
+        assert!(banner.contains("not audited by Volt"));
     }
 
     #[test]
     fn build_install_tier_banner_unknown_falls_back_to_community() {
         let banner = english_tier_banner("legacy", None, SkillTier::Unknown);
         assert!(banner.contains("Community submission"));
-        assert!(banner.contains("not audited by ZeroClaw"));
+        assert!(banner.contains("not audited by Volt"));
         // Missing version is rendered as `v?` rather than panicking.
         assert!(banner.contains("v?"));
     }
