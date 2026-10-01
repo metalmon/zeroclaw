@@ -728,7 +728,7 @@ impl AcpServer {
                             })),
                         "ACP request failed"
                     );
-                    self.write_error(id, e.code, &e.message).await;
+                    self.write_rpc_error(id, e).await;
                 }
             }
         }
@@ -3318,6 +3318,25 @@ impl AcpServer {
         self.write_json(&response).await;
     }
 
+    /// Write a failed request's [`RpcError`], forwarding its structured
+    /// `data` to the wire when it is an object (e.g. the frozen
+    /// `{"reason": "agent_not_permitted"}` panel clients branch on) and
+    /// keeping the internal string diagnostic some terminal-turn failures
+    /// stash there out of the response.
+    async fn write_rpc_error(&self, id: Value, err: RpcError) {
+        let response = JsonRpcResponse {
+            jsonrpc: "2.0",
+            result: None,
+            error: Some(JsonRpcError {
+                code: err.code,
+                message: err.message,
+                data: wire_error_data(err.data),
+            }),
+            id,
+        };
+        self.write_json(&response).await;
+    }
+
     async fn write_notification(&self, notification: &JsonRpcNotification) {
         self.write_json(notification).await;
     }
@@ -3884,10 +3903,18 @@ fn history_notifications_for_message(
 struct RpcError {
     code: i32,
     message: String,
-    /// Reserved for JSON-RPC structured error data. The ACP writer currently
-    /// deliberately omits it, so terminal-turn failures use it internally to
-    /// retain their stable diagnostic while `message` carries localized text.
+    /// JSON-RPC error `data`. Two uses share the slot, told apart by shape
+    /// (see [`wire_error_data`]): an OBJECT is structured data for the
+    /// client and reaches the wire (the frozen `{"reason": …}` tags);
+    /// a STRING is the internal stable diagnostic terminal-turn failures
+    /// retain while `message` carries localized text — never written out.
     data: Option<Value>,
+}
+
+/// The part of an [`RpcError`]'s `data` that belongs on the wire: objects
+/// only. String diagnostics stay internal (logged via `RpcError::diagnostic`).
+fn wire_error_data(data: Option<Value>) -> Option<Value> {
+    data.filter(Value::is_object)
 }
 
 impl RpcError {
@@ -5422,6 +5449,26 @@ mod tests {
             err.data,
             Some(serde_json::json!({ "reason": "agent_not_permitted" }))
         );
+        // And the writer must put that object on the wire (upstream's
+        // `write_error` drops `data`; the frozen shape needs it).
+        assert_eq!(
+            wire_error_data(err.data),
+            Some(serde_json::json!({ "reason": "agent_not_permitted" }))
+        );
+    }
+
+    /// `data` strings are the internal diagnostic channel, never wire data.
+    #[test]
+    fn wire_error_data_forwards_objects_and_drops_string_diagnostics() {
+        assert_eq!(
+            wire_error_data(Some(serde_json::json!({ "reason": "x" }))),
+            Some(serde_json::json!({ "reason": "x" }))
+        );
+        assert_eq!(
+            wire_error_data(Some(serde_json::json!("stable_diagnostic"))),
+            None
+        );
+        assert_eq!(wire_error_data(None), None);
     }
 
     /// The same principal/grants IS entitled to its bound alias — proves the
