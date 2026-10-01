@@ -9,6 +9,7 @@ pub mod a2a;
 pub mod acp;
 pub mod agent_owned_state;
 pub mod api;
+pub mod api_authz;
 pub mod api_browse;
 pub mod api_config;
 pub mod api_logs;
@@ -2211,6 +2212,11 @@ pub async fn run_gateway_with_plugin_webhooks(
         .route("/hooks/claude-code", post(api::handle_claude_code_hook))
         // ── Web Dashboard API routes ──
         .route("/api/status", get(api::handle_api_status))
+        // ── Authz admin control plane (private surface only; admin-gated) ──
+        .route(
+            "/api/authz/principals",
+            get(api_authz::handle_list_principals),
+        )
         .route("/api/version/check", get(version::handle_version_check))
         .route("/api/version/upgrade", post(version::handle_version_upgrade))
         .route(
@@ -3069,6 +3075,11 @@ async fn handle_pair(
                 "new client paired successfully"
             );
             let token_hash = PairingGuard::token_hash(&token);
+            // A principal-tagged code (`get-paircode --new --principal <id>`)
+            // binds the new token to that principal in the live runtime
+            // binding store — same helper as the in-band `zeroclaw/pair` path
+            // and the enhanced `/api/pair` handler.
+            let principal_binding = acp::bind_pending_principal(&state);
             if let Some(ref registry) = state.device_registry {
                 if let Err(e) = registry.register(
                     token_hash.clone(),
@@ -3127,7 +3138,10 @@ async fn handle_pair(
                 "paired": true,
                 "persisted": true,
                 "token": token,
-                "message": "Save this token — use it as Authorization: Bearer <token>"
+                "message": "Save this token — use it as Authorization: Bearer <token>",
+                "principal_binding": principal_binding.map(|binding| serde_json::json!({
+                    "principal_id": binding.principal_id,
+                })),
             });
             (StatusCode::OK, Json(body))
         }
@@ -5308,6 +5322,11 @@ pub(crate) fn live_pairing_code_policy(state: &AppState) -> PairingCodePolicy {
 pub struct AdminPaircodeQuery {
     #[serde(default)]
     pub rotate: Option<String>,
+    /// Tag the minted code with a principal id (`get-paircode --new
+    /// --principal <id>`). Absent for ordinary codes, which leaves today's
+    /// behavior unchanged.
+    #[serde(default)]
+    pub principal: Option<String>,
 }
 
 async fn handle_admin_paircode_new(
@@ -5433,23 +5452,64 @@ async fn handle_admin_paircode_new(
         None => None,
     };
 
-    let code = state
-        .pairing
-        .generate_new_pairing_code(live_pairing_code_policy(&state))
-        .expect("require_pairing checked above");
+    let principal = params
+        .principal
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    // Pre-bound code: `--principal <id>` requires `id` to already be a
+    // configured `[[authz.principals]]` row — minting a code tagged for an
+    // id that doesn't exist would otherwise commit a token bound to nothing,
+    // resolving via `TokenBindingStore` to a principal `AuthzConfig::by_id`
+    // can never find, i.e. a silently stranded device. Refusing here fails
+    // loudly at mint time instead.
+    if let Some(principal_id) = principal
+        && state.config.read().authz.by_id(principal_id).is_none()
+    {
+        let body = serde_json::json!({
+            "success": false,
+            "pairing_required": true,
+            "pairing_code": null,
+            "message": format!(
+                "Principal '{principal_id}' is not configured; add it under [[authz.principals]] before minting a code for it."
+            ),
+        });
+        return Ok((StatusCode::NOT_FOUND, Json(body)));
+    }
+
+    let code = match principal {
+        Some(principal_id) => state
+            .pairing
+            .mint_code_for_principal(principal_id, live_pairing_code_policy(&state))
+            .expect("require_pairing checked above"),
+        None => state
+            .pairing
+            .generate_new_pairing_code(live_pairing_code_policy(&state))
+            .expect("require_pairing checked above"),
+    };
     if rotate.is_none() {
         ::zeroclaw_log::record!(
             INFO,
-            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_attrs(::serde_json::json!({"principal": principal})),
             "new pairing code generated via admin endpoint"
         );
     }
 
-    let message = match revocation_message {
-        Some(revoked) => {
+    let message = match (revocation_message, principal) {
+        (Some(revoked), Some(principal_id)) => format!(
+            "{revoked} Use this one-time code to re-pair; the new token will be bound to principal '{principal_id}'."
+        ),
+        (Some(revoked), None) => {
             format!("{revoked} Use this one-time code to re-pair.")
         }
-        None => "New pairing code generated — use this one-time code to pair".to_string(),
+        (None, Some(principal_id)) => format!(
+            "New pairing code generated — the token it issues will be bound to principal '{principal_id}'"
+        ),
+        (None, None) => {
+            "New pairing code generated — use this one-time code to pair".to_string()
+        }
     };
 
     let body = serde_json::json!({
@@ -6445,6 +6505,105 @@ path = "{trigger_path}"
         );
     }
 
+    /// `get-paircode --new --principal <id>` must refuse an id that is not an
+    /// existing `[[authz.principals]]` row — otherwise the mint would commit
+    /// a token bound (via `TokenBindingStore`) to a principal `by_id` can
+    /// never find, i.e. a silently stranded device.
+    #[tokio::test]
+    async fn admin_paircode_new_principal_must_already_exist() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let state = admin_paircode_state(&tmp, true, false);
+        assert!(
+            state.config.read().authz.by_id("ghost").is_none(),
+            "fixture precondition: `ghost` must not be a configured principal"
+        );
+
+        let (status, json) = admin_paircode_response_json(
+            handle_admin_paircode_new(
+                State(state.clone()),
+                test_connect_info(),
+                admin_headers(&state),
+                Query(AdminPaircodeQuery {
+                    rotate: None,
+                    principal: Some("ghost".into()),
+                }),
+            )
+            .await,
+        )
+        .await;
+
+        assert_eq!(
+            status,
+            StatusCode::NOT_FOUND,
+            "minting a pre-bound code for an unconfigured principal must error: {json}"
+        );
+        assert_eq!(json["success"], false);
+        assert!(json["pairing_code"].is_null());
+        assert!(
+            state.pairing.take_pending_binding().is_none(),
+            "a refused mint must not leave a pending binding behind"
+        );
+    }
+
+    /// Positive control for the same gate: an EXISTING principal id mints a
+    /// principal-tagged code, and redeeming that code binds the issued token
+    /// to the principal in the live binding store.
+    #[tokio::test]
+    async fn admin_paircode_new_principal_existing_mints_a_tagged_code() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let state = admin_paircode_state(&tmp, true, false);
+        state
+            .config
+            .write()
+            .authz
+            .principals
+            .push(zeroclaw_config::authz::PrincipalRecord {
+                id: "alice".into(),
+                token_hashes: vec![],
+                profiles: vec![],
+            });
+
+        let (status, json) = admin_paircode_response_json(
+            handle_admin_paircode_new(
+                State(state.clone()),
+                test_connect_info(),
+                admin_headers(&state),
+                Query(AdminPaircodeQuery {
+                    rotate: None,
+                    principal: Some("alice".into()),
+                }),
+            )
+            .await,
+        )
+        .await;
+
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "an existing principal must still mint a code: {json}"
+        );
+        let code = json["pairing_code"]
+            .as_str()
+            .expect("tagged mint issues a code")
+            .to_string();
+
+        // Redeem it the way the in-band / REST pairing paths do and prove
+        // the binding lands in the runtime store.
+        let token = state
+            .pairing
+            .try_pair(&code, "test-client")
+            .await
+            .unwrap()
+            .expect("tagged code must redeem");
+        let binding = acp::bind_pending_principal(&state).expect("tagged redemption yields a binding");
+        assert_eq!(binding.principal_id, "alice");
+        assert_eq!(
+            state.token_bindings.get(&PairingGuard::token_hash(&token)).as_deref(),
+            Some("alice"),
+            "the issued token must resolve to alice via the live binding store"
+        );
+    }
+
     #[tokio::test]
     async fn admin_paircode_new_rotate_all_revokes_everything() {
         let tmp = tempfile::TempDir::new().unwrap();
@@ -6459,6 +6618,7 @@ path = "{trigger_path}"
                 admin_headers(&state),
                 Query(AdminPaircodeQuery {
                     rotate: Some("all".into()),
+                    principal: None,
                 }),
             )
             .await,
@@ -6499,6 +6659,7 @@ path = "{trigger_path}"
                 admin_headers(&state),
                 Query(AdminPaircodeQuery {
                     rotate: Some("dev-a".into()),
+                    principal: None,
                 }),
             )
             .await,
@@ -6536,6 +6697,7 @@ path = "{trigger_path}"
                 admin_headers(&state),
                 Query(AdminPaircodeQuery {
                     rotate: Some("ghost".into()),
+                    principal: None,
                 }),
             )
             .await,
@@ -6561,6 +6723,7 @@ path = "{trigger_path}"
                 admin_headers(&state),
                 Query(AdminPaircodeQuery {
                     rotate: Some("all".into()),
+                    principal: None,
                 }),
             )
             .await,

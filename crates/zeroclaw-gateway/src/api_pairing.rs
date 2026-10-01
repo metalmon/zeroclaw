@@ -408,6 +408,11 @@ pub async fn submit_pairing_enhanced(
                 let hash = Sha256::digest(token.as_bytes());
                 hex::encode(hash)
             };
+            // A principal-tagged code (`get-paircode --new --principal <id>`)
+            // binds the new token to that principal in the live runtime
+            // binding store — same helper as the in-band `zeroclaw/pair` path
+            // and the legacy `/pair` handler.
+            let principal_binding = super::acp::bind_pending_principal(&state);
 
             if let Some(ref registry) = state.device_registry {
                 if let Err(e) = registry.register(
@@ -472,7 +477,10 @@ pub async fn submit_pairing_enhanced(
                 "paired": true,
                 "persisted": true,
                 "token": token,
-                "message": "Pairing successful"
+                "message": "Pairing successful",
+                "principal_binding": principal_binding.map(|binding| serde_json::json!({
+                    "principal_id": binding.principal_id,
+                })),
             }))
             .into_response()
         }
