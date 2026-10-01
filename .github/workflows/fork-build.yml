@@ -155,7 +155,7 @@ jobs:
         with:
           name: zeroclaw-windows-${{ github.sha }}
           path: |
-            target/release/zeroclaw.exe
+            target/release/voltd.exe
             target/release/zeroclaw-acp-bridge.exe
             target/release/zerocode.exe
           if-no-files-found: error

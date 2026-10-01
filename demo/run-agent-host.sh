@@ -46,5 +46,5 @@ echo
 export ZEROCLAW_providers__models__openrouter__agent_demo__api_key="${OPENROUTER_API_KEY}"
 export ZEROCLAW_channels__telegram__default__bot_token="${TELEGRAM_BOT_TOKEN}"
 
-exec cargo run --bin zeroclaw --no-default-features --features "agent-runtime hardware dev-sim channel-telegram" \
+exec cargo run --bin voltd --no-default-features --features "agent-runtime hardware dev-sim channel-telegram" \
   -- channel start --config-dir demo/data/config "$@"

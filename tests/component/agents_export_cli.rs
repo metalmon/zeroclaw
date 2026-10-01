@@ -9,7 +9,7 @@ fn write(path: &Path, body: &str) {
 }
 
 fn export(config_dir: &Path, out: &Path, force: bool) -> Output {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_zeroclaw"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_voltd"));
     command
         .current_dir(config_dir)
         .env("ZEROCLAW_CONFIG_DIR", config_dir)
