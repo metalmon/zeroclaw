@@ -91,26 +91,19 @@ pub async fn handle_ws_acp(
     let token = extract_ws_token(&headers, params.token.as_deref()).map(str::to_string);
 
     // Resolve the presented bearer up front (pure reads only — no
-    // binding-store writes happen on this path) so its outcome feeds BOTH
-    // the pre-auth/authenticated gate below and, on the authenticated
-    // branch, the principal+grants actually bound to the socket.
-    let resolved = resolve_principal(&state, token.as_deref()).await;
-
-    // Pairing-over-ACP (fork-local): when pairing is required and the
-    // presented token is absent or not (yet) paired, do NOT 401 — upgrade
-    // the connection in pre-auth mode instead, UNLESS the credential
-    // already resolved to a DISTINCT authenticated principal. A pre-auth
-    // connection may call only `zeroclaw/pair`/`volt/pair`; on a successful
-    // pair it resolves its principal and proceeds on the SAME socket (see
-    // `handle_socket`). A deployment with `require_pairing = false`, or a
-    // connection presenting an already-paired token, takes the
-    // authenticated path exactly as before.
-    let authenticated = connection_is_authenticated(
+    // binding-store writes happen on this path); its outcome, the pairing
+    // state of the token and the enforcement mode together decide the
+    // upgrade (see `upgrade_decision`).
+    let resolution = resolve_principal(&state, token.as_deref()).await;
+    let token_is_paired = token
+        .as_deref()
+        .is_some_and(|t| state.pairing.is_authenticated(t));
+    let authz_enforced = authz_enforced(&state.config.read());
+    let decision = upgrade_decision(
+        resolution,
         state.pairing.require_pairing(),
-        token
-            .as_deref()
-            .is_some_and(|t| state.pairing.is_authenticated(t)),
-        resolved.as_ref().map(|(principal, _)| principal),
+        token_is_paired,
+        authz_enforced,
     );
 
     // Exactly one known subprotocol is handed to axum, so the echo is the
@@ -125,50 +118,98 @@ pub async fn handle_ws_acp(
         None => ws,
     };
 
-    if !authenticated {
+    let client_id = peer_addr.to_string();
+    match decision {
         // Pre-auth: no principal to resolve yet, no 401 — the connection
         // itself is allowed; only its method set is restricted, enforced in
         // `handle_socket`. `client_id` buckets `PairingGuard`'s brute-force
         // lockout the same way the REST `/pair` front door keys it: by peer
         // identity.
-        let client_id = peer_addr.to_string();
-        return ws
+        UpgradeDecision::PreAuth => ws
             .on_upgrade(move |socket| {
                 handle_socket(socket, state, params.agent, client_id, ConnAuth::PreAuth)
             })
-            .into_response();
+            .into_response(),
+        UpgradeDecision::Unauthorized => (
+            axum::http::StatusCode::UNAUTHORIZED,
+            "Unauthorized - no principal is entitled for the presented credential",
+        )
+            .into_response(),
+        UpgradeDecision::Authenticated(principal_and_grants) => ws
+            .on_upgrade(move |socket| {
+                handle_socket(
+                    socket,
+                    state,
+                    params.agent,
+                    client_id,
+                    ConnAuth::Authenticated(principal_and_grants),
+                )
+            })
+            .into_response(),
     }
+}
 
-    // The authenticated subject for this connection — reusing `resolved`
-    // from the up-front resolution above (no second registry round-trip).
+/// What the `/acp` upgrade does with a [`Resolution`] — the pure decision
+/// behind [`handle_ws_acp`], so the frozen contract is unit-testable
+/// without a socket.
+enum UpgradeDecision {
+    /// Upgrade with this subject bound to the socket.
+    Authenticated(Box<(Principal, ResolvedGrants)>),
+    /// Upgrade in pre-auth mode (only `zeroclaw/pair`/`volt/pair`).
+    PreAuth,
+    /// HTTP 401 at the upgrade.
+    Unauthorized,
+}
+
+/// The `/acp` upgrade decision (frozen client contract):
+///
+/// * [`Resolution::VerifiedNotEntitled`] ⇒ `401`, settled BEFORE the
+///   pre-auth gate: the credential is real (an SSO user whose group maps to
+///   nothing here, a roster principal with no agent), so pairing again
+///   cannot help and the shared operator is never a fallback for a verified
+///   identity.
+/// * [`Resolution::Resolved`] ⇒ authenticated (a distinct principal also
+///   satisfies the pairing gate on its own — `connection_is_authenticated`
+///   condition 3).
+/// * [`Resolution::Denied`] ⇒ pre-auth when pairing is required and the
+///   token is not paired; otherwise the legacy shared-operator fallback
+///   when authz is NOT enforced, else `401`.
+fn upgrade_decision(
+    resolution: Resolution,
+    require_pairing: bool,
+    token_is_paired: bool,
+    authz_enforced: bool,
+) -> UpgradeDecision {
+    let resolved = match resolution {
+        Resolution::VerifiedNotEntitled => return UpgradeDecision::Unauthorized,
+        Resolution::Resolved(principal_and_grants) => Some(principal_and_grants),
+        Resolution::Denied => None,
+    };
+    // Pairing-over-ACP (fork-local): when pairing is required and the
+    // presented token is absent or not (yet) paired, do NOT 401 — upgrade
+    // the connection in pre-auth mode instead, UNLESS the credential
+    // already resolved to a DISTINCT authenticated principal. A deployment
+    // with `require_pairing = false`, or a connection presenting an
+    // already-paired token, takes the authenticated path exactly as before.
+    if !connection_is_authenticated(
+        require_pairing,
+        token_is_paired,
+        resolved.as_deref().map(|(principal, _)| principal),
+    ) {
+        return UpgradeDecision::PreAuth;
+    }
     // Fail-closed once authz is enforced; otherwise fall back to the shared
     // operator so the legacy single-operator path (including no-pairing
     // deployments) is unchanged. A presented-but-Denied bearer is still
     // rejected with a hard 401 here.
-    let authz_enforced = authz_enforced(&state.config.read());
-    let (principal, grants) = match resolved {
-        Some(pg) => pg,
-        None if !authz_enforced => (Principal::shared_operator(), ResolvedGrants::all()),
-        None => {
-            return (
-                axum::http::StatusCode::UNAUTHORIZED,
-                "Unauthorized - no principal is entitled for the presented credential",
-            )
-                .into_response();
-        }
-    };
-
-    let client_id = peer_addr.to_string();
-    ws.on_upgrade(move |socket| {
-        handle_socket(
-            socket,
-            state,
-            params.agent,
-            client_id,
-            ConnAuth::Authenticated(Box::new((principal, grants))),
-        )
-    })
-    .into_response()
+    match resolved {
+        Some(principal_and_grants) => UpgradeDecision::Authenticated(principal_and_grants),
+        None if !authz_enforced => UpgradeDecision::Authenticated(Box::new((
+            Principal::shared_operator(),
+            ResolvedGrants::all(),
+        ))),
+        None => UpgradeDecision::Unauthorized,
+    }
 }
 
 /// The connection-gate decision: should this `/acp` connection skip
@@ -484,16 +525,45 @@ pub(crate) fn bind_pending_principal(
     Some(binding)
 }
 
+/// Outcome of resolving a presented bearer (see [`resolve_principal`]).
+/// Three-way on purpose: a caller must be able to tell a credential that
+/// was never accepted (pre-auth / legacy fallback territory) from one that
+/// WAS verified but has nothing here (a hard `401`, never pre-auth, never
+/// the shared operator).
+pub(crate) enum Resolution {
+    /// Verified and entitled: a distinct principal with at least one agent
+    /// (or admin). Boxed like `ConnAuth::Authenticated` (~240 bytes against
+    /// two unit variants).
+    Resolved(Box<(Principal, ResolvedGrants)>),
+    /// The provider verified the credential, but the resolver denied it
+    /// (not in the roster, misconfigured policy, ...) OR its resolved
+    /// grants cover no agent at all (`!admin && allowed_agents.is_empty()`).
+    VerifiedNotEntitled,
+    /// Not verified: absent credential, a JWT from an untrusted issuer, a
+    /// pairing token that is not (or no longer) paired, a provider denial,
+    /// or a policy that failed to compile.
+    Denied,
+}
+
+impl Resolution {
+    /// The resolved subject, if any — for callers that only act on a
+    /// positive resolution and treat both denials alike.
+    #[must_use]
+    pub(crate) fn into_resolved(self) -> Option<(Principal, ResolvedGrants)> {
+        match self {
+            Self::Resolved(principal_and_grants) => Some(*principal_and_grants),
+            Self::VerifiedNotEntitled | Self::Denied => None,
+        }
+    }
+}
+
 /// Resolve a presented bearer to a [`Principal`] + its [`ResolvedGrants`]
 /// via the ACP-dedicated registry (the provider [`select_provider`] picks
 /// by credential shape: `"pairing"` or `oidc.<alias>`) and the shared
-/// [`PrincipalResolver`]. `None` means the credential was denied (or
-/// absent); the caller decides whether that is a hard reject (authz
-/// enforced) or the shared-operator fallback (legacy).
-pub(crate) async fn resolve_principal(
-    state: &AppState,
-    token: Option<&str>,
-) -> Option<(Principal, ResolvedGrants)> {
+/// [`PrincipalResolver`]. See [`Resolution`] for the three outcomes; the
+/// caller decides what a denial means (hard reject under enforced authz,
+/// pre-auth, or the legacy shared-operator fallback).
+pub(crate) async fn resolve_principal(state: &AppState, token: Option<&str>) -> Resolution {
     let token = token.filter(|t| !t.is_empty()).map(str::to_string);
     let credential = match token {
         Some(token) => Credential::Bearer(token),
@@ -509,7 +579,7 @@ pub(crate) async fn resolve_principal(
                 .with_outcome(::zeroclaw_log::EventOutcome::Failure),
             "ACP: bearer is a JWT from an issuer with no [oidc.<alias>] trust entry; denying"
         );
-        return None;
+        return Resolution::Denied;
     };
     // Pairing liveness, fail-closed: a bearer routed to the pairing provider
     // must ALSO still be in the paired set whenever pairing is required. A
@@ -532,13 +602,13 @@ pub(crate) async fn resolve_principal(
                 .with_outcome(::zeroclaw_log::EventOutcome::Failure),
             "ACP: pairing-shaped bearer is not (or no longer) a paired token; denying"
         );
-        return None;
+        return Resolution::Denied;
     }
     let registry = build_provider_registry(&config, Arc::clone(&state.token_bindings));
     let outcome = registry.resolve_named(&provider, &credential).await;
     let identity = match outcome {
         AuthOutcome::Verified(identity) => identity,
-        AuthOutcome::Denied { .. } => return None,
+        AuthOutcome::Denied { .. } => return Resolution::Denied,
     };
     let resolver = match PrincipalResolver::from_config(&config) {
         Ok(resolver) => resolver,
@@ -550,13 +620,34 @@ pub(crate) async fn resolve_principal(
                     .with_attrs(::serde_json::json!({"error": e.to_string()})),
                 "ACP pairing: failed to compile the authorization policy; denying"
             );
-            return None;
+            return Resolution::Denied;
         }
     };
-    match resolver.resolve(&identity) {
-        Ok(resolved) => Some((resolved.principal, resolved.grants)),
-        Err(_deny) => None,
+    let resolved = match resolver.resolve(&identity) {
+        Ok(resolved) => resolved,
+        Err(_deny) => return Resolution::VerifiedNotEntitled,
+    };
+    if entitled_to_nothing(&resolved.grants) {
+        // A real identity (roster principal with no bound profile, or one
+        // whose profiles name no agent) — verified, but there is nothing
+        // on this daemon it may use.
+        ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                .with_attrs(::serde_json::json!({"principal": resolved.principal.display_id})),
+            "ACP: credential verified but the principal is entitled to no agent; denying"
+        );
+        return Resolution::VerifiedNotEntitled;
     }
+    Resolution::Resolved(Box::new((resolved.principal, resolved.grants)))
+}
+
+/// A grant set that admits no agent at all: not admin and no
+/// `allowed_agents` entry (the `*` wildcard counts as an entry).
+#[must_use]
+fn entitled_to_nothing(grants: &ResolvedGrants) -> bool {
+    !grants.admin && grants.allowed_agents.is_empty()
 }
 
 async fn handle_socket(
@@ -810,15 +901,15 @@ async fn run_pre_auth(
 
                 let authz_enforced = authz_enforced(&state.config.read());
                 let principal_and_grants = match resolve_principal(state, Some(&token)).await {
-                    Some(pg) => pg,
-                    None if !authz_enforced => {
+                    Resolution::Resolved(principal_and_grants) => *principal_and_grants,
+                    Resolution::Denied if !authz_enforced => {
                         (Principal::shared_operator(), ResolvedGrants::all())
                     }
-                    None => {
+                    Resolution::Denied | Resolution::VerifiedNotEntitled => {
                         // Paired, but the issued token is not entitled under
-                        // enforced authz (e.g. not bound to any configured
-                        // principal). Stay pre-auth rather than proceeding
-                        // with no principal.
+                        // enforced authz (not bound to any configured
+                        // principal, or bound to one with no agent). Stay
+                        // pre-auth rather than proceeding with no principal.
                         if !send_pre_auth_error_with_reason(
                             sender,
                             id,
@@ -1152,9 +1243,22 @@ mod revocation_tests {
     use zeroclaw_config::schema::PermissionProfileConfig;
 
     /// `require_pairing = true`, `paired` as the live paired set, `alice`
-    /// configured with one entitled agent, `bound` pre-seeded into the live
-    /// binding store, `pinned` as alice's `token_hashes`.
+    /// configured with one entitled agent (the `crm` profile), `bound`
+    /// pre-seeded into the live binding store, `pinned` as alice's
+    /// `token_hashes`.
     fn state_with(paired: &[&str], bound: &[&str], pinned: &[&str]) -> AppState {
+        state_with_profiles(paired, bound, pinned, &["crm"])
+    }
+
+    /// As [`state_with`], with alice bound to `profiles` (any subset of the
+    /// configured `crm` profile — `&[]` leaves her verified but entitled
+    /// to nothing).
+    fn state_with_profiles(
+        paired: &[&str],
+        bound: &[&str],
+        pinned: &[&str],
+        profiles: &[&str],
+    ) -> AppState {
         let mut config = Config::default();
         config.gateway.require_pairing = true;
         config.permission_profiles.insert(
@@ -1167,7 +1271,7 @@ mod revocation_tests {
         config.authz.principals.push(PrincipalRecord {
             id: "alice".to_string(),
             token_hashes: pinned.iter().map(|t| PairingGuard::token_hash(t)).collect(),
-            profiles: vec!["crm".to_string()],
+            profiles: profiles.iter().map(|p| (*p).to_string()).collect(),
         });
         let mut state = crate::api::tests::test_state(config);
         let paired: Vec<String> = paired.iter().map(|t| (*t).to_string()).collect();
@@ -1201,13 +1305,19 @@ mod revocation_tests {
         // hand) — the token is NOT in the paired set, so it must not
         // resolve.
         let state = state_with(&[], &["zc_bound"], &[]);
-        assert!(resolve_principal(&state, Some("zc_bound")).await.is_none());
+        assert!(matches!(
+            resolve_principal(&state, Some("zc_bound")).await,
+            Resolution::Denied
+        ));
     }
 
     #[tokio::test]
     async fn pinned_but_unpaired_token_is_denied() {
         let state = state_with(&[], &[], &["zc_pinned"]);
-        assert!(resolve_principal(&state, Some("zc_pinned")).await.is_none());
+        assert!(matches!(
+            resolve_principal(&state, Some("zc_pinned")).await,
+            Resolution::Denied
+        ));
     }
 
     #[tokio::test]
@@ -1215,6 +1325,7 @@ mod revocation_tests {
         let state = state_with(&["zc_bound"], &["zc_bound"], &[]);
         let (principal, grants) = resolve_principal(&state, Some("zc_bound"))
             .await
+            .into_resolved()
             .expect("a paired AND bound token resolves");
         assert!(principal.is_authenticated(), "a distinct Roster principal");
         assert_eq!(principal.display_id, "alice");
@@ -1224,15 +1335,58 @@ mod revocation_tests {
     #[tokio::test]
     async fn revoking_the_pairing_cuts_off_a_bound_token() {
         let state = state_with(&["zc_bound"], &["zc_bound"], &[]);
-        assert!(resolve_principal(&state, Some("zc_bound")).await.is_some());
+        assert!(matches!(
+            resolve_principal(&state, Some("zc_bound")).await,
+            Resolution::Resolved(_)
+        ));
         let hash = PairingGuard::token_hash("zc_bound");
         assert!(state.pairing.revoke_token_hash(&hash));
         assert!(
-            resolve_principal(&state, Some("zc_bound")).await.is_none(),
+            matches!(
+                resolve_principal(&state, Some("zc_bound")).await,
+                Resolution::Denied
+            ),
             "a revoked token must stop resolving even though its binding still exists"
         );
         unbind_token_hash(&state, &hash);
         assert!(state.token_bindings.get(&hash).is_none());
+    }
+
+    /// A paired, bound token whose principal holds no profile (or only
+    /// profiles naming no agent) is VERIFIED but entitled to nothing —
+    /// distinct from `Denied`, so the upgrade can answer `401` instead of
+    /// pre-auth or an empty-roster socket.
+    #[tokio::test]
+    async fn paired_and_bound_principal_with_no_agents_is_verified_not_entitled() {
+        let state = state_with_profiles(&["zc_bound"], &["zc_bound"], &[], &[]);
+        assert!(matches!(
+            resolve_principal(&state, Some("zc_bound")).await,
+            Resolution::VerifiedNotEntitled
+        ));
+    }
+
+    /// Paired but neither bound nor pinned under enforced authz: the
+    /// provider never verified it — `Denied`, not `VerifiedNotEntitled`.
+    #[tokio::test]
+    async fn paired_but_unbound_token_is_denied_not_verified() {
+        let state = state_with(&["zc_stranger"], &[], &[]);
+        assert!(matches!(
+            resolve_principal(&state, Some("zc_stranger")).await,
+            Resolution::Denied
+        ));
+    }
+
+    #[tokio::test]
+    async fn absent_token_is_denied() {
+        let state = state_with(&[], &[], &[]);
+        assert!(matches!(
+            resolve_principal(&state, None).await,
+            Resolution::Denied
+        ));
+        assert!(matches!(
+            resolve_principal(&state, Some("")).await,
+            Resolution::Denied
+        ));
     }
 
     #[test]
@@ -1258,6 +1412,138 @@ mod revocation_tests {
                 .get(&PairingGuard::token_hash("b"))
                 .is_none()
         );
+    }
+}
+
+#[cfg(test)]
+mod upgrade_decision_tests {
+    //! The pure `/acp` upgrade decision behind the frozen contract:
+    //! verified-but-unentitled ⇒ 401 (never pre-auth, never the shared
+    //! operator); denied ⇒ pre-auth when pairing is required and unmet,
+    //! else legacy fallback when authz is not enforced, else 401.
+
+    use super::*;
+    use zeroclaw_api::principal::{
+        AuthMethod, AuthenticatedIdentity, IdentitySubject, PrincipalId,
+    };
+
+    fn distinct() -> Resolution {
+        let identity = AuthenticatedIdentity::new(
+            IdentitySubject::Roster {
+                principal_id: "alice".to_string(),
+            },
+            AuthMethod::Native,
+        );
+        let mut grants = ResolvedGrants::none();
+        grants.allowed_agents = vec![zeroclaw_api::principal::AgentAlias("crm-bot".to_string())];
+        Resolution::Resolved(Box::new((Principal::from_identity(&identity), grants)))
+    }
+
+    fn is_unauthorized(decision: &UpgradeDecision) -> bool {
+        matches!(decision, UpgradeDecision::Unauthorized)
+    }
+
+    fn is_pre_auth(decision: &UpgradeDecision) -> bool {
+        matches!(decision, UpgradeDecision::PreAuth)
+    }
+
+    fn authenticated_as(decision: UpgradeDecision) -> (Principal, ResolvedGrants) {
+        match decision {
+            UpgradeDecision::Authenticated(principal_and_grants) => *principal_and_grants,
+            UpgradeDecision::PreAuth => panic!("expected Authenticated, got PreAuth"),
+            UpgradeDecision::Unauthorized => panic!("expected Authenticated, got Unauthorized"),
+        }
+    }
+
+    #[test]
+    fn verified_not_entitled_is_401_in_every_mode() {
+        for require_pairing in [false, true] {
+            for token_is_paired in [false, true] {
+                for authz_enforced in [false, true] {
+                    let decision = upgrade_decision(
+                        Resolution::VerifiedNotEntitled,
+                        require_pairing,
+                        token_is_paired,
+                        authz_enforced,
+                    );
+                    assert!(
+                        is_unauthorized(&decision),
+                        "require_pairing={require_pairing} paired={token_is_paired} enforced={authz_enforced}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn denied_with_pairing_required_and_unmet_is_pre_auth() {
+        assert!(is_pre_auth(&upgrade_decision(
+            Resolution::Denied,
+            true,
+            false,
+            false
+        )));
+        assert!(is_pre_auth(&upgrade_decision(
+            Resolution::Denied,
+            true,
+            false,
+            true
+        )));
+    }
+
+    #[test]
+    fn denied_but_paired_is_401_when_enforced_and_shared_operator_otherwise() {
+        assert!(is_unauthorized(&upgrade_decision(
+            Resolution::Denied,
+            true,
+            true,
+            true
+        )));
+        let (principal, grants) =
+            authenticated_as(upgrade_decision(Resolution::Denied, true, true, false));
+        assert_eq!(principal.id, PrincipalId::shared_operator());
+        assert!(grants.admin);
+    }
+
+    #[test]
+    fn denied_with_pairing_disabled_follows_enforcement() {
+        assert!(is_unauthorized(&upgrade_decision(
+            Resolution::Denied,
+            false,
+            false,
+            true
+        )));
+        let (principal, _) =
+            authenticated_as(upgrade_decision(Resolution::Denied, false, false, false));
+        assert!(!principal.is_authenticated());
+    }
+
+    #[test]
+    fn resolved_distinct_principal_is_authenticated_even_when_unpaired() {
+        // Condition 3 of `connection_is_authenticated`: a config-backed
+        // distinct principal satisfies the pairing gate on its own.
+        let (principal, grants) = authenticated_as(upgrade_decision(distinct(), true, false, true));
+        assert!(principal.is_authenticated());
+        assert!(grants.may_use_agent("crm-bot"));
+        assert!(!grants.admin, "a distinct principal keeps its OWN grants");
+    }
+
+    #[test]
+    fn resolved_shared_operator_cannot_satisfy_the_pairing_gate_alone() {
+        let shared = Resolution::Resolved(Box::new((
+            Principal::shared_operator(),
+            ResolvedGrants::all(),
+        )));
+        assert!(is_pre_auth(&upgrade_decision(shared, true, false, false)));
+    }
+
+    #[test]
+    fn entitled_to_nothing_is_no_admin_and_no_agent() {
+        assert!(entitled_to_nothing(&ResolvedGrants::none()));
+        assert!(!entitled_to_nothing(&ResolvedGrants::all()));
+        let mut grants = ResolvedGrants::none();
+        grants.allowed_agents = vec![zeroclaw_api::principal::AgentAlias("x".to_string())];
+        assert!(!entitled_to_nothing(&grants));
     }
 }
 
