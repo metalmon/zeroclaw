@@ -138,8 +138,8 @@ ${SSH_CMD} ${SSH_OPTS} "${RPI_USER}@${RPI_HOST}" "mkdir -p ${RPI_DIR}"
 
 # ── 4. Deploy binary ──────────────────────────────────────────────────────────
 echo ""
-echo "==> Deploying binary to ${RPI_USER}@${RPI_HOST}:${RPI_DIR}/zeroclaw"
-${SCP_CMD} ${SCP_OPTS} "${BINARY}" "${RPI_USER}@${RPI_HOST}:${RPI_DIR}/zeroclaw"
+echo "==> Deploying binary to ${RPI_USER}@${RPI_HOST}:${RPI_DIR}/voltd"
+${SCP_CMD} ${SCP_OPTS} "${BINARY}" "${RPI_USER}@${RPI_HOST}:${RPI_DIR}/voltd"
 
 # ── 4. Create .env skeleton (if it doesn't exist) ────────────────────────────
 ENV_DEST="${RPI_DIR}/.env"

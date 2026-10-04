@@ -2,7 +2,7 @@
 # Launch the ZeroClaw Tauri desktop app in dev mode.
 #
 # Assumes a ZeroClaw daemon is reachable on 127.0.0.1:42617. Run
-# `zeroclaw daemon` (NOT `zeroclaw gateway start`) — only the daemon attaches
+# `voltd daemon` (NOT `voltd gateway start`) — only the daemon attaches
 # the supervisor that powers the in-place reload the Quickstart triggers; a
 # standalone gateway returns 503 on /admin/reload. An SSH port-forward from a
 # remote daemon works too.
