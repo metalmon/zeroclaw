@@ -3840,7 +3840,7 @@ done
     async fn connect_all_mixed_advertises_per_server_tasks_flag() {
         let temp = tempfile::tempdir().expect("tempdir");
         let script_path = temp.path().join("mixed-echo-mcp.sh");
-        write_executable_script(
+        write_script(
             &script_path,
             br#"#!/bin/sh
 while IFS= read -r line; do
