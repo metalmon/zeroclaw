@@ -45,7 +45,7 @@ $Branches = @(
     # Dropped 2026-08-31: pr2/mcp-embedded-resource-blob-intake (#9196) merged upstream.
     # feat/mcp-image-multimodal was stacked on pr2; pr2 is now in master and only its
     # own single commit remains — verified 2026-09-02 to cherry-pick cleanly onto master.
-    "feat/mcp-image-multimodal",              # materialize MCP type:image/audio into [IMAGE:]/[AUDIO:] markers for the multimodal pipeline (single commit; applies clean on master)
+    # Dropped 2026-10-04: feat/mcp-image-multimodal merged upstream as e66c219e6b (all 3 commits); the chain below now starts at fix/per-agent-memory-autosave-clean.
     "fix/mcp-image-role-user",                # PR #10502 - tool_result_image_policy=relocate (now the default) moves role:tool images into a user message (role:tool 400 fix); adds the variant on top of #10448's enum, already in master
     "feat/acp-wire-skills",                   # ACP client-delivered skills via _meta extension
     # Dropped 2026-08-21: fix/acp-session-cwd-fallback (#9536) merged upstream.
