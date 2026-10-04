@@ -167,6 +167,8 @@ import { t, fmtDate, fmtNumber, fmtRelative, plural } from "@/lib/i18n";
 import { StatCard, PageHeader, ConfirmDialog } from "@/components/ui";
 import { Select } from "@/components/ui/Select";
 import { Spinner } from "@/components/ui/spinner";
+import { DetailPanel, DetailPanelSurface } from "@/components/ui/detail-panel";
+import { IconTile } from "@/components/ui/icon-tile";
 
 type TabId =
   | "overview"
@@ -2575,32 +2577,18 @@ function MemoriesTab() {
         </div>
       )}
 
-      {showAddForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.5)" }}
-          onClick={() => setShowAddForm(false)}
-        >
-          <div
-            className="card p-6 w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
+      {/* Add memory: right-side drawer, same pattern as Cron / Roles / Users */}
+      <DetailPanelSurface open={showAddForm}>
+        {showAddForm && (
+          <DetailPanel
+            icon={
+              <IconTile>
+                <Brain className="h-[18px] w-[18px] text-muted-foreground" />
+              </IconTile>
+            }
+            title={t("dashboard.add_memory")}
+            onClose={() => setShowAddForm(false)}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3
-                className="text-lg font-semibold"
-                style={{ color: "var(--color-foreground)" }}
-              >
-                {t("dashboard.add_memory")}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="p-1 rounded-lg hover:bg-[var(--color-hover)]"
-                style={{ color: "var(--color-muted-foreground)" }}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
             {formError && (
               <div
                 className="mb-4 rounded-xl border p-3 text-sm"
@@ -2702,9 +2690,9 @@ function MemoriesTab() {
                 {submitting ? t("dashboard.mem.saving") : t("dashboard.mem.save")}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </DetailPanel>
+        )}
+      </DetailPanelSurface>
 
       <ConfirmDialog
         open={pendingDelete !== null}

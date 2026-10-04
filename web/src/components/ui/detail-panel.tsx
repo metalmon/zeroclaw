@@ -57,7 +57,7 @@ export function DetailPanel({ icon, title, subtitle, actions, onClose, children 
           </Button>
         </div>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto md:pt-4">{children}</div>
+      <div className="-mr-4 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pr-4 md:-mr-6 md:pr-6 md:pt-4">{children}</div>
     </section>
   );
 }
