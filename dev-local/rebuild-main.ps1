@@ -59,6 +59,18 @@ $Branches = @(
     "feat/mcp-tasks-host",                     # local-only (no PR yet): MCP tasks-extension host — supervisor polls task-augmented tool calls (kutsu place_call) and injects the result reactively into the originating session
     "fix/mcp-scope-connection-pool",           # local-only (no PR yet): stacked on feat/mcp-tasks-host — daemon-owned per-scope MCP connection pool shared by all sessions + the task poller (one process per scope; fixes kutsu double-spawn)
     "feat/acp-ui-resource-artifacts",          # local-only (no PR): ACP ui:// UI-resource artifacts — canvas render emits a ui:// text resource on tool_call_update (+ content_file input, + store:false session isolation); paired with the Thunderbolt client. Off pristine master, applies clean.
+    # ── Enterprise authz re-host on upstream #8289 (2026-10-04). A STACK: each
+    # branch is based on the previous one (script cherry-picks only the delta).
+    # Order matters; keep contiguous. Source of truth for the design:
+    # _local/ledger-f4-8289-migration.md (gitignored) on feat/fork-rebrand-voltd.
+    "fork/macros-natural-key",                 # Configurable derive: create_map_key seeds the declared #[natural_key] field (upstream-PR candidate)
+    "fork/infra-clippy-nonminimal-bool",       # upstream zeroclaw-infra nonminimal_bool under clippy 1.96.1 -D warnings (drop when upstream fixes it)
+    "fork/authz-pairing-principal",            # pairing-by-code -> DISTINCT principal: [[authz.principals]] + TokenBindingStore + PairingAuthProvider merged into upstream PrincipalResolver; frozen -32602/agent_not_permitted gate
+    "fork/agent-display-name",                 # [agents.<alias>].display_name + principal-scoped ACP initialize roster {alias,display_name,default}
+    "fork/acp-surface-split",                  # [gateway.public]: /acp alone on a TLS public listener, admin/api/dashboard private
+    "fork/authz-roles-rest",                   # GET /api/authz/principals, /admin/paircode/new?principal=, CLI get-paircode --principal
+    "fork/acp-oidc-dispatch-hardening",        # /acp bearer dispatch by shape (JWT -> oidc.<alias>, zc_ -> pairing, no fallback), wire error data, revocation/401/persist hardening, fmt/clippy fixups
+    "fork/voltd-rebrand",                      # cli.ftl zeroclaw->voltd / ZeroClaw->Volt, panel display_name + logo, [[bin]] voltd (crate names stay zeroclaw)
     "local/dev-tooling"                       # local-only: fork CI (fork-build.yml) + this script; self-restoring, keep last
 )
 
