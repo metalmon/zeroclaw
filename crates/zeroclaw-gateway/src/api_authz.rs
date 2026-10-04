@@ -1,6 +1,8 @@
 //! Fork-local authz admin control plane: the `GET /api/authz/principals`
-//! listing the panel's principal picker (role-at-pairing) reads, plus the
-//! shared admin gate it is wired through.
+//! listing the panel's principal picker (role-at-pairing) reads, the
+//! `/api/authz/profiles` CRUD and `/api/authz/principals/{id}/profiles`
+//! bind/unbind the panel's Roles page drives, plus the shared admin gate
+//! they are all wired through.
 //!
 //! Schema reality on this branch: bearer-paired principals live in
 //! `[[authz.principals]]` (`zeroclaw_config::authz::PrincipalRecord`), their
@@ -17,14 +19,20 @@
 
 use axum::{
     Json,
-    extract::State,
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use zeroclaw_api::grants::Verb;
+use zeroclaw_config::api_error::{ConfigApiCode, ConfigApiError};
+use zeroclaw_config::schema::{Config, PermissionProfileConfig};
 
-use super::AppState;
 use super::api::require_auth;
+use super::api_config::persist_and_swap;
+use super::{AppState, ConfigWriteGuard};
+use crate::principal_gate::{ConfigWriteSet, RequestPrincipal, authorize_config_write};
 
 // ── Admin gate ──────────────────────────────────────────────────────
 
@@ -88,18 +96,18 @@ fn forbidden_error() -> (StatusCode, Json<serde_json::Value>) {
 /// `[permission_profiles.<alias>]` it is bound to has `admin = true`.
 /// Unknown profile names grant nothing (deny-by-default, same as the
 /// resolver's roster merge).
-pub(crate) fn principal_is_admin(config: &zeroclaw_config::schema::Config, principal_id: &str) -> bool {
-    config
-        .authz
-        .by_id(principal_id)
-        .is_some_and(|record| {
-            record.profiles.iter().any(|profile| {
-                config
-                    .permission_profiles
-                    .get(profile.trim())
-                    .is_some_and(|p| p.admin)
-            })
+pub(crate) fn principal_is_admin(
+    config: &zeroclaw_config::schema::Config,
+    principal_id: &str,
+) -> bool {
+    config.authz.by_id(principal_id).is_some_and(|record| {
+        record.profiles.iter().any(|profile| {
+            config
+                .permission_profiles
+                .get(profile.trim())
+                .is_some_and(|p| p.admin)
         })
+    })
 }
 
 // ── Principals listing ──────────────────────────────────────────────
@@ -149,6 +157,468 @@ pub async fn handle_list_principals(State(state): State<AppState>, headers: Head
         })
         .collect();
     Json(PrincipalsListResponse { principals }).into_response()
+}
+
+// ── Shared error + persistence plumbing ─────────────────────────────
+
+fn error_response(err: ConfigApiError) -> Response {
+    let status =
+        StatusCode::from_u16(err.code.http_status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    (status, Json(err)).into_response()
+}
+
+/// 409 in the panel's `{code, message, path}` envelope. `ConfigApiCode` has
+/// no conflict variant and this module must not widen the config crate, so
+/// the body is assembled here.
+fn conflict_response(message: String, path: String) -> Response {
+    (
+        StatusCode::CONFLICT,
+        Json(serde_json::json!({
+            "code": "conflict",
+            "message": message,
+            "path": path,
+        })),
+    )
+        .into_response()
+}
+
+fn not_found(message: String, path: String) -> Response {
+    error_response(ConfigApiError::new(ConfigApiCode::PathNotFound, message).with_path(path))
+}
+
+/// Profile ids are TOML table keys and dotted-path segments, so they are
+/// kept to `[A-Za-z0-9][A-Za-z0-9_-]*`.
+fn validate_profile_id(id: &str) -> Result<(), ConfigApiError> {
+    let mut chars = id.chars();
+    let head_ok = chars.next().is_some_and(|c| c.is_ascii_alphanumeric());
+    let tail_ok = chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    if head_ok && tail_ok {
+        return Ok(());
+    }
+    Err(ConfigApiError::new(
+        ConfigApiCode::InvalidFormat,
+        format!(
+            "profile id `{id}` is invalid: use letters, digits, `_` or `-`, starting with a letter or digit"
+        ),
+    )
+    .with_path("permission_profiles"))
+}
+
+/// `allowed_agents` entries must name a configured `[agents.<alias>]` or be
+/// the explicit `"*"` wildcard. Checked up front so the panel gets a 400
+/// pointing at the offending entry instead of a whole-config save failure.
+fn validate_allowed_agents(
+    config: &Config,
+    id: &str,
+    agents: &[String],
+) -> Result<(), ConfigApiError> {
+    for agent in agents {
+        if agent == "*" || config.agents.contains_key(agent) {
+            continue;
+        }
+        return Err(ConfigApiError::new(
+            ConfigApiCode::DanglingReference,
+            format!("allowed_agents names {agent:?} but [agents.{agent}] is not configured (use \"*\" for every agent)"),
+        )
+        .with_path(format!("permission_profiles.{id}.allowed_agents")));
+    }
+    Ok(())
+}
+
+/// Write `value` to `path` through the dotted-path engine so `mark_dirty`
+/// and the incremental TOML writer see the edit like any other prop write.
+fn set_prop(working: &mut Config, path: &str, value: &str) -> Result<(), ConfigApiError> {
+    working
+        .set_prop_persistent(path, value)
+        .map_err(|e| ConfigApiError::from_validation(e).with_path(path))
+}
+
+fn json_list(items: &[String]) -> String {
+    serde_json::to_string(items).unwrap_or_else(|_| "[]".to_string())
+}
+
+/// Authorize the dirty write set for the admitted principal, then save and
+/// hot-swap. `before` is the live config the working copy was cloned from.
+#[allow(clippy::result_large_err)]
+async fn commit(
+    state: &AppState,
+    principal: &RequestPrincipal,
+    before: &Config,
+    working: Config,
+    guard: ConfigWriteGuard,
+    writes: Option<(String, Verb)>,
+) -> Result<(), Response> {
+    let mut set = ConfigWriteSet::by_effect(
+        before,
+        &working,
+        working.dirty_paths.iter().map(String::as_str),
+    );
+    if let Some((path, verb)) = writes {
+        set = set.with(path, verb);
+    }
+    let authorization =
+        authorize_config_write(principal, set, &guard).map_err(IntoResponse::into_response)?;
+    persist_and_swap(state, authorization, working, guard)
+        .await
+        .map(|_| ())
+}
+
+// ── Profiles CRUD ───────────────────────────────────────────────────
+
+/// Wire shape of one `[permission_profiles.<id>]` entry. Matches the panel's
+/// `AuthzProfile` (`{id, allowed_agents, admin}`); the profile's other grant
+/// fields (`allowed_tools`, `config_write_paths`, `grants`) are not on the
+/// panel contract and are left untouched by writes through this surface.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct ProfileDto {
+    pub id: String,
+    pub allowed_agents: Vec<String>,
+    pub admin: bool,
+}
+
+impl ProfileDto {
+    fn from_config(id: &str, profile: &PermissionProfileConfig) -> Self {
+        Self {
+            id: id.to_string(),
+            allowed_agents: profile.allowed_agents.clone(),
+            admin: profile.admin,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct ProfilesListResponse {
+    pub profiles: Vec<ProfileDto>,
+}
+
+/// `GET /api/authz/profiles` lists every configured permission profile, sorted
+/// by id. Read-only, so it is gated by the paired-guard rather than the
+/// admin gate: profile shape carries no credentials and no who-is-bound-to-
+/// what information.
+pub async fn handle_list_profiles(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if let Err(e) = require_auth(&state, &headers) {
+        return e.into_response();
+    }
+    let cfg = state.config.read();
+    let mut profiles: Vec<ProfileDto> = cfg
+        .permission_profiles
+        .iter()
+        .map(|(id, p)| ProfileDto::from_config(id, p))
+        .collect();
+    profiles.sort_by(|a, b| a.id.cmp(&b.id));
+    Json(ProfilesListResponse { profiles }).into_response()
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct ProfileBody {
+    pub id: String,
+    #[serde(default)]
+    pub allowed_agents: Vec<String>,
+    #[serde(default)]
+    pub admin: bool,
+}
+
+/// Create-or-update the `[permission_profiles.<id>]` row from `body`. When
+/// `must_create` is set an existing id is a 409 (POST semantics); otherwise
+/// the row is upserted (PUT semantics).
+async fn upsert_profile(
+    state: AppState,
+    headers: HeaderMap,
+    principal: RequestPrincipal,
+    body: ProfileBody,
+    must_create: bool,
+) -> Response {
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e.into_response();
+    }
+    if let Err(e) = validate_profile_id(&body.id) {
+        return error_response(e);
+    }
+
+    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;
+    let before = state.config.read().clone();
+    let mut working = before.clone();
+    let path = format!("permission_profiles.{}", body.id);
+    if must_create && working.permission_profiles.contains_key(&body.id) {
+        return conflict_response(
+            format!("profile `{}` already exists; use PUT to update it", body.id),
+            path,
+        );
+    }
+    if let Err(e) = validate_allowed_agents(&working, &body.id, &body.allowed_agents) {
+        return error_response(e);
+    }
+    if let Err(msg) = working.create_map_key("permission_profiles", &body.id) {
+        return error_response(
+            ConfigApiError::new(ConfigApiCode::InternalError, msg).with_path(&path),
+        );
+    }
+    if let Err(e) = set_prop(
+        &mut working,
+        &format!("{path}.allowed_agents"),
+        &json_list(&body.allowed_agents),
+    ) {
+        return error_response(e);
+    }
+    if let Err(e) = set_prop(
+        &mut working,
+        &format!("{path}.admin"),
+        if body.admin { "true" } else { "false" },
+    ) {
+        return error_response(e);
+    }
+    if let Err(response) = commit(&state, &principal, &before, working, guard, None).await {
+        return response;
+    }
+    Json(ProfileDto {
+        id: body.id,
+        allowed_agents: body.allowed_agents,
+        admin: body.admin,
+    })
+    .into_response()
+}
+
+/// `POST /api/authz/profiles` creates a permission profile. 409 when the
+/// id is already taken.
+pub async fn handle_create_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    principal: RequestPrincipal,
+    Json(body): Json<ProfileBody>,
+) -> Response {
+    upsert_profile(state, headers, principal, body, true).await
+}
+
+/// `PUT /api/authz/profiles` is an idempotent create-or-update keyed by
+/// `body.id`.
+pub async fn handle_update_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    principal: RequestPrincipal,
+    Json(body): Json<ProfileBody>,
+) -> Response {
+    upsert_profile(state, headers, principal, body, false).await
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct ProfileIdQuery {
+    pub id: String,
+}
+
+/// Matches the panel's `DeleteAuthzProfileResponse`. `affected_principals`
+/// is always empty on this branch: a profile still bound to a principal is
+/// refused with 409 (config validation rejects dangling profile references),
+/// so the field only exists to keep the wire shape the shipped panel parses.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct DeleteProfileResponse {
+    pub id: String,
+    pub deleted: bool,
+    pub affected_principals: Vec<String>,
+}
+
+/// `DELETE /api/authz/profiles?id=<id>` removes a permission profile. 404
+/// when unknown; 409 while any `[[authz.principals]]` row (or `[users]`
+/// entry) still names it, with the referencing ids in the message.
+pub async fn handle_delete_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    principal: RequestPrincipal,
+    Query(q): Query<ProfileIdQuery>,
+) -> Response {
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e.into_response();
+    }
+
+    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;
+    let before = state.config.read().clone();
+    let mut working = before.clone();
+    let path = format!("permission_profiles.{}", q.id);
+    if !working.permission_profiles.contains_key(&q.id) {
+        return not_found(format!("profile `{}` is not configured", q.id), path);
+    }
+    let bound_principals: Vec<&str> = working
+        .authz
+        .principals
+        .iter()
+        .filter(|p| p.profiles.iter().any(|pid| pid.trim() == q.id))
+        .map(|p| p.id.as_str())
+        .chain(
+            working
+                .users
+                .iter()
+                .filter(|(_, u)| u.permission_profiles.iter().any(|pid| pid.trim() == q.id))
+                .map(|(name, _)| name.as_str()),
+        )
+        .collect();
+    if !bound_principals.is_empty() {
+        return conflict_response(
+            format!(
+                "profile `{}` is still bound to {}; unbind it first",
+                q.id,
+                bound_principals.join(", ")
+            ),
+            path,
+        );
+    }
+
+    if let Err(msg) = working.delete_map_key("permission_profiles", &q.id) {
+        return error_response(
+            ConfigApiError::new(ConfigApiCode::PathNotFound, msg).with_path(&path),
+        );
+    }
+    working.mark_dirty(&path);
+    if let Err(response) = commit(
+        &state,
+        &principal,
+        &before,
+        working,
+        guard,
+        Some((path, Verb::Delete)),
+    )
+    .await
+    {
+        return response;
+    }
+    Json(DeleteProfileResponse {
+        id: q.id,
+        deleted: true,
+        affected_principals: Vec::new(),
+    })
+    .into_response()
+}
+
+// ── Principal <-> profile binding ───────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct BindProfileBody {
+    pub profile_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct UnbindProfileQuery {
+    pub profile_id: String,
+}
+
+/// Matches the panel's `AuthzPrincipalProfilesResponse`.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct PrincipalProfilesResponse {
+    pub principal_id: String,
+    pub profiles: Vec<String>,
+}
+
+/// Replace `principal_id`'s `profiles` list with `profiles(current)` and
+/// persist. 404 when the principal is not configured, or when
+/// `required_profile` names a profile that is not. Both checks run under the
+/// config write lock. Principals are created by pairing, never here.
+#[allow(clippy::result_large_err)]
+async fn write_principal_profiles(
+    state: &AppState,
+    principal: &RequestPrincipal,
+    principal_id: &str,
+    required_profile: Option<&str>,
+    profiles: impl FnOnce(Vec<String>) -> Vec<String>,
+) -> Result<Vec<String>, Response> {
+    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;
+    let before = state.config.read().clone();
+    let mut working = before.clone();
+    let Some(current) = working
+        .authz
+        .by_id(principal_id)
+        .map(|p| p.profiles.clone())
+    else {
+        return Err(not_found(
+            format!("principal `{principal_id}` is not configured"),
+            "authz.principals".to_string(),
+        ));
+    };
+    if let Some(profile_id) =
+        required_profile.filter(|p| !working.permission_profiles.contains_key(*p))
+    {
+        return Err(not_found(
+            format!("profile `{profile_id}` is not configured"),
+            format!("permission_profiles.{profile_id}"),
+        ));
+    }
+    let next = profiles(current.clone());
+    if next == current {
+        return Ok(current);
+    }
+    let path = format!("authz.principals.{principal_id}.profiles");
+    set_prop(&mut working, &path, &json_list(&next)).map_err(error_response)?;
+    commit(state, principal, &before, working, guard, None).await?;
+    Ok(next)
+}
+
+/// `PUT /api/authz/principals/{id}/profiles` binds a profile to a
+/// principal. Idempotent. 404 when either the principal or the profile is
+/// not configured.
+pub async fn handle_bind_principal_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    principal: RequestPrincipal,
+    Path(principal_id): Path<String>,
+    Json(body): Json<BindProfileBody>,
+) -> Response {
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e.into_response();
+    }
+    let profile_id = body.profile_id;
+    match write_principal_profiles(
+        &state,
+        &principal,
+        &principal_id,
+        Some(&profile_id),
+        |mut current| {
+            if !current.contains(&profile_id) {
+                current.push(profile_id.clone());
+            }
+            current
+        },
+    )
+    .await
+    {
+        Ok(profiles) => Json(PrincipalProfilesResponse {
+            principal_id,
+            profiles,
+        })
+        .into_response(),
+        Err(response) => response,
+    }
+}
+
+/// `DELETE /api/authz/principals/{id}/profiles?profile_id=<id>` unbinds a
+/// profile from a principal. Idempotent: an id that is not bound is a
+/// no-op. 404 only when the principal is not configured.
+pub async fn handle_unbind_principal_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    principal: RequestPrincipal,
+    Path(principal_id): Path<String>,
+    Query(q): Query<UnbindProfileQuery>,
+) -> Response {
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e.into_response();
+    }
+    match write_principal_profiles(&state, &principal, &principal_id, None, |current| {
+        current.into_iter().filter(|p| *p != q.profile_id).collect()
+    })
+    .await
+    {
+        Ok(profiles) => Json(PrincipalProfilesResponse {
+            principal_id,
+            profiles,
+        })
+        .into_response(),
+        Err(response) => response,
+    }
 }
 
 #[cfg(test)]
@@ -273,8 +743,7 @@ mod tests {
     async fn list_principals_returns_panel_shape_for_an_admin() {
         let tmp = tempfile::tempdir().unwrap();
         let (state, alice, _) = enforced_state(&tmp);
-        let response =
-            handle_list_principals(State(state), bearer_headers(alice)).await;
+        let response = handle_list_principals(State(state), bearer_headers(alice)).await;
         let (status, json) = response_json(response).await;
         assert_eq!(status, StatusCode::OK, "{json}");
         let principals = json["principals"].as_array().expect("principals array");
@@ -305,5 +774,288 @@ mod tests {
         let (status, json) = response_json(response).await;
         assert_eq!(status, StatusCode::FORBIDDEN);
         assert_eq!(json["code"], "forbidden");
+    }
+
+    // ── Profiles CRUD + binding ─────────────────────────────────────
+
+    fn profile_body(id: &str, agents: &[&str], admin: bool) -> Json<ProfileBody> {
+        Json(ProfileBody {
+            id: id.to_string(),
+            allowed_agents: agents.iter().map(|a| a.to_string()).collect(),
+            admin,
+        })
+    }
+
+    async fn create(
+        state: &AppState,
+        token: &str,
+        body: Json<ProfileBody>,
+    ) -> (StatusCode, serde_json::Value) {
+        response_json(
+            handle_create_profile(State(state.clone()), bearer_headers(token), None, body).await,
+        )
+        .await
+    }
+
+    async fn delete(state: &AppState, token: &str, id: &str) -> (StatusCode, serde_json::Value) {
+        response_json(
+            handle_delete_profile(
+                State(state.clone()),
+                bearer_headers(token),
+                None,
+                Query(ProfileIdQuery { id: id.to_string() }),
+            )
+            .await,
+        )
+        .await
+    }
+
+    async fn bind(
+        state: &AppState,
+        token: &str,
+        principal: &str,
+        profile: &str,
+    ) -> (StatusCode, serde_json::Value) {
+        response_json(
+            handle_bind_principal_profile(
+                State(state.clone()),
+                bearer_headers(token),
+                None,
+                Path(principal.to_string()),
+                Json(BindProfileBody {
+                    profile_id: profile.to_string(),
+                }),
+            )
+            .await,
+        )
+        .await
+    }
+
+    async fn unbind(
+        state: &AppState,
+        token: &str,
+        principal: &str,
+        profile: &str,
+    ) -> (StatusCode, serde_json::Value) {
+        response_json(
+            handle_unbind_principal_profile(
+                State(state.clone()),
+                bearer_headers(token),
+                None,
+                Path(principal.to_string()),
+                Query(UnbindProfileQuery {
+                    profile_id: profile.to_string(),
+                }),
+            )
+            .await,
+        )
+        .await
+    }
+
+    fn on_disk(state: &AppState) -> String {
+        std::fs::read_to_string(&state.config.read().config_path).unwrap_or_default()
+    }
+
+    #[tokio::test]
+    async fn list_profiles_returns_sorted_panel_shape_for_any_paired_caller() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, _, bob) = enforced_state(&tmp);
+        let (status, json) =
+            response_json(handle_list_profiles(State(state), bearer_headers(bob)).await).await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert_eq!(
+            json["profiles"],
+            serde_json::json!([
+                { "id": "ops", "allowed_agents": [], "admin": true },
+                { "id": "viewer", "allowed_agents": ["*"], "admin": false },
+            ])
+        );
+    }
+
+    #[tokio::test]
+    async fn create_profile_persists_to_disk_and_live_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let (status, json) = create(&state, alice, profile_body("support", &["*"], false)).await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert_eq!(
+            json,
+            serde_json::json!({ "id": "support", "allowed_agents": ["*"], "admin": false })
+        );
+        let live = state.config.read().permission_profiles["support"].clone();
+        assert_eq!(live.allowed_agents, vec!["*".to_string()]);
+        assert!(!live.admin);
+        assert!(
+            on_disk(&state).contains("[permission_profiles.support]"),
+            "profile must land in config.toml"
+        );
+    }
+
+    #[tokio::test]
+    async fn create_profile_conflicts_on_an_existing_id() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let (status, json) = create(&state, alice, profile_body("viewer", &[], true)).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{json}");
+        assert_eq!(json["code"], "conflict");
+        assert!(!state.config.read().permission_profiles["viewer"].admin);
+    }
+
+    #[tokio::test]
+    async fn create_profile_rejects_bad_ids_and_unknown_agents() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        for bad in ["", "-lead", "has space", "dot.ted"] {
+            let (status, json) = create(&state, alice, profile_body(bad, &["*"], false)).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{bad:?}: {json}");
+            assert_eq!(json["code"], "invalid_format");
+        }
+        let (status, json) = create(&state, alice, profile_body("ok", &["ghost"], false)).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{json}");
+        assert_eq!(json["code"], "dangling_reference");
+        assert_eq!(json["path"], "permission_profiles.ok.allowed_agents");
+        assert!(!state.config.read().permission_profiles.contains_key("ok"));
+    }
+
+    #[tokio::test]
+    async fn update_profile_upserts_in_place() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let (status, json) = response_json(
+            handle_update_profile(
+                State(state.clone()),
+                bearer_headers(alice),
+                None,
+                profile_body("viewer", &[], true),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        let live = state.config.read().permission_profiles["viewer"].clone();
+        assert!(live.admin);
+        assert!(live.allowed_agents.is_empty());
+        assert_eq!(state.config.read().permission_profiles.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn delete_profile_refuses_while_a_principal_is_bound() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let (status, json) = delete(&state, alice, "viewer").await;
+        assert_eq!(status, StatusCode::CONFLICT, "{json}");
+        assert_eq!(json["code"], "conflict");
+        assert!(json["message"].as_str().unwrap().contains("bob"));
+        assert!(
+            state
+                .config
+                .read()
+                .permission_profiles
+                .contains_key("viewer")
+        );
+    }
+
+    #[tokio::test]
+    async fn delete_profile_removes_an_unbound_one_and_404s_on_unknown() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let (status, _) = create(&state, alice, profile_body("tmp", &["*"], false)).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(on_disk(&state).contains("[permission_profiles.tmp]"));
+
+        let (status, json) = delete(&state, alice, "tmp").await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert_eq!(
+            json,
+            serde_json::json!({ "id": "tmp", "deleted": true, "affected_principals": [] })
+        );
+        assert!(!state.config.read().permission_profiles.contains_key("tmp"));
+        assert!(!on_disk(&state).contains("[permission_profiles.tmp]"));
+
+        let (status, json) = delete(&state, alice, "tmp").await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{json}");
+        assert_eq!(json["code"], "path_not_found");
+    }
+
+    #[tokio::test]
+    async fn bind_profile_is_idempotent_and_persists() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let (status, json) = bind(&state, alice, "bob", "ops").await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert_eq!(
+            json,
+            serde_json::json!({ "principal_id": "bob", "profiles": ["viewer", "ops"] })
+        );
+        assert!(principal_is_admin(&state.config.read(), "bob"));
+        assert!(on_disk(&state).contains("[[authz.principals]]"));
+
+        let (status, json) = bind(&state, alice, "bob", "ops").await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert_eq!(json["profiles"], serde_json::json!(["viewer", "ops"]));
+    }
+
+    #[tokio::test]
+    async fn bind_404s_on_unknown_principal_or_profile() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let (status, json) = bind(&state, alice, "nobody", "ops").await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{json}");
+        assert_eq!(json["code"], "path_not_found");
+        let (status, json) = bind(&state, alice, "bob", "ghost").await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{json}");
+        assert_eq!(json["path"], "permission_profiles.ghost");
+        assert_eq!(
+            state.config.read().authz.by_id("bob").unwrap().profiles,
+            vec!["viewer".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn unbind_profile_is_idempotent() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let (status, json) = unbind(&state, alice, "bob", "viewer").await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert_eq!(
+            json,
+            serde_json::json!({ "principal_id": "bob", "profiles": [] })
+        );
+        assert!(
+            state
+                .config
+                .read()
+                .authz
+                .by_id("bob")
+                .unwrap()
+                .profiles
+                .is_empty()
+        );
+
+        let (status, json) = unbind(&state, alice, "bob", "viewer").await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert_eq!(json["profiles"], serde_json::json!([]));
+
+        let (status, _) = unbind(&state, alice, "nobody", "viewer").await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn mutations_are_forbidden_for_a_non_admin() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, _, bob) = enforced_state(&tmp);
+        let (status, json) = create(&state, bob, profile_body("mine", &["*"], true)).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(json["code"], "forbidden");
+        let (status, _) = delete(&state, bob, "ops").await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        let (status, _) = bind(&state, bob, "bob", "ops").await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        let (status, _) = unbind(&state, bob, "alice", "ops").await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        let cfg = state.config.read();
+        assert!(!cfg.permission_profiles.contains_key("mine"));
+        assert!(!principal_is_admin(&cfg, "bob"));
+        assert!(principal_is_admin(&cfg, "alice"));
     }
 }
