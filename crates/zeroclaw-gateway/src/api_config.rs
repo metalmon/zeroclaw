@@ -890,6 +890,13 @@ pub(crate) async fn try_compute_drift(
         )
     })?;
     on_disk.config_path = path.clone();
+    // The loader merges the built-in safe-tool defaults into
+    // `risk_profiles.default.auto_approve` after parsing; a bare re-parse
+    // lacks them and would report that merge as drift on every reload.
+    // Normalize the on-disk copy the same way before comparing.
+    if let Some(default_profile) = on_disk.risk_profiles.get_mut("default") {
+        default_profile.ensure_default_auto_approve();
+    }
 
     let in_memory_props: std::collections::HashMap<String, zeroclaw_config::traits::PropFieldInfo> =
         in_memory
@@ -4949,6 +4956,34 @@ mod tests {
         assert!(
             drift.is_empty(),
             "expected no drift right after save, got {drift:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn compute_drift_ignores_the_loaders_auto_approve_merge() {
+        let (_tmp, path) = temp_config_path();
+        let mut cfg = zeroclaw_config::schema::Config {
+            config_path: path.clone(),
+            ..Default::default()
+        };
+        // On disk: a user list that lacks the built-in safe tools.
+        cfg.risk_profiles
+            .entry("default".to_string())
+            .or_default()
+            .auto_approve = vec!["file_read".to_string(), "calculator".to_string()];
+        cfg.save().await.expect("save");
+        // In memory: what the loader produces from that file.
+        cfg.risk_profiles
+            .get_mut("default")
+            .expect("default profile")
+            .ensure_default_auto_approve();
+
+        let drift = compute_drift(&cfg).await;
+        assert!(
+            !drift
+                .iter()
+                .any(|d| d.path == "risk_profiles.default.auto_approve" && d.drifted),
+            "the loader's default merge must not count as drift, got {drift:?}"
         );
     }
 
