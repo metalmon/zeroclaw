@@ -29424,6 +29424,7 @@ mod tests {
             name: "shell".to_string(),
             output: "/tmp".to_string(),
             artifact: None,
+            ui_resource: None,
         });
         assert!(
             checkpoint_fragment_for_event(&TurnEvent::Thinking {
@@ -29459,6 +29460,7 @@ mod tests {
             name: "shell".to_string(),
             output,
             artifact: None,
+            ui_resource: None,
         });
         assert!(matches!(
             fragment,
@@ -29579,6 +29581,7 @@ mod tests {
                 name: "shell".into(),
                 output: "/tmp".into(),
                 artifact: None,
+                ui_resource: None,
             },
         ];
         for event in &events {
