@@ -466,12 +466,14 @@ impl OidcAuthProvider {
         // every fetch from that issuer fail later with a less obvious error.
         if let Some(path) = config.tls_ca_cert_path.as_deref() {
             let pem = std::fs::read(path).map_err(|e| {
-                anyhow::anyhow!("oidc.{alias}.tls_ca_cert_path: cannot read {path}: {e}")
+                anyhow::Error::msg(format!(
+                    "oidc.{alias}.tls_ca_cert_path: cannot read {path}: {e}"
+                ))
             })?;
             let certs = reqwest::Certificate::from_pem_bundle(&pem).map_err(|e| {
-                anyhow::anyhow!(
+                anyhow::Error::msg(format!(
                     "oidc.{alias}.tls_ca_cert_path: {path} is not a PEM certificate bundle: {e}"
-                )
+                ))
             })?;
             if certs.is_empty() {
                 anyhow::bail!("oidc.{alias}.tls_ca_cert_path: {path} contains no certificates");
