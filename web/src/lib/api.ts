@@ -2524,7 +2524,9 @@ export interface AuthzAgentsListResponse {
  *  (every configured alias) — distinct from the principal-scoped
  *  {@link getAgentOptions} list used elsewhere in the dashboard. */
 export function getAuthzAgents(): Promise<AuthzAgentsListResponse> {
-  return apiFetch<AuthzAgentsListResponse>("/api/agents");
+  // The re-hosted gateway has no dedicated /api/agents listing; the configured
+  // aliases are the keys of the `agents` map, which the config REST exposes.
+  return getMapKeys("agents").then(({ keys }) => ({ agents: keys }));
 }
 
 /** One `[[authz.principals]]` row, summarized for the roles admin UI. */
