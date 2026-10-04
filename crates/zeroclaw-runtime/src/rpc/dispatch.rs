@@ -33601,6 +33601,8 @@ mod tests {
             sop_audit: None,
             hooks: None,
             cert_audit: None,
+            task_supervisor: None,
+            mcp_pool: None,
             auth,
         });
         let (tx, _rx) = tokio::sync::mpsc::channel(64);
