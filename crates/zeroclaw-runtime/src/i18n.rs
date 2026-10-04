@@ -717,7 +717,7 @@ mod tests {
 
         assert_eq!(
             get_english_cli_string_with_args("cli-quickstart-terminal-size-unknown", &[]),
-            "Quickstart could not determine the terminal size, so it cannot verify the checklist fits. Run it from a terminal that reports its dimensions, or use `zeroclaw config set <path> <value>` for headless configuration."
+            "Quickstart could not determine the terminal size, so it cannot verify the checklist fits. Run it from a terminal that reports its dimensions, or use `voltd config set <path> <value>` for headless configuration."
         );
     }
 
@@ -929,7 +929,7 @@ mod tests {
             (
                 "cli-wechat-bound-success",
                 &[][..],
-                ["WeChat", "ZeroClaw"].as_slice(),
+                ["WeChat", "Volt"].as_slice(),
             ),
             ("cli-wechat-invalid-bind-code", &[][..], [].as_slice()),
         ];
@@ -1253,9 +1253,9 @@ mod tests {
         let url = "http://127.0.0.1:42617";
         let path = "/tmp/zeroclaw-test/daemon.sock";
         let cases = [
-            ("cli-daemon-starting-title", &[][..], &["ZeroClaw"][..]),
+            ("cli-daemon-starting-title", &[][..], &["Volt"][..]),
             ("cli-daemon-starting-detail", &[][..], &[][..]),
-            ("cli-daemon-started-title", &[][..], &["ZeroClaw"][..]),
+            ("cli-daemon-started-title", &[][..], &["Volt"][..]),
             (
                 "cli-daemon-started-gateway",
                 &[("url", url)][..],
@@ -1649,7 +1649,7 @@ mod tests {
                 &[("provider", "openai.default")][..],
                 [
                     "openai.default",
-                    "zeroclaw models refresh --model-provider openai.default",
+                    "voltd models refresh --model-provider openai.default",
                 ]
                 .as_slice(),
             ),
@@ -1861,7 +1861,7 @@ mod tests {
                     "example-skill",
                     "1.2.3",
                     "Community submission",
-                    "zeroclaw skills audit example-skill",
+                    "voltd skills audit example-skill",
                 ],
             ),
         ];
@@ -1898,7 +1898,7 @@ mod tests {
                     "example-skill",
                     "1.2.3",
                     "社区提交",
-                    "zeroclaw skills audit example-skill",
+                    "voltd skills audit example-skill",
                 ],
             ),
         ];
