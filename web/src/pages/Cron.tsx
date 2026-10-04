@@ -16,6 +16,8 @@ import { t, fmtDate } from '@/lib/i18n';
 import { Badge, Button, Card, PageHeader, Switch } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
 import { SpinnerScreen } from '@/components/ui/spinner';
+import { DetailPanel, DetailPanelSurface } from '@/components/ui/detail-panel';
+import { IconTile } from '@/components/ui/icon-tile';
 import ToolPicker from '@/components/ToolPicker';
 import type { CronJob, CronRun } from '@/types/api';
 import {
@@ -565,7 +567,8 @@ export default function Cron() {
   }
 
   return (
-    <div className="flex flex-col h-full p-6 gap-6 overflow-hidden">
+    <div className="flex h-full min-h-0">
+    <div className="flex min-w-0 flex-1 flex-col h-full p-6 gap-6 overflow-hidden">
       {/* Header */}
       <PageHeader
         title={t('cron.scheduled_tasks')}
@@ -596,18 +599,214 @@ export default function Cron() {
         </Card>
       )}
 
-      {/* Unified Add / Edit Modal */}
-      {modalJob !== null && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'var(--color-overlay, rgba(0,0,0,0.5))' }}>
-          <div className="bg-card border border-border rounded-[var(--radius-lg)] shadow-[var(--color-shadow-md)] p-6 w-full max-w-md mt-15 max-h-9/10 overflow-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-foreground">
-                {isEditing ? t('cron.edit_modal_title') : t('cron.add_modal_title')}
-              </h3>
-              <Button variant="ghost" size="sm" onClick={closeModal} aria-label={t('cron.cancel')}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+
+      {/* Inline trigger-error banner — keeps the cron table mounted on failed manual runs */}
+      {triggerError && (
+        <div role="alert" className="rounded-[var(--radius-md)] border border-status-error/25 bg-status-error/10 p-3 text-sm text-status-error flex items-start justify-between gap-3">
+          <span className="whitespace-pre-wrap break-words">{triggerError}</span>
+          <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setTriggerError(null)} aria-label={t('cron.dismiss')}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Inline pause/resume-error banner — keeps the cron table mounted on a failed
+          toggle or when the daemon silently ignores the `enabled` change */}
+      {toggleError && (
+        <div role="alert" className="rounded-[var(--radius-md)] border border-status-error/25 bg-status-error/10 p-3 text-sm text-status-error flex items-start justify-between gap-3">
+          <span className="whitespace-pre-wrap break-words">{toggleError}</span>
+          <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setToggleError(null)} aria-label={t('cron.dismiss')}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Jobs Table */}
+      {jobs.length === 0 ? (
+        <Card className="p-10 text-center">
+          <Clock className="h-10 w-10 mx-auto mb-3 text-text-faint" />
+          <p className="text-sm text-muted-foreground">{t('cron.empty')}</p>
+        </Card>
+      ) : (
+        <Card padded={false} className="overflow-auto flex-1 min-h-0">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-border text-[11px] font-medium uppercase tracking-wider text-text-faint">
+                <th className="px-4 py-2.5 text-left font-medium">{t('cron.id')}</th>
+                <th className="px-4 py-2.5 text-center font-medium">{t('cron.name')}</th>
+                <th className="px-4 py-2.5 text-center font-medium">{t('cron.job_type')}</th>
+                <th className="px-4 py-2.5 text-center font-medium">{t('cron.command')}</th>
+                <th className="px-4 py-2.5 text-center font-medium">{t('cron.timezone')}</th>
+                <th className="px-4 py-2.5 text-center font-medium">{t('cron.next_run')}</th>
+                <th className="px-4 py-2.5 text-center font-medium">{t('cron.last_status')}</th>
+                <th className="px-4 py-2.5 text-center font-medium">{t('cron.enabled')}</th>
+                <th className="px-4 py-2.5 text-center font-medium">{t('cron.actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.map((job) => (
+                <React.Fragment key={job.id}>
+                  <tr className="border-b border-border/60 last:border-0">
+                    <td className="px-4 py-2.5 max-w-44">
+                      <div className="flex min-w-0 flex-col items-start gap-1.5">
+                        <span
+                          className="min-w-0 max-w-full truncate font-mono text-xs text-text-secondary"
+                          title={job.id}
+                        >
+                          {job.id}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setExpandedJob((prev) =>
+                              prev === job.id ? null : job.id,
+                            )
+                          }
+                          aria-expanded={expandedJob === job.id}
+                          title={t('cron.show_recent_runs')}
+                        >
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${
+                              expandedJob === job.id ? 'rotate-180' : ''
+                            }`}
+                          />
+                          {t('cron.run_history')}
+                        </Button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 font-medium text-center text-foreground">
+                      {job.name ?? '-'}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <Badge tone={job.job_type === 'agent' ? 'ok' : 'neutral'}>
+                        {job.job_type === 'agent' ? t('cron.job_type_agent') : t('cron.job_type_shell')}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-2.5 font-mono text-xs max-w-50 truncate text-center text-text-secondary">
+                      {job.prompt ?? job.command}
+                    </td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-center text-muted-foreground">
+                      {scheduleTimezone(job) ?? t('cron.runtime_local_timezone')}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-center text-muted-foreground">
+                      {formatDate(job.next_run)}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <div className="flex items-center gap-1.5 justify-center">
+                        {statusIcon(job.last_status)}
+                        <span className="text-xs capitalize text-text-secondary">
+                          {job.last_status ?? '-'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <Badge tone={job.enabled ? 'ok' : 'neutral'}>
+                        {job.enabled ? t('cron.enabled_status') : t('cron.disabled_status')}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleTrigger(job.id)}
+                          title={t('cron.trigger')}
+                          aria-label={t('cron.trigger')}
+                          disabled={triggering === job.id}
+                        >
+                          {triggering === job.id ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleEnabled(job)}
+                          title={job.enabled ? t('cron.pause') : t('cron.resume')}
+                          aria-label={job.enabled ? t('cron.pause') : t('cron.resume')}
+                          disabled={toggling === job.id}
+                        >
+                          {toggling === job.id ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : job.enabled ? (
+                            <Pause className="h-4 w-4" />
+                          ) : (
+                            <Power className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditModal(job)}
+                          title={t('cron.edit')}
+                          aria-label={t('cron.edit')}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {confirmDelete === job.id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-xs text-status-error">
+                              {t('cron.confirm_delete')}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(job.id)}
+                              className="text-xs font-medium text-status-error cursor-pointer hover:underline"
+                            >
+                              {t('cron.yes')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelete(null)}
+                              className="text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                            >
+                              {t('cron.no')}
+                            </button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfirmDelete(job.id)}
+                            title={t('cron.delete')}
+                            aria-label={t('cron.delete')}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  {expandedJob === job.id && (
+                    <tr>
+                      <td colSpan={9} className="bg-secondary border-b border-border">
+                        <RunHistoryPanel jobId={job.id} refreshKey={runHistoryRefresh[job.id] ?? 0} />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+    </div>
+      {/* Add / Edit task — right-side drawer, same pattern as Roles / Users */}
+      <DetailPanelSurface open={modalJob !== null}>
+        {modalJob !== null && (
+          <DetailPanel
+            icon={
+              <IconTile>
+                <Clock className="h-[18px] w-[18px] text-muted-foreground" />
+              </IconTile>
+            }
+            title={isEditing ? t('cron.edit_modal_title') : t('cron.add_modal_title')}
+            subtitle={isEditing ? (modalJob as CronJob).name : undefined}
+            onClose={closeModal}
+          >
             {formError && (
               <div className="mb-4 rounded-[var(--radius-md)] border border-status-error/25 bg-status-error/10 p-3 text-sm text-status-error">
                 {formError}
@@ -966,203 +1165,9 @@ export default function Cron() {
                   : t(isEditing ? 'cron.save' : 'cron.add_job')}
               </Button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Inline trigger-error banner — keeps the cron table mounted on failed manual runs */}
-      {triggerError && (
-        <div role="alert" className="rounded-[var(--radius-md)] border border-status-error/25 bg-status-error/10 p-3 text-sm text-status-error flex items-start justify-between gap-3">
-          <span className="whitespace-pre-wrap break-words">{triggerError}</span>
-          <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setTriggerError(null)} aria-label={t('cron.dismiss')}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-
-      {/* Inline pause/resume-error banner — keeps the cron table mounted on a failed
-          toggle or when the daemon silently ignores the `enabled` change */}
-      {toggleError && (
-        <div role="alert" className="rounded-[var(--radius-md)] border border-status-error/25 bg-status-error/10 p-3 text-sm text-status-error flex items-start justify-between gap-3">
-          <span className="whitespace-pre-wrap break-words">{toggleError}</span>
-          <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setToggleError(null)} aria-label={t('cron.dismiss')}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-
-      {/* Jobs Table */}
-      {jobs.length === 0 ? (
-        <Card className="p-10 text-center">
-          <Clock className="h-10 w-10 mx-auto mb-3 text-text-faint" />
-          <p className="text-sm text-muted-foreground">{t('cron.empty')}</p>
-        </Card>
-      ) : (
-        <Card padded={false} className="overflow-auto flex-1 min-h-0">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="border-b border-border text-[11px] font-medium uppercase tracking-wider text-text-faint">
-                <th className="px-4 py-2.5 text-left font-medium">{t('cron.id')}</th>
-                <th className="px-4 py-2.5 text-center font-medium">{t('cron.name')}</th>
-                <th className="px-4 py-2.5 text-center font-medium">{t('cron.job_type')}</th>
-                <th className="px-4 py-2.5 text-center font-medium">{t('cron.command')}</th>
-                <th className="px-4 py-2.5 text-center font-medium">{t('cron.timezone')}</th>
-                <th className="px-4 py-2.5 text-center font-medium">{t('cron.next_run')}</th>
-                <th className="px-4 py-2.5 text-center font-medium">{t('cron.last_status')}</th>
-                <th className="px-4 py-2.5 text-center font-medium">{t('cron.enabled')}</th>
-                <th className="px-4 py-2.5 text-center font-medium">{t('cron.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {jobs.map((job) => (
-                <React.Fragment key={job.id}>
-                  <tr className="border-b border-border/60 last:border-0">
-                    <td className="px-4 py-2.5 max-w-44">
-                      <div className="flex min-w-0 flex-col items-start gap-1.5">
-                        <span
-                          className="min-w-0 max-w-full truncate font-mono text-xs text-text-secondary"
-                          title={job.id}
-                        >
-                          {job.id}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            setExpandedJob((prev) =>
-                              prev === job.id ? null : job.id,
-                            )
-                          }
-                          aria-expanded={expandedJob === job.id}
-                          title={t('cron.show_recent_runs')}
-                        >
-                          <ChevronDown
-                            className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${
-                              expandedJob === job.id ? 'rotate-180' : ''
-                            }`}
-                          />
-                          {t('cron.run_history')}
-                        </Button>
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5 font-medium text-center text-foreground">
-                      {job.name ?? '-'}
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <Badge tone={job.job_type === 'agent' ? 'ok' : 'neutral'}>
-                        {job.job_type === 'agent' ? t('cron.job_type_agent') : t('cron.job_type_shell')}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-xs max-w-50 truncate text-center text-text-secondary">
-                      {job.prompt ?? job.command}
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-center text-muted-foreground">
-                      {scheduleTimezone(job) ?? t('cron.runtime_local_timezone')}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-center text-muted-foreground">
-                      {formatDate(job.next_run)}
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <div className="flex items-center gap-1.5 justify-center">
-                        {statusIcon(job.last_status)}
-                        <span className="text-xs capitalize text-text-secondary">
-                          {job.last_status ?? '-'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <Badge tone={job.enabled ? 'ok' : 'neutral'}>
-                        {job.enabled ? t('cron.enabled_status') : t('cron.disabled_status')}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleTrigger(job.id)}
-                          title={t('cron.trigger')}
-                          aria-label={t('cron.trigger')}
-                          disabled={triggering === job.id}
-                        >
-                          {triggering === job.id ? (
-                            <RefreshCw className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Play className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleEnabled(job)}
-                          title={job.enabled ? t('cron.pause') : t('cron.resume')}
-                          aria-label={job.enabled ? t('cron.pause') : t('cron.resume')}
-                          disabled={toggling === job.id}
-                        >
-                          {toggling === job.id ? (
-                            <RefreshCw className="h-4 w-4 animate-spin" />
-                          ) : job.enabled ? (
-                            <Pause className="h-4 w-4" />
-                          ) : (
-                            <Power className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditModal(job)}
-                          title={t('cron.edit')}
-                          aria-label={t('cron.edit')}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        {confirmDelete === job.id ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <span className="text-xs text-status-error">
-                              {t('cron.confirm_delete')}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(job.id)}
-                              className="text-xs font-medium text-status-error cursor-pointer hover:underline"
-                            >
-                              {t('cron.yes')}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setConfirmDelete(null)}
-                              className="text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
-                            >
-                              {t('cron.no')}
-                            </button>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setConfirmDelete(job.id)}
-                            title={t('cron.delete')}
-                            aria-label={t('cron.delete')}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  {expandedJob === job.id && (
-                    <tr>
-                      <td colSpan={9} className="bg-secondary border-b border-border">
-                        <RunHistoryPanel jobId={job.id} refreshKey={runHistoryRefresh[job.id] ?? 0} />
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
+          </DetailPanel>
+        )}
+      </DetailPanelSurface>
     </div>
   );
 }
