@@ -72,6 +72,7 @@ $Branches = @(
     "fork/acp-surface-split",                  # [gateway.public]: /acp alone on a TLS public listener, admin/api/dashboard private
     "fork/authz-roles-rest",                   # GET /api/authz/principals, /admin/paircode/new?principal=, CLI get-paircode --principal
     "fork/authz-profiles-rest",                # /api/authz/profiles CRUD + /api/authz/principals/{id}/profiles bind/unbind (panel Roles page), persisted via config write boundary
+    "fork/authz-external-seen",               # GET/DELETE /api/authz/external: external (SSO) subjects recorded on admitted OIDC login (authz-external.json), panel Users page read-only group
     "fork/acp-oidc-dispatch-hardening",        # /acp bearer dispatch by shape (JWT -> oidc.<alias>, zc_ -> pairing, no fallback), wire error data, revocation/401/persist hardening, fmt/clippy fixups
     "fork/oidc-private-ca",                    # [oidc.<alias>].tls_ca_cert_path: trust an on-prem CA for the issuer (discovery/JWKS/introspection), fail closed on a bad file
     "fork/voltd-rebrand",                      # cli.ftl + Rust literals zeroclaw->voltd / ZeroClaw->Volt (--version, banners, hints), panel display_name + logo, [[bin]] voltd (crate names stay zeroclaw)
