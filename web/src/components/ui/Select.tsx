@@ -10,6 +10,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useDropUp } from "./useDropUp";
 
 export interface SelectOption {
   value: string;
@@ -52,6 +53,7 @@ export function Select({
   const rootRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const dropUp = useDropUp(open, listRef);
   const reactId = useId();
   const listboxId = `${id ?? reactId}-listbox`;
 
@@ -145,7 +147,10 @@ export function Select({
           ref={listRef}
           id={listboxId}
           role="listbox"
-          className="absolute z-30 mt-1 max-h-60 w-max min-w-full max-w-[min(24rem,90vw)] overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card p-1 shadow-[var(--color-shadow-md)]"
+          className={cn(
+            "absolute z-30 max-h-60 w-max min-w-full max-w-[min(24rem,90vw)] overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card p-1 shadow-[var(--color-shadow-md)]",
+            dropUp ? "bottom-full mb-1" : "mt-1",
+          )}
         >
           {options.map((o, i) => {
             const sel = o.value === value;

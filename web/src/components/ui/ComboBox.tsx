@@ -10,6 +10,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
+import { useDropUp } from "./useDropUp";
 import { t } from "@/lib/i18n";
 
 export interface ComboBoxProps {
@@ -52,6 +53,7 @@ export function ComboBox({
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const dropUp = useDropUp(open, listRef);
   const reactId = useId();
   const listboxId = `${id ?? reactId}-listbox`;
 
@@ -170,7 +172,7 @@ export function ComboBox({
           ref={listRef}
           id={listboxId}
           role="listbox"
-          className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card p-1 shadow-[var(--color-shadow-md)]"
+          className={`absolute z-30 ${dropUp ? "bottom-full mb-1" : "mt-1"} max-h-60 w-full overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card p-1 shadow-[var(--color-shadow-md)]`}
         >
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-xs text-muted-foreground">{emptyText}</li>
