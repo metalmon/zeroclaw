@@ -76,6 +76,7 @@ $Branches = @(
     "fork/acp-oidc-dispatch-hardening",        # /acp bearer dispatch by shape (JWT -> oidc.<alias>, zc_ -> pairing, no fallback), wire error data, revocation/401/persist hardening, fmt/clippy fixups
     "fork/oidc-private-ca",                    # [oidc.<alias>].tls_ca_cert_path: trust an on-prem CA for the issuer (discovery/JWKS/introspection), fail closed on a bad file
     "fork/drift-auto-approve",                 # reload drift check normalizes auto_approve like the loader (no permanent "differs from disk" banner)
+    "fork/doctor-i18n-ru",                     # ru cli.ftl + ru locale registration; doctor findings/reasons through Fluent (cli-doctor-*), RU for doctor/daemon banner/pairing/config warnings/RPC auth; voltd hints in the new keys
     "fork/voltd-rebrand",                      # cli.ftl + Rust literals zeroclaw->voltd / ZeroClaw->Volt (--version, banners, hints), panel display_name + logo, [[bin]] voltd (crate names stay zeroclaw)
     "local/dev-tooling"                       # local-only: fork CI (fork-build.yml) + this script; self-restoring, keep last
 )
