@@ -41,7 +41,9 @@ use crate::security::auth_provider::{
     Credential, NativeAuthProvider, OidcAuthProvider, PeercredAuthProvider, ProviderRegistry,
     UidRoster,
 };
-use crate::security::principal_resolver::{PrincipalResolver, ResolvedPrincipal, ResolverPolicy};
+use crate::security::principal_resolver::{
+    OidcMembership, PrincipalResolver, ResolvedPrincipal, ResolverPolicy,
+};
 
 /// The authenticated state one connection holds after `initialize`.
 /// Grants are a stamped resolution, not a snapshot: the gate re-resolves
@@ -402,6 +404,14 @@ impl RpcInboundAuth {
         identity: &AuthenticatedIdentity,
     ) -> Result<ResolvedPrincipal, DenyReason> {
         self.state().resolve(identity)
+    }
+
+    /// The groups and mapped profile aliases an admitted OIDC human identity
+    /// carries under the accepted policy (see
+    /// [`PrincipalResolver::oidc_membership`]). `None` for other subjects.
+    #[must_use]
+    pub fn oidc_membership(&self, identity: &AuthenticatedIdentity) -> Option<OidcMembership> {
+        self.state().resolver.oidc_membership(identity)
     }
 
     /// The live pairing authority, for per-operation revocation checks.

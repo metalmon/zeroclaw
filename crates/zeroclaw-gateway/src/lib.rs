@@ -10,6 +10,7 @@ pub mod acp;
 pub mod agent_owned_state;
 pub mod api;
 pub mod api_authz;
+pub mod api_authz_external;
 pub mod api_browse;
 pub mod api_config;
 pub mod api_logs;
@@ -725,6 +726,11 @@ pub struct AppState {
     /// reload. See `zeroclaw_config::authz::TokenBindingStore` and
     /// `acp::resolve_principal`.
     pub token_bindings: Arc<zeroclaw_config::authz::TokenBindingStore>,
+    /// Fork-local registry of external (OIDC) subjects the gateway has
+    /// admitted at least once; `GET /api/authz/external` reads it. Shared
+    /// `Arc` with the inbound-auth layer, which records every successful
+    /// scoped login. See `api_authz_external::ExternalSubjectStore`.
+    pub external_subjects: Arc<api_authz_external::ExternalSubjectStore>,
     pub trust_forwarded_headers: bool,
     pub rate_limiter: Arc<GatewayRateLimiter>,
     pub auth_limiter: Arc<auth_rate_limit::AuthRateLimiter>,
@@ -2194,10 +2200,16 @@ pub async fn run_gateway_with_plugin_webhooks(
     // Standalone runs build their own from config and the local pairing
     // guard. Either way the policy moves only when a config mutation
     // persists (see `persist_and_swap`).
-    let inbound_auth = Arc::new(match shared_inbound_auth {
-        Some(shared) => principal_gate::GatewayInboundAuth::from_shared(shared),
-        None => principal_gate::GatewayInboundAuth::from_config(&config, Arc::clone(&pairing))?,
-    });
+    let external_subjects = Arc::new(api_authz_external::ExternalSubjectStore::new(
+        &config.data_dir,
+    ));
+    let inbound_auth = Arc::new(
+        match shared_inbound_auth {
+            Some(shared) => principal_gate::GatewayInboundAuth::from_shared(shared),
+            None => principal_gate::GatewayInboundAuth::from_config(&config, Arc::clone(&pairing))?,
+        }
+        .with_external_subjects(Arc::clone(&external_subjects)),
+    );
 
     let state = AppState {
         config: config_state,
@@ -2213,6 +2225,7 @@ pub async fn run_gateway_with_plugin_webhooks(
         token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new(
             &config.data_dir,
         )),
+        external_subjects,
         trust_forwarded_headers: config.gateway.trust_forwarded_headers,
         rate_limiter,
         auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -2311,6 +2324,14 @@ pub async fn run_gateway_with_plugin_webhooks(
         .route(
             "/api/authz/principals",
             get(api_authz::handle_list_principals),
+        )
+        .route(
+            "/api/authz/external",
+            get(api_authz::handle_list_external_subjects),
+        )
+        .route(
+            "/api/authz/external/{id}",
+            delete(api_authz::handle_forget_external_subject),
         )
         .route("/api/version/check", get(version::handle_version_check))
         .route("/api/version/upgrade", post(version::handle_version_upgrade))
@@ -6233,6 +6254,9 @@ mod tests {
                 PairingCodePolicy::default(),
             )),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -7826,6 +7850,9 @@ path = "{trigger_path}"
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -7918,6 +7945,9 @@ path = "{trigger_path}"
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -8601,6 +8631,9 @@ path = "{trigger_path}"
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -10192,6 +10225,9 @@ data: [DONE]\n\n";
             mcp_pool: None,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -11115,6 +11151,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -11242,6 +11281,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -11348,6 +11390,9 @@ data: [DONE]\n\n";
             auto_save: true,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -11668,6 +11713,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -11761,6 +11809,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -11859,6 +11910,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -11962,6 +12016,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -12062,6 +12119,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -12170,6 +12230,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -12314,6 +12377,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -13214,6 +13280,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -13305,6 +13374,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -13923,6 +13995,9 @@ data: [DONE]\n\n";
             auto_save: false,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),

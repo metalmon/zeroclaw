@@ -40,6 +40,17 @@ pub struct ResolvedPrincipal {
     pub generation: u64,
 }
 
+/// What an OIDC human identity's claims map to under the installed policy:
+/// the raw group values found at the provider's `claim_path` and the
+/// permission-profile aliases `profile_map` assigns them (sorted, deduped).
+/// Informational, for admin surfaces that list who has been seen; grants
+/// still come only from [`PrincipalResolver::resolve`].
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct OidcMembership {
+    pub groups: Vec<String>,
+    pub profiles: Vec<String>,
+}
+
 /// The identity-mapping half of one `[oidc.<alias>]` trust relationship.
 #[derive(Clone, Debug, Default)]
 pub struct OidcMapping {
@@ -171,7 +182,10 @@ impl ResolverPolicy {
 /// values found there as strings. A string claim yields itself; an array
 /// yields its string members; an object yields its KEYS (the shape
 /// Zitadel-style role claims use, where roles are keys of an object).
-fn claim_values(claims: &serde_json::Map<String, serde_json::Value>, path: &str) -> Vec<String> {
+pub fn claim_values(
+    claims: &serde_json::Map<String, serde_json::Value>,
+    path: &str,
+) -> Vec<String> {
     let mut cursor: Option<&serde_json::Value> = None;
     for segment in path.split('.') {
         cursor = match cursor {
@@ -289,6 +303,29 @@ impl PrincipalResolver {
             grants,
             generation,
         })
+    }
+
+    /// The groups and mapped profile aliases an OIDC HUMAN identity carries
+    /// under the current policy. `None` for every other subject kind, or when
+    /// the identity names no `[oidc.<alias>]` mapping. Does not check the
+    /// issuer or the profiles' existence: callers only ever use this after
+    /// [`Self::resolve`] has admitted the identity.
+    #[must_use]
+    pub fn oidc_membership(&self, identity: &AuthenticatedIdentity) -> Option<OidcMembership> {
+        if !matches!(identity.subject, IdentitySubject::Oidc { .. }) {
+            return None;
+        }
+        let policy = Arc::clone(&self.state.read().0);
+        let mapping = policy.oidc.get(identity.provider_alias.as_deref()?)?;
+        let groups = claim_values(&identity.claims, &mapping.claim_path);
+        let mut profiles: Vec<String> = groups
+            .iter()
+            .filter_map(|value| mapping.profile_map.get(value))
+            .cloned()
+            .collect();
+        profiles.sort_unstable();
+        profiles.dedup();
+        Some(OidcMembership { groups, profiles })
     }
 
     fn resolve_grants(
@@ -542,6 +579,35 @@ mod tests {
     }
 
     #[test]
+    fn oidc_membership_reports_groups_and_mapped_profiles() {
+        let resolver = PrincipalResolver::new(policy());
+        let membership = resolver
+            .oidc_membership(&oidc_identity(serde_json::json!([
+                "zeroclaw-ops",
+                "unmapped",
+                "zeroclaw-readers",
+                "zeroclaw-ops"
+            ])))
+            .expect("oidc identities have a membership");
+        assert_eq!(
+            membership.groups,
+            vec![
+                "zeroclaw-ops",
+                "unmapped",
+                "zeroclaw-readers",
+                "zeroclaw-ops"
+            ]
+        );
+        assert_eq!(membership.profiles, vec!["ops", "reader"]);
+        assert!(
+            resolver
+                .oidc_membership(&AuthenticatedIdentity::shared_operator(AuthMethod::Native))
+                .is_none(),
+            "only OIDC human subjects carry a membership"
+        );
+    }
+
+    #[test]
     fn oidc_multi_profile_union_is_order_independent() {
         let resolver = PrincipalResolver::new(policy());
         let ab = resolver
@@ -734,12 +800,13 @@ mod tests {
         use zeroclaw_config::authz::PrincipalRecord;
         use zeroclaw_config::schema::PermissionProfileConfig;
         let mut config = Config::default();
-        config
-            .permission_profiles
-            .insert("crm".to_string(), PermissionProfileConfig {
+        config.permission_profiles.insert(
+            "crm".to_string(),
+            PermissionProfileConfig {
                 allowed_agents: vec!["crm-bot".to_string()],
                 ..PermissionProfileConfig::default()
-            });
+            },
+        );
         config.authz.principals.push(PrincipalRecord {
             id: "device-alice".to_string(),
             token_hashes: vec!["abc123".to_string()],
@@ -775,8 +842,7 @@ mod tests {
             token_hashes: vec!["zzz".to_string()],
             profiles: vec![],
         });
-        let resolver =
-            PrincipalResolver::new(ResolverPolicy::from_config(&config).expect("valid"));
+        let resolver = PrincipalResolver::new(ResolverPolicy::from_config(&config).expect("valid"));
         let identity = AuthenticatedIdentity::new(
             IdentitySubject::Roster {
                 principal_id: "pending-device".to_string(),
