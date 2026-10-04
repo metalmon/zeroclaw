@@ -2624,11 +2624,10 @@ pub async fn run_gateway_with_plugin_webhooks(
     } else {
         None
     };
-    let inner = if public_enabled {
-        inner
-    } else {
-        inner.merge(public_router(state.clone()))
-    };
+    // The private router always carries `/acp` itself (dashboard console,
+    // local tooling), so nothing is merged in when the public listener is
+    // off: a second `/acp` registration would make axum panic at startup.
+    let _ = public_enabled;
 
     // Nest under path prefix when configured (axum strips prefix before routing).
     // nest() at "/prefix" handles both "/prefix" and "/prefix/*" but not "/prefix/"
