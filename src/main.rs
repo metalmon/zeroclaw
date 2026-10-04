@@ -1355,15 +1355,15 @@ the runtime local timezone. For user-facing schedules, pass --tz with \
 an explicit IANA timezone.
 
 Examples:
-  zeroclaw cron list
-  zeroclaw cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
-  zeroclaw cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
-  zeroclaw cron add '*/5 * * * *' 'echo ok' --agent sentinel
-  zeroclaw cron add-at 2099-01-15T14:00:00Z 'Send reminder' --agent sentinel --prompt
-  zeroclaw cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt
-  zeroclaw cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt
-  zeroclaw cron pause TASK_ID
-  zeroclaw cron update TASK_ID --expression '0 8 * * *' --tz Europe/London")]
+  voltd cron list
+  voltd cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
+  voltd cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
+  voltd cron add '*/5 * * * *' 'echo ok' --agent sentinel
+  voltd cron add-at 2099-01-15T14:00:00Z 'Send reminder' --agent sentinel --prompt
+  voltd cron add-every 60000 'Ping heartbeat' --agent sentinel --prompt
+  voltd cron once 30m 'Run backup in 30 minutes' --agent sentinel --prompt
+  voltd cron pause TASK_ID
+  voltd cron update TASK_ID --expression '0 8 * * *' --tz Europe/London")]
     Cron {
         #[command(subcommand)]
         cron_command: CronCommands,
@@ -7065,20 +7065,23 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                             );
                             if let Some(principal_id) = principal {
                                 println!();
+                                // i18n-exempt: literal identifier interpolation, matches surrounding CLI output
+                                println!("  🏷️  Tagged for principal '{principal_id}'.");
+                                // i18n-exempt: operator instructions, matches surrounding CLI output
                                 println!(
-                                    "  🏷️  Tagged for principal '{principal_id}'." // i18n-exempt: literal identifier interpolation, matches surrounding CLI output
+                                    "  On redemption the token is automatically bound to this"
                                 );
+                                // i18n-exempt: operator instructions, matches surrounding CLI output
                                 println!(
-                                    "  On redemption the token is automatically bound to this" // i18n-exempt: operator instructions, matches surrounding CLI output
+                                    "  principal in the runtime binding store — effective on the"
                                 );
+                                // i18n-exempt: operator instructions, matches surrounding CLI output
                                 println!(
-                                    "  principal in the runtime binding store — effective on the" // i18n-exempt: operator instructions, matches surrounding CLI output
+                                    "  next connect, no reload. Its permissions come from the"
                                 );
+                                // i18n-exempt: operator instructions, matches surrounding CLI output
                                 println!(
-                                    "  next connect, no reload. Its permissions come from the" // i18n-exempt: operator instructions, matches surrounding CLI output
-                                );
-                                println!(
-                                    "  [permission_profiles.*] entries its [[authz.principals]] record names." // i18n-exempt: operator instructions, matches surrounding CLI output
+                                    "  [permission_profiles.*] entries its [[authz.principals]] record names."
                                 );
                             }
                         }
