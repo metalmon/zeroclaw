@@ -153,7 +153,8 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function Roles() {
-  const { profiles, principals, agents, loading, error, createProfile, updateProfile, deleteProfile } = useRoles();
+  const { profiles, principals, external, agents, loading, error, createProfile, updateProfile, deleteProfile } =
+    useRoles();
 
   const [form, setForm] = useState<ProfileFormState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -162,15 +163,25 @@ export default function Roles() {
   const [pendingDelete, setPendingDelete] = useState<AuthzProfile | null>(null);
   const [deleteAffected, setDeleteAffected] = useState<{ profileId: string; principals: string[] } | null>(null);
 
-  // How many local users hold each role — a count, not a management surface
-  // (users are bound/unbound on the Users page).
+  // How many users hold each role, local and external (SSO) separately — a
+  // count, not a management surface (users are bound/unbound on the Users page).
   const userCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const principal of principals) {
-      for (const pid of principal.profiles) counts.set(pid, (counts.get(pid) ?? 0) + 1);
-    }
+    const counts = new Map<string, { local: number; external: number }>();
+    const bump = (pid: string, kind: 'local' | 'external') => {
+      const c = counts.get(pid) ?? { local: 0, external: 0 };
+      c[kind] += 1;
+      counts.set(pid, c);
+    };
+    for (const principal of principals) for (const pid of principal.profiles) bump(pid, 'local');
+    for (const subject of external ?? []) for (const pid of subject.profiles) bump(pid, 'external');
     return counts;
-  }, [principals]);
+  }, [principals, external]);
+
+  const userCountLabel = (profileId: string): string => {
+    const c = userCounts.get(profileId);
+    if (!c || (c.local === 0 && c.external === 0)) return plural(0, 'roles.user_count');
+    return `${plural(c.local, 'roles.local_count')} · ${plural(c.external, 'roles.external_count')}`;
+  };
 
   const openCreate = () => {
     setFormError(null);
@@ -318,7 +329,7 @@ export default function Roles() {
                       </Badge>
                     </span>
                   }
-                  subtitle={plural(userCounts.get(profile.id) ?? 0, 'roles.user_count')}
+                  subtitle={userCountLabel(profile.id)}
                   trailingIcon={<ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
                 />
               ))}

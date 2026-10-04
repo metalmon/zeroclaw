@@ -6,6 +6,7 @@ import {
   deleteAuthzPrincipal,
   deleteAuthzProfile,
   getAuthzAgents,
+  getExternalSubjects,
   loadAuthzPrincipals,
   listAuthzProfiles,
   unbindPrincipalProfile,
@@ -14,11 +15,14 @@ import {
   type AuthzProfileBody,
   type AuthzPrincipalSummary,
   type DeleteAuthzProfileResponse,
+  type ExternalSubject,
 } from '@/lib/api';
 
 export interface UseRolesResult {
   profiles: AuthzProfile[];
   principals: AuthzPrincipalSummary[];
+  /** External (SSO) users; `null` when the gateway has no such route (404). */
+  external: ExternalSubject[] | null;
   /** Every configured agent alias, for the `allowed_agents` multiselect. */
   agents: string[];
   loading: boolean;
@@ -47,6 +51,7 @@ export interface UseRolesResult {
 export function useRoles(): UseRolesResult {
   const [profiles, setProfiles] = useState<AuthzProfile[]>([]);
   const [principals, setPrincipals] = useState<AuthzPrincipalSummary[]>([]);
+  const [external, setExternal] = useState<ExternalSubject[] | null>(null);
   const [agents, setAgents] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,13 +59,16 @@ export function useRoles(): UseRolesResult {
   const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [profilesResp, principalsList, agentsResp] = await Promise.all([
+      const [profilesResp, principalsList, agentsResp, externalList] = await Promise.all([
         listAuthzProfiles(),
         loadAuthzPrincipals(),
         getAuthzAgents(),
+        // Older gateways have no external-users route: that is a hidden group, not an error.
+        getExternalSubjects().catch(() => null),
       ]);
       setProfiles(profilesResp.profiles);
       setPrincipals(principalsList);
+      setExternal(externalList);
       setAgents(agentsResp.agents);
       setError(null);
     } catch (err) {
@@ -136,6 +144,7 @@ export function useRoles(): UseRolesResult {
   return {
     profiles,
     principals,
+    external,
     agents,
     loading,
     error,

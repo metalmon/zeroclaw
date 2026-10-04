@@ -251,7 +251,8 @@ test('the Roles page renders profiles with their user counts and no user rows', 
   const text = nodeText(renderer.root);
   assert.ok(text.includes('crm'), 'the crm profile id is rendered');
   assert.ok(text.includes('ops'), 'the ops profile id is rendered');
-  assert.ok(text.includes('1 user'), 'ops shows the one user (bob) bound to it');
+  assert.ok(text.includes('1 local · 0 external'), 'ops shows the one local user (bob) bound to it');
+  assert.ok(text.includes('0 users'), 'crm (nobody bound) shows the plain zero');
   assert.ok(!text.includes('alice'), 'users are not listed on the Roles page');
 
   await act(async () => { renderer.unmount(); });

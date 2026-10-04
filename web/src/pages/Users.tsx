@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Plus, Trash2, User, UserRound, X } from 'lucide-react';
 import { useRoles } from '@/hooks/useRoles';
 import {
   HttpError,
   forgetExternalSubject,
-  getExternalSubjects,
   getMapKeys,
   type AuthzProfile,
   type AuthzPrincipalSummary,
@@ -205,8 +204,18 @@ function UserForm({
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function Users() {
-  const { profiles, principals, loading, error, bindProfile, unbindProfile, createPrincipal, deletePrincipal } =
-    useRoles();
+  const {
+    profiles,
+    principals,
+    external,
+    loading,
+    error,
+    refetch,
+    bindProfile,
+    unbindProfile,
+    createPrincipal,
+    deletePrincipal,
+  } = useRoles();
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [bindSelection, setBindSelection] = useState<Record<string, string>>({});
@@ -218,24 +227,13 @@ export default function Users() {
   /** Set when a plain delete came back 409: devices/tokens are still bound. */
   const [forceDelete, setForceDelete] = useState<AuthzPrincipalSummary | null>(null);
   const [hasIdp, setHasIdp] = useState(false);
-  /** `null` = the gateway has no external-users route (404): the group is hidden. */
-  const [external, setExternal] = useState<ExternalSubject[] | null>(null);
   const [pendingForget, setPendingForget] = useState<ExternalSubject | null>(null);
 
-  const loadExternal = useCallback(async () => {
-    try {
-      setExternal(await getExternalSubjects());
-    } catch {
-      setExternal(null);
-    }
-  }, []);
-
   useEffect(() => {
-    void loadExternal();
     getMapKeys('oidc')
       .then(({ keys }) => setHasIdp(keys.length > 0))
       .catch(() => setHasIdp(false));
-  }, [loadExternal]);
+  }, []);
 
   // PENDING first (they need attention), then everyone else, both
   // alphabetical within their bucket.
@@ -344,7 +342,7 @@ export default function Users() {
     setActionError(null);
     try {
       await forgetExternalSubject(target.id);
-      await loadExternal();
+      await refetch();
     } catch (err) {
       setActionError(friendlyError(err, 'users.forget_error'));
     }
