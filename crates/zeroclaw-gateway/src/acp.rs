@@ -545,18 +545,6 @@ pub(crate) enum Resolution {
     Denied,
 }
 
-impl Resolution {
-    /// The resolved subject, if any — for callers that only act on a
-    /// positive resolution and treat both denials alike.
-    #[must_use]
-    pub(crate) fn into_resolved(self) -> Option<(Principal, ResolvedGrants)> {
-        match self {
-            Self::Resolved(principal_and_grants) => Some(*principal_and_grants),
-            Self::VerifiedNotEntitled | Self::Denied => None,
-        }
-    }
-}
-
 /// Resolve a presented bearer to a [`Principal`] + its [`ResolvedGrants`]
 /// via the ACP-dedicated registry (the provider [`select_provider`] picks
 /// by credential shape: `"pairing"` or `oidc.<alias>`) and the shared
@@ -1261,12 +1249,12 @@ mod revocation_tests {
     use super::*;
     use zeroclaw_config::authz::{PrincipalRecord, TokenBindingStore};
     use zeroclaw_config::pairing::{PairingCodePolicy, PairingGuard};
-    use zeroclaw_config::schema::PermissionProfileConfig;
+    use zeroclaw_config::schema::{AliasedAgentConfig, PermissionProfileConfig};
 
     /// `require_pairing = true`, `paired` as the live paired set, `alice`
-    /// configured with one entitled agent (the `crm` profile), `bound`
-    /// pre-seeded into the live binding store, `pinned` as alice's
-    /// `token_hashes`.
+    /// configured with one entitled agent (`crm-bot`, via the `crm`
+    /// profile), `bound` pre-seeded into the live binding store, `pinned`
+    /// as alice's `token_hashes`.
     fn state_with(paired: &[&str], bound: &[&str], pinned: &[&str]) -> AppState {
         state_with_profiles(paired, bound, pinned, &["crm"])
     }
@@ -1282,6 +1270,11 @@ mod revocation_tests {
     ) -> AppState {
         let mut config = Config::default();
         config.gateway.require_pairing = true;
+        // `validate_auth` rejects a profile naming an agent that is not
+        // configured, so the entitled agent must exist.
+        config
+            .agents
+            .insert("crm-bot".to_string(), AliasedAgentConfig::default());
         config.permission_profiles.insert(
             "crm".to_string(),
             PermissionProfileConfig {
@@ -1344,10 +1337,11 @@ mod revocation_tests {
     #[tokio::test]
     async fn bound_and_paired_token_resolves_to_its_principal() {
         let state = state_with(&["zc_bound"], &["zc_bound"], &[]);
-        let (principal, grants) = resolve_principal(&state, Some("zc_bound"))
-            .await
-            .into_resolved()
-            .expect("a paired AND bound token resolves");
+        let Resolution::Resolved(resolved) = resolve_principal(&state, Some("zc_bound")).await
+        else {
+            panic!("a paired AND bound token resolves");
+        };
+        let (principal, grants) = *resolved;
         assert!(principal.is_authenticated(), "a distinct Roster principal");
         assert_eq!(principal.display_id, "alice");
         assert!(grants.may_use_agent("crm-bot"));
