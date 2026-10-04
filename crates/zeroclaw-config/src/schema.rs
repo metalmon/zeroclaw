@@ -14049,6 +14049,14 @@ pub struct OidcConfig {
     /// operation must re-introspect or fail closed. `0` = revalidate at
     /// every privileged operation.
     pub revalidation_secs: u64,
+    /// PEM file with the CA that signed the issuer's TLS certificate, for an
+    /// issuer behind a private CA. Absolute path to a regular file; its
+    /// certificates are added to the built-in Mozilla roots for this alias's
+    /// discovery, JWKS, and introspection fetches only. A missing, unreadable,
+    /// or invalid file is a hard error when the provider is built, never a
+    /// fallback to the default trust store.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tls_ca_cert_path: Option<String>,
 }
 
 impl std::fmt::Debug for OidcConfig {
@@ -14078,6 +14086,7 @@ impl std::fmt::Debug for OidcConfig {
             .field("require_at_jwt", &self.require_at_jwt)
             .field("max_auth_lifetime_secs", &self.max_auth_lifetime_secs)
             .field("revalidation_secs", &self.revalidation_secs)
+            .field("tls_ca_cert_path", &self.tls_ca_cert_path)
             .finish()
     }
 }
@@ -14111,6 +14120,7 @@ impl Default for OidcConfig {
             require_at_jwt: true,
             max_auth_lifetime_secs: default_oidc_max_auth_lifetime_secs(),
             revalidation_secs: default_oidc_revalidation_secs(),
+            tls_ca_cert_path: None,
         }
     }
 }
@@ -14427,6 +14437,14 @@ impl OidcConfig {
         }
         if self.actor_claim != self.actor_claim.trim() {
             anyhow::bail!("oidc.{alias}.actor_claim must not have surrounding whitespace");
+        }
+        if let Some(ca_path) = self.tls_ca_cert_path.as_deref() {
+            if ca_path.trim().is_empty() {
+                anyhow::bail!("oidc.{alias}.tls_ca_cert_path must not be empty");
+            }
+            if !std::path::Path::new(ca_path).is_absolute() {
+                anyhow::bail!("oidc.{alias}.tls_ca_cert_path must be an absolute path");
+            }
         }
         Ok(())
     }
@@ -29866,6 +29884,40 @@ zeroclaw-operators = "operator"
         config.oidc.get_mut("corp").unwrap().require_at_jwt = false;
         let err = config.validate().unwrap_err().to_string();
         assert!(err.contains("require_at_jwt"), "got: {err}");
+    }
+
+    #[::core::prelude::v1::test]
+    fn oidc_tls_ca_cert_path_defaults_to_system_roots() {
+        assert!(OidcConfig::default().tls_ca_cert_path.is_none());
+        let parsed: OidcConfig =
+            toml::from_str("issuer = \"https://sso.example.com\"\naudience = \"a\"").unwrap();
+        assert!(parsed.tls_ca_cert_path.is_none());
+    }
+
+    #[::core::prelude::v1::test]
+    fn oidc_tls_ca_cert_path_rejects_empty_and_relative_paths() {
+        let mut config = auth_config();
+        config.oidc.get_mut("corp").unwrap().tls_ca_cert_path = Some("  ".into());
+        let err = config.validate().unwrap_err().to_string();
+        assert!(
+            err.contains("tls_ca_cert_path must not be empty"),
+            "got: {err}"
+        );
+
+        config.oidc.get_mut("corp").unwrap().tls_ca_cert_path = Some("certs/ca.pem".into());
+        let err = config.validate().unwrap_err().to_string();
+        assert!(
+            err.contains("tls_ca_cert_path must be an absolute path"),
+            "got: {err}"
+        );
+
+        let absolute = if cfg!(windows) {
+            r"C:\certs\ca.pem"
+        } else {
+            "/etc/volt/ca.pem"
+        };
+        config.oidc.get_mut("corp").unwrap().tls_ca_cert_path = Some(absolute.into());
+        config.validate().unwrap();
     }
 
     #[::core::prelude::v1::test]
