@@ -137,7 +137,7 @@ pub fn handle_command(command: crate::CronCommands, config: &Config) -> Result<(
             if jobs.is_empty() {
                 println!("{}", get_required_cli_string("cli-cron-none"));
                 println!("\n{}", get_required_cli_string("cli-cron-usage"));
-                println!("  zeroclaw cron add '0 9 * * *' 'echo ok' --agent sentinel"); // i18n-exempt: literal command example
+                println!("  voltd cron add '0 9 * * *' 'echo ok' --agent sentinel"); // i18n-exempt: literal command example
                 return Ok(());
             }
 
