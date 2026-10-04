@@ -1301,6 +1301,9 @@ mod provider_select_tests {
     fn oidc_state() -> AppState {
         let mut config = config_with_issuers(&[("thunderbolt", "https://idp")]);
         let oidc = config.oidc.get_mut("thunderbolt").unwrap();
+        // `validate_auth` (run by `PrincipalResolver::from_config`) requires
+        // an audience; without one every admission fails closed as Denied.
+        oidc.audience = "zeroclaw".to_owned();
         oidc.claim_path = "groups".to_owned();
         oidc.profile_map.insert("ops".to_owned(), "crm".to_owned());
         config
