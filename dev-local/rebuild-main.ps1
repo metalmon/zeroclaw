@@ -71,7 +71,8 @@ $Branches = @(
     "fork/acp-surface-split",                  # [gateway.public]: /acp alone on a TLS public listener, admin/api/dashboard private
     "fork/authz-roles-rest",                   # GET /api/authz/principals, /admin/paircode/new?principal=, CLI get-paircode --principal
     "fork/acp-oidc-dispatch-hardening",        # /acp bearer dispatch by shape (JWT -> oidc.<alias>, zc_ -> pairing, no fallback), wire error data, revocation/401/persist hardening, fmt/clippy fixups
-    "fork/voltd-rebrand",                      # cli.ftl zeroclaw->voltd / ZeroClaw->Volt, panel display_name + logo, [[bin]] voltd (crate names stay zeroclaw)
+    "fork/oidc-private-ca",                    # [oidc.<alias>].tls_ca_cert_path: trust an on-prem CA for the issuer (discovery/JWKS/introspection), fail closed on a bad file
+    "fork/voltd-rebrand",                      # cli.ftl + Rust literals zeroclaw->voltd / ZeroClaw->Volt (--version, banners, hints), panel display_name + logo, [[bin]] voltd (crate names stay zeroclaw)
     "local/dev-tooling"                       # local-only: fork CI (fork-build.yml) + this script; self-restoring, keep last
 )
 
