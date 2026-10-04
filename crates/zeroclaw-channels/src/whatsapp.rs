@@ -507,7 +507,7 @@ impl WhatsAppChannel {
                             )
                             .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
                             .with_attrs(::serde_json::json!({"normalized_from": normalized_from})),
-                            "ignoring message from unauthorized number: . Add to channels.whatsapp.allowed_numbers in config.toml, or run `zeroclaw config set channels.whatsapp.allowed-numbers='[\"<msisdn>\"]'`."
+                            "ignoring message from unauthorized number: . Add to channels.whatsapp.allowed_numbers in config.toml, or run `voltd config set channels.whatsapp.allowed-numbers='[\"<msisdn>\"]'`."
                         );
                         continue;
                     }
@@ -2887,14 +2887,14 @@ mod tests {
             "entry": [{
                 "changes": [{
                     "value": {
-                        "messages": [group_msg("111", "1", "@zeroclaw status")]
+                        "messages": [group_msg("111", "1", "@voltd status")]
                     }
                 }]
             }]
         });
         let msgs = ch.parse_webhook_payload(&payload);
         assert_eq!(msgs.len(), 1);
-        assert_eq!(msgs[0].content, "@zeroclaw status");
+        assert_eq!(msgs[0].content, "@voltd status");
     }
 
     #[test]

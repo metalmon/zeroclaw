@@ -39,7 +39,7 @@ impl InstallSuggestion {
         let (message_key, install_command) = match self.install_kind {
             InstallKind::Skill => (
                 "cli-skills-install-suggestion",
-                format!("zeroclaw skills install {}", self.source),
+                format!("voltd skills install {}", self.source),
             ),
             #[cfg(feature = "plugins-wasm")]
             InstallKind::Plugin => ("cli-plugin-install-suggestion", self.source.clone()),
@@ -545,7 +545,7 @@ mod tests {
         assert!(
             suggestion
                 .render_user_message()
-                .contains("zeroclaw skills install calendar")
+                .contains("voltd skills install calendar")
         );
     }
 
@@ -622,7 +622,7 @@ tags = ["scheduling"]
         )
         .expect("cached registry metadata should render a suggestion");
         assert!(suggestion.contains("calendar"));
-        assert!(suggestion.contains("zeroclaw skills install calendar"));
+        assert!(suggestion.contains("voltd skills install calendar"));
         assert!(!suggestion.contains("body-only secret phrase"));
         assert!(!dir.path().join("skills").exists());
     }
@@ -723,7 +723,7 @@ aliases = ["team calendar"]
         assert!(
             suggestion
                 .render_user_message()
-                .contains("zeroclaw skills install registry:acme/team-calendar")
+                .contains("voltd skills install registry:acme/team-calendar")
         );
     }
 
@@ -815,7 +815,7 @@ aliases = ["team calendar"]
         )
         .expect("skill registry metadata should suggest installation first");
 
-        assert!(suggestion.contains("zeroclaw skills install"));
+        assert!(suggestion.contains("voltd skills install"));
         assert!(!suggestion.contains("zeroclaw plugin install"));
     }
 

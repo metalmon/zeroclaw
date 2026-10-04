@@ -535,7 +535,7 @@ fn warn_skipped_skill(path: &Path, summary: &str, scripts_blocked: bool, allow_s
         );
         eprintln!(
             "warning: skill '{}' was skipped because it contains script files. \
-             Set `skills.allow_scripts = true` in your zeroclaw config to enable it.",
+             Set `skills.allow_scripts = true` in your Volt config to enable it.",
             path.file_name()
                 .map(|n| n.to_string_lossy().into_owned())
                 .unwrap_or_else(|| path.display().to_string()),
@@ -1993,7 +1993,7 @@ pub fn init_skills_dir(workspace_dir: &Path) -> Result<()> {
     if !readme.exists() {
         std::fs::write(
             &readme,
-            "# ZeroClaw Skills\n\n\
+            "# Volt Skills\n\n\
              Each subdirectory is a skill. Create a `SKILL.toml` or `SKILL.md` file inside.\n\n\
              ## SKILL.toml format\n\n\
              ```toml\n\
@@ -2015,8 +2015,8 @@ pub fn init_skills_dir(workspace_dir: &Path) -> Result<()> {
              The agent will read it and follow the instructions.\n\n\
              ## Installing community skills\n\n\
              ```bash\n\
-             zeroclaw skills install <source>\n\
-             zeroclaw skills list\n\
+             voltd skills install <source>\n\
+             voltd skills list\n\
              ```\n",
         )?;
     }

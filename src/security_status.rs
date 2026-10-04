@@ -222,7 +222,7 @@ pub fn build_report(config: &Config, agent_alias: &str) -> Result<SecurityStatus
 pub fn print_report(report: &SecurityStatusReport) {
     println!(
         "{}",
-        crate::t("cli-security-status-title", "ZeroClaw Security Status")
+        crate::t("cli-security-status-title", "Volt Security Status")
     );
     println!(
         "{}",

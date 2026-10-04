@@ -3661,9 +3661,9 @@ impl TelegramChannel {
     /// the default case would just be noise.
     fn suggested_bind_command(alias: &str, identity: &str) -> String {
         if alias == "default" {
-            format!("zeroclaw channel bind-telegram {identity}")
+            format!("voltd channel bind-telegram {identity}")
         } else {
-            format!("zeroclaw channel bind-telegram {identity} --alias {alias}")
+            format!("voltd channel bind-telegram {identity} --alias {alias}")
         }
     }
 
@@ -4531,7 +4531,7 @@ impl TelegramChannel {
                                     let _ = reservation.commit();
                                     let _ = self
                                         .send(&SendMessage::new(
-                                            "✅ Telegram account bound successfully. You can talk to ZeroClaw now.",
+                                            "✅ Telegram account bound successfully. You can talk to Volt now.",
                                             &chat_id,
                                         ))
                                         .await;
@@ -15022,7 +15022,7 @@ mod tests {
         // stay byte-identical for existing default-alias users.
         assert_eq!(
             TelegramChannel::suggested_bind_command("default", "123456789"),
-            "zeroclaw channel bind-telegram 123456789"
+            "voltd channel bind-telegram 123456789"
         );
     }
 
@@ -15033,7 +15033,7 @@ mod tests {
         // asking for approval.
         assert_eq!(
             TelegramChannel::suggested_bind_command("alerts", "123456789"),
-            "zeroclaw channel bind-telegram 123456789 --alias alerts"
+            "voltd channel bind-telegram 123456789 --alias alerts"
         );
     }
 

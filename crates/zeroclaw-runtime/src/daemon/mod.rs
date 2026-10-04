@@ -1525,7 +1525,7 @@ fn record_daemon_started(config: &Config, host: &str, port: u16) {
                 "pairing_enabled": config.gateway.require_pairing,
                 "stop_signal": "Ctrl+C or SIGTERM",
             })),
-        "ZeroClaw daemon started"
+        "Volt daemon started"
     );
 }
 
@@ -3034,7 +3034,7 @@ mod tests {
 
         record_daemon_started(&config, "127.0.0.1", 0);
 
-        let value = recv_log_event(&mut rx, "ZeroClaw daemon started").await;
+        let value = recv_log_event(&mut rx, "Volt daemon started").await;
         assert_eq!(value["event"]["category"], "system");
         assert_eq!(value["event"]["action"], "start");
         assert_eq!(value["event"]["outcome"], "success");
@@ -4873,7 +4873,7 @@ mod tests {
         assert_eq!(
             detect_gateway_bind_mode(&Config::default(), "127.0.0.1", port).await,
             GatewayBindMode::GatewayAlreadyRunning,
-            "a ZeroClaw /health on an occupied port is recognised as a gateway"
+            "a Volt /health on an occupied port is recognised as a gateway"
         );
     }
 
@@ -4887,7 +4887,7 @@ mod tests {
         assert_eq!(
             detect_gateway_bind_mode(&Config::default(), "127.0.0.1", port).await,
             GatewayBindMode::PortOccupied,
-            "a generic status:ok health response is not a ZeroClaw gateway"
+            "a generic status:ok health response is not a Volt gateway"
         );
     }
 
