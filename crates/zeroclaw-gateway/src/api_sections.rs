@@ -1577,6 +1577,9 @@ mod tests {
             token_bindings: std::sync::Arc::new(
                 zeroclaw_config::authz::TokenBindingStore::new_ephemeral(),
             ),
+            external_subjects: std::sync::Arc::new(
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             trust_forwarded_headers: false,
             rate_limiter: std::sync::Arc::new(crate::GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: std::sync::Arc::new(crate::auth_rate_limit::AuthRateLimiter::new()),

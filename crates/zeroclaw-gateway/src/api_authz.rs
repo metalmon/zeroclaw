@@ -31,6 +31,7 @@ use zeroclaw_config::api_error::{ConfigApiCode, ConfigApiError};
 use zeroclaw_config::schema::{Config, PermissionProfileConfig};
 
 use super::api::require_auth;
+use super::api_authz_external::ExternalSubjectRecord;
 use super::api_config::persist_and_swap;
 use super::{AppState, ConfigWriteGuard};
 use crate::principal_gate::{ConfigWriteSet, RequestPrincipal, authorize_config_write};
@@ -158,6 +159,51 @@ pub async fn handle_list_principals(State(state): State<AppState>, headers: Head
         })
         .collect();
     Json(PrincipalsListResponse { principals }).into_response()
+}
+
+// ── External (SSO) subjects ─────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct ExternalSubjectsListResponse {
+    pub subjects: Vec<ExternalSubjectRecord>,
+}
+
+/// `GET /api/authz/external`: every external (identity-provider) subject
+/// the gateway has admitted at least once, most recently seen first. ADMIN
+/// only, like the principals listing. Read-only: these subjects' grants come
+/// from the provider's groups via `[oidc.<alias>].profile_map`.
+pub async fn handle_list_external_subjects(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e.into_response();
+    }
+    Json(ExternalSubjectsListResponse {
+        subjects: state.external_subjects.list(),
+    })
+    .into_response()
+}
+
+/// `DELETE /api/authz/external/{id}`: forget one seen subject (the id is
+/// the canonical principal id, URL-encoded by the caller). The next login
+/// records it again; nothing about its access changes. 404 when unknown.
+pub async fn handle_forget_external_subject(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e.into_response();
+    }
+    if !state.external_subjects.forget(&id) {
+        return not_found(
+            format!("External subject '{id}' has not been seen"),
+            format!("authz.external.{id}"),
+        );
+    }
+    Json(serde_json::json!({ "id": id, "deleted": true })).into_response()
 }
 
 // ── Shared error + persistence plumbing ─────────────────────────────
@@ -997,6 +1043,95 @@ mod tests {
             !json.to_string().contains("token_hashes"),
             "token hashes must never be enumerated"
         );
+    }
+
+    // ── External (SSO) subjects ─────────────────────────────────────
+
+    fn seen_external(state: &AppState, sub: &str) -> String {
+        use zeroclaw_api::principal::{AuthMethod, AuthenticatedIdentity, IdentitySubject};
+        use zeroclaw_runtime::security::principal_resolver::OidcMembership;
+        let identity = AuthenticatedIdentity::new(
+            IdentitySubject::Oidc {
+                issuer: "https://sso.example.com/realms/main".into(),
+                subject: sub.into(),
+            },
+            AuthMethod::Oidc,
+        )
+        .with_provider_alias("corp");
+        state
+            .external_subjects
+            .record_login(
+                &identity,
+                OidcMembership {
+                    groups: vec!["volt-kb".into()],
+                    profiles: vec!["kb".into()],
+                },
+                false,
+            )
+            .expect("recorded")
+            .id
+    }
+
+    #[tokio::test]
+    async fn list_external_subjects_returns_seen_subjects_for_an_admin() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let id = seen_external(&state, "carol");
+        let response =
+            handle_list_external_subjects(State(state.clone()), bearer_headers(alice)).await;
+        let (status, json) = response_json(response).await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        let subjects = json["subjects"].as_array().expect("subjects array");
+        assert_eq!(subjects.len(), 1);
+        assert_eq!(subjects[0]["id"], id);
+        assert_eq!(subjects[0]["provider"], "corp");
+        assert_eq!(subjects[0]["subject"], "carol");
+        assert_eq!(subjects[0]["groups"], serde_json::json!(["volt-kb"]));
+        assert_eq!(subjects[0]["profiles"], serde_json::json!(["kb"]));
+        assert_eq!(subjects[0]["admin"], false);
+        assert_eq!(subjects[0]["logins"], 1);
+    }
+
+    #[tokio::test]
+    async fn forget_external_subject_deletes_and_404s_on_unknown() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let id = seen_external(&state, "carol");
+        let response = handle_forget_external_subject(
+            State(state.clone()),
+            bearer_headers(alice),
+            Path(id.clone()),
+        )
+        .await;
+        let (status, json) = response_json(response).await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert_eq!(json, serde_json::json!({ "id": id, "deleted": true }));
+        assert!(state.external_subjects.list().is_empty());
+
+        let response =
+            handle_forget_external_subject(State(state), bearer_headers(alice), Path(id)).await;
+        let (status, json) = response_json(response).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(json["code"], "path_not_found");
+    }
+
+    #[tokio::test]
+    async fn external_subjects_are_forbidden_for_a_non_admin() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, _, bob) = enforced_state(&tmp);
+        let id = seen_external(&state, "carol");
+        let response =
+            handle_list_external_subjects(State(state.clone()), bearer_headers(bob)).await;
+        let (status, json) = response_json(response).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(json["code"], "forbidden");
+
+        let response =
+            handle_forget_external_subject(State(state.clone()), bearer_headers(bob), Path(id))
+                .await;
+        let (status, _) = response_json(response).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(state.external_subjects.list().len(), 1, "nothing forgotten");
     }
 
     #[tokio::test]
