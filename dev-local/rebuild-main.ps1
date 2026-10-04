@@ -118,8 +118,12 @@ foreach ($b in $Branches) {
     Write-Host "==> cherry-pick $base..$b" -ForegroundColor Cyan
     git cherry-pick "$base..$b"
     # A multi-commit range can stop more than once; drive the sequence until
-    # it finishes or hits a conflict we cannot settle here.
-    while ($LASTEXITCODE -ne 0) {
+    # it finishes or hits a conflict we cannot settle here. Do not trust the
+    # exit code alone: a pick that rerere staged has been seen to leave the
+    # sequencer parked with exit 0, and the next range then fails with
+    # "cherry-pick is already in progress" while the loop walks on.
+    $gitDir = git rev-parse --git-dir
+    while ($LASTEXITCODE -ne 0 -or (Test-Path (Join-Path $gitDir "CHERRY_PICK_HEAD")) -or (Test-Path (Join-Path $gitDir "sequencer"))) {
         $inProgress = Test-Path (Join-Path (git rev-parse --git-dir) "CHERRY_PICK_HEAD")
         if (-not $inProgress) {
             Write-Host "!!! cherry-pick failed on $b with no pick in progress." -ForegroundColor Red
