@@ -238,6 +238,21 @@ $fixups = @(
         From = "            Some(reload_controls),`n" + ("            None,`n" * 7) + "        ));"
         To   = "            Some(reload_controls),`n" + ("            None,`n" * 9) + "        ));"
     }
+    # The upstream route-pinning test calls from_pinned_live_config_… whose
+    # parameter list three branches each extend by one (wire_skills, then
+    # task_supervisor, then mcp_registry). Their independent edits of the same
+    # argument list merge into 11 `None`s where the definition wants
+    # `…, &[], None, None`: rewrite the tail once the tree is assembled.
+    @{
+        File = "crates/zeroclaw-runtime/src/agent/agent.rs"
+        From = "            None,`n            None,`n        )`n        .await`n        .expect(`"direct Agent construction`");"
+        To   = "            &[],`n            None,`n            None,`n        )`n        .await`n        .expect(`"direct Agent construction`");"
+    }
+    @{
+        File = "crates/zeroclaw-runtime/src/agent/agent.rs"
+        From = "            None,`n            None,`n        )`n        .await`n        .expect(`"replacement direct Agent construction`");"
+        To   = "            &[],`n            None,`n            None,`n        )`n        .await`n        .expect(`"replacement direct Agent construction`");"
+    }
     # `anyhow!` is disallowed by clippy.toml; mcp_tasks/mod.rs (feat/mcp-tasks-host)
     # still uses it. Proper home is that branch; patched here to keep main green.
     # Single-quoted because the string contains backticks (`{alias}`).
