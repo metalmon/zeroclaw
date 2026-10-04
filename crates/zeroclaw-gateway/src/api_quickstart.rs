@@ -31,8 +31,53 @@ pub enum ApplyResult {
 
 pub async fn handle_state(State(state): State<AppState>) -> impl IntoResponse {
     let cfg = state.config.read().clone();
-    let body = zeroclaw_runtime::quickstart::snapshot_state(&cfg);
+    let mut body = zeroclaw_runtime::quickstart::snapshot_state(&cfg);
+    body.channel_types
+        .retain(|opt| offers_channel_kind(&opt.kind, &cfg.gateway.onboarding_channel_types));
     (StatusCode::OK, Json(body)).into_response()
+}
+
+/// Whether the Quickstart "create new channel" picker may offer `kind`.
+///
+/// The runtime snapshot lists every kind the schema knows; this gate keeps
+/// only the kinds compiled into this binary (`zeroclaw_channels::listing`),
+/// runnable on this platform (iMessage is macOS-only), and, when
+/// `[gateway].onboarding_channel_types` is non-empty, named there as well.
+/// Allowlist entries matching no compiled kind are ignored and reported
+/// once per process.
+pub(crate) fn offers_channel_kind(kind: &str, allowlist: &[String]) -> bool {
+    let compiled = zeroclaw_channels::listing::is_channel_type_compiled(kind)
+        && (kind != "imessage" || cfg!(target_os = "macos"));
+    if allowlist.is_empty() {
+        return compiled;
+    }
+    warn_unknown_allowlist_entries_once(allowlist);
+    compiled && allowlist.iter().any(|entry| same_kind(entry, kind))
+}
+
+/// Config keys accept both `whatsapp-web` and `whatsapp_web` spellings.
+fn same_kind(a: &str, b: &str) -> bool {
+    a.trim().replace('_', "-") == b.replace('_', "-")
+}
+
+fn warn_unknown_allowlist_entries_once(allowlist: &[String]) {
+    static WARNED: std::sync::Once = std::sync::Once::new();
+    WARNED.call_once(|| {
+        let unknown: Vec<&str> = allowlist
+            .iter()
+            .map(String::as_str)
+            .filter(|entry| !offers_channel_kind(&entry.trim().replace('_', "-"), &[]))
+            .collect();
+        if unknown.is_empty() {
+            return;
+        }
+        ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_attrs(::serde_json::json!({"unknown": unknown})),
+            "[gateway].onboarding_channel_types names channel kinds that are not compiled into this binary; ignored"
+        );
+    });
 }
 
 #[derive(Debug, Deserialize)]
@@ -295,5 +340,97 @@ mod tests {
         let result: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(result["kind"], "applied", "{result}");
         assert!(state.config.read().agents.contains_key("recreated"));
+    }
+
+    /// Schema channel kinds that pass the compiled/platform gate in this
+    /// test build, in snapshot order.
+    fn compiled_schema_channel_kinds() -> Vec<String> {
+        zeroclaw_runtime::quickstart::snapshot_state(&zeroclaw_config::schema::Config::default())
+            .channel_types
+            .into_iter()
+            .map(|opt| opt.kind)
+            .filter(|kind| offers_channel_kind(kind, &[]))
+            .collect()
+    }
+
+    #[test]
+    fn offered_channel_kinds_are_compiled_for_this_platform() {
+        let offered = compiled_schema_channel_kinds();
+        for kind in &offered {
+            assert!(
+                zeroclaw_channels::listing::is_channel_type_compiled(kind),
+                "{kind} offered but not compiled into this binary"
+            );
+        }
+        if cfg!(feature = "channel-email") {
+            assert!(offered.iter().any(|k| k == "email"));
+        }
+        assert!(cfg!(target_os = "macos") || !offered.iter().any(|k| k == "imessage"));
+        // The runtime snapshot still carries the full schema inventory; the
+        // gate is what hides the uncompiled kinds from the picker.
+        let snapshot = zeroclaw_runtime::quickstart::snapshot_state(
+            &zeroclaw_config::schema::Config::default(),
+        );
+        assert!(snapshot.channel_types.iter().any(|o| o.kind == "imessage"));
+        assert!(snapshot.channel_types.iter().any(|o| o.kind == "telegram"));
+    }
+
+    #[test]
+    fn allowlist_narrows_offered_kinds_and_ignores_unknown_entries() {
+        let compiled = compiled_schema_channel_kinds();
+        let allow = vec!["no-such-channel".to_string(), "telegram".to_string()];
+        assert!(!offers_channel_kind("no-such-channel", &allow));
+        assert!(!offers_channel_kind("no-such-channel", &[]));
+        assert_eq!(
+            offers_channel_kind("telegram", &allow),
+            zeroclaw_channels::listing::is_channel_type_compiled("telegram"),
+            "allowlisted kind is offered only when compiled"
+        );
+        let Some(keep) = compiled.first() else {
+            return;
+        };
+        let allow = vec![keep.clone(), "no-such-channel".to_string()];
+        let offered: Vec<&String> = compiled
+            .iter()
+            .filter(|kind| offers_channel_kind(kind, &allow))
+            .collect();
+        assert_eq!(offered, vec![keep]);
+        assert!(offers_channel_kind(
+            keep,
+            &[format!(" {} ", keep.replace('-', "_"))]
+        ));
+    }
+
+    #[tokio::test]
+    async fn state_endpoint_returns_only_offered_channel_kinds() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut config = zeroclaw_config::schema::Config {
+            data_dir: tmp.path().join("data"),
+            config_path: tmp.path().join("config.toml"),
+            ..Default::default()
+        };
+        std::fs::create_dir_all(&config.data_dir).unwrap();
+        let expected: Vec<String> = compiled_schema_channel_kinds()
+            .into_iter()
+            .take(1)
+            .collect();
+        config.gateway.onboarding_channel_types = expected
+            .iter()
+            .cloned()
+            .chain(["no-such-channel".to_string()])
+            .collect();
+        let state = crate::api::tests::test_state(config);
+        let response = handle_state(State(state)).await.into_response();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        let kinds: Vec<&str> = body["channel_types"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|opt| opt["kind"].as_str().unwrap())
+            .collect();
+        assert_eq!(kinds, expected);
     }
 }

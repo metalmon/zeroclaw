@@ -7908,6 +7908,14 @@ pub struct GatewayConfig {
     /// unless you trust every paired client. (default: false)
     #[serde(default)]
     pub allow_self_upgrade: bool,
+
+    /// Channel kinds the Quickstart "create new channel" picker may offer
+    /// (`channels.<kind>` keys, e.g. `["discord", "matrix", "webhook"]`).
+    /// Empty (the default) offers every kind compiled into this binary; a
+    /// non-empty list narrows that set further. Kinds that are not compiled
+    /// in are never offered, whatever this list says.
+    #[serde(default)]
+    pub onboarding_channel_types: Vec<String>,
 }
 
 fn default_gateway_port() -> u16 {
@@ -7994,6 +8002,7 @@ impl Default for GatewayConfig {
             long_running_request_timeout_secs: default_gateway_long_running_request_timeout_secs(),
             check_updates: true,
             allow_self_upgrade: false,
+            onboarding_channel_types: Vec::new(),
         }
     }
 }
@@ -35648,6 +35657,7 @@ allowed_numbers = ["+1", "+2"]
             long_running_request_timeout_secs: 600,
             check_updates: true,
             allow_self_upgrade: false,
+            onboarding_channel_types: vec!["discord".into()],
         };
         let toml_str = toml::to_string(&g).unwrap();
         let parsed: GatewayConfig = toml::from_str(&toml_str).unwrap();
@@ -35665,6 +35675,7 @@ allowed_numbers = ["+1", "+2"]
         assert_eq!(parsed.idempotency_max_keys, 4096);
         assert!(parsed.check_updates);
         assert!(!parsed.allow_self_upgrade);
+        assert_eq!(parsed.onboarding_channel_types, vec!["discord"]);
     }
 
     #[test]
