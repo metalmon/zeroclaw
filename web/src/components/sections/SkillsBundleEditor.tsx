@@ -538,16 +538,17 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
           onChange={(e) => setSlash(e.target.checked)}
         />
         <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Slash command
+          {t('skills_bundle.slash_command')}
         </span>
         <span className="text-xs" style={{ color: 'var(--color-text-faint)' }}>
-          — expose this skill as a <code>/command</code> in Discord (adds the{' '}
-          <code>slash</code> tag)
+          {t('skills_bundle.slash_command_hint_prefix')}<code>/command</code>
+          {t('skills_bundle.slash_command_hint_mid')}<code>slash</code>
+          {t('skills_bundle.slash_command_hint_suffix')}
         </span>
       </label>
       <div className="flex flex-col gap-1">
         <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-          Tags
+          {t('skills_bundle.tags_label')}
         </label>
         <div className="flex flex-wrap items-center gap-1.5">
           {editableTags.map((tag) => (
@@ -690,11 +691,11 @@ function SlashOptionsEditor({ options, onChange }: SlashOptionsEditorProps) {
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Slash command options
+            {t('skills_bundle.slash_options_title')}
           </span>
           <span className="text-xs" style={{ color: 'var(--color-text-faint)' }}>
-            Typed parameters this <code>/command</code> accepts. With none, the
-            skill runs with a single free-text argument.
+            {t('skills_bundle.slash_options_hint_prefix')}<code>/command</code>
+            {t('skills_bundle.slash_options_hint_suffix')}
           </span>
         </div>
         <button
@@ -703,13 +704,13 @@ function SlashOptionsEditor({ options, onChange }: SlashOptionsEditorProps) {
           disabled={kinds.length === 0}
           className="btn-secondary text-xs whitespace-nowrap disabled:opacity-40"
         >
-          + Add option
+          {t('skills_bundle.add_option')}
         </button>
       </div>
 
       {options.length === 0 ? (
         <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-          No options yet.
+          {t('skills_bundle.no_options')}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -781,7 +782,7 @@ function SlashOptionCard({
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1 flex-1 min-w-[8rem]">
           <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-            Name
+            {t('skills_bundle.option_name_label')}
           </label>
           <input
             type="text"
@@ -795,7 +796,7 @@ function SlashOptionCard({
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-            Type
+            {t('skills_bundle.option_type_label')}
           </label>
           <select
             value={option.type}
@@ -822,7 +823,7 @@ function SlashOptionCard({
             onChange={(e) => onChange({ required: e.target.checked })}
           />
           <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            Required
+            {t('skills_bundle.option_required_label')}
           </span>
         </label>
         <div className="flex-1" />
@@ -861,7 +862,7 @@ function SlashOptionCard({
 
       <div className="flex flex-col gap-1">
         <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-          Description
+          {t('skills_bundle.option_description_label')}
         </label>
         <input
           type="text"
@@ -877,12 +878,12 @@ function SlashOptionCard({
       {isNumeric && (
         <div className="flex flex-wrap gap-2">
           <NumField
-            label="Min"
+            label={t('skills_bundle.option_min')}
             value={option.min}
             onChange={(v) => onChange({ min: v })}
           />
           <NumField
-            label="Max"
+            label={t('skills_bundle.option_max')}
             value={option.max}
             onChange={(v) => onChange({ max: v })}
           />
@@ -892,13 +893,13 @@ function SlashOptionCard({
       {isString && (
         <div className="flex flex-wrap gap-2">
           <NumField
-            label="Min length"
+            label={t('skills_bundle.option_min_length')}
             value={option.min_length}
             onChange={(v) => onChange({ min_length: clampLen(v) })}
             integer
           />
           <NumField
-            label="Max length"
+            label={t('skills_bundle.option_max_length')}
             value={option.max_length}
             onChange={(v) => onChange({ max_length: clampLen(v) })}
             integer
@@ -942,7 +943,8 @@ function ChoicesEditor({ choices, onChange }: ChoicesEditorProps) {
     >
       <div className="flex items-center justify-between">
         <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-          Choices <span style={{ color: 'var(--color-text-faint)' }}>(optional, a fixed dropdown)</span>
+          {t('skills_bundle.choices_label')}{' '}
+          <span style={{ color: 'var(--color-text-faint)' }}>{t('skills_bundle.choices_hint')}</span>
         </label>
         <button
           type="button"
@@ -950,7 +952,7 @@ function ChoicesEditor({ choices, onChange }: ChoicesEditorProps) {
           className="text-xs px-2 py-0.5 rounded border"
           style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}
         >
-          + Choice
+          {t('skills_bundle.add_choice')}
         </button>
       </div>
       {choices.map((c, i) => (

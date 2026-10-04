@@ -84,13 +84,13 @@ export class ErrorBoundary extends Component<
               className="text-lg font-semibold mb-2"
               style={{ color: "var(--color-status-error)" }}
             >
-              Something went wrong
+              {t("error_boundary.title")}
             </h2>
             <p
               className="text-sm mb-4"
               style={{ color: "var(--color-muted-foreground)" }}
             >
-              A render error occurred. Check the browser console for details.
+              {t("error_boundary.body")}
             </p>
             <pre
               className="text-xs rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all font-mono"
@@ -108,7 +108,7 @@ export class ErrorBoundary extends Component<
               }}
               className="btn-electric mt-6 px-4 py-2 text-sm font-medium"
             >
-              Try again
+              {t("error_boundary.retry")}
             </button>
           </div>
         </div>
