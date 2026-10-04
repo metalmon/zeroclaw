@@ -457,10 +457,30 @@ pub struct OidcAuthProvider {
 impl OidcAuthProvider {
     pub fn new(alias: impl Into<String>, config: OidcConfig) -> anyhow::Result<Self> {
         let alias = alias.into();
-        let http = reqwest::Client::builder()
+        let mut builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(15))
-            .redirect(reqwest::redirect::Policy::none())
-            .build()?;
+            .redirect(reqwest::redirect::Policy::none());
+        // A private CA for the issuer is trusted ONLY when configured, and a
+        // configured file that cannot be read or parsed fails the provider
+        // outright: silently falling back to the default roots would make
+        // every fetch from that issuer fail later with a less obvious error.
+        if let Some(path) = config.tls_ca_cert_path.as_deref() {
+            let pem = std::fs::read(path).map_err(|e| {
+                anyhow::anyhow!("oidc.{alias}.tls_ca_cert_path: cannot read {path}: {e}")
+            })?;
+            let certs = reqwest::Certificate::from_pem_bundle(&pem).map_err(|e| {
+                anyhow::anyhow!(
+                    "oidc.{alias}.tls_ca_cert_path: {path} is not a PEM certificate bundle: {e}"
+                )
+            })?;
+            if certs.is_empty() {
+                anyhow::bail!("oidc.{alias}.tls_ca_cert_path: {path} contains no certificates");
+            }
+            for cert in certs {
+                builder = builder.add_root_certificate(cert);
+            }
+        }
+        let http = builder.build()?;
         Ok(Self {
             name: format!("oidc.{alias}"),
             alias,
@@ -2263,6 +2283,51 @@ mod tests {
         // Call discovery directly: an invalid JWT header would otherwise be
         // rejected before the claimed discovery branch is exercised.
         assert!(provider.discovery().await.is_err());
+    }
+
+    fn ca_config(path: &str) -> OidcConfig {
+        OidcConfig {
+            issuer: "https://sso.example.com".into(),
+            audience: "zeroclaw".into(),
+            tls_ca_cert_path: Some(path.into()),
+            ..OidcConfig::default()
+        }
+    }
+
+    #[test]
+    fn new_fails_closed_when_the_private_ca_file_is_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("absent.pem");
+        let err = OidcAuthProvider::new("corp", ca_config(path.to_str().unwrap()))
+            .err()
+            .expect("missing CA file must not fall back to the default roots")
+            .to_string();
+        assert!(err.contains("oidc.corp.tls_ca_cert_path"), "got: {err}");
+        assert!(err.contains("cannot read"), "got: {err}");
+    }
+
+    #[test]
+    fn new_fails_closed_when_the_private_ca_file_is_not_pem() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ca.pem");
+        std::fs::write(&path, b"not a certificate").unwrap();
+        let err = OidcAuthProvider::new("corp", ca_config(path.to_str().unwrap()))
+            .err()
+            .expect("garbage must not fall back to the default roots")
+            .to_string();
+        assert!(err.contains("oidc.corp.tls_ca_cert_path"), "got: {err}");
+    }
+
+    #[test]
+    fn new_accepts_a_private_ca_pem_bundle() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ca.pem");
+        let ca = rcgen::generate_simple_self_signed(vec!["sso.example.com".to_string()]).unwrap();
+        let pem = format!("{}\n{}", ca.cert.pem(), ca.cert.pem());
+        std::fs::write(&path, pem).unwrap();
+        let provider = OidcAuthProvider::new("corp", ca_config(path.to_str().unwrap()))
+            .expect("a readable PEM bundle builds the provider");
+        assert_eq!(provider.name(), "oidc.corp");
     }
 
     #[tokio::test]

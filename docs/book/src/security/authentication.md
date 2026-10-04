@@ -231,6 +231,13 @@ non-empty `Bearer` access token. A confidential client (an entry with a
 `client_secret`) authenticates with HTTP Basic on every request; a public
 client sends its `client_id` in the form.
 
+The issuer's TLS certificate is checked against the Mozilla roots built
+into the binary. An issuer behind a private CA (an on-premises IdP) needs
+`tls_ca_cert_path = "/absolute/path/ca.pem"` on its `[oidc.<alias>]` entry:
+the PEM file's certificates are added to the roots for that alias's
+discovery, JWKS, and introspection fetches. A missing or unreadable file
+fails the provider at startup rather than falling back to the default roots.
+
 `--browser` opens the system browser for you on macOS and Linux, and on
 every platform it also prints the sign-in URL so you can open it by
 hand in a browser on the same machine (the callback lands on a loopback
