@@ -83,7 +83,7 @@ const ZONE_LAYOUTS: [ZoneLayout; 12] = [
     ZoneLayout {
         zone: ZONE_SOURCE_DISPATCH_CLOSE,
         range_start: "  # ── Summary ───────────────────────────────────────────────────────",
-        range_end: "BIN=\"$CARGO_HOME/bin/zeroclaw\"\n\n# ── PATH setup",
+        range_end: "BIN=\"$CARGO_HOME/bin/voltd\"\n\n# ── PATH setup",
     },
     ZoneLayout {
         zone: ZONE_PATH_HANDOFF,
