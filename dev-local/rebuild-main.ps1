@@ -18,7 +18,8 @@ param(
     [string]$Remote   = "fork",     # fork remote: source of our branches + push target for main
     [string]$Upstream = "origin",   # upstream we mirror into master
     [switch]$Push,                  # also force-push the rebuilt main to $Remote
-    [string]$StartAt = ""           # resume: keep the current main, skip $Branches before this one (after a hand-resolved conflict)
+    [string]$StartAt = "",          # resume: keep the current main, skip $Branches before this one (after a hand-resolved conflict)
+    [switch]$SkipPicks              # resume: every branch is already on the current main; only run the post-assembly fixups (+ push)
 )
 
 $ErrorActionPreference = "Stop"
@@ -77,7 +78,10 @@ $Branches = @(
     "local/dev-tooling"                       # local-only: fork CI (fork-build.yml) + this script; self-restoring, keep last
 )
 
-if ($StartAt) {
+if ($SkipPicks) {
+    if ((git branch --show-current) -ne "main") { Write-Host "!!! -SkipPicks needs main checked out" -ForegroundColor Red; exit 1 }
+    Write-Host "==> post-assembly fixups only, on the current main" -ForegroundColor Cyan
+} elseif ($StartAt) {
     if ($Branches -notcontains $StartAt) { Write-Host "!!! -StartAt '$StartAt' is not in `$Branches" -ForegroundColor Red; exit 1 }
     if ((git branch --show-current) -ne "main") { Write-Host "!!! -StartAt needs main checked out" -ForegroundColor Red; exit 1 }
     Write-Host "==> resuming assembly on the current main at $StartAt" -ForegroundColor Cyan
@@ -96,6 +100,7 @@ if ($StartAt) {
 
 $skipping = [bool]$StartAt
 foreach ($b in $Branches) {
+    if ($SkipPicks) { break }
     if ($skipping) {
         if ($b -eq $StartAt) { $skipping = $false } else { continue }
     }
