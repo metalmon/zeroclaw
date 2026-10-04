@@ -515,7 +515,7 @@ pub struct QuickstartTypeOption {
 /// A wizard preset (risk or runtime) with its `label`/`help` localized to the
 /// process locale. Serializes identically to `RiskPreset`/`RuntimePreset`
 /// (`preset_name` / `label` / `help`), so the panel's generated types are
-/// unaffected — only the rendered text changes.
+/// unaffected; only the rendered text changes.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub struct LocalizedPreset {
