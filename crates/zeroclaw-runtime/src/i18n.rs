@@ -455,6 +455,7 @@ mod tests {
             (include_str!("../locales/fr/cli.ftl"), "fr"),
             (include_str!("../locales/ja/cli.ftl"), "ja"),
             (include_str!("../locales/zh-CN/cli.ftl"), "zh-CN"),
+            (include_str!("../locales/ru/cli.ftl"), "ru"),
         ];
 
         for (source, locale) in locales {
@@ -483,6 +484,61 @@ mod tests {
         )
         .expect("Spanish paircode fetch failure should format");
         assert!(spanish_fetch.contains(endpoint));
+    }
+
+    #[test]
+    fn doctor_findings_render_in_russian_and_fall_back_to_english() {
+        let sources = CliFtlSources {
+            locale: "ru".to_string(),
+            disk: None,
+            builtin: builtin_cli_ftl_source("ru"),
+        };
+        let ru_keys = [
+            ("cli-doctor-no-channels", &[][..]),
+            ("cli-doctor-model-probe-count", &[("count", "8")][..]),
+            (
+                "cli-doctor-provider-invalid",
+                &[("label", "openai.default"), ("reason", "boom")][..],
+            ),
+            ("cli-doctor-probe-timeout-message", &[][..]),
+            ("rpc-auth-required-token", &[][..]),
+        ];
+        for (key, args) in ru_keys {
+            let value = format_cli_string_with_args(&sources, key, args)
+                .unwrap_or_else(|| panic!("{key} should format in ru"));
+            assert!(
+                value
+                    .chars()
+                    .any(|c| ('\u{0400}'..='\u{04FF}').contains(&c)),
+                "{key} should render in Cyrillic; got: {value:?}"
+            );
+            for (_, arg) in args {
+                assert!(
+                    value.contains(arg),
+                    "{key} should inline {arg}; got: {value:?}"
+                );
+            }
+        }
+        let no_channels = format_cli_string_with_args(&sources, "cli-doctor-no-channels", &[])
+            .expect("ru no-channels finding should format");
+        assert!(
+            no_channels.contains("`voltd quickstart`"),
+            "{no_channels:?}"
+        );
+
+        // A key the ru catalog does not define resolves through the English fallback.
+        let en_only = format_cli_string_with_args(&sources, "cli-doctor-about", &[])
+            .expect("en-only key should fall back");
+        assert_eq!(
+            en_only,
+            format_ftl_message(
+                include_str!("../locales/en/cli.ftl"),
+                "en",
+                "cli-doctor-about",
+                &[]
+            )
+            .unwrap()
+        );
     }
 
     #[test]

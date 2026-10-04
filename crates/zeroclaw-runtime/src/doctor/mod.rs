@@ -117,7 +117,13 @@ enum ModelProbe {
 /// Render one model-probe row (`<label>: <detail>`) as a `DiagResult`.
 fn model_probe_row(label: &str, probe: &ModelProbe) -> DiagResult {
     let (severity, detail) = match probe {
-        ModelProbe::Ok(n) => (Severity::Ok, format!("{n} models")),
+        ModelProbe::Ok(n) => (
+            Severity::Ok,
+            crate::i18n::get_required_cli_string_with_args(
+                "cli-doctor-model-probe-count",
+                &[("count", &n.to_string())],
+            ),
+        ),
         ModelProbe::Err(severity, text) => (*severity, text.clone()),
     };
     DiagResult {
@@ -1270,7 +1276,10 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
                         cat,
                         crate::i18n::get_required_cli_string_with_args(
                             "cli-doctor-provider-temperature-ok",
-                            &[("label", &label), ("temperature", &format!("{temperature:.1}"))],
+                            &[
+                                ("label", &label),
+                                ("temperature", &format!("{temperature:.1}")),
+                            ],
                         ),
                     ));
                 }
@@ -1279,7 +1288,10 @@ fn check_config_semantics(config: &Config, items: &mut Vec<DiagItem>) {
                         cat,
                         crate::i18n::get_required_cli_string_with_args(
                             "cli-doctor-provider-temperature-out-of-range",
-                            &[("label", &label), ("temperature", &format!("{temperature:.1}"))],
+                            &[
+                                ("label", &label),
+                                ("temperature", &format!("{temperature:.1}")),
+                            ],
                         ),
                     ));
                 }
@@ -1654,8 +1666,10 @@ fn provider_validation_error(config: &Config, name: &str) -> Option<String> {
             err.to_string()
                 .lines()
                 .next()
-                .unwrap_or("invalid model_provider")
-                .into(),
+                .map(str::to_string)
+                .unwrap_or_else(|| {
+                    crate::i18n::get_required_cli_string("cli-doctor-provider-invalid-generic")
+                }),
         ),
     }
 }
@@ -1667,21 +1681,28 @@ fn embedding_provider_validation_error(name: &str) -> Option<String> {
     }
 
     let Some(url) = normalized.strip_prefix("custom:") else {
-        return Some("supported values: none, openai, custom:<url>".into());
+        return Some(crate::i18n::get_required_cli_string(
+            "cli-doctor-embedding-provider-supported-values",
+        ));
     };
 
     let url = url.trim();
     if url.is_empty() {
-        return Some("custom model_provider requires a non-empty URL after 'custom:'".into());
+        return Some(crate::i18n::get_required_cli_string(
+            "cli-doctor-embedding-provider-custom-url-empty",
+        ));
     }
 
     match reqwest::Url::parse(url) {
         Ok(parsed) if matches!(parsed.scheme(), "http" | "https") => None,
-        Ok(parsed) => Some(format!(
-            "custom model_provider URL must use http/https, got '{}'",
-            parsed.scheme()
+        Ok(parsed) => Some(crate::i18n::get_required_cli_string_with_args(
+            "cli-doctor-embedding-provider-custom-url-scheme",
+            &[("scheme", parsed.scheme())],
         )),
-        Err(err) => Some(format!("invalid custom model_provider URL: {err}")),
+        Err(err) => Some(crate::i18n::get_required_cli_string_with_args(
+            "cli-doctor-embedding-provider-custom-url-invalid",
+            &[("error", &err.to_string())],
+        )),
     }
 }
 
@@ -2186,7 +2207,9 @@ fn check_cli_tools(items: &mut Vec<DiagItem>) {
                 .version
                 .as_deref()
                 .map(|v| truncate_for_display(v, COMMAND_VERSION_PREVIEW_CHARS))
-                .unwrap_or_else(|| "unknown version".to_string());
+                .unwrap_or_else(|| {
+                    crate::i18n::get_required_cli_string("cli-doctor-cli-tool-version-unknown")
+                });
             items.push(DiagItem::ok(
                 cat,
                 crate::i18n::get_required_cli_string_with_args(
