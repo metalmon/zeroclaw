@@ -1,8 +1,9 @@
 //! Fork-local authz admin control plane: the `GET /api/authz/principals`
 //! listing the panel's principal picker (role-at-pairing) reads, the
 //! `/api/authz/profiles` CRUD and `/api/authz/principals/{id}/profiles`
-//! bind/unbind the panel's Roles page drives, plus the shared admin gate
-//! they are all wired through.
+//! bind/unbind the panel's Roles page drives, principal create/delete
+//! (`POST /api/authz/principals`, `DELETE /api/authz/principals/{id}`), plus
+//! the shared admin gate they are all wired through.
 //!
 //! Schema reality on this branch: bearer-paired principals live in
 //! `[[authz.principals]]` (`zeroclaw_config::authz::PrincipalRecord`), their
@@ -517,7 +518,8 @@ pub struct PrincipalProfilesResponse {
 /// Replace `principal_id`'s `profiles` list with `profiles(current)` and
 /// persist. 404 when the principal is not configured, or when
 /// `required_profile` names a profile that is not. Both checks run under the
-/// config write lock. Principals are created by pairing, never here.
+/// config write lock. Principals are created by `handle_create_principal`
+/// or by pairing, never here.
 #[allow(clippy::result_large_err)]
 async fn write_principal_profiles(
     state: &AppState,
@@ -619,6 +621,237 @@ pub async fn handle_unbind_principal_profile(
         .into_response(),
         Err(response) => response,
     }
+}
+
+// ── Principal create / delete ───────────────────────────────────────
+
+/// Principal ids are dotted-path segments (`authz.principals.<id>.*`) and
+/// `IdentitySubject::Roster` keys, so they are kept to
+/// `[A-Za-z0-9][A-Za-z0-9_.@-]*` and at most 64 bytes. Dots are fine for the
+/// natural-key router (it longest-matches live keys).
+fn validate_principal_id(id: &str) -> Result<(), ConfigApiError> {
+    let mut chars = id.chars();
+    let head_ok = chars.next().is_some_and(|c| c.is_ascii_alphanumeric());
+    let tail_ok = chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '@' | '-'));
+    if head_ok && tail_ok && id.len() <= 64 {
+        return Ok(());
+    }
+    Err(ConfigApiError::new(
+        ConfigApiCode::InvalidFormat,
+        format!(
+            "principal id `{id}` is invalid: use letters, digits, `_`, `.`, `@` or `-`, starting with a letter or digit, at most 64 characters"
+        ),
+    )
+    .with_path("authz.principals"))
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct CreatePrincipalBody {
+    pub id: String,
+    #[serde(default)]
+    pub profiles: Vec<String>,
+}
+
+/// `POST /api/authz/principals` creates a `[[authz.principals]]` row with no
+/// bound tokens (tokens are bound by principal-tagged pairing). 409 when the
+/// id is already a principal, or already the effective principal id of a
+/// `[users.<name>]` entry (config validation requires the two namespaces to
+/// be disjoint); 404 when any named profile is not configured. `profiles`
+/// may be empty. Answers 201 with the same row shape as the listing.
+pub async fn handle_create_principal(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    principal: RequestPrincipal,
+    Json(body): Json<CreatePrincipalBody>,
+) -> Response {
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e.into_response();
+    }
+    if let Err(e) = validate_principal_id(&body.id) {
+        return error_response(e);
+    }
+
+    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;
+    let before = state.config.read().clone();
+    let mut working = before.clone();
+    let path = format!("authz.principals.{}", body.id);
+    if working.authz.by_id(&body.id).is_some() {
+        return conflict_response(format!("principal `{}` already exists", body.id), path);
+    }
+    if let Some(user) = working
+        .users
+        .iter()
+        .find(|(name, u)| u.effective_principal_id(name) == body.id.as_str())
+        .map(|(name, _)| name)
+    {
+        return conflict_response(
+            format!(
+                "principal id `{}` is already used by [users.{user}]; principal ids must be unique across [users] and [[authz.principals]]",
+                body.id
+            ),
+            path,
+        );
+    }
+    if let Some(profile_id) = body
+        .profiles
+        .iter()
+        .find(|p| !working.permission_profiles.contains_key(p.as_str()))
+    {
+        return not_found(
+            format!("profile `{profile_id}` is not configured"),
+            format!("permission_profiles.{profile_id}"),
+        );
+    }
+    if let Err(msg) = working.create_map_key("authz.principals", &body.id) {
+        return error_response(
+            ConfigApiError::new(ConfigApiCode::InternalError, msg).with_path(&path),
+        );
+    }
+    if let Err(e) = set_prop(
+        &mut working,
+        &format!("{path}.profiles"),
+        &json_list(&body.profiles),
+    ) {
+        return error_response(e);
+    }
+    if let Err(response) = commit(&state, &principal, &before, working, guard, None).await {
+        return response;
+    }
+    let admin = principal_is_admin(&state.config.read(), &body.id);
+    (
+        StatusCode::CREATED,
+        Json(PrincipalDto {
+            id: body.id,
+            profiles: body.profiles,
+            admin,
+            device_ids: Vec::new(),
+        }),
+    )
+        .into_response()
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct DeletePrincipalQuery {
+    /// `?force=1` (or `true`) also revokes every bearer bound to the
+    /// principal instead of refusing with 409.
+    #[serde(default)]
+    pub force: Option<String>,
+}
+
+impl DeletePrincipalQuery {
+    fn force(&self) -> bool {
+        matches!(self.force.as_deref().map(str::trim), Some("1" | "true"))
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct DeletePrincipalResponse {
+    pub id: String,
+    pub deleted: bool,
+}
+
+/// `DELETE /api/authz/principals/{id}` removes a `[[authz.principals]]`
+/// row. 404 when unknown. 409 while any bearer is still bound to it (inline
+/// `token_hashes` or a live `TokenBindingStore` binding) unless `?force=1`,
+/// in which case those bearers are revoked from the pairing guard and the
+/// binding store as part of the same write: the config row and
+/// `gateway.paired_tokens` persist together under the write lock, and the
+/// in-memory revocation happens only after that persist succeeds, so a
+/// refused or failed write leaves the runtime untouched.
+pub async fn handle_delete_principal(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    principal: RequestPrincipal,
+    Path(principal_id): Path<String>,
+    Query(q): Query<DeletePrincipalQuery>,
+) -> Response {
+    if let Err(e) = require_admin(&state, &headers).await {
+        return e.into_response();
+    }
+
+    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;
+    let before = state.config.read().clone();
+    let mut working = before.clone();
+    let path = format!("authz.principals.{principal_id}");
+    let Some(record) = working.authz.by_id(&principal_id).cloned() else {
+        return not_found(
+            format!("principal `{principal_id}` is not configured"),
+            "authz.principals".to_string(),
+        );
+    };
+    // Live bindings are enumerated (not removed) here; removal waits for
+    // the persisted write below.
+    let mut bound_hashes = record.token_hashes.clone();
+    bound_hashes.extend(
+        state.pairing.tokens().into_iter().filter(|hash| {
+            state.token_bindings.get(hash).as_deref() == Some(principal_id.as_str())
+        }),
+    );
+    bound_hashes.sort();
+    bound_hashes.dedup();
+    if !bound_hashes.is_empty() && !q.force() {
+        return conflict_response(
+            format!(
+                "principal `{principal_id}` still has {} bound token(s); revoke them first or pass ?force=1 to revoke them with the principal",
+                bound_hashes.len()
+            ),
+            format!("{path}.token_hashes"),
+        );
+    }
+
+    if let Err(msg) = working.delete_map_key("authz.principals", &principal_id) {
+        return error_response(
+            ConfigApiError::new(ConfigApiCode::PathNotFound, msg).with_path(&path),
+        );
+    }
+    working.mark_dirty(&path);
+    if !bound_hashes.is_empty() {
+        // Same write `persist_pairing_tokens` makes (live guard tokens
+        // minus the revoked ones), folded into this commit because that
+        // helper takes the config write lock itself.
+        working.gateway.paired_tokens = state
+            .pairing
+            .tokens()
+            .into_iter()
+            .filter(|hash| !bound_hashes.contains(hash))
+            .collect();
+        working.mark_dirty("gateway.paired_tokens");
+    }
+    if let Err(response) = commit(
+        &state,
+        &principal,
+        &before,
+        working,
+        guard,
+        Some((path, Verb::Delete)),
+    )
+    .await
+    {
+        return response;
+    }
+    for hash in &bound_hashes {
+        state.pairing.revoke_token_hash(hash);
+    }
+    if let Err(e) = state.token_bindings.remove_principal(&principal_id) {
+        ::zeroclaw_log::record!(
+            WARN,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                .with_attrs(::serde_json::json!({
+                    "principal_id": principal_id,
+                    "error": e.to_string(),
+                })),
+            "principal deleted but persisting the token binding store failed; its bindings are gone in-process and the deleted principal no longer resolves"
+        );
+    }
+    Json(DeletePrincipalResponse {
+        id: principal_id,
+        deleted: true,
+    })
+    .into_response()
 }
 
 #[cfg(test)]
@@ -1057,5 +1290,233 @@ mod tests {
         assert!(!cfg.permission_profiles.contains_key("mine"));
         assert!(!principal_is_admin(&cfg, "bob"));
         assert!(principal_is_admin(&cfg, "alice"));
+    }
+
+    // ── Principal create / delete ───────────────────────────────────
+
+    async fn create_principal(
+        state: &AppState,
+        token: &str,
+        id: &str,
+        profiles: &[&str],
+    ) -> (StatusCode, serde_json::Value) {
+        response_json(
+            handle_create_principal(
+                State(state.clone()),
+                bearer_headers(token),
+                None,
+                Json(CreatePrincipalBody {
+                    id: id.to_string(),
+                    profiles: profiles.iter().map(|p| p.to_string()).collect(),
+                }),
+            )
+            .await,
+        )
+        .await
+    }
+
+    async fn delete_principal(
+        state: &AppState,
+        token: &str,
+        id: &str,
+        force: bool,
+    ) -> (StatusCode, serde_json::Value) {
+        response_json(
+            handle_delete_principal(
+                State(state.clone()),
+                bearer_headers(token),
+                None,
+                Path(id.to_string()),
+                Query(DeletePrincipalQuery {
+                    force: force.then(|| "1".to_string()),
+                }),
+            )
+            .await,
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn create_principal_persists_and_lists_with_panel_shape() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let (status, json) = create_principal(&state, alice, "carol@corp", &["viewer"]).await;
+        assert_eq!(status, StatusCode::CREATED, "{json}");
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "id": "carol@corp", "profiles": ["viewer"], "admin": false, "device_ids": []
+            })
+        );
+        {
+            let cfg = state.config.read();
+            let carol = cfg.authz.by_id("carol@corp").expect("carol configured");
+            assert_eq!(carol.profiles, vec!["viewer".to_string()]);
+            assert!(carol.token_hashes.is_empty());
+        }
+        assert!(on_disk(&state).contains("carol@corp"));
+
+        let (status, json) = create_principal(&state, alice, "dave", &[]).await;
+        assert_eq!(status, StatusCode::CREATED, "{json}");
+        assert_eq!(json["profiles"], serde_json::json!([]));
+
+        let (status, json) = response_json(
+            handle_list_principals(State(state.clone()), bearer_headers(alice)).await,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        let ids: Vec<&str> = json["principals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, vec!["alice", "bob", "carol@corp", "dave"]);
+    }
+
+    #[tokio::test]
+    async fn create_principal_with_admin_profile_derives_admin_bit() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let (status, json) = create_principal(&state, alice, "root2", &["ops", "viewer"]).await;
+        assert_eq!(status, StatusCode::CREATED, "{json}");
+        assert_eq!(json["admin"], true);
+        assert!(principal_is_admin(&state.config.read(), "root2"));
+    }
+
+    #[tokio::test]
+    async fn create_principal_conflicts_on_existing_principal_or_user_id() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        state.config.write().users.insert(
+            "ivan".to_string(),
+            zeroclaw_config::schema::UserConfig::default(),
+        );
+        for taken in ["bob", "ivan"] {
+            let (status, json) = create_principal(&state, alice, taken, &[]).await;
+            assert_eq!(status, StatusCode::CONFLICT, "{taken}: {json}");
+            assert_eq!(json["code"], "conflict");
+            assert_eq!(json["path"], format!("authz.principals.{taken}"));
+        }
+        assert_eq!(
+            state.config.read().authz.by_id("bob").unwrap().profiles,
+            vec!["viewer".to_string()],
+            "a conflicting create must not touch the existing row"
+        );
+        assert!(state.config.read().authz.by_id("ivan").is_none());
+    }
+
+    #[tokio::test]
+    async fn create_principal_rejects_bad_ids_and_unknown_profiles() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let too_long = "a".repeat(65);
+        for bad in ["", "-lead", "has space", "slash/ed", too_long.as_str()] {
+            let (status, json) = create_principal(&state, alice, bad, &[]).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{bad:?}: {json}");
+            assert_eq!(json["code"], "invalid_format");
+        }
+        let (status, json) = create_principal(&state, alice, "erin", &["viewer", "ghost"]).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{json}");
+        assert_eq!(json["code"], "path_not_found");
+        assert_eq!(json["path"], "permission_profiles.ghost");
+        assert!(state.config.read().authz.by_id("erin").is_none());
+        assert_eq!(state.config.read().authz.principals.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn delete_principal_removes_an_unbound_one_and_404s_on_unknown() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, _) = enforced_state(&tmp);
+        let (status, _) = create_principal(&state, alice, "tmp.user", &["viewer"]).await;
+        assert_eq!(status, StatusCode::CREATED);
+        assert!(on_disk(&state).contains("tmp.user"));
+
+        let (status, json) = delete_principal(&state, alice, "tmp.user", false).await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert_eq!(
+            json,
+            serde_json::json!({ "id": "tmp.user", "deleted": true })
+        );
+        assert!(state.config.read().authz.by_id("tmp.user").is_none());
+        assert!(!on_disk(&state).contains("tmp.user"));
+        assert!(
+            state.config.read().authz.by_id("bob").is_some(),
+            "sibling rows survive"
+        );
+
+        let (status, json) = delete_principal(&state, alice, "tmp.user", false).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{json}");
+        assert_eq!(json["code"], "path_not_found");
+    }
+
+    #[tokio::test]
+    async fn delete_principal_refuses_bound_tokens_unless_forced() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, bob) = enforced_state(&tmp);
+        let (status, json) = delete_principal(&state, alice, "bob", false).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{json}");
+        assert_eq!(json["code"], "conflict");
+        assert_eq!(json["path"], "authz.principals.bob.token_hashes");
+        assert!(state.config.read().authz.by_id("bob").is_some());
+        assert!(state.pairing.is_authenticated(bob));
+
+        let (status, json) = delete_principal(&state, alice, "bob", true).await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert_eq!(json["deleted"], true);
+        assert!(state.config.read().authz.by_id("bob").is_none());
+        assert!(
+            !state.pairing.is_authenticated(bob),
+            "force must revoke the bearer pinned in token_hashes"
+        );
+        assert!(state.pairing.is_authenticated(alice));
+        assert!(require_admin(&state, &bearer_headers(alice)).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn delete_principal_counts_and_revokes_live_bindings() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, alice, bob) = enforced_state(&tmp);
+        let carol_token = "carol-tok";
+        let state = AppState {
+            pairing: std::sync::Arc::new(PairingGuard::new(
+                true,
+                &[alice.to_string(), bob.to_string(), carol_token.to_string()],
+                zeroclaw_config::pairing::PairingCodePolicy::default(),
+            )),
+            ..state
+        };
+        let (status, _) = create_principal(&state, alice, "carol", &["viewer"]).await;
+        assert_eq!(status, StatusCode::CREATED);
+        let carol_hash = PairingGuard::token_hash(carol_token);
+        state
+            .token_bindings
+            .set(carol_hash.clone(), "carol".to_string())
+            .unwrap();
+
+        let (status, json) = delete_principal(&state, alice, "carol", false).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{json}");
+        assert!(state.pairing.is_authenticated(carol_token));
+
+        let (status, json) = delete_principal(&state, alice, "carol", true).await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert!(state.config.read().authz.by_id("carol").is_none());
+        assert!(state.token_bindings.get(&carol_hash).is_none());
+        assert!(!state.pairing.is_authenticated(carol_token));
+        assert!(state.pairing.is_authenticated(bob));
+    }
+
+    #[tokio::test]
+    async fn principal_mutations_are_forbidden_for_a_non_admin() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (state, _, bob) = enforced_state(&tmp);
+        let (status, json) = create_principal(&state, bob, "mine", &["ops"]).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(json["code"], "forbidden");
+        let (status, _) = delete_principal(&state, bob, "alice", true).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        let cfg = state.config.read();
+        assert!(cfg.authz.by_id("mine").is_none());
+        assert!(cfg.authz.by_id("alice").is_some());
     }
 }

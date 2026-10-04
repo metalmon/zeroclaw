@@ -204,6 +204,32 @@ impl TokenBindingStore {
         self.persist(&snapshot)
     }
 
+    /// Remove every binding that names `principal_id` and persist. Returns
+    /// the token hashes that were bound so the caller can revoke the
+    /// matching bearers from the pairing guard. Nothing is written when no
+    /// binding named the principal.
+    pub fn remove_principal(&self, principal_id: &str) -> anyhow::Result<Vec<String>> {
+        let (removed, snapshot) = {
+            let mut guard = self
+                .inner
+                .write()
+                .expect("token binding store lock poisoned");
+            let mut removed = Vec::new();
+            guard.retain(|hash, bound| {
+                if bound == principal_id {
+                    removed.push(hash.clone());
+                    return false;
+                }
+                true
+            });
+            (removed, guard.clone())
+        };
+        if !removed.is_empty() {
+            self.persist(&snapshot)?;
+        }
+        Ok(removed)
+    }
+
     /// Serialize `map` and atomically replace the bindings file (temp + rename).
     /// In-memory-only stores (`path == None`) skip disk entirely.
     fn persist(&self, map: &std::collections::HashMap<String, String>) -> anyhow::Result<()> {
@@ -320,6 +346,21 @@ mod tests {
     fn binding_store_get_missing_is_none() {
         let store = TokenBindingStore::new_ephemeral();
         assert!(store.get("nope").is_none());
+    }
+
+    #[test]
+    fn binding_store_remove_principal_drops_only_its_bindings() {
+        let store = TokenBindingStore::new_ephemeral();
+        store.set("h1".into(), "alice".into()).unwrap();
+        store.set("h2".into(), "alice".into()).unwrap();
+        store.set("h3".into(), "bob".into()).unwrap();
+        let mut removed = store.remove_principal("alice").unwrap();
+        removed.sort();
+        assert_eq!(removed, vec!["h1".to_string(), "h2".to_string()]);
+        assert!(store.get("h1").is_none());
+        assert!(store.get("h2").is_none());
+        assert_eq!(store.get("h3").as_deref(), Some("bob"));
+        assert!(store.remove_principal("nobody").unwrap().is_empty());
     }
 
     #[test]
