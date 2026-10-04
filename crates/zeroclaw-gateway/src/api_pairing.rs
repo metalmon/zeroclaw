@@ -356,6 +356,29 @@ pub async fn initiate_pairing(
     }
 }
 
+/// Longest client-supplied `device_name` kept in the registry (chars).
+pub(crate) const DEVICE_NAME_MAX_CHARS: usize = 120;
+/// Longest client-supplied `device_type` kept in the registry (chars).
+pub(crate) const DEVICE_TYPE_MAX_CHARS: usize = 32;
+
+/// Normalize a client-supplied device label from a pairing request: control
+/// characters stripped, surrounding whitespace trimmed, truncated to
+/// `max_chars`. A missing, non-string, or empty-after-cleanup value is `None`
+/// (the device stays nameless, as before). Shared by REST `/api/pair` and the
+/// in-band `zeroclaw/pair` / `volt/pair` ACP method.
+pub(crate) fn device_label(value: Option<&serde_json::Value>, max_chars: usize) -> Option<String> {
+    let label: String = value?
+        .as_str()?
+        .chars()
+        .filter(|c| !c.is_control())
+        .collect::<String>()
+        .trim()
+        .chars()
+        .take(max_chars)
+        .collect();
+    (!label.is_empty()).then_some(label)
+}
+
 /// POST /api/pair — submit pairing code (for new device pairing)
 pub async fn submit_pairing_enhanced(
     State(state): State<AppState>,
@@ -364,8 +387,8 @@ pub async fn submit_pairing_enhanced(
     Json(body): Json<serde_json::Value>,
 ) -> impl IntoResponse {
     let code = body["code"].as_str().unwrap_or("");
-    let device_name = body["device_name"].as_str().map(String::from);
-    let device_type = body["device_type"].as_str().map(String::from);
+    let device_name = device_label(body.get("device_name"), DEVICE_NAME_MAX_CHARS);
+    let device_type = device_label(body.get("device_type"), DEVICE_TYPE_MAX_CHARS);
 
     // Derive the brute-force lockout key from the real connection peer, only trusting
     // forwarded headers behind a configured proxy. Reading it straight from

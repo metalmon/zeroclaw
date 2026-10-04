@@ -888,11 +888,8 @@ async fn run_pre_auth(
             continue;
         }
 
-        let code = value
-            .get("params")
-            .and_then(|params| params.get("code"))
-            .and_then(Value::as_str)
-            .unwrap_or("");
+        let params = value.get("params").cloned().unwrap_or(Value::Null);
+        let code = params.get("code").and_then(Value::as_str).unwrap_or("");
 
         match state.pairing.try_pair(code, client_id).await {
             Ok(Some(token)) => {
@@ -903,6 +900,12 @@ async fn run_pre_auth(
                 // `api_pairing::submit_pairing_enhanced`) so a tagged code
                 // works identically whether redeemed over REST or in-band.
                 bind_pending_principal(state);
+
+                // Record the device (with the optional `device_name` /
+                // `device_type` params) the way REST `/api/pair` does, so an
+                // in-band-paired client shows up named in the admin panel
+                // instead of as a nameless legacy backfill at the next start.
+                register_in_band_device(state, &token, &params, client_id);
 
                 // Persist the new token to `gateway.paired_tokens` the same
                 // way REST `/pair` and `/api/pair` do, so an in-band-paired
@@ -982,6 +985,44 @@ async fn run_pre_auth(
                 }
             }
         }
+    }
+}
+
+/// Insert an in-band-paired token into the device registry with the same
+/// record REST `/api/pair` writes: optional `device_name` / `device_type`
+/// from the pairing params (normalized by [`super::api_pairing::device_label`])
+/// and the connection-derived client id as the address. No registry (pairing
+/// not required) is a no-op. A failed insert is logged, not fatal, like the
+/// token persistence next to it: the token is live in-process either way and
+/// the startup backfill still surfaces it as a nameless legacy device.
+fn register_in_band_device(state: &AppState, token: &str, params: &Value, client_id: &str) {
+    use super::api_pairing::{
+        DEVICE_NAME_MAX_CHARS, DEVICE_TYPE_MAX_CHARS, DeviceInfo, device_label,
+    };
+
+    let Some(registry) = state.device_registry.as_ref() else {
+        return;
+    };
+    let now = chrono::Utc::now();
+    if let Err(e) = registry.register(
+        zeroclaw_config::pairing::PairingGuard::token_hash(token),
+        DeviceInfo {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: device_label(params.get("device_name"), DEVICE_NAME_MAX_CHARS),
+            device_type: device_label(params.get("device_type"), DEVICE_TYPE_MAX_CHARS),
+            paired_at: now,
+            last_seen: now,
+            ip_address: Some(client_id.to_string()),
+            capabilities: None,
+        },
+    ) {
+        ::zeroclaw_log::record!(
+            ERROR,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
+                .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                .with_attrs(::serde_json::json!({"error": e.to_string()})),
+            "in-band pairing succeeded but the device registry insert failed; the device will appear as a nameless legacy entry"
+        );
     }
 }
 
@@ -1515,6 +1556,108 @@ mod revocation_tests {
                 .token_bindings
                 .get(&PairingGuard::token_hash("b"))
                 .is_none()
+        );
+    }
+
+    /// `state_with` plus a fresh on-disk device registry (what
+    /// `run_gateway` builds when pairing is required). Returns the tempdir
+    /// so the registry's SQLite file outlives the test body.
+    fn state_with_registry() -> (AppState, tempfile::TempDir) {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut state = state_with(&[], &[], &[]);
+        state.device_registry = Some(Arc::new(crate::api_pairing::DeviceRegistry::new(
+            tmp.path(),
+        )));
+        (state, tmp)
+    }
+
+    fn registered_devices(state: &AppState) -> Vec<crate::api_pairing::DeviceInfo> {
+        state.device_registry.as_ref().unwrap().list().unwrap()
+    }
+
+    #[test]
+    fn in_band_pair_registers_device_name_and_type() {
+        let (state, _tmp) = state_with_registry();
+        register_in_band_device(
+            &state,
+            "zc_in_band",
+            &serde_json::json!({
+                "code": "ignored",
+                "device_name": "  Volt Admin\u{0007} (Dave)\n",
+                "device_type": "desktop",
+            }),
+            "203.0.113.7",
+        );
+
+        let devices = registered_devices(&state);
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].name.as_deref(), Some("Volt Admin (Dave)"));
+        assert_eq!(devices[0].device_type.as_deref(), Some("desktop"));
+        assert_eq!(devices[0].ip_address.as_deref(), Some("203.0.113.7"));
+        // The row is keyed by the token's hash, same as the REST handlers.
+        assert!(
+            state
+                .device_registry
+                .as_ref()
+                .unwrap()
+                .update_capabilities(&PairingGuard::token_hash("zc_in_band"), vec![])
+        );
+    }
+
+    #[test]
+    fn in_band_pair_without_labels_keeps_name_none() {
+        let (state, _tmp) = state_with_registry();
+        register_in_band_device(
+            &state,
+            "zc_in_band",
+            &serde_json::json!({ "code": "ignored" }),
+            "203.0.113.7",
+        );
+
+        let devices = registered_devices(&state);
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].name, None);
+        assert_eq!(devices[0].device_type, None);
+    }
+
+    #[test]
+    fn in_band_pair_truncates_over_long_labels() {
+        let (state, _tmp) = state_with_registry();
+        let long_name = "n".repeat(500);
+        let long_type = "t".repeat(100);
+        register_in_band_device(
+            &state,
+            "zc_in_band",
+            &serde_json::json!({ "device_name": long_name, "device_type": long_type }),
+            "203.0.113.7",
+        );
+
+        let devices = registered_devices(&state);
+        assert_eq!(
+            devices[0].name.as_deref(),
+            Some(
+                "n".repeat(crate::api_pairing::DEVICE_NAME_MAX_CHARS)
+                    .as_str()
+            )
+        );
+        assert_eq!(
+            devices[0].device_type.as_deref(),
+            Some(
+                "t".repeat(crate::api_pairing::DEVICE_TYPE_MAX_CHARS)
+                    .as_str()
+            )
+        );
+    }
+
+    #[test]
+    fn in_band_pair_without_registry_is_a_no_op() {
+        let state = state_with(&[], &[], &[]);
+        assert!(state.device_registry.is_none());
+        register_in_band_device(
+            &state,
+            "zc_in_band",
+            &serde_json::json!({ "device_name": "x" }),
+            "203.0.113.7",
         );
     }
 }
