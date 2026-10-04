@@ -3737,6 +3737,7 @@ impl OpenAiCompatibleModelProvider {
             tool_calls: None,
             reasoning_content: None,
             reasoning: None,
+            thinking_blocks: None,
             name: None,
         }
     }
