@@ -308,7 +308,6 @@ tool-memory-purge = Remove all memories in a namespace or session. Use to bulk-d
 # sessions
 tool-sessions-list = List all active conversation sessions with their channel, last activity time, and message count.
 tool-sessions-history = Read the message history of a specific session by its session ID. Returns the last N messages.
-tool-sessions-send = Send a message to a specific session by its session ID. The message is appended to the session's conversation history as a 'user' message, enabling inter-agent communication.
 tool-sessions-current = Return the session key and metadata for the session this agent is currently running in.
 tool-sessions-reset = Reset a session by clearing all its messages. The session can still receive new messages after reset.
 tool-sessions-delete = Permanently delete a session and all its messages. This cannot be undone.
