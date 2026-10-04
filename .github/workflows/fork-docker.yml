@@ -23,7 +23,8 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Build zeroclaw:f4-debian
         run: |
-          docker build -f Dockerfile.debian -t zeroclaw:f4-debian .
+          # Pilot feature set: no Telegram (no internet on site), Matrix kept.
+          docker build -f Dockerfile.debian -t zeroclaw:f4-debian             --build-arg ZEROCLAW_CARGO_FLAGS="--no-default-features --features acp-bridge,agent-runtime,channel-acp-server,channel-discord,channel-email,channel-filesystem,channel-git,channel-lark,channel-matrix,channel-webhook,gateway,observability-prometheus,schema-export,whatsapp-web"             .
       - name: Save image to a loadable tar
         run: |
           docker save zeroclaw:f4-debian | gzip > zeroclaw-f4-debian.tar.gz
