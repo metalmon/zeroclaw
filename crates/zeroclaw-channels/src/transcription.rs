@@ -1318,16 +1318,11 @@ pub(crate) fn build_channel_transcription_manager(
 /// built; the failure is logged once here rather than in every channel, and
 /// the channel stays up without transcription.
 #[cfg(any(
-    feature = "channel-telegram",
-    feature = "channel-discord",
     feature = "channel-slack",
     feature = "channel-mattermost",
-    feature = "whatsapp-web",
     feature = "channel-lark",
     feature = "channel-line",
-    feature = "channel-qq",
-    feature = "channel-matrix",
-    feature = "voice-wake"
+    feature = "channel-qq"
 ))]
 pub(crate) fn manager_from_snapshot(
     config: &TranscriptionConfig,
