@@ -22,6 +22,7 @@ const TITLE_KEYS: Record<string, string> = {
   doctor: 'nav.doctor',
   pairing: 'nav.pairing',
   roles: 'nav.roles',
+  users: 'nav.users',
   canvas: 'nav.canvas',
   'acp-console': 'nav.acp',
   quickstart: 'nav.quickstart',

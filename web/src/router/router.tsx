@@ -24,6 +24,7 @@ import {
   SopView,
   SopsList,
   Tools,
+  Users,
 } from './lazyPages';
 
 // Lazy route chunks usually resolve in a few ms, so a spinner shown
@@ -73,6 +74,7 @@ export const Router = () => (
         <Route path="/doctor" element={<Doctor />} />
         <Route path="/pairing" element={<Pairing />} />
         <Route path="/roles" element={<Roles />} />
+        <Route path="/users" element={<Users />} />
         <Route path="/canvas" element={<Canvas />} />
         <Route path="/acp-console" element={<AcpConsole />} />
         <Route path="/quickstart" element={<Quickstart />} />

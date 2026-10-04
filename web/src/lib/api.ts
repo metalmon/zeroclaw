@@ -2647,3 +2647,67 @@ export function getPrincipals(): Promise<PrincipalSummary[]> {
     (data) => data.principals,
   );
 }
+
+export interface CreateAuthzPrincipalBody {
+  id: string;
+  /** Profile ids to bind at creation; every id must exist (404 otherwise). */
+  profiles: string[];
+}
+
+/** `POST /api/authz/principals` — create a principal for pairing-code login.
+ *  409 (`HttpError`) when `id` already exists, 404 when a profile is unknown. */
+export function createAuthzPrincipal(body: CreateAuthzPrincipalBody): Promise<PrincipalSummary> {
+  return apiFetch<PrincipalSummary>("/api/authz/principals", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export interface DeleteAuthzPrincipalResponse {
+  id: string;
+  deleted: boolean;
+}
+
+/** `DELETE /api/authz/principals/{id}` — remove a principal. 409 (`HttpError`)
+ *  while devices or tokens are still bound to it; `force` (`?force=1`) drops
+ *  those bindings together with the principal. */
+export function deleteAuthzPrincipal(id: string, force = false): Promise<DeleteAuthzPrincipalResponse> {
+  return apiFetch<DeleteAuthzPrincipalResponse>(
+    `/api/authz/principals/${encodeURIComponent(id)}${force ? "?force=1" : ""}`,
+    { method: "DELETE" },
+  );
+}
+
+/** One SSO-provisioned user as the daemon remembers it: identity from the
+ *  provider plus the roles its groups currently map to (read-only here). */
+export interface ExternalSubject {
+  id: string;
+  provider: string;
+  issuer: string;
+  subject: string;
+  display_name?: string | null;
+  email?: string | null;
+  groups: string[];
+  profiles: string[];
+  admin: boolean;
+  first_seen: string;
+  last_seen: string;
+  logins: number;
+}
+
+/** `GET /api/authz/external` — every external (SSO) user. Resolves `null`
+ *  on a gateway that predates the route (404), so callers can hide the group. */
+export function getExternalSubjects(): Promise<ExternalSubject[] | null> {
+  return apiFetch<{ subjects: ExternalSubject[] }>("/api/authz/external")
+    .then((data) => data.subjects)
+    .catch((err: unknown) => {
+      if (err instanceof HttpError && err.status === 404) return null;
+      throw err;
+    });
+}
+
+/** `DELETE /api/authz/external/{id}` — forget an external user; the next
+ *  sign-in provisions a fresh record from the provider's groups. */
+export function forgetExternalSubject(id: string): Promise<void> {
+  return apiFetch<unknown>(`/api/authz/external/${encodeURIComponent(id)}`, { method: "DELETE" }).then(() => undefined);
+}

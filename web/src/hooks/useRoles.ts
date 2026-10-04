@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   bindPrincipalProfile,
+  createAuthzPrincipal,
   createAuthzProfile,
+  deleteAuthzPrincipal,
   deleteAuthzProfile,
   getAuthzAgents,
   loadAuthzPrincipals,
@@ -29,6 +31,9 @@ export interface UseRolesResult {
   deleteProfile: (id: string) => Promise<DeleteAuthzProfileResponse>;
   bindProfile: (principalId: string, profileId: string) => Promise<void>;
   unbindProfile: (principalId: string, profileId: string) => Promise<void>;
+  createPrincipal: (id: string, profiles: string[]) => Promise<void>;
+  /** `force` drops devices/tokens still bound to the principal (the 409 path). */
+  deletePrincipal: (id: string, force?: boolean) => Promise<void>;
 }
 
 /**
@@ -112,6 +117,22 @@ export function useRoles(): UseRolesResult {
     [fetchAll],
   );
 
+  const createPrincipal = useCallback(
+    async (id: string, profiles: string[]) => {
+      await createAuthzPrincipal({ id, profiles });
+      await fetchAll();
+    },
+    [fetchAll],
+  );
+
+  const deletePrincipal = useCallback(
+    async (id: string, force = false) => {
+      await deleteAuthzPrincipal(id, force);
+      await fetchAll();
+    },
+    [fetchAll],
+  );
+
   return {
     profiles,
     principals,
@@ -124,5 +145,7 @@ export function useRoles(): UseRolesResult {
     deleteProfile,
     bindProfile,
     unbindProfile,
+    createPrincipal,
+    deletePrincipal,
   };
 }

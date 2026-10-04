@@ -17,6 +17,7 @@ import {
   Sparkles,
   Stethoscope,
   Terminal,
+  Users,
   Wrench,
 } from 'lucide-react';
 import { t } from '@/lib/i18n';
@@ -44,6 +45,7 @@ const DESTINATIONS: Destination[] = [
   { to: '/cron', icon: Clock, labelKey: 'nav.cron', groupKey: 'nav.group.configure' },
   { to: '/logs', icon: Activity, labelKey: 'nav.logs', groupKey: 'nav.group.operations' },
   { to: '/roles', icon: ShieldCheck, labelKey: 'nav.roles', groupKey: 'nav.group.operations' },
+  { to: '/users', icon: Users, labelKey: 'nav.users', groupKey: 'nav.group.operations' },
   { to: '/doctor', icon: Stethoscope, labelKey: 'nav.doctor', groupKey: 'nav.group.operations' },
   { to: '/canvas', icon: Monitor, labelKey: 'nav.canvas', groupKey: 'nav.group.operations' },
   { to: '/acp-console', icon: Terminal, labelKey: 'nav.acp', groupKey: 'nav.group.operations' },

@@ -18,6 +18,7 @@ import {
   Sparkles,
   Stethoscope,
   Terminal,
+  Users,
   Workflow,
   Wrench,
 } from 'lucide-react';
@@ -72,6 +73,7 @@ const navGroups: NavGroup[] = [
       { to: '/logs', icon: Activity, labelKey: 'nav.logs' },
       { to: '/pairing', icon: Smartphone, labelKey: 'nav.pairing' },
       { to: '/roles', icon: ShieldCheck, labelKey: 'nav.roles' },
+      { to: '/users', icon: Users, labelKey: 'nav.users' },
       { to: '/doctor', icon: Stethoscope, labelKey: 'nav.doctor' },
       { to: '/canvas', icon: Monitor, labelKey: 'nav.canvas' },
       { to: '/acp-console', icon: Terminal, labelKey: 'nav.acp' },
