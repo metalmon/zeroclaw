@@ -777,6 +777,13 @@ impl ModelPickerDispatchOwnership {
     }
 }
 
+/// Mirrors the Telegram-backed claim: the dispatch loop drops ownership at
+/// explicit points, which clippy only accepts for types that implement Drop.
+#[cfg(not(feature = "channel-telegram"))]
+impl Drop for ModelPickerDispatchOwnership {
+    fn drop(&mut self) {}
+}
+
 /// A turn waiting for its conversation lane.
 struct PendingTurn {
     ctx: Arc<ChannelRuntimeContext>,
