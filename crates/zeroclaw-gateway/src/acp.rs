@@ -33,7 +33,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use zeroclaw_api::grants::ResolvedGrants;
 use zeroclaw_api::jsonrpc::{JSONRPC_VERSION, JsonRpcError, JsonRpcResponse, error_codes};
-use zeroclaw_api::principal::{AuthOutcome, Principal};
+use zeroclaw_api::principal::{AuthOutcome, AuthenticatedIdentity, Principal};
 use zeroclaw_channels::orchestrator::acp_server::{AcpServer, AcpServerConfig};
 use zeroclaw_config::schema::Config;
 use zeroclaw_infra::acp_session_store::AcpSessionStore;
@@ -598,7 +598,16 @@ pub(crate) async fn resolve_principal(state: &AppState, token: Option<&str>) -> 
         AuthOutcome::Verified(identity) => identity,
         AuthOutcome::Denied { .. } => return Resolution::Denied,
     };
-    let resolver = match PrincipalResolver::from_config(&config) {
+    admit(state, &config, &identity)
+}
+
+/// Resolve a VERIFIED identity to its principal and grants against the
+/// live policy, refusing one entitled to no agent. An admitted OIDC
+/// identity is recorded in the gateway's external-subjects registry, the
+/// same way the REST gate records a scoped login; a refusal records
+/// nothing.
+fn admit(state: &AppState, config: &Config, identity: &AuthenticatedIdentity) -> Resolution {
+    let resolver = match PrincipalResolver::from_config(config) {
         Ok(resolver) => resolver,
         Err(e) => {
             ::zeroclaw_log::record!(
@@ -611,7 +620,7 @@ pub(crate) async fn resolve_principal(state: &AppState, token: Option<&str>) -> 
             return Resolution::Denied;
         }
     };
-    let resolved = match resolver.resolve(&identity) {
+    let resolved = match resolver.resolve(identity) {
         Ok(resolved) => resolved,
         Err(_deny) => return Resolution::VerifiedNotEntitled,
     };
@@ -627,6 +636,14 @@ pub(crate) async fn resolve_principal(state: &AppState, token: Option<&str>) -> 
             "ACP: credential verified but the principal is entitled to no agent; denying"
         );
         return Resolution::VerifiedNotEntitled;
+    }
+    // Admitted: an external (OIDC) subject is now "seen" on the ACP
+    // surface too. Only the derived membership is stored, never the claims
+    // or the bearer.
+    if let Some(membership) = resolver.oidc_membership(identity) {
+        state
+            .external_subjects
+            .record_login(identity, membership, resolved.grants.admin);
     }
     Resolution::Resolved(Box::new((resolved.principal, resolved.grants)))
 }
@@ -1061,7 +1078,8 @@ mod provider_select_tests {
     //! else is a pairing token.
 
     use super::*;
-    use zeroclaw_config::schema::OidcConfig;
+    use zeroclaw_api::principal::{AuthMethod, IdentitySubject, PrincipalId};
+    use zeroclaw_config::schema::{AliasedAgentConfig, OidcConfig, PermissionProfileConfig};
 
     fn b64(s: &str) -> String {
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(s)
@@ -1235,6 +1253,77 @@ mod provider_select_tests {
             "thunderbolt",
             "https://idp"
         )])));
+    }
+
+    /// `[oidc.thunderbolt]` trusting `https://idp`, mapping the `ops`
+    /// group to the `crm` profile (entitled to `crm-bot`).
+    fn oidc_state() -> AppState {
+        let mut config = config_with_issuers(&[("thunderbolt", "https://idp")]);
+        let oidc = config.oidc.get_mut("thunderbolt").unwrap();
+        oidc.claim_path = "groups".to_owned();
+        oidc.profile_map.insert("ops".to_owned(), "crm".to_owned());
+        config
+            .agents
+            .insert("crm-bot".to_owned(), AliasedAgentConfig::default());
+        config.permission_profiles.insert(
+            "crm".to_owned(),
+            PermissionProfileConfig {
+                allowed_agents: vec!["crm-bot".to_owned()],
+                ..PermissionProfileConfig::default()
+            },
+        );
+        crate::api::tests::test_state(config)
+    }
+
+    /// What the `oidc.thunderbolt` provider hands back for alice once her
+    /// JWT verified, carrying `groups`.
+    fn verified_oidc(groups: &[&str]) -> AuthenticatedIdentity {
+        let mut claims = serde_json::Map::new();
+        claims.insert("groups".to_owned(), serde_json::json!(groups));
+        AuthenticatedIdentity::new(
+            IdentitySubject::Oidc {
+                issuer: "https://idp".to_owned(),
+                subject: "alice".to_owned(),
+            },
+            AuthMethod::Oidc,
+        )
+        .with_provider_alias("thunderbolt")
+        .with_claims(claims)
+    }
+
+    #[test]
+    fn admitted_oidc_identity_is_recorded_as_an_external_subject() {
+        let state = oidc_state();
+        let config = state.config.read().clone();
+        assert!(state.external_subjects.list().is_empty());
+        for _ in 0..2 {
+            assert!(matches!(
+                admit(&state, &config, &verified_oidc(&["ops", "unmapped"])),
+                Resolution::Resolved(_)
+            ));
+        }
+        let seen = state.external_subjects.list();
+        assert_eq!(seen.len(), 1, "one subject, upserted");
+        let record = &seen[0];
+        assert_eq!(record.id, PrincipalId::for_oidc("https://idp", "alice").0);
+        assert_eq!(record.provider, "thunderbolt");
+        assert_eq!(record.issuer, "https://idp");
+        assert_eq!(record.subject, "alice");
+        assert_eq!(record.groups, vec!["ops", "unmapped"]);
+        assert_eq!(record.profiles, vec!["crm"]);
+        assert!(!record.admin);
+        assert_eq!(record.logins, 2);
+    }
+
+    #[test]
+    fn refused_oidc_identity_is_not_recorded() {
+        let state = oidc_state();
+        let config = state.config.read().clone();
+        assert!(matches!(
+            admit(&state, &config, &verified_oidc(&["unmapped"])),
+            Resolution::VerifiedNotEntitled
+        ));
+        assert!(state.external_subjects.list().is_empty());
     }
 }
 
