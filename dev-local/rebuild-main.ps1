@@ -30,7 +30,7 @@ $ErrorActionPreference = "Stop"
 # the script detects this and cherry-picks only the delta (commits from parent
 # to current branch) to avoid re-applying already-cherry-picked commits.
 $Branches = @(
-    "feat/telegram-multi-message",            # PR #8561 - Telegram multi_message streaming mode
+    # Dropped 2026-09-25: feat/telegram-multi-message (#8561) merged upstream 2026-09-20 as 441df131.
     # Dropped 2026-09-11: fix/heartbeat-composite-channel-target (#10671 / issue #10670) merged upstream.
     "pr-10604-opencode-session",              # PR #10604 (issue #10603, v0.8.5) - send opaque x-opencode-session on opencode.ai requests (Console Go now rejects header-less requests). Upstream author JordanTheJet; mirror of that PR head. Drop when merged upstream.
     # Dropped 2026-08-29: fix/telegram-reply-thread-history (#10418 / issue #10237) merged upstream.
@@ -50,9 +50,9 @@ $Branches = @(
     "feat/acp-wire-skills",                   # ACP client-delivered skills via _meta extension
     # Dropped 2026-08-21: fix/acp-session-cwd-fallback (#9536) merged upstream.
     "fix/multimodal-token-estimation",        # fix: multimodal token estimation for vision models
-    "fix/git-subcommand-classifier",          # #9627 - resolve git subcommand past global options (approval-gate fix)
+    # Dropped 2026-09-19: fix/git-subcommand-classifier (#9635, closes #9627) merged upstream as 9702c650.
     # Dropped 2026-08-21: fix/windows-nul-redirect (#9636) merged upstream.
-    "local/git-read-only",                     # local-only: git_read_only risk-profile flag (hard read-only git); stacked on fix/git-subcommand-classifier
+    "local/git-read-only",                     # local-only: git_read_only risk-profile flag (hard read-only git); was stacked on fix/git-subcommand-classifier — now applies on master's classifier (#9635 merged), so re-base local/git-read-only onto master if policy.rs conflicts at assembly
     "fix/per-agent-memory-autosave-clean",     # local-only (Bug 3, no PR yet): webhook + heartbeat autosave route to the addressed/heartbeat agent's own memory backend, not the shared default
     "fix/session-ownership-scope",             # local-only (#9646, no PR yet): scope session tools (list/read) to the calling agent's ownership
     "fix/knowledge-per-agent-attribution",     # local-only (#9647, no PR yet): knowledge graph per-agent attribution + scoping, gated behind [knowledge] per_agent_scope (default off)
@@ -127,32 +127,8 @@ foreach ($b in $Branches) {
 # assembled tree — never a cherry-pick, so never conflicts). Use ONLY for
 # test-only compile drift we cannot fix on the owning branch.
 #
-# TEMPORARY (#8561 x #9319): the parked, approved #8561 (telegram multi_message)
-# test fixtures set `tools_registry` to a raw `Vec<Box<dyn Tool>>`, which upstream
-# #9319 (ScopedToolRegistry seal) rejects once #8561 is assembled onto current
-# master. We must not force-push #8561 (drops its approval), so patch the
-# assembled main. REMOVE this block when #8561 is refreshed against master.
+# (The #8561 telegram fixups were removed 2026-10-04: #8561 merged upstream.)
 $fixups = @(
-    @{
-        File = "crates/zeroclaw-channels/src/orchestrator/mod.rs"
-        From = "tools_registry: Arc::new(vec![Box::new(MockPriceTool)])"
-        To   = "tools_registry: Arc::new(zeroclaw_runtime::tools::scoped::ScopedToolRegistry::from_raw_for_test(vec![Box::new(MockPriceTool)]))"
-    }
-    # TEMPORARY (#8561 x #10620): #8561 gave send_text_chunks a skip_chunks arg and
-    # a usize return; upstream #10620's notify_voice_drop still calls it 3-arg and
-    # matches Ok(Ok(())). Reconcile the assembled main so it compiles. Both patterns
-    # occur exactly once in the assembled telegram.rs. REMOVE when #8561 is refreshed
-    # against master (fix the caller on its own branch).
-    @{
-        File = "crates/zeroclaw-channels/src/telegram.rs"
-        From = "self.send_text_chunks(&notice, chat_id, thread_id);"
-        To   = "self.send_text_chunks(&notice, chat_id, thread_id, 0);"
-    }
-    @{
-        File = "crates/zeroclaw-channels/src/telegram.rs"
-        From = "Ok(Ok(())) => {}"
-        To   = "Ok(Ok(_)) => {}"
-    }
     # TEMPORARY (fork clippy `-D warnings`): lint drift that only appears in the
     # ASSEMBLED main under the fork build's feature set — the dead_code test helpers
     # are live on their own branches, and the unused_mut fires only for this cfg
