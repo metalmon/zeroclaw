@@ -26756,26 +26756,11 @@ fn apply_dirty_natural_key_path(
         Some(r) => r,
         None => return,
     };
-    let (alias, inner_suffix) = match rest.split_once('.') {
-        Some((a, i)) => (a, Some(i)),
-        None => (rest, None),
-    };
-    if alias.is_empty() {
-        return;
-    }
-
     // Walk the in-memory serialized array at `section_path`. Each
     // element is a `toml::Value::Table`; the alias lives in the
     // `natural_key_field` column.
     let section_segs: Vec<&str> = section.section_path.split('.').collect();
     let mem_array = lookup_path_in_table(full_table, &section_segs).and_then(|v| v.as_array());
-    let mem_entry = mem_array.and_then(|arr| {
-        arr.iter().find_map(|item| {
-            let table = item.as_table()?;
-            let alias_value = table.get(section.natural_key_field)?.as_str()?;
-            (alias_value == alias).then_some(table)
-        })
-    });
 
     // The doc cursor walks the section's parent Tables (e.g. `mcp`) and
     // arrives at the array node (`servers`). The natural-key Vec is
@@ -26784,6 +26769,65 @@ fn apply_dirty_natural_key_path(
     let Some((array_key, parent_segs)) = section_segs.split_last() else {
         return;
     };
+
+    // A natural key may itself contain dots (`authz.principals` ids such
+    // as `tmp.user`), so a blind `split_once('.')` would fragment it into
+    // a bogus alias plus inner suffix and the write would silently no-op.
+    // Longest-match the alias against the keys live in memory and on
+    // disk (the delete half needs the doc side), exactly as
+    // `apply_dirty_map_key_path` does; the plain split is only the
+    // fallback for an alias known to neither side.
+    let known: Vec<String> = mem_array
+        .into_iter()
+        .flat_map(|arr| {
+            arr.iter().filter_map(|item| {
+                item.as_table()?
+                    .get(section.natural_key_field)?
+                    .as_str()
+                    .map(str::to_owned)
+            })
+        })
+        .chain(
+            lookup_table_in_doc(root, parent_segs)
+                .and_then(|t| t.get(array_key))
+                .and_then(|item| item.as_array_of_tables())
+                .into_iter()
+                .flat_map(|aot| {
+                    aot.iter().filter_map(|t| {
+                        t.get(section.natural_key_field)?
+                            .as_str()
+                            .map(str::to_owned)
+                    })
+                }),
+        )
+        .collect();
+    let (alias, inner_owned): (&str, Option<String>) = if known.iter().any(|k| k == rest) {
+        (rest, None)
+    } else if let Some((alias, inner)) = crate::helpers::route_hashmap_path(
+        dotted,
+        "",
+        section.section_path,
+        "",
+        known.iter().map(String::as_str),
+    ) {
+        (alias, Some(inner))
+    } else {
+        match rest.split_once('.') {
+            Some((a, i)) => (a, Some(i.to_owned())),
+            None => (rest, None),
+        }
+    };
+    let inner_suffix = inner_owned.as_deref();
+    if alias.is_empty() {
+        return;
+    }
+    let mem_entry = mem_array.and_then(|arr| {
+        arr.iter().find_map(|item| {
+            let table = item.as_table()?;
+            let alias_value = table.get(section.natural_key_field)?.as_str()?;
+            (alias_value == alias).then_some(table)
+        })
+    });
 
     // Inner-suffix path: per-field edit (case 1). Reconcile the inner
     // sub-path on the matched doc table the same way the generic
@@ -39506,6 +39550,46 @@ group_policy = "disabled"
             !written.contains("gpt-4.1"),
             "deleted dotted map key must be dropped from disk; got:\n{written}"
         );
+    }
+
+    /// A natural key may carry dots (`authz.principals` ids like
+    /// `tmp.user`); the `[[...]]` writer must resolve it as one alias from
+    /// the on-disk side when the row is already gone from memory, not split
+    /// it into `tmp` + inner `user` and silently leave the entry on disk.
+    #[test]
+    async fn save_dirty_removes_dotted_natural_key_entry() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config_path = tmp.path().join("config.toml");
+
+        let seed = format!(
+            "schema_version = {}\n\n\
+             [[authz.principals]]\n\
+             id = \"tmp.user\"\n\
+             profiles = [\"viewer\"]\n\n\
+             [[authz.principals]]\n\
+             id = \"bob\"\n",
+            crate::migration::CURRENT_SCHEMA_VERSION
+        );
+        std::fs::write(&config_path, &seed).unwrap();
+
+        let mut config = Config {
+            config_path: config_path.clone(),
+            ..Default::default()
+        };
+        config.authz.principals.push(crate::authz::PrincipalRecord {
+            id: "bob".to_string(),
+            ..Default::default()
+        });
+        config.mark_dirty("authz.principals.tmp.user");
+
+        config.save_dirty().await.unwrap();
+
+        let written = std::fs::read_to_string(&config_path).unwrap();
+        assert!(
+            !written.contains("tmp.user"),
+            "deleted dotted natural key must be dropped from disk; got:\n{written}"
+        );
+        assert!(written.contains("id = \"bob\""), "sibling row survives");
     }
 
     /// ZeroClaw never writes inline tables but loads hand-edited ones
