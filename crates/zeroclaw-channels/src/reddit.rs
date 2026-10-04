@@ -343,10 +343,7 @@ impl Channel for RedditChannel {
             }
         } else {
             // Direct message
-            let subject = message
-                .subject
-                .as_deref()
-                .unwrap_or("Message from ZeroClaw");
+            let subject = message.subject.as_deref().unwrap_or("Message from Volt");
             let resp = client
                 .post(format!("{REDDIT_API_BASE}/api/compose"))
                 .bearer_auth(&token)

@@ -245,7 +245,7 @@ fn ensure_desktop_supervisor_capability_with_timeout(
             let timeout_error = std::io::Error::new(
                 std::io::ErrorKind::TimedOut,
                 format!(
-                    "timed out checking Desktop supervisor support in {}; install or bundle a ZeroClaw kernel that supports the Desktop supervisor command",
+                    "timed out checking Desktop supervisor support in {}; install or bundle a Volt kernel that supports the Desktop supervisor command",
                     binary.display()
                 ),
             );
@@ -263,7 +263,7 @@ fn ensure_desktop_supervisor_capability_with_timeout(
     let unsupported_error = std::io::Error::new(
         std::io::ErrorKind::InvalidInput,
         format!(
-            "the ZeroClaw kernel at {} does not support the required Desktop supervisor command; install or bundle a kernel that supports this command",
+            "the Volt kernel at {} does not support the required Desktop supervisor command; install or bundle a kernel that supports this command",
             binary.display()
         ),
     );

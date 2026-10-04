@@ -12436,7 +12436,7 @@ pub fn bind_channel_identity_into(
     if !channel_alias_configured(config, channel_type, alias) {
         anyhow::bail!(
             "{channel_type} channel alias `{alias}` is not configured. Run \
-             `zeroclaw config set channels.{channel_type}.{alias}.bot_token <token>` \
+             `voltd config set channels.{channel_type}.{alias}.bot_token <token>` \
              (see docs/book/src/channels/overview.md for the full field list)."
         );
     }
@@ -12485,13 +12485,13 @@ pub async fn bind_telegram_identity(config: &Config, identity: &str, alias: &str
         }
         Ok(false) => {
             println!(
-                "ℹ️ No managed daemon service detected. If `zeroclaw daemon`/`channel start` is already running, restart it to load the updated allowlist."
+                "ℹ️ No managed daemon service detected. If `voltd daemon`/`channel start` is already running, restart it to load the updated allowlist."
             );
         }
         Err(e) => {
             eprintln!(
                 "⚠️ Allowlist saved, but failed to reload daemon service automatically: {e}\n\
-                 Restart service manually with `zeroclaw service stop && zeroclaw service start`."
+                 Restart service manually with `voltd service stop && voltd service start`."
             );
         }
     }
@@ -15783,7 +15783,7 @@ fn collect_configured_channels_with_authority(
 }
 
 fn no_real_time_channels_message() -> &'static str {
-    "No real-time channels configured. Run `zeroclaw quickstart` to set one up."
+    "No real-time channels configured. Run `voltd quickstart` to set one up."
 }
 
 /// Display-ready `channel doctor` lines for every dangling
@@ -15879,7 +15879,7 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
         // `channel doctor` path should report the same diagnostic.
         let dangling = { peer_group_dangling_warning_lines(&config_arc.read()) };
         if !dangling.is_empty() {
-            println!("🩺 ZeroClaw Channel Doctor");
+            println!("🩺 Volt Channel Doctor");
             println!();
             for line in &dangling {
                 println!("{line}");
@@ -15890,7 +15890,7 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
         return Ok(());
     }
 
-    println!("🩺 ZeroClaw Channel Doctor");
+    println!("🩺 Volt Channel Doctor");
     println!();
 
     // Report dangling peer-group channel references alongside health results,
@@ -15928,7 +15928,7 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
     }
 
     if !config_arc.read().channels.webhook.is_empty() {
-        println!("  ℹ️  Webhook   check via `zeroclaw gateway` then GET /health");
+        println!("  ℹ️  Webhook   check via `voltd gateway` then GET /health");
     }
 
     println!();
@@ -17001,7 +17001,7 @@ pub async fn start_channels_with_authority_and_plugin_webhooks(
                 return Ok(());
             }
 
-            println!("🦀 ZeroClaw Channel Server");
+            println!("🦀 Volt Channel Server");
             println!("  🤖 Model:    {model} (agent: {agent_alias})");
             let effective_backend = config.resolve_active_storage().kind();
             println!(
@@ -19708,12 +19708,12 @@ pub(crate) mod tests {
         // Source of truth: the string at orchestrator/mod.rs:~7376.
         let msg = super::no_real_time_channels_message();
         assert!(
-            !msg.contains("zeroclaw onboard"),
-            "stale `zeroclaw onboard` reference in message: {msg}"
+            !msg.contains("voltd onboard"),
+            "stale `voltd onboard` reference in message: {msg}"
         );
         assert!(
-            msg.contains("zeroclaw quickstart"),
-            "expected `zeroclaw quickstart` reference, got: {msg}"
+            msg.contains("voltd quickstart"),
+            "expected `voltd quickstart` reference, got: {msg}"
         );
     }
 

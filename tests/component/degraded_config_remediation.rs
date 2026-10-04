@@ -117,8 +117,8 @@ level = "autonomous"
         "remediation must bind config migration to the running executable {daemon_path}: {stderr}"
     );
     assert!(
-        !stderr.contains("Run `zeroclaw config migrate`")
-            && !stderr.contains("run `zeroclaw config migrate`"),
+        !stderr.contains("Run `voltd config migrate`")
+            && !stderr.contains("run `voltd config migrate`"),
         "daemon startup must not direct the operator through PATH: {stderr}"
     );
 }
@@ -155,7 +155,7 @@ level = "autonomous"
         "no-runtime fallback must retain the actual executable path {executable}: {stderr}"
     );
     assert!(
-        !stderr.contains("`zeroclaw config migrate`"),
+        !stderr.contains("`voltd config migrate`"),
         "no-runtime fallback must not direct remediation through PATH: {stderr}"
     );
 }

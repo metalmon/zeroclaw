@@ -1651,7 +1651,7 @@ mod client {
         let mut login = client
             .matrix_auth()
             .login_username(&user_id, password)
-            .initial_device_display_name("ZeroClaw");
+            .initial_device_display_name("Volt");
         if let Some(d) = config.device_id.as_deref()
             && !d.is_empty()
         {

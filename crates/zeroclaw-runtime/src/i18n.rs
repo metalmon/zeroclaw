@@ -482,7 +482,7 @@ mod tests {
     #[test]
     fn executable_degraded_guidance_falls_back_past_stale_translated_catalog() {
         let stale_disk =
-            "cli-config-section-degraded = advertencia: Ejecuta `zeroclaw config migrate`.\n";
+            "cli-config-section-degraded = advertencia: Ejecuta `voltd config migrate`.\n";
         let executable = "/opt/zeroclaw/bin/zeroclaw";
 
         let rendered = get_disk_override_cli_string_for_test(
@@ -498,7 +498,7 @@ mod tests {
 
         assert!(rendered.contains(executable));
         assert!(rendered.contains("config migrate"));
-        assert!(!rendered.contains("`zeroclaw config migrate`"));
+        assert!(!rendered.contains("`voltd config migrate`"));
     }
 
     #[test]
@@ -1238,7 +1238,7 @@ mod tests {
         // a command the operator cannot execute. Assert both, in every shipped
         // catalogue.
         let key = "zpi1_WyJ3ZWF0aGVyLXRvb2wiLCJ0b29sIiwid2VhdGhlci10b29sIl0";
-        let command = format!("zeroclaw config set plugins.entries.{key}.egress_hosts \"a.test\"");
+        let command = format!("voltd config set plugins.entries.{key}.egress_hosts \"a.test\"");
         /// One catalogue assertion: key, the args it is formatted with, and
         /// the substrings the rendered value must contain.
         type EgressStringCase<'a> = (&'a str, &'a [(&'a str, &'a str)], &'a [&'a str]);
@@ -1414,7 +1414,7 @@ mod tests {
             )
             .unwrap_or_else(|| panic!("cli-plugin-egress-gap-legacy should format in {locale}"));
             assert!(
-                !headline.contains("zeroclaw config set"),
+                !headline.contains("voltd config set"),
                 "cli-plugin-egress-gap-legacy in {locale} must leave the grant \
                  command to the ordered steps; got: {headline:?}"
             );
@@ -1435,7 +1435,7 @@ mod tests {
             )
             .unwrap_or_else(|| panic!("cli-plugin-egress-legacy-inert should format in {locale}"));
             assert!(
-                !inert.contains("zeroclaw config set"),
+                !inert.contains("voltd config set"),
                 "cli-plugin-egress-legacy-inert in {locale} must not offer a grant \
                  command; got: {inert:?}"
             );
@@ -1453,7 +1453,7 @@ mod tests {
                 panic!("cli-plugin-egress-invalid-grant-legacy should format in {locale}")
             });
             assert!(
-                !invalid_legacy.contains("zeroclaw config set"),
+                !invalid_legacy.contains("voltd config set"),
                 "cli-plugin-egress-invalid-grant-legacy in {locale} must leave the \
                  repair command to the ordered steps; got: {invalid_legacy:?}"
             );
@@ -2405,10 +2405,10 @@ mod tests {
         ];
         let args = [
             ("name", "definitely-not-a-real-integration"),
-            ("quickstart", "`zeroclaw quickstart`"),
+            ("quickstart", "`voltd quickstart`"),
             (
                 "channel_config",
-                "`zeroclaw config set channels.<name>.<field>=<value>`",
+                "`voltd config set channels.<name>.<field>=<value>`",
             ),
         ];
 
@@ -2518,8 +2518,8 @@ mod tests {
                 .unwrap_or_else(|| panic!("{locale}: cli-integrations-unknown should format"));
             for protected in [
                 "definitely-not-a-real-integration",
-                "`zeroclaw quickstart`",
-                "`zeroclaw config set channels.<name>.<field>=<value>`",
+                "`voltd quickstart`",
+                "`voltd config set channels.<name>.<field>=<value>`",
             ] {
                 assert!(
                     unknown.contains(protected),

@@ -88,7 +88,7 @@ fn install_dir_not_writable_message(dir: &str, error: &str) -> String {
     #[cfg(not(feature = "agent-runtime"))]
     {
         format!(
-            "install directory {dir} is not writable ({error}); re-run `zeroclaw update` with \
+            "install directory {dir} is not writable ({error}); re-run `voltd update` with \
              elevated privileges (sudo on macOS/Linux, an Administrator console on Windows)"
         )
     }
