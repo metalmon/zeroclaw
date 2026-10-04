@@ -211,6 +211,15 @@ $fixups = @(
         From = "pub(crate) async fn advertised_tasks(&self) -> bool {"
         To   = "#[allow(dead_code)] pub(crate) async fn advertised_tasks(&self) -> bool {"
     }
+    # Upstream's 9-parameter constructor gains one parameter from EACH of
+    # feat/acp-wire-skills (wire_skills), feat/mcp-tasks-host (task_supervisor)
+    # and fix/mcp-scope-connection-pool (mcp_registry): 12/10 only in the
+    # assembled tree, so no single branch can carry the allow.
+    @{
+        File = "crates/zeroclaw-runtime/src/agent/agent.rs"
+        From = "    pub async fn from_pinned_live_config_with_session_cwd_and_mcp_backchannel("
+        To   = "    #[allow(clippy::too_many_arguments)] pub async fn from_pinned_live_config_with_session_cwd_and_mcp_backchannel("
+    }
     # `anyhow!` is disallowed by clippy.toml; mcp_tasks/mod.rs (feat/mcp-tasks-host)
     # still uses it. Proper home is that branch; patched here to keep main green.
     # Single-quoted because the string contains backticks (`{alias}`).
