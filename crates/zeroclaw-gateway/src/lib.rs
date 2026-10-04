@@ -969,6 +969,23 @@ fn config_admin_router(inbound_auth: &Arc<principal_gate::GatewayInboundAuth>) -
             "/api/channels/bind",
             post(api_config::handle_api_channel_bind),
         )
+        // ── Authz admin: permission-profile CRUD + principal binding ──
+        // Mutations persist `[permission_profiles.*]` / `[[authz.principals]]`
+        // through the config write boundary, so they sit in this group: the
+        // route layer admits the principal whose policy the persist step
+        // republishes. Each handler still runs `api_authz::require_admin`.
+        .route(
+            "/api/authz/profiles",
+            get(api_authz::handle_list_profiles)
+                .post(api_authz::handle_create_profile)
+                .put(api_authz::handle_update_profile)
+                .delete(api_authz::handle_delete_profile),
+        )
+        .route(
+            "/api/authz/principals/{id}/profiles",
+            put(api_authz::handle_bind_principal_profile)
+                .delete(api_authz::handle_unbind_principal_profile),
+        )
         .route_layer(axum::middleware::from_fn_with_state(
             Arc::clone(inbound_auth),
             principal_gate::config_route_auth,
