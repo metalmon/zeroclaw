@@ -9682,6 +9682,8 @@ data: [DONE]\n\n";
                 std::path::PathBuf::new(),
             )),
             auto_save: false,
+            task_supervisor: None,
+            mcp_pool: None,
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
@@ -10952,6 +10954,7 @@ data: [DONE]\n\n";
 
         let state = AppState {
             config: Arc::new(RwLock::new(config)),
+            agent_lifecycle: Default::default(),
             model_provider: Arc::new(MockModelProvider::default()),
             model: "test-model".into(),
             temperature: None,
@@ -10964,7 +10967,7 @@ data: [DONE]\n\n";
             auto_save: true,
             task_supervisor: None,
             mcp_pool: None,
-            pairing: Arc::new(PairingGuard::new(false, &[])),
+            pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
             auth_limiter: Arc::new(auth_rate_limit::AuthRateLimiter::new()),
@@ -11007,6 +11010,7 @@ data: [DONE]\n\n";
             tui_registry: None,
             sop_engine: None,
             sop_audit: None,
+            sop_driver_handles: None,
             #[cfg(feature = "webauthn")]
             webauthn: None,
         };
