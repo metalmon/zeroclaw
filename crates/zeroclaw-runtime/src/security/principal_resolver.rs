@@ -732,8 +732,12 @@ mod tests {
     #[test]
     fn authz_principal_merges_into_the_roster_alongside_users() {
         use zeroclaw_config::authz::PrincipalRecord;
-        use zeroclaw_config::schema::PermissionProfileConfig;
+        use zeroclaw_config::schema::{AliasedAgentConfig, PermissionProfileConfig};
         let mut config = Config::default();
+        // `validate_auth` rejects a profile naming an unconfigured agent.
+        config
+            .agents
+            .insert("crm-bot".to_string(), AliasedAgentConfig::default());
         config.permission_profiles.insert(
             "crm".to_string(),
             PermissionProfileConfig {
@@ -767,8 +771,12 @@ mod tests {
         assert!(!resolved.grants.may_use_agent("hr-bot"));
     }
 
+    /// A known roster id with no bound profile is verified but entitled to
+    /// nothing: the resolver denies it (`NotEntitled`) rather than handing
+    /// out an empty grant set, so the gateway can answer `401` instead of
+    /// opening an empty-roster session.
     #[test]
-    fn authz_principal_with_no_bound_profiles_resolves_to_no_grants() {
+    fn authz_principal_with_no_bound_profiles_is_not_entitled() {
         use zeroclaw_config::authz::PrincipalRecord;
         let mut config = Config::default();
         config.authz.principals.push(PrincipalRecord {
@@ -783,9 +791,10 @@ mod tests {
             },
             AuthMethod::Native,
         );
-        let resolved = resolver.resolve(&identity).expect("known, empty-grant id");
-        assert!(!resolved.grants.may_use_agent("anything"));
-        assert!(!resolved.grants.admin);
+        assert!(
+            matches!(resolver.resolve(&identity), Err(DenyReason::NotEntitled)),
+            "a roster principal with no bound profile must be denied, never granted an empty set"
+        );
     }
 
     #[test]
