@@ -178,3 +178,6 @@ sop-rpc-decision-invalid-state = Запуск {$run_id} нельзя разре�
 sop-rpc-decision-unauthorized = Субъект RPC не уполномочен разрешать этот шаг SOP.
 sop-rpc-policy-missing = Политика одобрения SOP '{$name}' не настроена.
 sop-rpc-policy-unavailable = Отложенная политика SOP недоступна: {$reason}.
+cli-quickstart-terminal-size-unknown = Мастер не смог определить размер терминала и не может проверить, помещается ли список шагов. Запустите его из терминала, который сообщает свои размеры, или настройте без интерфейса командой `voltd config set <path> <value>`.
+cli-quickstart-terminal-resized = Пока список шагов мастера был открыт, размер терминала изменился с {$initial_width}x{$initial_height} на {$current_width}x{$current_height}. Откройте список заново, чтобы продолжить.
+cli-quickstart-empty-checklist = Мастер не может открыть пустой список шагов.
