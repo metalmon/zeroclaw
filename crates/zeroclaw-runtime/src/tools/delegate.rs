@@ -446,7 +446,7 @@ impl DelegateTool {
     const TERMINAL_SETTLEMENT_MAX_RETRY_DELAY: Duration = Duration::from_secs(5);
     const OUTPUT_ARTIFACT_PREFIX: &'static str = "artifact:";
     const AGENTIC_ALWAYS_ASK_DOC_REF: &'static str =
-        "ZeroClaw docs, \"Delegation & SubAgents\" > \"What's not supported\"";
+        "Volt docs, \"Delegation & SubAgents\" > \"What's not supported\"";
 
     pub fn new(
         agents: HashMap<String, AliasedAgentConfig>,
@@ -12711,7 +12711,7 @@ mod tests {
             "expected risk profile and trimmed always_ask entries, got: {error}"
         );
         assert!(
-            error.contains("ZeroClaw docs, \"Delegation & SubAgents\" > \"What's not supported\""),
+            error.contains("Volt docs, \"Delegation & SubAgents\" > \"What's not supported\""),
             "expected docs section reference, got: {error}"
         );
     }

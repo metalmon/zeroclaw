@@ -1877,7 +1877,7 @@ pub async fn run_gateway_with_plugin_webhooks(
     }
 
     let pfx = path_prefix.unwrap_or("");
-    println!("🦀 ZeroClaw Gateway listening on http://{display_addr}{pfx}");
+    println!("🦀 Volt Gateway listening on http://{display_addr}{pfx}");
     if let Some(ref url) = tunnel_url {
         println!("  🌐 Public URL: {url}");
     }
@@ -2745,7 +2745,7 @@ pub async fn run_gateway_with_plugin_webhooks(
                     });
                 }
                 _ = shutdown_signal.changed() => {
-                    ::zeroclaw_log::record!(INFO, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note), "ZeroClaw Gateway shutting down");
+                    ::zeroclaw_log::record!(INFO, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note), "Volt Gateway shutting down");
                     break;
                 }
             }
@@ -2761,7 +2761,7 @@ pub async fn run_gateway_with_plugin_webhooks(
             ::zeroclaw_log::record!(
                 INFO,
                 ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
-                "ZeroClaw Gateway shutting down"
+                "Volt Gateway shutting down"
             );
         })
         .await?;
@@ -2839,7 +2839,7 @@ fn static_file_routes() -> Router<AppState> {
 }
 
 fn format_paircode_recovery_command(_host: &str, port: u16) -> String {
-    format!("zeroclaw gateway get-paircode --new --port {port}")
+    format!("voltd gateway get-paircode --new --port {port}")
 }
 
 fn already_paired_pairing_notice(
@@ -5047,7 +5047,7 @@ fn require_gateway_admin_token(
             StatusCode::FORBIDDEN,
             Json(serde_json::json!({
                 "error": "Pairing-code admin requests need this gateway's admin token. \
-                          Run `zeroclaw gateway get-paircode` on the gateway host, as the \
+                          Run `voltd gateway get-paircode` on the gateway host, as the \
                           user that runs the gateway."
             })),
         ))
@@ -5661,7 +5661,7 @@ mod tests {
     fn paircode_recovery_command_includes_alternate_port() {
         assert_eq!(
             format_paircode_recovery_command("127.0.0.1", 42617),
-            "zeroclaw gateway get-paircode --new --port 42617"
+            "voltd gateway get-paircode --new --port 42617"
         );
     }
 
@@ -5672,7 +5672,7 @@ mod tests {
         // The CLI is left to fall back to its loopback default.
         assert_eq!(
             format_paircode_recovery_command("192.168.1.20", 42617),
-            "zeroclaw gateway get-paircode --new --port 42617"
+            "voltd gateway get-paircode --new --port 42617"
         );
     }
 

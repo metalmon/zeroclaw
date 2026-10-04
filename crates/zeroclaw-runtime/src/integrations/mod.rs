@@ -67,10 +67,10 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
             "cli-integrations-unknown",
             &[
                 ("name", name),
-                ("quickstart", "`zeroclaw quickstart`"),
+                ("quickstart", "`voltd quickstart`"),
                 (
                     "channel_config",
-                    "`zeroclaw config set channels.<name>.<field>=<value>`",
+                    "`voltd config set channels.<name>.<field>=<value>`",
                 ),
             ],
         );
@@ -158,7 +158,7 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
                 get_required_cli_string("cli-integrations-setup-heading")
             );
             println!("    1. Get API key at https://openrouter.ai/keys");
-            println!("    2. Run: zeroclaw quickstart --model-provider openrouter --api-key <key>");
+            println!("    2. Run: voltd quickstart --model-provider openrouter --api-key <key>");
             println!("    Access 200+ models with one key.");
         }
         "Ollama" => {
@@ -180,20 +180,18 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
                 "       Permissions: Issues R/W, Pull requests R/W, Metadata R. Webhook: off."
             );
             println!("    2. Generate a private key (.pem) and install the app on your repos");
-            println!("    3. Run: zeroclaw config set channels.git.default.provider github");
-            println!("       Run: zeroclaw config set channels.git.default.app-id <id>");
-            println!(
-                "       Run: zeroclaw config set channels.git.default.private-key-path <path>"
-            );
-            println!("       Run: zeroclaw config set channels.git.default.enabled true");
-            println!("    4. Start: zeroclaw channel start");
+            println!("    3. Run: voltd config set channels.git.default.provider github");
+            println!("       Run: voltd config set channels.git.default.app-id <id>");
+            println!("       Run: voltd config set channels.git.default.private-key-path <path>");
+            println!("       Run: voltd config set channels.git.default.enabled true");
+            println!("    4. Start: voltd channel start");
         }
         "Browser" => {
             println!(
                 "  {}:",
                 get_required_cli_string("cli-integrations-builtin-heading")
             );
-            println!("    ZeroClaw can control Chrome/Chromium for web tasks.");
+            println!("    Volt can control Chrome/Chromium for web tasks.");
             println!("    Uses headless browser automation.");
         }
         "Cron" => {
@@ -202,7 +200,7 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
                 get_required_cli_string("cli-integrations-builtin-heading")
             );
             println!("    Schedule tasks in ~/.zeroclaw/workspace/cron/");
-            println!("    Run: zeroclaw cron list");
+            println!("    Run: voltd cron list");
         }
         "Weather" => {
             println!(
@@ -218,7 +216,7 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
                 "  {}:",
                 get_required_cli_string("cli-integrations-setup-heading")
             );
-            println!("    Run: zeroclaw config set channels.<name>.<field>=<value>");
+            println!("    Run: voltd config set channels.<name>.<field>=<value>");
             println!("    (see docs/book/src/channels/overview.md for the per-channel field list)");
         }
         _ => {}
@@ -282,7 +280,7 @@ mod tests {
         let err = show_integration_info(&config, requested_name).unwrap_err();
         let message = err.to_string();
         assert!(message.contains(requested_name));
-        assert!(message.contains("`zeroclaw quickstart`"));
-        assert!(message.contains("`zeroclaw config set channels.<name>.<field>=<value>`"));
+        assert!(message.contains("`voltd quickstart`"));
+        assert!(message.contains("`voltd config set channels.<name>.<field>=<value>`"));
     }
 }

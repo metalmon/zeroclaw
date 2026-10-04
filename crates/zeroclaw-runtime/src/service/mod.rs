@@ -1807,7 +1807,7 @@ fn ensure_linux_default_install_scope(config: &Config, action: &str) -> Result<(
         .map(|path| path.display().to_string())
         .unwrap_or_else(|| config.config_path.display().to_string());
     bail!(
-        "Linux service {action} only manages the default zeroclaw service. \
+        "Linux service {action} only manages the default voltd service. \
          Config directory {config_dir} maps to named service {service}; \
          provide that unit manually, then use service status/start/stop/restart/logs to manage it."
     );
@@ -2306,7 +2306,7 @@ fn windows_task_replaceable_from_exit_code(code: Option<i32>) -> Result<()> {
     match code {
         Some(0) => Ok(()),
         Some(6) => bail!(
-            "Cannot safely replace the Windows scheduled task unless it is disabled and the machine has rebooted. Run `schtasks /Change /TN \"ZeroClaw Daemon\" /Disable`, reboot Windows, then run `zeroclaw service install` again; the existing task registration was left unchanged."
+            "Cannot safely replace the Windows scheduled task unless it is disabled and the machine has rebooted. Run `schtasks /Change /TN \"ZeroClaw Daemon\" /Disable`, reboot Windows, then run `voltd service install` again; the existing task registration was left unchanged."
         ),
         Some(code) => bail!("PowerShell task-replacement check exited with status {code}"),
         None => bail!("PowerShell task-replacement check terminated without an exit code"),
@@ -2580,7 +2580,7 @@ fn install_macos(config: &Config) -> Result<()> {
     if let Some(ref var_dir) = homebrew_var_dir {
         println!("   Homebrew var: {}", var_dir.display());
     }
-    println!("   Start with: zeroclaw service start");
+    println!("   Start with: voltd service start");
     Ok(())
 }
 
@@ -2651,7 +2651,7 @@ fn install_linux_systemd(config: &Config) -> Result<()> {
     let exe = std::env::current_exe().context("Failed to resolve current executable")?;
     let unit = format!(
         "[Unit]\n\
-         Description=ZeroClaw daemon\n\
+         Description=Volt daemon\n\
          After=network.target\n\
          \n\
          [Service]\n\
@@ -2677,7 +2677,7 @@ fn install_linux_systemd(config: &Config) -> Result<()> {
         "✅ Installed systemd user service: {}",
         file.display().to_string()
     );
-    println!("   Start with: zeroclaw service start");
+    println!("   Start with: voltd service start");
     warn_if_systemd_user_linger_disabled();
     Ok(())
 }
@@ -3026,7 +3026,7 @@ fn ensure_openrc_runtime_path_writable(path: &Path) -> Result<()> {
         };
         bail!(
             "OpenRC runtime user 'zeroclaw' cannot write {} ({details}). \
-             Re-run `sudo zeroclaw service install` and ensure ownership is zeroclaw:zeroclaw.",
+             Re-run `sudo voltd service install` and ensure ownership is zeroclaw:zeroclaw.",
             path.display().to_string(),
         );
     }
@@ -3077,7 +3077,7 @@ fn generate_openrc_script(exe_path: &Path, config_dir: &Path) -> String {
         r#"#!/sbin/openrc-run
 
 name="zeroclaw"
-description="ZeroClaw daemon"
+description="Volt daemon"
 
 command="{exe}"
 command_args="--config-dir {config_dir} daemon"
@@ -3122,14 +3122,14 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
     if !is_root() {
         bail!(
             "OpenRC service installation requires root privileges.\n\
-             Please run with sudo: sudo zeroclaw service install"
+             Please run with sudo: sudo voltd service install"
         );
     }
 
     let exe = resolve_openrc_executable()?;
     if !openrc_executable_path_is_safe(&exe) {
         bail!(
-            "OpenRC service executable path contains unsupported shell characters: {}. Install ZeroClaw at /usr/local/bin/voltd and retry",
+            "OpenRC service executable path contains unsupported shell characters: {}. Install Volt at /usr/local/bin/voltd and retry",
             exe.display()
         );
     }
@@ -3276,7 +3276,7 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
     run_checked(Command::new("rc-update").args(["add", "zeroclaw", "default"]))?;
     println!("✅ Installed OpenRC service: /etc/init.d/zeroclaw");
     println!("   Config path: /etc/zeroclaw/config.toml");
-    println!("   Start with: sudo zeroclaw service start");
+    println!("   Start with: sudo voltd service start");
     let _ = config;
     Ok(())
 }
@@ -3299,7 +3299,7 @@ fn install_windows(config: &Config) -> Result<()> {
     println!("✅ Installed Windows scheduled task: {}", task_name);
     println!("   Action: {}", action);
     println!("   Logs: {}", logs_dir.display().to_string());
-    println!("   Start with: zeroclaw service start");
+    println!("   Start with: voltd service start");
     Ok(())
 }
 
@@ -4221,7 +4221,7 @@ mod linux_service_tests {
         )
         .unwrap_err()
         .to_string();
-        assert!(err.contains("only manages the default zeroclaw service"));
+        assert!(err.contains("only manages the default voltd service"));
         assert!(err.contains("zeroclaw-p100-104"));
     }
 
@@ -4494,7 +4494,7 @@ mod service_helper_tests {
 
         assert!(script.starts_with("#!/sbin/openrc-run"));
         assert!(script.contains("name=\"zeroclaw\""));
-        assert!(script.contains("description=\"ZeroClaw daemon\""));
+        assert!(script.contains("description=\"Volt daemon\""));
         assert!(script.contains("command=\"/usr/local/bin/zeroclaw\""));
         assert!(script.contains("command_args=\"--config-dir /etc/zeroclaw daemon\""));
         assert!(!script.contains("env ZEROCLAW_CONFIG_DIR"));

@@ -13,8 +13,8 @@ use tokio_tungstenite::{
 };
 use zeroclaw_config::schema::resolve_runtime_dirs;
 
-const CONFIG_NOT_FOUND_ERROR: &str = "ERROR: config.toml not found.  Are you sure the bridge and ZeroClaw are running on the same host?  Tool use will not work remotely!";
-const PAIRING_TOKEN_NOT_FOUND_ERROR: &str = "ERROR: Gateway pairing is active but no ACP bridge token is cached. Run `zeroclaw gateway get-paircode --new`, then run `zeroclaw-acp-bridge --pair-code <code>`, or set ZEROCLAW_ACP_BRIDGE_TOKEN.";
+const CONFIG_NOT_FOUND_ERROR: &str = "ERROR: config.toml not found.  Are you sure the bridge and Volt are running on the same host?  Tool use will not work remotely!";
+const PAIRING_TOKEN_NOT_FOUND_ERROR: &str = "ERROR: Gateway pairing is active but no ACP bridge token is cached. Run `voltd gateway get-paircode --new`, then run `zeroclaw-acp-bridge --pair-code <code>`, or set ZEROCLAW_ACP_BRIDGE_TOKEN.";
 const ACP_BRIDGE_TOKEN_ENV: &str = "ZEROCLAW_ACP_BRIDGE_TOKEN";
 const ACP_BRIDGE_PAIRING_CODE_ENV: &str = "ZEROCLAW_ACP_PAIRING_CODE";
 
@@ -696,7 +696,7 @@ mod tests {
     fn missing_config_error_matches_acp_client_guidance() {
         assert_eq!(
             CONFIG_NOT_FOUND_ERROR,
-            "ERROR: config.toml not found.  Are you sure the bridge and ZeroClaw are running on the same host?  Tool use will not work remotely!"
+            "ERROR: config.toml not found.  Are you sure the bridge and Volt are running on the same host?  Tool use will not work remotely!"
         );
     }
 }

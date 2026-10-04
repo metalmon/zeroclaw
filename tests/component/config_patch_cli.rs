@@ -1060,7 +1060,7 @@ fn standalone_agent_ownership_uses_resolved_temp_data_dir_and_preserves_alias_va
     assert!(!validated.status.success());
     let validated_stderr = String::from_utf8_lossy(&validated.stderr);
     assert!(
-        validated_stderr.contains("`zeroclaw agent --agent missing` is not configured"),
+        validated_stderr.contains("`voltd agent --agent missing` is not configured"),
         "after ownership release, the normal alias validation must run: {validated_stderr}"
     );
     assert!(

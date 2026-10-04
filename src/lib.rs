@@ -108,10 +108,10 @@ and WebSocket connections. Bind address defaults to the values in \
 your config file (gateway.host / gateway.port).
 
 Examples:
-  zeroclaw gateway start              # use config defaults
-  zeroclaw gateway start -p 8080      # listen on port 8080
-  zeroclaw gateway start --host 0.0.0.0   # requires [gateway].allow_public_bind=true or a tunnel
-  zeroclaw gateway start -p 0         # random available port")]
+  voltd gateway start              # use config defaults
+  voltd gateway start -p 8080      # listen on port 8080
+  voltd gateway start --host 0.0.0.0   # requires [gateway].allow_public_bind=true or a tunnel
+  voltd gateway start -p 0         # random available port")]
     Start {
         /// Port to listen on (use 0 for random available port); defaults to config gateway.port
         #[arg(short, long)]
@@ -136,8 +136,8 @@ Stops the running gateway if present, then starts a new instance \
 with the current configuration.
 
 Examples:
-  zeroclaw gateway restart            # restart with config defaults
-  zeroclaw gateway restart -p 8080    # restart on port 8080")]
+  voltd gateway restart            # restart with config defaults
+  voltd gateway restart -p 8080    # restart on port 8080")]
     Restart {
         /// Port to listen on (use 0 for random available port); defaults to config gateway.port
         #[arg(short, long)]
@@ -179,12 +179,12 @@ effective on the next connect with no reload; its permissions come from the \
 [permission_profiles.*] entries that principal's [[authz.principals]] record names.
 
 Examples:
-  zeroclaw gateway get-paircode               # show current pairing code
-  zeroclaw gateway get-paircode --new         # add another client (no revocation)
-  zeroclaw gateway get-paircode --rotate      # revoke ALL tokens, then issue a code
-  zeroclaw gateway get-paircode --rotate-device dash-1  # revoke one device's token
-  zeroclaw gateway get-paircode --new --principal alice # onboard a principal
-  zeroclaw gateway get-paircode --new --port 3001 # target alternate-port gateway")]
+  voltd gateway get-paircode               # show current pairing code
+  voltd gateway get-paircode --new         # add another client (no revocation)
+  voltd gateway get-paircode --rotate      # revoke ALL tokens, then issue a code
+  voltd gateway get-paircode --rotate-device dash-1  # revoke one device's token
+  voltd gateway get-paircode --new --principal alice # onboard a principal
+  voltd gateway get-paircode --new --port 3001 # target alternate-port gateway")]
     GetPaircode {
         /// Generate a new pairing code for adding a client (does not revoke existing tokens)
         #[arg(long)]
@@ -292,8 +292,8 @@ configuration keys for that channel type.
 Supported types: telegram, discord, slack, whatsapp, matrix, imessage, email.
 
 Examples:
-  zeroclaw channel add telegram '{\"bot_token\":\"...\",\"name\":\"my-bot\"}'
-  zeroclaw channel add discord '{\"bot_token\":\"...\",\"name\":\"my-discord\"}'")]
+  voltd channel add telegram '{\"bot_token\":\"...\",\"name\":\"my-bot\"}'
+  voltd channel add discord '{\"bot_token\":\"...\",\"name\":\"my-discord\"}'")]
     Add {
         /// Channel type (telegram, discord, slack, whatsapp, matrix, imessage, email)
         channel_type: String,
@@ -320,9 +320,9 @@ Without it the identity is bound to the `default` alias and a \
 non-default agent will keep asking for approval.
 
 Examples:
-  zeroclaw channel bind-telegram zeroclaw_user
-  zeroclaw channel bind-telegram 123456789
-  zeroclaw channel bind-telegram 123456789 --alias alerts")]
+  voltd channel bind-telegram zeroclaw_user
+  voltd channel bind-telegram 123456789
+  voltd channel bind-telegram 123456789 --alias alerts")]
     BindTelegram {
         /// Telegram identity to allow (username without '@' or numeric user ID)
         identity: String,
@@ -345,8 +345,8 @@ The --channel-id selects the channel by its config section name \
 platform-specific destination (e.g. a Telegram chat ID).
 
 Examples:
-  zeroclaw channel send 'Someone is near your device.' --channel-id telegram --recipient 123456789
-  zeroclaw channel send 'Build succeeded!' --channel-id discord --recipient 987654321")]
+  voltd channel send 'Someone is near your device.' --channel-id telegram --recipient 123456789
+  voltd channel send 'Build succeeded!' --channel-id discord --recipient 987654321")]
     Send {
         /// Message text to send
         message: String,
@@ -495,8 +495,8 @@ plus the canonical optional subdirs (scripts/, references/, assets/). \
 Name must be lowercase + hyphens; description is required (prompted on TTY if omitted).
 
 Examples:
-  zeroclaw skills add code-review --bundle official --description \"Review PRs.\"
-  zeroclaw skills add ops-runbook --description \"Triage prod incidents.\" --edit")]
+  voltd skills add code-review --bundle official --description \"Review PRs.\"
+  voltd skills add ops-runbook --description \"Triage prod incidents.\" --edit")]
     Add {
         /// Skill name (lowercase + hyphens only)
         name: String,
@@ -1072,7 +1072,7 @@ Examples:
     /// Flash ZeroClaw firmware to Arduino (creates .ino, installs arduino-cli if needed, uploads)
     // i18n-exempt: clap derive help — framework requires a compile-time literal
     #[command(long_about = "\
-Flash ZeroClaw firmware to an Arduino board.
+Flash Volt firmware to an Arduino board.
 
 Generates the .ino sketch, installs arduino-cli if it is not \
 already available, compiles, and uploads the firmware.

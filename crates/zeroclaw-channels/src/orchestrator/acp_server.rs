@@ -829,7 +829,7 @@ impl AcpServer {
             },
             "agentInfo": {
                 "name": "zeroclaw-acp",
-                "title": "ZeroClaw ACP",
+                "title": "Volt ACP",
                 "version": env!("CARGO_PKG_VERSION"),
             },
             "authMethods": [],
@@ -4441,7 +4441,7 @@ mod tests {
 
         assert_eq!(result["protocolVersion"], 1);
         assert_eq!(result["agentInfo"]["name"], "zeroclaw-acp");
-        assert_eq!(result["agentInfo"]["title"], "ZeroClaw ACP");
+        assert_eq!(result["agentInfo"]["title"], "Volt ACP");
         assert_eq!(result["agentInfo"]["version"], env!("CARGO_PKG_VERSION"));
         assert_eq!(result["authMethods"], serde_json::json!([]));
         assert_eq!(result["agentCapabilities"]["loadSession"], false);
