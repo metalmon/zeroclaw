@@ -1388,9 +1388,16 @@ mod tests {
     async fn create_principal_conflicts_on_existing_principal_or_user_id() {
         let tmp = tempfile::tempdir().unwrap();
         let (state, alice, _) = enforced_state(&tmp);
+        // A valid roster entry: `validate_auth` (run on every admin
+        // resolution) requires a uid and a profile, so a bare default
+        // would deny alice herself before the handler sees the conflict.
         state.config.write().users.insert(
             "ivan".to_string(),
-            zeroclaw_config::schema::UserConfig::default(),
+            zeroclaw_config::schema::UserConfig {
+                uid: Some(1000),
+                permission_profiles: vec!["viewer".to_string()],
+                ..Default::default()
+            },
         );
         for taken in ["bob", "ivan"] {
             let (status, json) = create_principal(&state, alice, taken, &[]).await;
