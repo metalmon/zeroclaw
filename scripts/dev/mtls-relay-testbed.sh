@@ -92,7 +92,7 @@ case "$PROFILE" in
            export RUST_MIN_STACK="${RUST_MIN_STACK:-8388608}" ;;
   *) echo "ZC_PROFILE must be 'release' or 'debug' (got '$PROFILE')" >&2; exit 2 ;;
 esac
-ZEROCLAW="$BIN_DIR/zeroclaw"
+ZEROCLAW="$BIN_DIR/voltd"
 ZEROCODE="$BIN_DIR/zerocode"
 ZERORELAY="$BIN_DIR/zerorelay"
 

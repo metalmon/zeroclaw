@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exercise zeroclaw quickstart's provider input paths via its non-interactive flags.
+# Exercise voltd quickstart's provider input paths via its non-interactive flags.
 set -euo pipefail
 
 BIN="${BIN:-./target/debug/voltd}"

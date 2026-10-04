@@ -94,13 +94,13 @@ else
   exit 1
 fi
 
-# --- Test 5: Contains zeroclaw binary ---
+# --- Test 5: Contains voltd binary ---
 info "Checking archive contents"
 CONTENTS=$(tar -tzf "$TEMP_DIR/$ASSET_NAME")
-if echo "$CONTENTS" | grep -q "^zeroclaw$"; then
-  pass "Archive contains 'zeroclaw' binary"
+if echo "$CONTENTS" | grep -q "^voltd$"; then
+  pass "Archive contains 'voltd' binary"
 else
-  fail "Archive does not contain 'zeroclaw' binary"
+  fail "Archive does not contain 'voltd' binary"
   echo "Contents:"
   echo "$CONTENTS" | sed 's/^/  /'
 fi
@@ -108,7 +108,7 @@ fi
 # --- Test 6: Extract and inspect binary ---
 info "Extracting and inspecting binary"
 tar -xzf "$TEMP_DIR/$ASSET_NAME" -C "$TEMP_DIR"
-BINARY="$TEMP_DIR/zeroclaw"
+BINARY="$TEMP_DIR/voltd"
 
 if [[ -f "$BINARY" ]]; then
   pass "Binary extracted"
