@@ -17,7 +17,8 @@
 param(
     [string]$Remote   = "fork",     # fork remote: source of our branches + push target for main
     [string]$Upstream = "origin",   # upstream we mirror into master
-    [switch]$Push                   # also force-push the rebuilt main to $Remote
+    [switch]$Push,                  # also force-push the rebuilt main to $Remote
+    [string]$StartAt = ""           # resume: keep the current main, skip $Branches before this one (after a hand-resolved conflict)
 )
 
 $ErrorActionPreference = "Stop"
@@ -74,18 +75,28 @@ $Branches = @(
     "local/dev-tooling"                       # local-only: fork CI (fork-build.yml) + this script; self-restoring, keep last
 )
 
-Write-Host "==> fetching $Upstream and $Remote" -ForegroundColor Cyan
-git fetch $Upstream --prune
-git fetch $Remote --prune
+if ($StartAt) {
+    if ($Branches -notcontains $StartAt) { Write-Host "!!! -StartAt '$StartAt' is not in `$Branches" -ForegroundColor Red; exit 1 }
+    if ((git branch --show-current) -ne "main") { Write-Host "!!! -StartAt needs main checked out" -ForegroundColor Red; exit 1 }
+    Write-Host "==> resuming assembly on the current main at $StartAt" -ForegroundColor Cyan
+} else {
+    Write-Host "==> fetching $Upstream and $Remote" -ForegroundColor Cyan
+    git fetch $Upstream --prune
+    git fetch $Remote --prune
 
-Write-Host "==> fast-forwarding master to $Upstream/master" -ForegroundColor Cyan
-git checkout master
-git merge --ff-only "$Upstream/master"
+    Write-Host "==> fast-forwarding master to $Upstream/master" -ForegroundColor Cyan
+    git checkout master
+    git merge --ff-only "$Upstream/master"
 
-Write-Host "==> resetting main to master" -ForegroundColor Cyan
-git checkout -B main master
+    Write-Host "==> resetting main to master" -ForegroundColor Cyan
+    git checkout -B main master
+}
 
+$skipping = [bool]$StartAt
 foreach ($b in $Branches) {
+    if ($skipping) {
+        if ($b -eq $StartAt) { $skipping = $false } else { continue }
+    }
     # Check if this branch is stacked on another branch in the list.
     # Keep the LAST (closest) ancestor, not the first: with a multi-level
     # stack (e.g. mcp-image-role-user <- per-agent-memory <- mcp-tasks-host)
