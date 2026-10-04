@@ -243,7 +243,7 @@ $fixups = @(
     @{
         File = "crates/zeroclaw-gateway/src/lib.rs"
         From = "            auto_save: true,`n            task_supervisor: None,`n            mcp_pool: None,`n"
-        To   = "            auto_save: true,`n            task_supervisor: None,`n            mcp_pool: None,`n            token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),`n"
+        To   = "            auto_save: true,`n            task_supervisor: None,`n            mcp_pool: None,`n            token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),`n            external_subjects: Arc::new(zeroclaw_gateway::api_authz_external::ExternalSubjectStore::new_ephemeral()),`n"
     }
     @{
         File = "crates/zeroclaw-gateway/src/acp.rs"
