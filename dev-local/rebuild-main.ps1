@@ -49,7 +49,7 @@ $Branches = @(
     "fix/mcp-image-role-user",                # PR #10502 - tool_result_image_policy=relocate (now the default) moves role:tool images into a user message (role:tool 400 fix); adds the variant on top of #10448's enum, already in master
     "feat/acp-wire-skills",                   # ACP client-delivered skills via _meta extension
     # Dropped 2026-08-21: fix/acp-session-cwd-fallback (#9536) merged upstream.
-    "fix/multimodal-token-estimation",        # fix: multimodal token estimation for vision models
+    # Dropped 2026-10-04: fix/multimodal-token-estimation superseded upstream (history.rs IMAGE_TOKEN_ESTIMATE / ImageMarkerDisposition price image markers per image).
     # Dropped 2026-09-19: fix/git-subcommand-classifier (#9635, closes #9627) merged upstream as 9702c650.
     # Dropped 2026-08-21: fix/windows-nul-redirect (#9636) merged upstream.
     "local/git-read-only",                     # local-only: git_read_only risk-profile flag (hard read-only git); was stacked on fix/git-subcommand-classifier — now applies on master's classifier (#9635 merged), so re-base local/git-read-only onto master if policy.rs conflicts at assembly
