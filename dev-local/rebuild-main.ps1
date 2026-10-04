@@ -131,6 +131,16 @@ foreach ($b in $Branches) {
             continue
         }
         $unmerged = (git diff --name-only --diff-filter=U | Out-String).Trim()
+        # rerere's replay can be interrupted by a transient Windows file lock
+        # ("could not open <file>: Invalid argument"); re-run it a few times
+        # before concluding the conflict needs a human.
+        $attempt = 0
+        while ($unmerged -and $attempt -lt 5) {
+            Start-Sleep -Milliseconds (500 * ($attempt + 1))
+            git rerere 2>&1 | Out-Null
+            $unmerged = (git diff --name-only --diff-filter=U | Out-String).Trim()
+            $attempt++
+        }
         if ($unmerged) {
             Write-Host "!!! cherry-pick conflict on $b." -ForegroundColor Red
             Write-Host "    Resolve the conflict, then run: git cherry-pick --continue" -ForegroundColor Red
