@@ -881,7 +881,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'pairing.unnamed': "Unnamed",
     'pairing.unpaired_hint': "Pairing is required, so the device list can't be read from here. Pair this browser with a code (above) — then your paired devices will appear.",
     'pairing.unpaired_title': "This browser isn't paired yet",
-    'pairing.code_input_placeholder': "6-digit code",
+    'pairing.code_input_placeholder': "Pairing code",
     'personality.chars': "chars",
     'personality.conflict_message': "changed on disk while you were editing. Pick how to resolve:",
     'personality.editor_intro': "These markdown files shape your agent's voice and context. The runtime reads them at every request, so changes take effect on the next message — no daemon reload needed.",

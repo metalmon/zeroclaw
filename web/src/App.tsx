@@ -14,6 +14,7 @@ import { hasExplicitLocale, loadLocale, saveLocale } from "./contexts/ThemeConte
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { DraftContext, useDraftStore } from "./hooks/useDraft";
 import { getAdminPairCode, generatePairCode, getStatus, PairCodeForbiddenError, getQuickstartState } from "./lib/api";
+import { PairingCode } from "./components/PairingCode";
 import { basePath } from "./lib/basePath";
 import { ConfigDraftProvider } from "./lib/draftStore";
 import { detectBrowserLocale, normalizeLocale, setLocale, t, type Locale } from "./lib/i18n";
@@ -311,12 +312,7 @@ function PairingDialog({
               borderColor: "var(--color-accent-dim)",
             }}
           >
-            <div
-              className="text-4xl font-mono font-bold tracking-[0.4em] py-2"
-              style={{ color: "var(--color-foreground)" }}
-            >
-              {displayCode}
-            </div>
+            <PairingCode code={displayCode} className="py-2" />
             <p
               className="text-xs mt-2"
               style={{ color: "var(--color-muted-foreground)" }}
@@ -332,8 +328,8 @@ function PairingDialog({
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder={t('pairing.code_input_placeholder')}
-            className="input-electric w-full px-4 py-4 text-center text-2xl tracking-[0.3em] font-medium mb-4"
-            maxLength={6}
+            className="input-electric w-full px-4 py-4 text-center text-lg tracking-[0.1em] font-mono font-medium mb-4"
+            maxLength={128}
             autoFocus
           />
           {error && (

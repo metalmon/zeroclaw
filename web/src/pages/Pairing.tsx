@@ -8,6 +8,7 @@ import {
   type PrincipalSummary,
 } from '@/lib/api';
 import { Button, Card, ConfirmDialog, EmptyState, PageHeader, Select } from '@/components/ui';
+import { PairingCode } from '@/components/PairingCode';
 import {
   SettingsPageShell,
   SettingsListBody,
@@ -221,9 +222,7 @@ export default function Pairing() {
               <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
                 {t('pairing.pairing_code')}
               </p>
-              <div className="py-4 font-mono text-4xl font-bold tracking-[0.4em] text-foreground">
-                {pairingCode}
-              </div>
+              <PairingCode code={pairingCode} className="py-4" />
               <p className="text-xs text-muted-foreground">{t('pairing.code_hint')}</p>
               {taggedFor && (
                 <p className="mt-2 text-xs text-text-secondary">{t('pairing.tagged_for', { value: taggedFor })}</p>
