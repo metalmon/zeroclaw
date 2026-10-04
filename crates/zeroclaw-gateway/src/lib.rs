@@ -2413,6 +2413,10 @@ pub async fn run_gateway_with_plugin_webhooks(
         // control plane never leaks onto the public surface. ──
         // ── WebSocket agent chat ──
         .route("/ws/chat", get(ws::handle_ws_chat))
+        // `/acp` stays available on the private (loopback) surface as well:
+        // the dashboard's ACP console and local tooling connect through it,
+        // while clients on the network use the public listener.
+        .route("/acp", get(acp::handle_ws_acp))
         // ── WebSocket SOP runs feed ──
         .route("/ws/sops/runs", get(ws_sop_runs::handle_ws_sop_runs))
         // ── WebSocket canvas updates ──
