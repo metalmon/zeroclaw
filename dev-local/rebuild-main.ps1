@@ -105,33 +105,54 @@ foreach ($b in $Branches) {
 
     Write-Host "==> cherry-pick $base..$b" -ForegroundColor Cyan
     git cherry-pick "$base..$b"
-    if ($LASTEXITCODE -ne 0) {
-        # Empty when the patch is already on master (merged upstream) — skip and continue.
+    # A multi-commit range can stop more than once; drive the sequence until
+    # it finishes or hits a conflict we cannot settle here.
+    while ($LASTEXITCODE -ne 0) {
         $inProgress = Test-Path (Join-Path (git rev-parse --git-dir) "CHERRY_PICK_HEAD")
-        $empty = (git status 2>&1 | Out-String) -match "The previous cherry-pick is now empty"
-        if ($inProgress -and $empty) {
-            Write-Host "    (empty — already on master; skipping $b)" -ForegroundColor Yellow
+        if (-not $inProgress) {
+            Write-Host "!!! cherry-pick failed on $b with no pick in progress." -ForegroundColor Red
+            exit 1
+        }
+        # Empty when the patch is already on master (merged upstream) — skip it.
+        if ((git status 2>&1 | Out-String) -match "The previous cherry-pick is now empty") {
+            Write-Host "    (empty — already on master; skipping)" -ForegroundColor Yellow
             git cherry-pick --skip
-            if ($LASTEXITCODE -ne 0) { exit 1 }
             continue
         }
-        # rerere (rerere.enabled + autoUpdate) replays a previously recorded
-        # resolution and stages it, but git still stops the sequence. When no
-        # path is left unmerged, the conflict IS resolved: continue the pick.
         $unmerged = (git diff --name-only --diff-filter=U | Out-String).Trim()
-        if ($inProgress -and -not $unmerged) {
-            Write-Host "    (conflict auto-resolved by rerere; continuing $b)" -ForegroundColor Yellow
-            git -c core.editor=true cherry-pick --continue
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "!!! cherry-pick --continue failed on $b after a rerere resolution." -ForegroundColor Red
+        if ($unmerged) {
+            Write-Host "!!! cherry-pick conflict on $b." -ForegroundColor Red
+            Write-Host "    Resolve the conflict, then run: git cherry-pick --continue" -ForegroundColor Red
+            Write-Host "    (or 'git cherry-pick --abort' to back out), then re-run this script." -ForegroundColor Red
+            exit 1
+        }
+        # Nothing unmerged: rerere (rerere.enabled + autoUpdate) replayed a
+        # recorded resolution and staged it, or a transient Windows lock on
+        # .git/logs/HEAD ("unable to append … Permission denied") interrupted
+        # the sequence after the tree was ready. Either way: continue, retrying
+        # the lock a few times.
+        Write-Host "    (tree resolved; continuing $b)" -ForegroundColor Yellow
+        $attempt = 0
+        do {
+            if ($attempt -gt 0) { Start-Sleep -Milliseconds (700 * $attempt) }
+            $out = git -c core.editor=true cherry-pick --continue 2>&1 | Out-String
+            $code = $LASTEXITCODE
+            $attempt++
+        } while ($code -ne 0 -and $out -match "Permission denied" -and $attempt -lt 6)
+        $LASTEXITCODE = $code
+        if ($code -ne 0 -and $out -notmatch "Permission denied") {
+            # Not the lock: fall through and let the loop inspect the new state
+            # (another conflict further down the range, or an empty pick).
+            if (-not (Test-Path (Join-Path (git rev-parse --git-dir) "CHERRY_PICK_HEAD"))) {
+                Write-Host $out
+                Write-Host "!!! cherry-pick --continue failed on $b." -ForegroundColor Red
                 exit 1
             }
-            continue
+        } elseif ($code -ne 0) {
+            Write-Host $out
+            Write-Host "!!! cherry-pick --continue kept failing on the reflog lock for $b." -ForegroundColor Red
+            exit 1
         }
-        Write-Host "!!! cherry-pick conflict on $b." -ForegroundColor Red
-        Write-Host "    Resolve the conflict, then run: git cherry-pick --continue" -ForegroundColor Red
-        Write-Host "    (or 'git cherry-pick --abort' to back out), then re-run this script." -ForegroundColor Red
-        exit 1
     }
 }
 
