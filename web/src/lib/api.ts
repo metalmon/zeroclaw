@@ -17,7 +17,7 @@ import type {
 import type { components } from "./api-generated";
 import { clearToken, getToken, setToken } from "./auth";
 import { apiOrigin, basePath } from "./basePath";
-import { localizedFieldHelp } from "./fieldHelpLocalized";
+import { localizedFieldHelp, rebrandHelp } from "./fieldHelpLocalized";
 
 // ---------------------------------------------------------------------------
 // Base fetch wrapper
@@ -311,7 +311,7 @@ export async function getAdminPairCode(): Promise<{
     }>;
   }
 
-  const response = await fetch("/admin/paircode");
+  const response = await fetch("/admin/paircode", { headers: adminTokenHeaders() });
   if (!response.ok) {
     throw new Error(`Failed to fetch pairing code (${response.status})`);
   }
@@ -319,6 +319,21 @@ export async function getAdminPairCode(): Promise<{
     pairing_code: string | null;
     pairing_required: boolean;
   }>;
+}
+
+declare global {
+  interface Window {
+    /** Set by Volt Admin after it authenticates on the gateway host over SSH;
+     *  a plain browser never has it. Read per call, never persisted. */
+    __voltAdminToken?: string;
+  }
+}
+
+/** Admin-token header for the loopback-only pair-code routes, when Volt Admin
+ *  injected one. Empty otherwise, so the 403 -> CLI-hint fallback is unchanged. */
+function adminTokenHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? window.__voltAdminToken : undefined;
+  return typeof token === 'string' && token.length > 0 ? { 'x-zeroclaw-admin-token': token } : {};
 }
 
 /** Thrown when the localhost-only mint endpoint rejects a non-loopback caller. */
@@ -347,7 +362,10 @@ export async function generatePairCode(principal?: string): Promise<{
   message?: string;
 }> {
   const qs = principal ? `?principal=${encodeURIComponent(principal)}` : '';
-  const response = await fetch(`${basePath}/admin/paircode/new${qs}`, { method: 'POST' });
+  const response = await fetch(`${basePath}/admin/paircode/new${qs}`, {
+    method: 'POST',
+    headers: adminTokenHeaders(),
+  });
   if (response.status === 403) {
     throw new PairCodeForbiddenError();
   }
@@ -1300,7 +1318,7 @@ export function descriptionForPath(
     const localized = localizedFieldHelp(lastSchemaName, lastField);
     if (localized) return localized;
   }
-  return enText;
+  return enText === null ? null : rebrandHelp(enText);
 }
 
 // ── Templates + map-key creation (issue #6175) ───────────────────────
