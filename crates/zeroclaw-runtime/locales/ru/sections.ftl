@@ -2,11 +2,11 @@
 # Накладывается на английскую базу (sections.ftl) по ключам.
 
 # Бэкенды памяти
-picker-memory-sqlite = SQLite с векторным поиском (рекомендуется) — быстрый гибридный поиск, эмбеддинги
-picker-memory-lucid = Мост Lucid Memory — синхронизация с локальным lucid-memory CLI, запасной SQLite
-picker-memory-postgres = PostgreSQL — удаленное надежное хранилище через [storage.model_provider.config]
-picker-memory-markdown = Markdown-файлы — просто, человекочитаемо, без зависимостей
-picker-memory-none = Без памяти — отключить постоянную память
+picker-memory-sqlite = SQLite с векторным поиском (рекомендуется) - быстрый гибридный поиск, эмбеддинги
+picker-memory-lucid = Мост Lucid Memory - синхронизация с локальным lucid-memory CLI, запасной SQLite
+picker-memory-postgres = PostgreSQL - удаленное надежное хранилище через [storage.model_provider.config]
+picker-memory-markdown = Markdown-файлы - просто, человекочитаемо, без зависимостей
+picker-memory-none = Без памяти - отключить постоянную память
 
 # Профили риска (быстрый старт)
 picker-risk-locked_down = Строгий режим
@@ -34,5 +34,5 @@ picker-storage-markdown-desc = Человекочитаемые файлы с п
 picker-storage-lucid-desc = Мост к локальному lucid-memory CLI с сохранением локальной работы в стиле SQLite.
 
 # Провайдеры / туннель
-picker-provider-local-desc = Локально — API-ключ не требуется
-picker-tunnel-none-desc = Только localhost — без публичного туннеля.
+picker-provider-local-desc = Локально - API-ключ не требуется
+picker-tunnel-none-desc = Только localhost - без публичного туннеля.

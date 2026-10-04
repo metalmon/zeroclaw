@@ -159,23 +159,56 @@ fn missing_cli_string(key: &str) -> String {
 }
 
 fn load_descriptions(locale: &str) -> HashMap<String, String> {
-    let mut map = format_ftl_messages(include_str!("../locales/en/tools.ftl"), "en");
-    if locale != "en"
-        && let Some(locale_ftl) = load_ftl_from_disk(locale, "tools.ftl")
-    {
+    load_catalog(
+        locale,
+        include_str!("../locales/en/tools.ftl"),
+        builtin_tools_ftl_source(locale),
+        "tools.ftl",
+    )
+}
+
+fn load_sections(locale: &str) -> HashMap<String, String> {
+    load_catalog(
+        locale,
+        include_str!("../locales/en/sections.ftl"),
+        builtin_sections_ftl_source(locale),
+        "sections.ftl",
+    )
+}
+
+/// English base, then the compiled-in locale catalog (when the binary ships
+/// one), then the per-user disk override; later layers win per key.
+fn load_catalog(
+    locale: &str,
+    english: &str,
+    builtin: Option<&str>,
+    filename: &str,
+) -> HashMap<String, String> {
+    let mut map = format_ftl_messages(english, "en");
+    if locale == "en" {
+        return map;
+    }
+    if let Some(locale_ftl) = builtin {
+        map.extend(format_ftl_messages(locale_ftl, locale));
+    }
+    if let Some(locale_ftl) = load_ftl_from_disk(locale, filename) {
         map.extend(format_ftl_messages(&locale_ftl, locale));
     }
     map
 }
 
-fn load_sections(locale: &str) -> HashMap<String, String> {
-    let mut map = format_ftl_messages(include_str!("../locales/en/sections.ftl"), "en");
-    if locale != "en"
-        && let Some(locale_ftl) = load_ftl_from_disk(locale, "sections.ftl")
-    {
-        map.extend(format_ftl_messages(&locale_ftl, locale));
+fn builtin_tools_ftl_source(locale: &str) -> Option<&'static str> {
+    match locale {
+        "ru" => Some(include_str!("../locales/ru/tools.ftl")),
+        _ => None,
     }
-    map
+}
+
+fn builtin_sections_ftl_source(locale: &str) -> Option<&'static str> {
+    match locale {
+        "ru" => Some(include_str!("../locales/ru/sections.ftl")),
+        _ => None,
+    }
 }
 
 fn load_cli_strings(locale: &str) -> HashMap<String, String> {
@@ -520,6 +553,111 @@ mod tests {
         )
         .expect("Spanish paircode fetch failure should format");
         assert!(spanish_fetch.contains(endpoint));
+    }
+
+    /// Message ids declared in an FTL source, in order, duplicates included.
+    fn ftl_message_ids(source: &str) -> Vec<&str> {
+        source
+            .lines()
+            .filter(|line| {
+                line.starts_with(|c: char| c.is_ascii_alphabetic()) && line.contains(" =")
+            })
+            .filter_map(|line| line.split(" =").next())
+            .collect()
+    }
+
+    #[test]
+    fn russian_tool_and_section_catalogs_stay_within_the_english_key_set() {
+        for (en, ru, name) in [
+            (
+                include_str!("../locales/en/tools.ftl"),
+                include_str!("../locales/ru/tools.ftl"),
+                "tools.ftl",
+            ),
+            (
+                include_str!("../locales/en/sections.ftl"),
+                include_str!("../locales/ru/sections.ftl"),
+                "sections.ftl",
+            ),
+        ] {
+            let en_ids: std::collections::BTreeSet<&str> =
+                ftl_message_ids(en).into_iter().collect();
+            let ru_ids = ftl_message_ids(ru);
+            let mut seen = std::collections::BTreeSet::new();
+            for id in &ru_ids {
+                assert!(seen.insert(*id), "ru/{name}: duplicate message id {id}");
+                assert!(
+                    en_ids.contains(id),
+                    "ru/{name}: {id} has no English counterpart"
+                );
+            }
+            let ru_map = format_ftl_messages(ru, "ru");
+            assert_eq!(
+                ru_map.len(),
+                ru_ids.len(),
+                "ru/{name}: every message must parse"
+            );
+        }
+    }
+
+    #[test]
+    fn tool_descriptions_and_pickers_render_in_russian() {
+        let tools = load_catalog(
+            "ru",
+            include_str!("../locales/en/tools.ftl"),
+            builtin_tools_ftl_source("ru"),
+            "tools.ftl",
+        );
+        let is_cyrillic = |value: &str| {
+            value
+                .chars()
+                .any(|c| ('\u{0400}'..='\u{04FF}').contains(&c))
+        };
+        for tool in ["shell", "file_read", "a2a_send", "sessions_send"] {
+            let key = format!("tool-{}", tool.replace('_', "-"));
+            let value = tools
+                .get(&key)
+                .unwrap_or_else(|| panic!("{key} should be in the ru tool catalog"));
+            assert!(
+                is_cyrillic(value),
+                "{key} should render in Russian; got: {value:?}"
+            );
+        }
+
+        let sections = load_catalog(
+            "ru",
+            include_str!("../locales/en/sections.ftl"),
+            builtin_sections_ftl_source("ru"),
+            "sections.ftl",
+        );
+        for preset in zeroclaw_config::presets::RISK_PRESETS {
+            for key in [
+                format!("picker-risk-{}", preset.preset_name),
+                format!("picker-risk-{}-desc", preset.preset_name),
+            ] {
+                let value = sections
+                    .get(&key)
+                    .unwrap_or_else(|| panic!("{key} should be in the ru sections catalog"));
+                assert!(
+                    is_cyrillic(value),
+                    "{key} should render in Russian; got: {value:?}"
+                );
+            }
+        }
+        for preset in zeroclaw_config::presets::RUNTIME_PRESETS {
+            for key in [
+                format!("picker-runtime-{}", preset.preset_name),
+                format!("picker-runtime-{}-desc", preset.preset_name),
+            ] {
+                let value = sections
+                    .get(&key)
+                    .unwrap_or_else(|| panic!("{key} should be in the ru sections catalog"));
+                assert!(
+                    is_cyrillic(value),
+                    "{key} should render in Russian; got: {value:?}"
+                );
+            }
+        }
     }
 
     #[test]
