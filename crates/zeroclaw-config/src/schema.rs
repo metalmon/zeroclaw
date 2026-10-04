@@ -548,7 +548,7 @@ pub struct Config {
     /// Fork-local principal-tagged pairing (`[[authz.principals]]`): a
     /// bearer token bound to a durable `principal_id`, entitled to the
     /// `[permission_profiles.<alias>]` names it lists. Feeds
-    /// `PrincipalResolver`'s roster alongside `[users.<name>]` — see
+    /// `PrincipalResolver`'s roster alongside `[users.<name>]`; see
     /// `crate::authz` and `PrincipalResolver::from_config`'s roster merge.
     #[serde(default)]
     #[nested]
@@ -4173,7 +4173,7 @@ pub struct AliasedAgentConfig {
     pub enabled: bool,
     /// Human-friendly name shown for this agent in clients and the dashboard in
     /// place of the alias. Optional; the alias is used when unset. Purely a
-    /// display label — the alias stays the identifier in URLs, workspace paths,
+    /// display label: the alias stays the identifier in URLs, workspace paths,
     /// and config keys.
     #[tab(General)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
