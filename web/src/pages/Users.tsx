@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ChevronRight, Plus, Trash2, User, UserRound, X } from 'lucide-react';
 import { useRoles } from '@/hooks/useRoles';
 import {
@@ -228,12 +229,35 @@ export default function Users() {
   const [forceDelete, setForceDelete] = useState<AuthzPrincipalSummary | null>(null);
   const [hasIdp, setHasIdp] = useState(false);
   const [pendingForget, setPendingForget] = useState<ExternalSubject | null>(null);
+  /** External row to flash after a `/users?user=<id>` deep link (it has no detail panel). */
+  const [highlight, setHighlight] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     getMapKeys('oidc')
       .then(({ keys }) => setHasIdp(keys.length > 0))
       .catch(() => setHasIdp(false));
   }, []);
+
+  // Deep link from the Roles page: open the local user's detail, or scroll to
+  // and briefly highlight the external user's row. Consumed once, then the
+  // query is dropped so a reload doesn't re-open it.
+  const linkedUser = searchParams.get('user');
+  useEffect(() => {
+    if (loading || !linkedUser) return;
+    const scrollTo = () =>
+      document.querySelector(`[data-user="${CSS.escape(linkedUser)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (principals.some((p) => p.id === linkedUser)) {
+      setForm(null);
+      setEditPrincipalId(linkedUser);
+      window.setTimeout(scrollTo, 50);
+    } else if (external?.some((s) => s.id === linkedUser)) {
+      setHighlight(linkedUser);
+      window.setTimeout(scrollTo, 50);
+      window.setTimeout(() => setHighlight(null), 2500);
+    }
+    setSearchParams({}, { replace: true });
+  }, [loading, linkedUser, principals, external, setSearchParams]);
 
   // PENDING first (they need attention), then everyone else, both
   // alphabetical within their bucket.
@@ -399,6 +423,7 @@ export default function Users() {
                 return (
                   <SettingsSelectableRow
                     key={principal.id}
+                    data-user={principal.id}
                     ariaLabel={principal.id}
                     isSelected={editPrincipalId === principal.id}
                     onSelect={() => openPrincipal(principal.id)}
@@ -438,7 +463,10 @@ export default function Users() {
                   {external.map((subject) => (
                     <SettingsSelectableRow
                       key={subject.id}
+                      data-user={subject.id}
                       ariaLabel={externalLabel(subject)}
+                      isSelected={highlight === subject.id}
+                      className={highlight === subject.id ? 'ring-2 ring-primary/50 transition-shadow' : undefined}
                       leading={
                         <IconTile>
                           <UserRound className="h-[18px] w-[18px] text-muted-foreground" />

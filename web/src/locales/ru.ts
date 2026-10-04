@@ -589,6 +589,8 @@ export const ru: Record<string, string> = {
   'roles.external_count_few': '{n} внешних',
   'roles.external_count_many': '{n} внешних',
   'roles.external_count_other': '{n} внешних',
+  'roles.users_with_role': 'Пользователи с этой ролью',
+  'roles.nobody_bound': 'Никто не привязан',
   'roles.new_profile': 'Создать роль',
   'roles.profiles_heading': 'Роли',
   'roles.no_profiles': 'Роли еще не настроены.',

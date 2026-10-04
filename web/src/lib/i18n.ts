@@ -2096,6 +2096,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'roles.local_count_other': '{n} local',
     'roles.external_count_one': '{n} external',
     'roles.external_count_other': '{n} external',
+    'roles.users_with_role': 'Users with this role',
+    'roles.nobody_bound': 'Nobody bound',
     'roles.new_profile': 'New Profile',
     'roles.profiles_heading': 'Permission Profiles',
     'roles.no_profiles': 'No permission profiles configured yet.',

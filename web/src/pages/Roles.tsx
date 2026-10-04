@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
-import { ChevronRight, Plus, Shield, ShieldCheck, Trash2, X } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, Plus, Shield, ShieldCheck, Trash2, User, UserRound, X } from 'lucide-react';
 import { useRoles } from '@/hooks/useRoles';
-import { HttpError, type AuthzProfile } from '@/lib/api';
+import { HttpError, type AuthzPrincipalSummary, type AuthzProfile, type ExternalSubject } from '@/lib/api';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, PageHeader } from '@/components/ui';
 import {
   SettingsPageShell,
@@ -9,7 +10,7 @@ import {
   SettingsSectionLabel,
   SettingsSelectableRow,
 } from '@/components/ui/settings-list';
-import { DetailPanel, DetailPanelSurface } from '@/components/ui/detail-panel';
+import { DetailPanel, DetailPanelSurface, DetailSectionTitle } from '@/components/ui/detail-panel';
 import { IconTile } from '@/components/ui/icon-tile';
 import { ActionMenu } from '@/components/ui/action-menu';
 import { SpinnerScreen } from '@/components/ui/spinner';
@@ -146,6 +147,71 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
           {t('roles.save')}
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ── Users holding a role (read-only; binding lives on the Users page) ──────
+
+/** Deep link into the Users page: `/users?user=<id>` opens the local user's
+ *  detail, or scrolls to and highlights the external (SSO) user's row. */
+export function userPageLink(id: string): string {
+  return `/users?user=${encodeURIComponent(id)}`;
+}
+
+function RoleUsers({
+  profile,
+  principals,
+  external,
+}: {
+  profile: AuthzProfile;
+  principals: AuthzPrincipalSummary[];
+  external: ExternalSubject[] | null;
+}) {
+  const navigate = useNavigate();
+  const locals = principals.filter((p) => p.profiles.includes(profile.id));
+  const externals = (external ?? []).filter((s) => s.profiles.includes(profile.id));
+  const rowClass =
+    'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50';
+  const group = (title: string, rows: ReactNode[]) => (
+    <div>
+      <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">{title}</p>
+      {rows.length === 0 ? (
+        <p className="px-2 text-xs text-muted-foreground">{t('roles.nobody_bound')}</p>
+      ) : (
+        <div className="flex flex-col">{rows}</div>
+      )}
+    </div>
+  );
+  return (
+    <div className="flex flex-col gap-3 border-t border-border pt-4">
+      <DetailSectionTitle>{t('roles.users_with_role')}</DetailSectionTitle>
+      {group(
+        t('users.local_heading'),
+        locals.map((p) => (
+          <button key={p.id} type="button" className={rowClass} onClick={() => navigate(userPageLink(p.id))}>
+            <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate font-mono">{p.id}</span>
+            {p.profiles.some((pid) => pid === profile.id && profile.admin) && (
+              <Badge tone="ok">{t('roles.admin_badge')}</Badge>
+            )}
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </button>
+        )),
+      )}
+      {external !== null &&
+        group(
+          t('users.external_heading'),
+          externals.map((s) => (
+            <button key={s.id} type="button" className={rowClass} onClick={() => navigate(userPageLink(s.id))}>
+              <UserRound className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{s.display_name || s.email || s.subject}</span>
+              <Badge tone="neutral">{s.provider}</Badge>
+              {s.admin && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </button>
+          )),
+        )}
     </div>
   );
 }
@@ -368,15 +434,24 @@ export default function Roles() {
               ) : undefined
             }
           >
-            <ProfileForm
-              form={form}
-              agents={agents}
-              saving={saving}
-              formError={formError}
-              onChange={setForm}
-              onSave={() => void handleSave()}
-              onCancel={closeForm}
-            />
+            <div className="flex flex-col gap-5">
+              <ProfileForm
+                form={form}
+                agents={agents}
+                saving={saving}
+                formError={formError}
+                onChange={setForm}
+                onSave={() => void handleSave()}
+                onCancel={closeForm}
+              />
+              {form.editingId !== null && (
+                <RoleUsers
+                  profile={profiles.find((p) => p.id === form.editingId) ?? { id: form.editingId, allowed_agents: [], admin: form.admin }}
+                  principals={principals}
+                  external={external}
+                />
+              )}
+            </div>
           </DetailPanel>
         )}
       </DetailPanelSurface>

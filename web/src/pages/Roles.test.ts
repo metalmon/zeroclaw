@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { createElement } from 'react';
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
+import { MemoryRouter } from 'react-router-dom';
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -232,7 +233,8 @@ function buttonWithText(renderer: ReactTestRenderer, text: string): ReactTestIns
 async function mount(page: typeof Roles | typeof Users = Roles): Promise<ReactTestRenderer> {
   let renderer!: ReactTestRenderer;
   await act(async () => {
-    renderer = create(createElement(page));
+    // Both pages use router hooks (deep links between Roles and Users).
+    renderer = create(createElement(MemoryRouter, null, createElement(page)));
   });
   // Flush the three parallel fetches `useRoles` kicks off on mount.
   await act(async () => {
