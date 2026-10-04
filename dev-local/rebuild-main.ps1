@@ -220,6 +220,24 @@ $fixups = @(
         From = "    pub async fn from_pinned_live_config_with_session_cwd_and_mcp_backchannel("
         To   = "    #[allow(clippy::too_many_arguments)] pub async fn from_pinned_live_config_with_session_cwd_and_mcp_backchannel("
     }
+    # Cross-branch test-literal drift (fork/* authz stack vs the mcp-tasks chain):
+    # fix/per-agent-memory-autosave-clean's webhook-autosave AppState literal has
+    # no `token_bindings` (a fork/authz-pairing-principal field), and the two
+    # fork `/acp` front-door tests call run_gateway without the chain's
+    # task_supervisor/mcp_pool arguments. Neither side can carry the other's
+    # field without breaking its own isolated CI. Multi-line From/To use "`n"
+    # (the loop below retries with CRLF). Each From occurs exactly once (the
+    # run_gateway block twice, deliberately) in the assembled tree.
+    @{
+        File = "crates/zeroclaw-gateway/src/lib.rs"
+        From = "            auto_save: true,`n            task_supervisor: None,`n            mcp_pool: None,`n"
+        To   = "            auto_save: true,`n            task_supervisor: None,`n            mcp_pool: None,`n            token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),`n"
+    }
+    @{
+        File = "crates/zeroclaw-gateway/src/acp.rs"
+        From = "            Some(reload_controls),`n" + ("            None,`n" * 7) + "        ));"
+        To   = "            Some(reload_controls),`n" + ("            None,`n" * 9) + "        ));"
+    }
     # `anyhow!` is disallowed by clippy.toml; mcp_tasks/mod.rs (feat/mcp-tasks-host)
     # still uses it. Proper home is that branch; patched here to keep main green.
     # Single-quoted because the string contains backticks (`{alias}`).
@@ -234,6 +252,11 @@ foreach ($fx in $fixups) {
     $path = Resolve-Path -LiteralPath $fx.File
     $orig = [System.IO.File]::ReadAllText($path)
     $new  = $orig.Replace($fx.From, $fx.To)
+    # Multi-line From/To are written with "`n"; a CRLF working tree
+    # (core.autocrlf=true on Windows) needs the CRLF spelling instead.
+    if ($new -eq $orig -and $fx.From.Contains("`n")) {
+        $new = $orig.Replace($fx.From.Replace("`n", "`r`n"), $fx.To.Replace("`n", "`r`n"))
+    }
     if ($new -ne $orig) {
         [System.IO.File]::WriteAllText($path, $new)
         git add -- $fx.File
