@@ -115,6 +115,19 @@ foreach ($b in $Branches) {
             if ($LASTEXITCODE -ne 0) { exit 1 }
             continue
         }
+        # rerere (rerere.enabled + autoUpdate) replays a previously recorded
+        # resolution and stages it, but git still stops the sequence. When no
+        # path is left unmerged, the conflict IS resolved: continue the pick.
+        $unmerged = (git diff --name-only --diff-filter=U | Out-String).Trim()
+        if ($inProgress -and -not $unmerged) {
+            Write-Host "    (conflict auto-resolved by rerere; continuing $b)" -ForegroundColor Yellow
+            git -c core.editor=true cherry-pick --continue
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "!!! cherry-pick --continue failed on $b after a rerere resolution." -ForegroundColor Red
+                exit 1
+            }
+            continue
+        }
         Write-Host "!!! cherry-pick conflict on $b." -ForegroundColor Red
         Write-Host "    Resolve the conflict, then run: git cherry-pick --continue" -ForegroundColor Red
         Write-Host "    (or 'git cherry-pick --abort' to back out), then re-run this script." -ForegroundColor Red
