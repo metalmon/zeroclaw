@@ -88,7 +88,7 @@ fn desktop_launch_and_install_reach_the_linux_process_boundary() {
     assert_success(&output, "desktop install-page open");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("Opening the ZeroClaw companion app download page"),
+        stdout.contains("Opening the Volt companion app download page"),
         "desktop --install output must say that it opens the page:\n{stdout}"
     );
     wait_for_file(&url_sentinel);
