@@ -976,6 +976,16 @@ fn config_admin_router(inbound_auth: &Arc<principal_gate::GatewayInboundAuth>) -
             put(api_authz::handle_bind_principal_profile)
                 .delete(api_authz::handle_unbind_principal_profile),
         )
+        // `GET /api/authz/principals` lives on the private router; axum
+        // merges the method routers for the shared path.
+        .route(
+            "/api/authz/principals",
+            post(api_authz::handle_create_principal),
+        )
+        .route(
+            "/api/authz/principals/{id}",
+            delete(api_authz::handle_delete_principal),
+        )
         .route_layer(axum::middleware::from_fn_with_state(
             Arc::clone(inbound_auth),
             principal_gate::config_route_auth,
