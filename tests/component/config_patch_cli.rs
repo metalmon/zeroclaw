@@ -1047,7 +1047,7 @@ fn standalone_agent_ownership_uses_resolved_temp_data_dir_and_preserves_alias_va
     assert!(!refused.status.success());
     let refused_stderr = String::from_utf8_lossy(&refused.stderr);
     assert!(
-        refused_stderr.contains("Cannot run `zeroclaw agent` while another ZeroClaw process owns"),
+        refused_stderr.contains("Cannot run `voltd agent` while another Volt process owns"),
         "ownership refusal must be actionable: {refused_stderr}"
     );
     assert!(
@@ -1064,7 +1064,7 @@ fn standalone_agent_ownership_uses_resolved_temp_data_dir_and_preserves_alias_va
         "after ownership release, the normal alias validation must run: {validated_stderr}"
     );
     assert!(
-        !validated_stderr.contains("while another ZeroClaw process owns"),
+        !validated_stderr.contains("while another Volt process owns"),
         "released ownership must not leave a stale refusal: {validated_stderr}"
     );
 }
@@ -1104,7 +1104,7 @@ fn standalone_acp_ownership_refuses_before_store_open_and_retains_stdio_authorit
     assert!(!refused.status.success());
     let stderr = String::from_utf8_lossy(&refused.stderr);
     assert!(
-        stderr.contains("Cannot run `zeroclaw acp` while another ZeroClaw process owns"),
+        stderr.contains("Cannot run `voltd acp` while another Volt process owns"),
         "ownership refusal must name the standalone command: {stderr}"
     );
     assert!(

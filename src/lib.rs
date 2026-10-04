@@ -754,9 +754,9 @@ When --tz is omitted, cron schedules use the runtime local timezone. \
 For user-facing schedules, pass --tz with an explicit IANA timezone.
 
 Examples:
-  zeroclaw cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
-  zeroclaw cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
-  zeroclaw cron add '*/5 * * * *' 'echo ok' --agent sentinel")]
+  voltd cron add '0 9 * * 1-5' 'Good morning' --agent sentinel --prompt --tz America/New_York
+  voltd cron add '*/30 * * * *' 'Check system health' --agent sentinel --prompt
+  voltd cron add '*/5 * * * *' 'echo ok' --agent sentinel")]
     Add {
         /// Cron expression
         expression: String,
@@ -793,8 +793,8 @@ The timestamp must include an explicit Z or numeric offset \
 (e.g. 2099-01-15T14:00:00Z or 2099-01-15T09:00:00-05:00).
 
 Examples:
-  zeroclaw cron add-at --agent morning-shift --prompt 2099-01-15T14:00:00Z 'Send reminder'
-  zeroclaw cron add-at --agent morning-shift --prompt 2099-12-31T23:59:00Z 'Happy New Year!'")]
+  voltd cron add-at --agent morning-shift --prompt 2099-01-15T14:00:00Z 'Send reminder'
+  voltd cron add-at --agent morning-shift --prompt 2099-12-31T23:59:00Z 'Happy New Year!'")]
     AddAt {
         /// One-shot RFC3339 timestamp with explicit Z or offset
         at: String,
@@ -825,8 +825,8 @@ Add a task that repeats at a fixed interval.
 Interval is specified in milliseconds. For example, 60000 = 1 minute.
 
 Examples:
-  zeroclaw cron add-every --agent triage --prompt 60000 'Ping heartbeat'
-  zeroclaw cron add-every --agent triage --prompt 3600000 'Hourly report'")]
+  voltd cron add-every --agent triage --prompt 60000 'Ping heartbeat'
+  voltd cron add-every --agent triage --prompt 3600000 'Hourly report'")]
     AddEvery {
         /// Interval in milliseconds
         every_ms: u64,
@@ -858,8 +858,8 @@ Accepts human-readable durations: s (seconds), m (minutes), \
 h (hours), d (days).
 
 Examples:
-  zeroclaw cron once --agent ops-bot --prompt 30m 'Run backup in 30 minutes'
-  zeroclaw cron once --agent researcher --prompt 2h 'Follow up on deployment'")]
+  voltd cron once --agent ops-bot --prompt 30m 'Run backup in 30 minutes'
+  voltd cron once --agent researcher --prompt 2h 'Follow up on deployment'")]
     Once {
         /// Delay duration
         delay: String,
@@ -895,9 +895,9 @@ Update one or more fields of an existing scheduled task.
 Only the fields you specify are changed; others remain unchanged.
 
 Examples:
-  zeroclaw cron update TASK_ID --expression '0 8 * * *'
-  zeroclaw cron update TASK_ID --tz Europe/London --name 'Morning check'
-  zeroclaw cron update TASK_ID --command 'Updated message'")]
+  voltd cron update TASK_ID --expression '0 8 * * *'
+  voltd cron update TASK_ID --tz Europe/London --name 'Morning check'
+  voltd cron update TASK_ID --command 'Updated message'")]
     Update {
         /// Task ID
         id: String,
