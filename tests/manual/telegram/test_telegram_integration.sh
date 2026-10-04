@@ -187,10 +187,10 @@ if [ -f "$CONFIG_PATH" ]; then
             warn "User allowlist not set"
         fi
     else
-        warn "Telegram not configured - run 'zeroclaw config set channels.telegram.default.bot-token <token>' first"
+        warn "Telegram not configured - run 'voltd config set channels.telegram.default.bot-token <token>' first"
     fi
 else
-    warn "No config file found - run 'zeroclaw quickstart' first"
+    warn "No config file found - run 'voltd quickstart' first"
 fi
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -290,7 +290,7 @@ cat << 'EOF'
 📱 Manual Test Checklist:
 
 1. [ ] Start the channel:
-   zeroclaw channel start
+   voltd channel start
 
 2. [ ] Send a short message to your bot in Telegram:
    "Hello bot!"
@@ -315,7 +315,7 @@ cat << 'EOF'
    ✓ Verify: Responses have delays
 
 6. [ ] Check logs for errors:
-   RUST_LOG=debug zeroclaw channel start
+   RUST_LOG=debug voltd channel start
    ✓ Verify: No unexpected errors
    ✓ Verify: "missing chat_id" appears for malformed messages
    ✓ Verify: Health check logs show "timed out" if needed

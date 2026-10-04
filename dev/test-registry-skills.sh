@@ -24,7 +24,7 @@ fail() { TESTS=$((TESTS + 1)); FAILURES=$((FAILURES + 1)); printf "  ${RED}✗${
 info() { printf "\n${BOLD}%s${RESET}\n" "$*"; }
 warn() { printf "  ${YELLOW}⚠${RESET} %s\n" "$*"; }
 
-# ── Resolve zeroclaw binary ─────────────────────────────────────
+# ── Resolve voltd binary ─────────────────────────────────────
 ZEROCLAW=""
 for candidate in \
   "$REPO_ROOT/target/debug/voltd" \
@@ -37,7 +37,7 @@ for candidate in \
 done
 
 if [ -z "$ZEROCLAW" ]; then
-  printf "${RED}Error: No zeroclaw binary found. Run 'cargo build' first.${RESET}\n"
+  printf "${RED}Error: No voltd binary found. Run 'cargo build' first.${RESET}\n"
   exit 1
 fi
 

@@ -32,7 +32,7 @@ echo "  [ ] Quickstart prompts for provider type"
 echo "  [ ] Quickstart accepts --model-provider / --model / --api-key / --agent flags non-interactively"
 echo "  [ ] Quickstart writes a working config.toml with one [providers.models.<type>.<alias>] entry"
 echo "  [ ] Quickstart writes one [agents.<alias>] entry bound to that provider"
-echo "  [ ] Quickstart prints the next-step instructions (zeroclaw agent / zeroclaw daemon)"
+echo "  [ ] Quickstart prints the next-step instructions (voltd agent / voltd daemon)"
 echo "  [ ] Re-running quickstart on a configured install is idempotent (no destructive overwrite)"
 echo
 echo -e "${BOLD}Press Enter to launch quickstart...${RESET}"
