@@ -56,6 +56,7 @@ use zeroclaw_runtime::rpc::transport::TransportKind;
 use zeroclaw_runtime::security::auth_provider::Credential;
 
 use crate::ConfigWriteGuard;
+use crate::api_authz_external::ExternalSubjectStore;
 
 /// Header naming the auth provider to verify the bearer with, mirroring
 /// the RPC handshake's `auth_provider` field (e.g. `oidc.corp`). Absent
@@ -78,21 +79,50 @@ pub const AUTH_PROVIDER_HEADER: &str = "x-zeroclaw-auth-provider";
 /// gateway's `publish_persisted`, or the RPC context's save.
 pub struct GatewayInboundAuth {
     inner: Arc<RpcInboundAuth>,
+    /// Where every admitted scoped (OIDC) login is recorded for the panel's
+    /// external-subjects listing. Ephemeral until `with_external_subjects`
+    /// hands over the gateway's shared store.
+    external_subjects: Arc<ExternalSubjectStore>,
 }
 
 impl GatewayInboundAuth {
     /// A standalone gateway's own authority, compiled from `config`.
     pub fn from_config(config: &Config, pairing: Arc<PairingGuard>) -> anyhow::Result<Self> {
-        Ok(Self {
-            inner: Arc::new(RpcInboundAuth::from_config(config, pairing)?),
-        })
+        Ok(Self::from_shared(Arc::new(RpcInboundAuth::from_config(
+            config, pairing,
+        )?)))
     }
 
     /// The daemon generation's authority, shared with the RPC context. The
     /// gateway then authenticates against, and publishes into, the same
     /// accepted policy RPC does.
     pub fn from_shared(inner: Arc<RpcInboundAuth>) -> Self {
-        Self { inner }
+        Self {
+            inner,
+            external_subjects: Arc::new(ExternalSubjectStore::new_ephemeral()),
+        }
+    }
+
+    /// Record admitted scoped logins into `store` (the one `AppState` serves
+    /// through `GET /api/authz/external`).
+    #[must_use]
+    pub fn with_external_subjects(mut self, store: Arc<ExternalSubjectStore>) -> Self {
+        self.external_subjects = store;
+        self
+    }
+
+    /// The external-subject registry this authority records into.
+    pub fn external_subjects(&self) -> &Arc<ExternalSubjectStore> {
+        &self.external_subjects
+    }
+
+    /// Note one admitted scoped login. Only OIDC human identities are
+    /// recorded; the store never sees the bearer.
+    fn record_external_login(&self, conn: &ConnectionAuth) {
+        if let Some(membership) = self.inner.oidc_membership(&conn.identity) {
+            self.external_subjects
+                .record_login(&conn.identity, membership, conn.grants.admin);
+        }
     }
 
     fn pairing(&self) -> &Arc<PairingGuard> {
@@ -542,7 +572,10 @@ pub async fn config_route_auth(
 
     let conn = match provider {
         Some(provider) => match auth.authenticate_scoped(&token, &provider).await {
-            Ok(conn) => conn,
+            Ok(conn) => {
+                auth.record_external_login(&conn);
+                conn
+            }
             Err(denied) => return denied_response(&denied),
         },
         None => match auth.authenticate_native(&token).await {
@@ -908,6 +941,58 @@ mod tests {
             body["error"],
             "Principal lacks the config grant required for this method"
         );
+    }
+
+    #[tokio::test]
+    async fn admitted_scoped_login_is_recorded_as_an_external_subject() {
+        let idp = introspection_idp(&["ops", "unmapped"]).await;
+        let (router, auth) = router_and_authority_for(oidc_config_with_reader_profile(&idp.uri()));
+        assert!(auth.external_subjects().list().is_empty());
+
+        for _ in 0..2 {
+            let (status, _) = send(
+                &router,
+                "GET",
+                "/api/quickstart/state",
+                Some("opaque-token"),
+                Some("oidc.test"),
+                None,
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK);
+        }
+
+        let seen = auth.external_subjects().list();
+        assert_eq!(seen.len(), 1, "one subject, upserted");
+        let record = &seen[0];
+        assert_eq!(
+            record.id,
+            zeroclaw_api::principal::PrincipalId::for_oidc(&idp.uri(), "alice").0
+        );
+        assert_eq!(record.provider, "test");
+        assert_eq!(record.issuer, idp.uri());
+        assert_eq!(record.subject, "alice");
+        assert_eq!(record.groups, vec!["ops", "unmapped"]);
+        assert_eq!(record.profiles, vec!["config-reader"]);
+        assert!(!record.admin);
+        assert_eq!(record.logins, 2);
+    }
+
+    #[tokio::test]
+    async fn refused_scoped_login_is_not_recorded() {
+        let idp = introspection_idp(&["unmapped-group"]).await;
+        let (router, auth) = router_and_authority_for(oidc_config_with_reader_profile(&idp.uri()));
+        let (status, _) = send(
+            &router,
+            "GET",
+            "/api/quickstart/state",
+            Some("opaque-token"),
+            Some("oidc.test"),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert!(auth.external_subjects().list().is_empty());
     }
 
     #[tokio::test]
