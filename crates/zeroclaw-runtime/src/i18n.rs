@@ -591,12 +591,19 @@ mod tests {
                     "ru/{name}: {id} has no English counterpart"
                 );
             }
-            let ru_map = format_ftl_messages(ru, "ru");
-            assert_eq!(
-                ru_map.len(),
-                ru_ids.len(),
-                "ru/{name}: every message must parse"
-            );
+            // Messages with `{ $arg }` placeables only format with arguments,
+            // so parse the resource instead of formatting every message.
+            let resource = FluentResource::try_new(ru.to_string()).unwrap_or_else(|(_, errors)| {
+                panic!("ru/{name}: every message must parse: {errors:?}")
+            });
+            let mut bundle = FluentBundle::new(vec!["ru".parse().expect("ru locale parses")]);
+            let _ = bundle.add_resource(resource);
+            for id in &ru_ids {
+                assert!(
+                    bundle.get_message(id).is_some(),
+                    "ru/{name}: {id} did not parse as a message"
+                );
+            }
         }
     }
 
