@@ -15243,7 +15243,7 @@ mod tests {
             .expect("completion generation should succeed");
         let script = String::from_utf8(output).expect("completion output should be valid utf-8");
         assert!(
-            script.contains("zeroclaw"),
+            script.contains("voltd"),
             "completion script should reference binary name"
         );
     }
@@ -15256,15 +15256,15 @@ mod tests {
             .expect("completion generation should succeed");
         let script = String::from_utf8(output).expect("completion output should be valid utf-8");
         // The wrapper must capture the original clap-generated function body
-        // (via declare -f) rather than calling _zeroclaw by name, which would
-        // create an infinite recursion loop after _zeroclaw is redefined.
+        // (via declare -f) rather than calling _voltd by name, which would
+        // create an infinite recursion loop after _voltd is redefined.
         assert!(
-            script.contains("declare -f _zeroclaw"),
-            "bash completion should use declare -f to capture the original _zeroclaw function body"
+            script.contains("declare -f _voltd"),
+            "bash completion should use declare -f to capture the original _voltd function body"
         );
         assert!(
-            !script.contains("_zeroclaw_clap_orig() { _zeroclaw \"$@\"; }"),
-            "bash completion must not define _zeroclaw_clap_orig as a simple forwarder to _zeroclaw"
+            !script.contains("_voltd_clap_orig() { _voltd \"$@\"; }"),
+            "bash completion must not define _voltd_clap_orig as a simple forwarder to _voltd"
         );
     }
 
