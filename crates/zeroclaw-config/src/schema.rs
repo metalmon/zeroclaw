@@ -36852,8 +36852,8 @@ wire_api = "ws"
                 None,
                 Some(fresh.join("data")),
                 None,
-                fresh.join(".zeroclaw"),
-                fresh.join(".zeroclaw/data"),
+                fresh.join(".voltd"),
+                fresh.join(".voltd/data"),
             ),
         ];
 
