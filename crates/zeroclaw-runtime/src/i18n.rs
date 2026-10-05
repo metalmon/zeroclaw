@@ -651,6 +651,16 @@ mod tests {
                 );
             }
         }
+        for (name, _) in crate::tools::BUILTIN_TOOL_INTEGRATIONS {
+            let key = crate::integrations::registry::integration_description_key(name);
+            let value = sections
+                .get(&key)
+                .unwrap_or_else(|| panic!("{key} should be in the ru sections catalog"));
+            assert!(
+                is_cyrillic(value),
+                "{key} should render in Russian; got: {value:?}"
+            );
+        }
         for preset in zeroclaw_config::presets::RUNTIME_PRESETS {
             for key in [
                 format!("picker-runtime-{}", preset.preset_name),
