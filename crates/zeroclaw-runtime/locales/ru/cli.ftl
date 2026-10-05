@@ -183,3 +183,27 @@ cli-quickstart-terminal-resized = Пока список шагов мастер�
 cli-quickstart-empty-checklist = Мастер не может открыть пустой список шагов.
 cli-quickstart-terminal-too-narrow = Мастеру нужен терминал шириной не менее {$min_width} колонок; сейчас {$width}. Расширьте терминал и повторите.
 cli-quickstart-terminal-too-short = Мастеру нужен терминал высотой не менее {$min_height} строк; сейчас {$height}. Увеличьте высоту терминала и повторите.
+
+# --- стартовый баннер шлюза (stdout) ---
+cli-gateway-banner-listening = 🦀 Шлюз Volt слушает { $url }
+cli-gateway-banner-public-url = {"  "}🌐 Публичный адрес: { $url }
+cli-gateway-banner-dashboard = {"  "}🌐 Веб-панель: { $url }
+cli-gateway-banner-dashboard-missing = {"  "}⚠️  Веб-панель недоступна: переустановите штатным установщиком (`./install.sh --source` на Linux/macOS, `setup.bat` на Windows), чтобы собрать ее
+cli-gateway-banner-pairing-required = {"  "}🔐 ТРЕБУЕТСЯ СОПРЯЖЕНИЕ: используйте этот одноразовый код:
+cli-gateway-banner-pairing-send = {"     "}Отправьте: POST { $prefix }/pair с заголовком X-Pairing-Code: { $code }
+cli-gateway-banner-paired = {"  "}🔒 Сопряжение: АКТИВНО. Шлюз уже сопряжен, новый одноразовый код при этом запуске не создавался.
+cli-gateway-banner-paired-command = {"     "}Чтобы подключить еще одно устройство, выполните: { $command }
+cli-gateway-banner-paired-fallback = {"     "}Запасной вариант (на этом хосте, от этого пользователя): { $command }
+cli-gateway-banner-pairing-disabled = {"  "}⚠️  Сопряжение: ОТКЛЮЧЕНО (принимаются все запросы)
+cli-gateway-banner-route-pair = {"  "}POST { $prefix }/pair      — сопряжение нового клиента (заголовок X-Pairing-Code)
+cli-gateway-banner-route-webhook = {"  "}POST { $prefix }/webhook   — {"{"}"message": "ваш запрос"{"}"}
+cli-gateway-banner-route-whatsapp-verify = {"  "}GET  { $prefix }/whatsapp[/<alias>]  — проверка вебхука Meta
+cli-gateway-banner-route-whatsapp-message = {"  "}POST { $prefix }/whatsapp[/<alias>]  — вебхук сообщений WhatsApp
+cli-gateway-banner-route-linq = {"  "}POST { $prefix }/linq[/<alias>]      — вебхук сообщений Linq (iMessage/RCS/SMS)
+cli-gateway-banner-route-nextcloud = {"  "}POST { $prefix }/nextcloud-talk[/<alias>] — вебхук бота Nextcloud Talk
+cli-gateway-banner-route-api = {"  "}GET  { $prefix }/api/*     — REST API (нужен bearer-токен)
+cli-gateway-banner-route-ws-chat = {"  "}GET  { $prefix }/ws/chat   — WebSocket-чат с агентом
+cli-gateway-banner-route-ws-nodes = {"  "}GET  { $prefix }/ws/nodes  — WebSocket-обнаружение узлов
+cli-gateway-banner-route-health = {"  "}GET  { $prefix }/health    — проверка состояния
+cli-gateway-banner-route-metrics = {"  "}GET  { $prefix }/metrics   — метрики Prometheus
+cli-gateway-banner-stop = {"  "}Нажмите Ctrl+C для остановки.
