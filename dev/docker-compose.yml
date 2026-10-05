@@ -20,7 +20,7 @@ services:
     container_name: zeroclaw-dev
     restart: unless-stopped
     environment:
-      - ZEROCLAW_GATEWAY_PORT=42617
+      - VOLTD_GATEWAY_PORT=42617
       - SANDBOX_HOST=zeroclaw-sandbox
     secrets:
       - source: zeroclaw_env
@@ -33,12 +33,12 @@ services:
           . /run/secrets/zeroclaw_env
           set +a
         fi
-        exec zeroclaw gateway start --port "${ZEROCLAW_GATEWAY_PORT:-42617}" --host "[::]"
+        exec zeroclaw gateway start --port "${VOLTD_GATEWAY_PORT:-42617}" --host "[::]"
     volumes:
-      # Mount single config file (avoids shadowing other files in .zeroclaw)
-      - ../target/.zeroclaw/config.toml:/zeroclaw-data/.zeroclaw/config.toml
+      # Mount single config file (avoids shadowing other files in .voltd)
+      - ../target/.voltd/config.toml:/voltd-data/.voltd/config.toml
       # Mount shared workspace
-      - ../playground:/zeroclaw-data/workspace
+      - ../playground:/voltd-data/workspace
     ports:
       - "127.0.0.1:42617:42617"
     networks:
