@@ -277,7 +277,7 @@ impl AuditLogger {
     pub fn new(config: AuditConfig, zeroclaw_dir: PathBuf) -> Result<Self> {
         // Load and validate signing key if sign_events enabled
         let signing_key = if config.sign_events {
-            let key_hex = std::env::var("ZEROCLAW_AUDIT_SIGNING_KEY").map_err(|e| {
+            let key_hex = zeroclaw_config::env::var("AUDIT_SIGNING_KEY").map_err(|e| {
                 // Do not format the VarError: VarError::NotUnicode includes the
                 // raw env-var value in its Display/Debug text, which would leak
                 // signing-key material into logs and error output.
@@ -290,15 +290,15 @@ impl AuditLogger {
                     ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
                         .with_outcome(::zeroclaw_log::EventOutcome::Failure)
                         .with_attrs(::serde_json::json!({"reason": reason})),
-                    "audit log: sign_events=true but ZEROCLAW_AUDIT_SIGNING_KEY env var is not usable"
+                    "audit log: sign_events=true but VOLTD_AUDIT_SIGNING_KEY env var is not usable"
                 );
                 match e {
                     std::env::VarError::NotPresent => anyhow::Error::msg(
-                        "sign_events enabled but ZEROCLAW_AUDIT_SIGNING_KEY not set",
+                        "sign_events enabled but VOLTD_AUDIT_SIGNING_KEY not set",
                     ),
-                    std::env::VarError::NotUnicode(_) => anyhow::Error::msg(
-                        "ZEROCLAW_AUDIT_SIGNING_KEY env var is not valid UTF-8",
-                    ),
+                    std::env::VarError::NotUnicode(_) => {
+                        anyhow::Error::msg("VOLTD_AUDIT_SIGNING_KEY env var is not valid UTF-8")
+                    }
                 }
             })?;
 
@@ -701,7 +701,7 @@ pub fn verify_rotated_chain(log_path: &Path) -> Result<u64> {
 }
 
 fn signing_key() -> Option<Vec<u8>> {
-    std::env::var("ZEROCLAW_AUDIT_SIGNING_KEY")
+    zeroclaw_config::env::var("AUDIT_SIGNING_KEY")
         .ok()
         .and_then(|key_hex| hex::decode(&key_hex).ok())
         .filter(|key_bytes| key_bytes.len() == 32)

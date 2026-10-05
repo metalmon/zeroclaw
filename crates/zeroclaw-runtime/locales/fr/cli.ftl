@@ -161,7 +161,7 @@ cli-oidc-unknown-alias = Aucune entrée [oidc.{ $alias }] dans la configuration.
 cli-oidc-device-visit = Pour vous connecter, ouvrez { $uri } et saisissez le code { $code }
 cli-oidc-device-waiting = En attente de l'approbation du fournisseur d'identité (le code expire dans { $seconds } secondes)...
 cli-oidc-device-expired = Le code d'appareil a expiré avant l'approbation ; relancez la commande.
-cli-oidc-enrolled = Enrôlé auprès de [oidc.{ $alias }]. Le jeton d'accès est sur stdout ; présentez-le comme auth_token dans la négociation RPC ou exportez-le comme ZEROCLAW_AUTH_TOKEN.
+cli-oidc-enrolled = Enrôlé auprès de [oidc.{ $alias }]. Le jeton d'accès est sur stdout ; présentez-le comme auth_token dans la négociation RPC ou exportez-le comme VOLTD_AUTH_TOKEN.
 cli-oidc-token-expiry = Le jeton expire dans { $seconds } secondes.
 cli-oidc-browser-open = Ouverture de votre navigateur pour vous connecter. Si rien ne s'ouvre, visitez :
     { $uri }

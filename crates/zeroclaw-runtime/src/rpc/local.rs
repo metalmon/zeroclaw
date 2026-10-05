@@ -165,7 +165,7 @@ fn is_recoverable_accept_error(e: &std::io::Error) -> bool {
 }
 
 pub fn socket_path(config: &Config) -> PathBuf {
-    if let Ok(p) = std::env::var("ZEROCLAW_SOCKET") {
+    if let Ok(p) = zeroclaw_config::env::var("SOCKET") {
         return PathBuf::from(p);
     }
     platform::default_endpoint(&config.data_dir)
@@ -925,7 +925,7 @@ mod platform {
             anyhow::bail!(
                 "local IPC endpoint lock directory {} is writable by other \
                  users without the sticky bit; its entries could be replaced. \
-                 Restrict it (chmod go-w or +t) or point ZEROCLAW_SOCKET at a \
+                 Restrict it (chmod go-w or +t) or point VOLTD_SOCKET at a \
                  private directory",
                 parent.display()
             );
@@ -1172,7 +1172,7 @@ mod platform {
                 ErrorKind::InvalidInput,
                 format!(
                     "local IPC socket path {} is {len} bytes but this platform allows at most \
-                     {MAX_SOCKET_PATH_BYTES}; set ZEROCLAW_SOCKET to a shorter path or use a \
+                     {MAX_SOCKET_PATH_BYTES}; set VOLTD_SOCKET to a shorter path or use a \
                      shorter --config-dir",
                     path.display()
                 ),
@@ -1815,7 +1815,7 @@ mod tests {
         let message = format!("{error:#}");
         assert!(message.contains(&format!("{over_len} bytes")), "{message}");
         assert!(message.contains(&over.display().to_string()), "{message}");
-        assert!(message.contains("ZEROCLAW_SOCKET"), "{message}");
+        assert!(message.contains("VOLTD_SOCKET"), "{message}");
         assert!(message.contains("--config-dir"), "{message}");
         assert_eq!(
             SocketAddr::from_pathname(&over)
@@ -1846,7 +1846,7 @@ mod tests {
                 .map(std::io::Error::kind),
             Some(ErrorKind::InvalidInput)
         );
-        assert!(format!("{error:#}").contains("ZEROCLAW_SOCKET"));
+        assert!(format!("{error:#}").contains("VOLTD_SOCKET"));
 
         let mut lock_name = sock_path.as_os_str().to_os_string();
         lock_name.push(".lock");

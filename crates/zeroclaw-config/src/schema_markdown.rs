@@ -272,7 +272,7 @@ pub fn field_table(
         // lowercase tail (config-tree override). Mirrors the runtime resolver in
         // `crate::env_overrides`, so the rendered example and the value the
         // runtime accepts cannot disagree.
-        let env_var = format!("ZEROCLAW_{}", full_path.replace('.', "__"));
+        let env_var = crate::env::name(&full_path.replace('.', "__"));
         let full_desc = description(resolved).unwrap_or_default();
 
         let _ = write!(

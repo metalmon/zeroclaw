@@ -60,7 +60,7 @@ fn sanitize_tool_name(raw: &str) -> String {
 
 /// Name of the environment variable that carries the in-flight session key
 /// into skill shell tools.
-const SESSION_ID_ENV_VAR: &str = "ZEROCLAW_SESSION_ID";
+const SESSION_ID_ENV_VAR: &str = "VOLTD_SESSION_ID";
 
 /// The session key for the current turn, or `None` when the turn is unscoped
 /// (one-shot / webhook). Empty keys are treated as absent.

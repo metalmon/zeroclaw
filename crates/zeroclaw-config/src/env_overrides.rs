@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
-const PREFIX: &str = "ZEROCLAW_";
+use crate::env::{ENV_PREFIX, LEGACY_ENV_PREFIX};
 const SEP: &str = "__";
 
 /// `[todotracker]` was a daemon schema section in v0.8.3 only; TodoWrite
@@ -42,14 +42,17 @@ pub struct AppliedOverrides {
     pub snapshots: HashMap<String, String>,
 }
 
-/// Apply every `ZEROCLAW_<lowercase>` env var to `config`. Returns the set of
+/// Apply every `VOLTD_<lowercase>` env var (or its upstream `ZEROCLAW_`
+/// spelling; the product name wins when both are set) to `config`. Returns the set of
 /// dotted prop-paths that were overridden plus the pre-override raw values
 /// for each. Hard-errors on any env var that doesn't resolve to a known
 /// schema path or whose alias fails validation.
 pub fn apply_env_overrides(config: &mut Config) -> Result<AppliedOverrides> {
     let mut entries: Vec<(String, String, String)> = std::env::vars()
         .filter_map(|(k, v)| {
-            let tail = k.strip_prefix(PREFIX)?;
+            let tail = k
+                .strip_prefix(ENV_PREFIX)
+                .or_else(|| k.strip_prefix(LEGACY_ENV_PREFIX))?;
             (!tail.is_empty()
                 && tail
                     .chars()
@@ -57,6 +60,12 @@ pub fn apply_env_overrides(config: &mut Config) -> Result<AppliedOverrides> {
             .then(|| (k.clone(), v, tail.to_string()))
         })
         .collect();
+    let product_tails: HashSet<String> = entries
+        .iter()
+        .filter(|(k, _, _)| k.starts_with(ENV_PREFIX))
+        .map(|(_, _, tail)| tail.clone())
+        .collect();
+    entries.retain(|(k, _, tail)| k.starts_with(ENV_PREFIX) || !product_tails.contains(tail));
     entries.sort_by(|a, b| a.0.cmp(&b.0));
 
     let mut paths: HashSet<String> = HashSet::with_capacity(entries.len());
@@ -382,6 +391,17 @@ mod tests {
             grants[1].categories(),
             Some(["facts".to_string()].as_slice())
         );
+    }
+
+    #[tokio::test]
+    async fn product_prefix_wins_over_upstream_prefix_for_the_same_path() {
+        let _lock = env_test_lock().await;
+        let _product = EnvVarGuard::set("VOLTD_gateway__request_timeout_secs", "77");
+        let _legacy = EnvVarGuard::set("ZEROCLAW_gateway__request_timeout_secs", "99");
+        let mut config = Config::default();
+        let applied = apply_env_overrides(&mut config).expect("override applies");
+        assert!(applied.paths.contains("gateway.request_timeout_secs"));
+        assert_eq!(config.gateway.request_timeout_secs, 77);
     }
 
     #[tokio::test]

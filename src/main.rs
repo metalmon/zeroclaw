@@ -5700,7 +5700,7 @@ fn main() -> Result<()> {
     {
         // SAFETY: this synchronous bootstrap runs before the Tokio runtime (and
         // therefore its worker threads) is constructed.
-        unsafe { std::env::set_var("ZEROCLAW_CONFIG_DIR", config_dir) };
+        unsafe { std::env::set_var(zeroclaw_config::env::name("CONFIG_DIR"), config_dir) };
     }
 
     async_main(command)
@@ -11952,7 +11952,7 @@ async fn handle_oidc_command(oidc_command: OidcCommands, config: &Config) -> Res
             &[("alias", &alias)],
             format!(
                 "Enrolled with [oidc.{alias}]. The access token is on stdout; present it as \
-                 auth_token in the RPC handshake or export it as ZEROCLAW_AUTH_TOKEN."
+                 auth_token in the RPC handshake or export it as VOLTD_AUTH_TOKEN."
             ),
         )
     );
