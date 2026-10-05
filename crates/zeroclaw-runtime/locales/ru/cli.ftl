@@ -181,3 +181,5 @@ sop-rpc-policy-unavailable = Отложенная политика SOP недо�
 cli-quickstart-terminal-size-unknown = Мастер не смог определить размер терминала и не может проверить, помещается ли список шагов. Запустите его из терминала, который сообщает свои размеры, или настройте без интерфейса командой `voltd config set <path> <value>`.
 cli-quickstart-terminal-resized = Пока список шагов мастера был открыт, размер терминала изменился с {$initial_width}x{$initial_height} на {$current_width}x{$current_height}. Откройте список заново, чтобы продолжить.
 cli-quickstart-empty-checklist = Мастер не может открыть пустой список шагов.
+cli-quickstart-terminal-too-narrow = Мастеру нужен терминал шириной не менее {$min_width} колонок; сейчас {$width}. Расширьте терминал и повторите.
+cli-quickstart-terminal-too-short = Мастеру нужен терминал высотой не менее {$min_height} строк; сейчас {$height}. Увеличьте высоту терминала и повторите.
