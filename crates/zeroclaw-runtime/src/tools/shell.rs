@@ -172,7 +172,7 @@ fn collect_allowed_shell_env_vars(security: &SecurityPolicy) -> Vec<String> {
 
 /// Name of the environment variable that carries the in-flight session key
 /// into shell tools.
-pub(crate) const SESSION_ID_ENV_VAR: &str = "ZEROCLAW_SESSION_ID";
+pub(crate) const SESSION_ID_ENV_VAR: &str = "VOLTD_SESSION_ID";
 
 fn get_session_id() -> Option<String> {
     zeroclaw_api::TOOL_LOOP_SESSION_KEY

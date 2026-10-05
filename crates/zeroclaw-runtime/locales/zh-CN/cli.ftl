@@ -160,7 +160,7 @@ cli-oidc-unknown-alias = 配置中没有 [oidc.{ $alias }] 条目。已配置的
 cli-oidc-device-visit = 要登录,请打开 { $uri } 并输入代码 { $code }
 cli-oidc-device-waiting = 正在等待身份提供方批准(代码将在 { $seconds } 秒后过期)...
 cli-oidc-device-expired = 设备代码在获得批准前已过期;请重新运行该命令。
-cli-oidc-enrolled = 已向 [oidc.{ $alias }] 注册。访问令牌已输出到 stdout;请在 RPC 握手中作为 auth_token 提供,或导出为 ZEROCLAW_AUTH_TOKEN。
+cli-oidc-enrolled = 已向 [oidc.{ $alias }] 注册。访问令牌已输出到 stdout;请在 RPC 握手中作为 auth_token 提供,或导出为 VOLTD_AUTH_TOKEN。
 cli-oidc-token-expiry = 令牌将在 { $seconds } 秒后过期。
 cli-oidc-browser-open = 正在打开浏览器进行登录。如果没有打开,请访问:
     { $uri }

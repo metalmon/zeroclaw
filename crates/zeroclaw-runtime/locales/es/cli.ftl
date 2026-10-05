@@ -161,7 +161,7 @@ cli-oidc-unknown-alias = No hay una entrada [oidc.{ $alias }] en la configuraci�
 cli-oidc-device-visit = Para iniciar sesión, abre { $uri } e introduce el código { $code }
 cli-oidc-device-waiting = Esperando la aprobación del proveedor de identidad (el código caduca en { $seconds } segundos)...
 cli-oidc-device-expired = El código de dispositivo caducó antes de la aprobación; ejecuta el comando de nuevo.
-cli-oidc-enrolled = Inscrito con [oidc.{ $alias }]. El token de acceso está en stdout; preséntalo como auth_token en el handshake RPC o expórtalo como ZEROCLAW_AUTH_TOKEN.
+cli-oidc-enrolled = Inscrito con [oidc.{ $alias }]. El token de acceso está en stdout; preséntalo como auth_token en el handshake RPC o expórtalo como VOLTD_AUTH_TOKEN.
 cli-oidc-token-expiry = El token caduca en { $seconds } segundos.
 cli-oidc-browser-open = Abriendo tu navegador para iniciar sesión. Si no se abre nada, visita:
     { $uri }
