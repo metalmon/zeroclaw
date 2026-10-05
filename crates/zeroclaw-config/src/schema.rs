@@ -36442,7 +36442,7 @@ model = "primary-model"
         let temp_home =
             std::env::temp_dir().join(format!("zeroclaw_test_home_{}", uuid::Uuid::new_v4()));
         let workspace_dir = temp_home.join("workspace");
-        let resolved_config_path = temp_home.join(".zeroclaw").join("config.toml");
+        let resolved_config_path = temp_home.join(".voltd").join("config.toml");
 
         let original_home = std::env::var("HOME").ok();
         // SAFETY: test-only, single-threaded test runner.
@@ -37016,7 +37016,7 @@ wire_api = "ws"
         let _workspace_guard = EnvValueGuard::remove("ZEROCLAW_WORKSPACE");
 
         assert_eq!(
-            classify_runtime_config_kind(&fake_home.join(".zeroclaw").join("config.toml")).await,
+            classify_runtime_config_kind(&fake_home.join(".voltd").join("config.toml")).await,
             RuntimeConfigKind::Default
         );
 
@@ -37197,7 +37197,7 @@ scope = "zeroclaw"
         let temp_home =
             std::env::temp_dir().join(format!("zeroclaw_test_home_{}", uuid::Uuid::new_v4()));
         let workspace_dir = temp_home.join("workspace");
-        let legacy_config_dir = temp_home.join(".zeroclaw");
+        let legacy_config_dir = temp_home.join(".voltd");
         let legacy_config_path = legacy_config_dir.join("config.toml");
 
         let original_home = std::env::var("HOME").ok();

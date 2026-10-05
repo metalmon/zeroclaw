@@ -1257,7 +1257,7 @@ mod tests {
         assert_eq!(agent.runtime_profile.as_str(), "default");
         assert_eq!(
             cfg.agent_workspace_dir("default"),
-            std::path::PathBuf::from("/zeroclaw-data/workspace")
+            std::path::PathBuf::from("/voltd-data/workspace")
         );
 
         let risk = cfg
