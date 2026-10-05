@@ -9,7 +9,7 @@
 //! `[permission_profiles.<alias>]` vocabulary (`PrincipalRecord::profiles`
 //! names those aliases directly) — this module never computes grants itself.
 //!
-//! Dropped relative to the pre-#8289 fork original: `device_ids`/mTLS
+//! Dropped relative to the pre-upstream-RBAC fork original: `device_ids`/mTLS
 //! binding (Chromium/WebView2 clients can't present a client cert; no
 //! deployment needs cert identity — see `_local/reconcile-f4-vs-upstream-stage5.md`),
 //! the inline `allowed_agents` field and its migration (superseded by
