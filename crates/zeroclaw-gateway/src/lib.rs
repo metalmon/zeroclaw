@@ -1851,17 +1851,23 @@ pub async fn run_gateway_with_plugin_webhooks(
     }
 
     let pfx = path_prefix.unwrap_or("");
-    println!("🦀 ZeroClaw Gateway listening on http://{display_addr}{pfx}");
+    let banner = |key: &str, args: &[(&str, &str)]| {
+        println!("{}", i18n::get_required_cli_string_with_args(key, args));
+    };
+    banner(
+        "cli-gateway-banner-listening",
+        &[("url", &format!("http://{display_addr}{pfx}"))],
+    );
     if let Some(ref url) = tunnel_url {
-        println!("  🌐 Public URL: {url}");
+        banner("cli-gateway-banner-public-url", &[("url", url)]);
     }
     if availability.is_some() {
-        println!("  🌐 Web Dashboard: http://{display_addr}{pfx}/");
-    } else {
-        println!(
-            "  ⚠️  Web Dashboard: not available — reinstall with the supported installer \
-             (`./install.sh --source` on Linux/macOS, `setup.bat` on Windows) to build it"
+        banner(
+            "cli-gateway-banner-dashboard",
+            &[("url", &format!("http://{display_addr}{pfx}/"))],
         );
+    } else {
+        banner("cli-gateway-banner-dashboard-missing", &[]);
     }
     // Start this run's admin-token generation. The pairing-code admin routes
     // accept only the token the guard holds in memory. If the file cannot be
@@ -1886,43 +1892,48 @@ pub async fn run_gateway_with_plugin_webhooks(
         // the code length is operator-configurable (6..=128 chars).
         let rule = "─".repeat(code.chars().count() + 4);
         println!();
-        println!("  🔐 PAIRING REQUIRED — use this one-time code:");
+        banner("cli-gateway-banner-pairing-required", &[]);
         println!("     ┌{rule}┐");
         println!("     │  {code}  │");
         println!("     └{rule}┘");
-        println!("     Send: POST {pfx}/pair with header X-Pairing-Code: {code}");
+        banner(
+            "cli-gateway-banner-pairing-send",
+            &[("prefix", pfx), ("code", code)],
+        );
     } else if pairing.require_pairing() {
         for line in already_paired_pairing_notice(host, actual_port, pfx, &admin_token_path) {
             println!("{line}");
         }
         println!();
     } else {
-        println!("  ⚠️  Pairing: DISABLED (all requests accepted)");
+        banner("cli-gateway-banner-pairing-disabled", &[]);
         println!();
     }
-    println!("  POST {pfx}/pair      — pair a new client (X-Pairing-Code header)");
-    println!("  POST {pfx}/webhook   — {{\"message\": \"your prompt\"}}");
+    let route = |key: &str| banner(key, &[("prefix", pfx)]);
+    route("cli-gateway-banner-route-pair");
+    route("cli-gateway-banner-route-webhook");
     #[cfg(feature = "channel-whatsapp-cloud")]
     if !whatsapp_channel.is_empty() {
-        println!("  GET  {pfx}/whatsapp[/<alias>]  — Meta webhook verification");
-        println!("  POST {pfx}/whatsapp[/<alias>]  — WhatsApp message webhook");
+        route("cli-gateway-banner-route-whatsapp-verify");
+        route("cli-gateway-banner-route-whatsapp-message");
     }
     #[cfg(feature = "channel-linq")]
     if !linq_channels.is_empty() {
-        println!("  POST {pfx}/linq[/<alias>]      — Linq message webhook (iMessage/RCS/SMS)");
+        route("cli-gateway-banner-route-linq");
     }
     #[cfg(feature = "channel-nextcloud")]
     if !nextcloud_talk_channel.is_empty() {
-        println!("  POST {pfx}/nextcloud-talk[/<alias>] — Nextcloud Talk bot webhook");
+        route("cli-gateway-banner-route-nextcloud");
     }
-    println!("  GET  {pfx}/api/*     — REST API (bearer token required)");
-    println!("  GET  {pfx}/ws/chat   — WebSocket agent chat");
+    route("cli-gateway-banner-route-api");
+    route("cli-gateway-banner-route-ws-chat");
     if config.nodes.enabled {
-        println!("  GET  {pfx}/ws/nodes  — WebSocket node discovery");
+        route("cli-gateway-banner-route-ws-nodes");
     }
-    println!("  GET  {pfx}/health    — health check");
-    println!("  GET  {pfx}/metrics   — Prometheus metrics");
-    println!("  Press Ctrl+C to stop.\n");
+    route("cli-gateway-banner-route-health");
+    route("cli-gateway-banner-route-metrics");
+    banner("cli-gateway-banner-stop", &[]);
+    println!();
 
     zeroclaw_runtime::health::mark_component_ok("gateway");
 
@@ -2603,16 +2614,17 @@ fn already_paired_pairing_notice(
     admin_token_path: &std::path::Path,
 ) -> Vec<String> {
     vec![
-        "  🔒 Pairing: ACTIVE — this gateway is already paired, so no new \
-         one-time code was generated on this start."
-            .to_string(),
-        format!(
-            "     To pair another device, run: {}",
-            format_paircode_recovery_command(host, port)
+        i18n::get_required_cli_string("cli-gateway-banner-paired"),
+        i18n::get_required_cli_string_with_args(
+            "cli-gateway-banner-paired-command",
+            &[("command", &format_paircode_recovery_command(host, port))],
         ),
-        format!(
-            "     Fallback (on this host, as this user): {}",
-            format_paircode_recovery_curl(host, port, path_prefix, admin_token_path)
+        i18n::get_required_cli_string_with_args(
+            "cli-gateway-banner-paired-fallback",
+            &[(
+                "command",
+                &format_paircode_recovery_curl(host, port, path_prefix, admin_token_path),
+            )],
         ),
     ]
 }
