@@ -889,9 +889,9 @@ mod tests {
     }
 
     #[test]
-    fn native_storage_path_contains_zeroclaw() {
+    fn native_storage_path_contains_voltd() {
         let path = NativeRuntime::new().storage_path();
-        assert!(path.to_string_lossy().contains("zeroclaw"));
+        assert!(path.to_string_lossy().contains("voltd"));
     }
 
     #[cfg(all(unix, not(target_os = "android")))]

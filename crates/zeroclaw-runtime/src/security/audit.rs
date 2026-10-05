@@ -1459,7 +1459,7 @@ mod tests {
         if let Err(e) = result {
             let err_msg = e.to_string();
             assert!(
-                err_msg.contains("ZEROCLAW_AUDIT_SIGNING_KEY not set"),
+                err_msg.contains("VOLTD_AUDIT_SIGNING_KEY not set"),
                 "error: {}",
                 err_msg
             );

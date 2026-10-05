@@ -289,7 +289,7 @@ fn scheduled_trivy_verifies_published_tag_before_scan() {
 fn root_compose_publishes_on_host_loopback_by_default() {
     let compose = repository_file("docker-compose.yml");
     let required_overrides =
-        "- ZEROCLAW_gateway__host=0.0.0.0\n      - ZEROCLAW_gateway__allow_public_bind=true";
+        "- VOLTD_gateway__host=0.0.0.0\n      - VOLTD_gateway__allow_public_bind=true";
 
     assert!(
         compose.contains(required_overrides),
@@ -301,7 +301,7 @@ fn root_compose_publishes_on_host_loopback_by_default() {
     // loopback: a persisted `require_pairing = false` config answers
     // unauthenticated requests on /webhook, /api/config, and /api/browse.
     assert!(
-        compose.contains("${HOST_PORT:-127.0.0.1:42617}:${ZEROCLAW_GATEWAY_PORT:-42617}"),
+        compose.contains("${HOST_PORT:-127.0.0.1:42617}:${VOLTD_GATEWAY_PORT:-42617}"),
         "Compose must publish the gateway port on host loopback by default"
     );
 }
