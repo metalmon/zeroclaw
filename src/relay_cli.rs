@@ -367,9 +367,9 @@ fn refuse_claim_field_env_overrides(config: &Config) -> Result<()> {
     }
     let vars: Vec<String> = overridden
         .iter()
-        // The loader only reads `ZEROCLAW_<lowercase path>`, so name the exact
+        // The loader only reads `VOLTD_<lowercase path>`, so name the exact
         // variable; an upper-cased name is one the loader ignores.
-        .map(|p| format!("ZEROCLAW_{}", p.replace('.', "__")))
+        .map(|p| zeroclaw_config::env::name(&p.replace('.', "__")))
         .collect();
     anyhow::bail!(
         "these claim-managed settings are currently set by environment overrides: {}. \
@@ -1106,7 +1106,7 @@ mod tests {
                 msg.contains("No request was sent"),
                 "the refusal must state that nothing was sent: {msg}"
             );
-            let var = format!("ZEROCLAW_{}", overridden.replace('.', "__"));
+            let var = zeroclaw_config::env::name(&overridden.replace('.', "__"));
             assert!(
                 msg.contains(&var),
                 "the refusal must name the variable the loader reads ({var}): {msg}"

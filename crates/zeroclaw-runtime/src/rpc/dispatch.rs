@@ -19179,7 +19179,7 @@ mod tests {
             .clone()
             .expect("the prompt executed shell env");
         assert!(
-            tool_result.contains("ZEROCLAW_SESSION_ID=env-fresh"),
+            tool_result.contains("VOLTD_SESSION_ID=env-fresh"),
             "the probe must observe a real shell run: {tool_result}"
         );
         assert!(

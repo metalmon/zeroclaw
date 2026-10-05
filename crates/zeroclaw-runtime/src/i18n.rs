@@ -336,7 +336,7 @@ fn normalized_env_locale(raw: &str) -> Option<String> {
 }
 
 fn read_config_table() -> Option<toml::Table> {
-    if let Ok(custom) = std::env::var("ZEROCLAW_CONFIG_DIR") {
+    if let Ok(custom) = zeroclaw_config::env::var("CONFIG_DIR") {
         let trimmed = custom.trim();
         if !trimmed.is_empty() {
             let path = std::path::PathBuf::from(trimmed).join("config.toml");

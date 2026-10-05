@@ -172,7 +172,7 @@ cli-oidc-unknown-alias = No [oidc.{ $alias }] entry in the config. Configured en
 cli-oidc-device-visit = To sign in, visit { $uri } and enter code { $code }
 cli-oidc-device-waiting = Waiting for identity-provider approval (the code expires in { $seconds } seconds)...
 cli-oidc-device-expired = The device code expired before approval; run the command again.
-cli-oidc-enrolled = Enrolled with [oidc.{ $alias }]. The access token is on stdout; present it as auth_token in the RPC handshake or export it as ZEROCLAW_AUTH_TOKEN.
+cli-oidc-enrolled = Enrolled with [oidc.{ $alias }]. The access token is on stdout; present it as auth_token in the RPC handshake or export it as VOLTD_AUTH_TOKEN.
 cli-oidc-token-expiry = The token expires in { $seconds } seconds.
 cli-oidc-browser-open = Opening your browser to sign in. If nothing opens, visit:
     { $uri }

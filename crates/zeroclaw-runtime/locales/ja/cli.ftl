@@ -156,7 +156,7 @@ cli-oidc-unknown-alias = 設定に [oidc.{ $alias }] エントリがありませ
 cli-oidc-device-visit = サインインするには { $uri } を開き、コード { $code } を入力してください
 cli-oidc-device-waiting = ID プロバイダーの承認を待っています(コードは { $seconds } 秒で失効します)...
 cli-oidc-device-expired = 承認前にデバイスコードが失効しました。コマンドを再実行してください。
-cli-oidc-enrolled = [oidc.{ $alias }] に登録しました。アクセストークンは標準出力にあります。RPC ハンドシェイクの auth_token として渡すか、ZEROCLAW_AUTH_TOKEN としてエクスポートしてください。
+cli-oidc-enrolled = [oidc.{ $alias }] に登録しました。アクセストークンは標準出力にあります。RPC ハンドシェイクの auth_token として渡すか、VOLTD_AUTH_TOKEN としてエクスポートしてください。
 cli-oidc-token-expiry = トークンは { $seconds } 秒で失効します。
 cli-oidc-browser-open = サインインのためにブラウザを開いています。開かない場合は次の URL にアクセスしてください:
     { $uri }

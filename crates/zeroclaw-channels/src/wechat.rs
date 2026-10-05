@@ -1096,8 +1096,8 @@ impl WeChatChannel {
     /// is unset: `~/.zeroclaw/wechat`.
     fn default_state_dir() -> PathBuf {
         directories::UserDirs::new()
-            .map(|u| u.home_dir().join(".zeroclaw").join("wechat"))
-            .unwrap_or_else(|| PathBuf::from(".zeroclaw/wechat"))
+            .map(|u| u.home_dir().join(".voltd").join("wechat"))
+            .unwrap_or_else(|| PathBuf::from(".voltd/wechat"))
     }
 
     /// Resolve the effective state directory from the raw

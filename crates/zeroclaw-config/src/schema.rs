@@ -21117,7 +21117,7 @@ impl Default for Config {
         let zeroclaw_dir = default_config_dir().unwrap_or_else(|_| {
             let home =
                 UserDirs::new().map_or_else(|| PathBuf::from("."), |u| u.home_dir().to_path_buf());
-            home.join(".zeroclaw")
+            home_config_dir(&home)
         });
 
         Self {
@@ -21245,8 +21245,18 @@ pub(crate) fn install_data_dir(config_dir: &Path) -> PathBuf {
     config_dir.join("data")
 }
 
+/// `<home>/.voltd`, or the pre-rename `<home>/.zeroclaw` when only that one
+/// holds a config.toml.
+pub fn home_config_dir(home: &Path) -> PathBuf {
+    let dir = home.join(".voltd");
+    if !dir.exists() && home.join(".zeroclaw").join("config.toml").exists() {
+        return home.join(".zeroclaw");
+    }
+    dir
+}
+
 fn default_config_dir() -> Result<PathBuf> {
-    if let Ok(custom) = std::env::var("ZEROCLAW_CONFIG_DIR") {
+    if let Ok(custom) = crate::env::var("CONFIG_DIR") {
         let custom = custom.trim();
         if !custom.is_empty() {
             return Ok(expand_tilde_path(custom));
@@ -21256,13 +21266,13 @@ fn default_config_dir() -> Result<PathBuf> {
     if let Ok(home) = std::env::var("HOME")
         && !home.is_empty()
     {
-        return Ok(PathBuf::from(home).join(".zeroclaw"));
+        return Ok(home_config_dir(Path::new(&home)));
     }
 
     let home = UserDirs::new()
         .map(|u| u.home_dir().to_path_buf())
         .context("Could not find home directory")?;
-    Ok(home.join(".zeroclaw"))
+    Ok(home_config_dir(&home))
 }
 
 /// Canonical on-disk directory for a locale's runtime/zerocode FTL catalogues:
@@ -21316,7 +21326,7 @@ pub const FTL_CATALOGS: &[(&str, &str, &str)] = &[
 fn default_path_under_config_dir(relative: &str) -> String {
     match default_config_dir() {
         Ok(dir) => dir.join(relative).to_string_lossy().into_owned(),
-        Err(_) => format!("~/.zeroclaw/{relative}"),
+        Err(_) => format!("~/.voltd/{relative}"),
     }
 }
 
@@ -21340,7 +21350,12 @@ fn config_dir_for_data(data_dir: &Path) -> PathBuf {
         return data_dir.to_path_buf();
     }
 
-    if let Some(legacy_dir) = data_dir.parent().map(|parent| parent.join(".zeroclaw")) {
+    if let Some(parent) = data_dir.parent() {
+        let legacy_dir = [".voltd", ".zeroclaw"]
+            .iter()
+            .map(|name| parent.join(name))
+            .find(|dir| dir.join("config.toml").exists())
+            .unwrap_or_else(|| parent.join(".voltd"));
         if legacy_dir.join("config.toml").exists() {
             return legacy_dir;
         }
@@ -21411,9 +21426,9 @@ enum ConfigResolutionSource {
 impl ConfigResolutionSource {
     const fn as_str(self) -> &'static str {
         match self {
-            Self::EnvConfigDir => "ZEROCLAW_CONFIG_DIR",
-            Self::EnvDataDir => "ZEROCLAW_DATA_DIR",
-            Self::EnvWorkspaceLegacy => "ZEROCLAW_WORKSPACE",
+            Self::EnvConfigDir => "VOLTD_CONFIG_DIR",
+            Self::EnvDataDir => "VOLTD_DATA_DIR",
+            Self::EnvWorkspaceLegacy => "VOLTD_WORKSPACE",
             Self::DefaultConfigDir => "default",
             Self::HomebrewConfigDir => "homebrew",
         }
@@ -21551,13 +21566,13 @@ async fn resolve_runtime_config_dirs(
     default_zeroclaw_dir: &Path,
     default_data_dir: &Path,
 ) -> Result<(PathBuf, PathBuf, ConfigResolutionSource)> {
-    if let Ok(custom_config_dir) = std::env::var("ZEROCLAW_CONFIG_DIR") {
+    if let Ok(custom_config_dir) = crate::env::var("CONFIG_DIR") {
         let custom_config_dir = custom_config_dir.trim();
         if !custom_config_dir.is_empty() {
-            // If the operator ALSO set ZEROCLAW_DATA_DIR or
-            // ZEROCLAW_WORKSPACE, CONFIG_DIR wins; surface the
+            // If the operator ALSO set VOLTD_DATA_DIR or
+            // VOLTD_WORKSPACE, CONFIG_DIR wins; surface the
             // collision so they know which one took effect.
-            if std::env::var("ZEROCLAW_DATA_DIR")
+            if crate::env::var("DATA_DIR")
                 .ok()
                 .filter(|v| !v.trim().is_empty())
                 .is_some()
@@ -21566,12 +21581,12 @@ async fn resolve_runtime_config_dirs(
                     WARN,
                     ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                         .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
-                    "ZEROCLAW_CONFIG_DIR is set; ZEROCLAW_DATA_DIR is ignored \
+                    "VOLTD_CONFIG_DIR is set; VOLTD_DATA_DIR is ignored \
                      (CONFIG_DIR pins both the config directory and the data \
                      directory under it)."
                 );
             }
-            if std::env::var("ZEROCLAW_WORKSPACE")
+            if crate::env::var("WORKSPACE")
                 .ok()
                 .filter(|v| !v.is_empty())
                 .is_some()
@@ -21580,9 +21595,9 @@ async fn resolve_runtime_config_dirs(
                     WARN,
                     ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                         .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
-                    "ZEROCLAW_CONFIG_DIR is set; ZEROCLAW_WORKSPACE (deprecated) \
-                     is ignored. ZEROCLAW_WORKSPACE will be removed in a future \
-                     release; switch any remaining references to ZEROCLAW_DATA_DIR."
+                    "VOLTD_CONFIG_DIR is set; VOLTD_WORKSPACE (deprecated) \
+                     is ignored. VOLTD_WORKSPACE will be removed in a future \
+                     release; switch any remaining references to VOLTD_DATA_DIR."
                 );
             }
             let zeroclaw_dir = expand_tilde_path(custom_config_dir);
@@ -21591,10 +21606,10 @@ async fn resolve_runtime_config_dirs(
         }
     }
 
-    if let Ok(custom_data) = std::env::var("ZEROCLAW_DATA_DIR")
+    if let Ok(custom_data) = crate::env::var("DATA_DIR")
         && !custom_data.trim().is_empty()
     {
-        if std::env::var("ZEROCLAW_WORKSPACE")
+        if crate::env::var("WORKSPACE")
             .ok()
             .filter(|v| !v.is_empty())
             .is_some()
@@ -21603,9 +21618,9 @@ async fn resolve_runtime_config_dirs(
                 WARN,
                 ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                     .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
-                "ZEROCLAW_DATA_DIR and ZEROCLAW_WORKSPACE are both set; \
-                 ZEROCLAW_WORKSPACE (deprecated) is ignored. \
-                 ZEROCLAW_WORKSPACE will be removed in a future release."
+                "VOLTD_DATA_DIR and VOLTD_WORKSPACE are both set; \
+                 VOLTD_WORKSPACE (deprecated) is ignored. \
+                 VOLTD_WORKSPACE will be removed in a future release."
             );
         }
         let expanded = expand_tilde_path(&custom_data);
@@ -21613,15 +21628,15 @@ async fn resolve_runtime_config_dirs(
         return Ok((zeroclaw_dir, data_dir, ConfigResolutionSource::EnvDataDir));
     }
 
-    if let Ok(custom_workspace) = std::env::var("ZEROCLAW_WORKSPACE")
+    if let Ok(custom_workspace) = crate::env::var("WORKSPACE")
         && !custom_workspace.is_empty()
     {
         ::zeroclaw_log::record!(
             WARN,
             ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
                 .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
-            "ZEROCLAW_WORKSPACE is deprecated; use ZEROCLAW_DATA_DIR instead. \
-             ZEROCLAW_WORKSPACE will be removed in a future release."
+            "VOLTD_WORKSPACE is deprecated; use VOLTD_DATA_DIR instead. \
+             VOLTD_WORKSPACE will be removed in a future release."
         );
         let expanded = expand_tilde_path(&custom_workspace);
         let (zeroclaw_dir, data_dir) = resolve_config_dir_for_data(&expanded);

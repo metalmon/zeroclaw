@@ -288,7 +288,7 @@ impl DatasheetManager {
     pub fn new() -> Option<Self> {
         let home = directories::BaseDirs::new()?.home_dir().to_path_buf();
         Some(Self {
-            zeroclaw_root: home.join(".zeroclaw"),
+            zeroclaw_root: home.join(".voltd"),
             datasheet_relative: PathBuf::from("hardware/datasheets"),
         })
     }
@@ -432,7 +432,7 @@ impl DatasheetManager {
 impl Default for DatasheetManager {
     fn default() -> Self {
         Self::new().unwrap_or_else(|| Self {
-            zeroclaw_root: PathBuf::from(".zeroclaw"),
+            zeroclaw_root: PathBuf::from(".voltd"),
             datasheet_relative: PathBuf::from("hardware/datasheets"),
         })
     }
@@ -596,7 +596,7 @@ impl Tool for DatasheetTool {
                             "Datasheet for '{device}' downloaded successfully.\n\
                              Saved to: {}\n\n\
                              Next step: create a device profile at \
-                             ~/.zeroclaw/hardware/devices/<device>.md with the key \
+                             ~/.voltd/hardware/devices/<device>.md with the key \
                              registers, I2C address, and protocol notes from this datasheet.",
                             path.display()
                         )
