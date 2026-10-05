@@ -1510,3 +1510,27 @@ cron-agent-job-failed = The scheduled task could not be completed. Please try ag
 rpc-config-set-many-empty = config/set-many requires at least one entry in `sets`
 rpc-config-set-many-limit = config/set-many accepts at most { $limit } entries in `sets`; got { $count }
 rpc-config-set-many-entry-rejected = config/set-many entry { $index } (`{ $prop }`) rejected; nothing was saved: { $reason }
+
+# --- gateway startup banner (stdout) ---
+cli-gateway-banner-listening = 🦀 Volt Gateway listening on { $url }
+cli-gateway-banner-public-url = {"  "}🌐 Public URL: { $url }
+cli-gateway-banner-dashboard = {"  "}🌐 Web Dashboard: { $url }
+cli-gateway-banner-dashboard-missing = {"  "}⚠️  Web Dashboard: not available — reinstall with the supported installer (`./install.sh --source` on Linux/macOS, `setup.bat` on Windows) to build it
+cli-gateway-banner-pairing-required = {"  "}🔐 PAIRING REQUIRED — use this one-time code:
+cli-gateway-banner-pairing-send = {"     "}Send: POST { $prefix }/pair with header X-Pairing-Code: { $code }
+cli-gateway-banner-paired = {"  "}🔒 Pairing: ACTIVE — this gateway is already paired, so no new one-time code was generated on this start.
+cli-gateway-banner-paired-command = {"     "}To pair another device, run: { $command }
+cli-gateway-banner-paired-fallback = {"     "}Fallback (on this host, as this user): { $command }
+cli-gateway-banner-pairing-disabled = {"  "}⚠️  Pairing: DISABLED (all requests accepted)
+cli-gateway-banner-route-pair = {"  "}POST { $prefix }/pair      — pair a new client (X-Pairing-Code header)
+cli-gateway-banner-route-webhook = {"  "}POST { $prefix }/webhook   — {"{"}"message": "your prompt"{"}"}
+cli-gateway-banner-route-whatsapp-verify = {"  "}GET  { $prefix }/whatsapp[/<alias>]  — Meta webhook verification
+cli-gateway-banner-route-whatsapp-message = {"  "}POST { $prefix }/whatsapp[/<alias>]  — WhatsApp message webhook
+cli-gateway-banner-route-linq = {"  "}POST { $prefix }/linq[/<alias>]      — Linq message webhook (iMessage/RCS/SMS)
+cli-gateway-banner-route-nextcloud = {"  "}POST { $prefix }/nextcloud-talk[/<alias>] — Nextcloud Talk bot webhook
+cli-gateway-banner-route-api = {"  "}GET  { $prefix }/api/*     — REST API (bearer token required)
+cli-gateway-banner-route-ws-chat = {"  "}GET  { $prefix }/ws/chat   — WebSocket agent chat
+cli-gateway-banner-route-ws-nodes = {"  "}GET  { $prefix }/ws/nodes  — WebSocket node discovery
+cli-gateway-banner-route-health = {"  "}GET  { $prefix }/health    — health check
+cli-gateway-banner-route-metrics = {"  "}GET  { $prefix }/metrics   — Prometheus metrics
+cli-gateway-banner-stop = {"  "}Press Ctrl+C to stop.
