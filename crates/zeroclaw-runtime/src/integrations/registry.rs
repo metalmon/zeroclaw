@@ -40,6 +40,29 @@ fn evaluate_model_provider_activation(
     )
 }
 
+/// Stable catalog key for an integration's display name: `integration-<slug>-desc`,
+/// where the slug is the name lowercased with every non-alphanumeric run as `-`.
+pub fn integration_description_key(name: &str) -> String {
+    let slug: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    format!("integration-{slug}-desc")
+}
+
+/// Description in the active locale, else the English text compiled into
+/// the descriptor.
+fn localized_description(name: &str, english: &str) -> String {
+    crate::i18n::localized_section(&integration_description_key(name))
+        .map_or_else(|| english.to_string(), str::to_string)
+}
+
 pub fn all_integrations(config: &Config) -> Vec<IntegrationEntry> {
     let channels = config
         .channels
@@ -47,7 +70,7 @@ pub fn all_integrations(config: &Config) -> Vec<IntegrationEntry> {
         .into_iter()
         .map(|info| IntegrationEntry {
             name: info.name.to_string(),
-            description: info.desc.to_string(),
+            description: localized_description(info.name, info.desc),
             category: IntegrationCategory::Chat,
             status: bool_to_status(info.configured),
             key: Some(info.config_key.to_string()),
@@ -57,7 +80,7 @@ pub fn all_integrations(config: &Config) -> Vec<IntegrationEntry> {
         let category = parse_category(d.category);
         IntegrationEntry {
             name: d.display_name.to_string(),
-            description: d.description.to_string(),
+            description: localized_description(d.display_name, d.description),
             category,
             status: bool_to_status(d.active),
             key: None,
@@ -81,7 +104,7 @@ pub fn all_integrations(config: &Config) -> Vec<IntegrationEntry> {
         .iter()
         .map(|(name, desc)| IntegrationEntry {
             name: (*name).to_string(),
-            description: (*desc).to_string(),
+            description: localized_description(name, desc),
             category: IntegrationCategory::ToolsAutomation,
             status: IntegrationStatus::Active,
             key: None,
