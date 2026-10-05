@@ -167,8 +167,8 @@ use zeroclaw_runtime::cost::CostTracker;
 use zeroclaw_runtime::i18n;
 use zeroclaw_runtime::platform;
 use zeroclaw_runtime::security::pairing::{
-    GATEWAY_ADMIN_TOKEN_HEADER, PairingCodePolicy, PairingGuard, constant_time_eq,
-    gateway_admin_token_path, is_public_bind,
+    GATEWAY_ADMIN_TOKEN_HEADER, LEGACY_GATEWAY_ADMIN_TOKEN_HEADER, PairingCodePolicy, PairingGuard,
+    constant_time_eq, gateway_admin_token_path, is_public_bind,
 };
 use zeroclaw_runtime::tools;
 use zeroclaw_runtime::tools::CanvasStore;
@@ -5038,6 +5038,7 @@ fn require_gateway_admin_token(
 ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     let presented = headers
         .get(GATEWAY_ADMIN_TOKEN_HEADER)
+        .or_else(|| headers.get(LEGACY_GATEWAY_ADMIN_TOKEN_HEADER))
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
     if state.pairing.admin_token_matches(presented) {
@@ -5698,7 +5699,7 @@ mod tests {
         );
         assert_eq!(
             curl,
-            "curl -s -X POST -H \"x-zeroclaw-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/admin/paircode/new",
+            "curl -s -X POST -H \"x-voltd-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/admin/paircode/new",
             "curl fallback must target loopback, not the non-loopback bound host"
         );
         assert!(
@@ -5714,7 +5715,7 @@ mod tests {
                 "/gw",
                 std::path::Path::new("/zc/data/gateway-admin.token")
             ),
-            "curl -s -X POST -H \"x-zeroclaw-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/gw/admin/paircode/new"
+            "curl -s -X POST -H \"x-voltd-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/gw/admin/paircode/new"
         );
     }
 
@@ -5727,7 +5728,7 @@ mod tests {
                 "",
                 std::path::Path::new("/zc/data/gateway-admin.token")
             ),
-            "curl -s -X POST -H \"x-zeroclaw-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/admin/paircode/new"
+            "curl -s -X POST -H \"x-voltd-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/admin/paircode/new"
         );
     }
 
@@ -5795,7 +5796,7 @@ mod tests {
                 "",
                 std::path::Path::new("/zc/data/gateway-admin.token")
             ),
-            "curl -s -X POST -H \"x-zeroclaw-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/admin/paircode/new"
+            "curl -s -X POST -H \"x-voltd-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/admin/paircode/new"
         );
         assert_eq!(
             format_paircode_recovery_curl(
@@ -5804,7 +5805,7 @@ mod tests {
                 "",
                 std::path::Path::new("/zc/data/gateway-admin.token")
             ),
-            "curl -s -X POST -H \"x-zeroclaw-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/admin/paircode/new"
+            "curl -s -X POST -H \"x-voltd-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/admin/paircode/new"
         );
     }
 
@@ -5817,7 +5818,7 @@ mod tests {
                 "",
                 std::path::Path::new("/zc/data/gateway-admin.token")
             ),
-            "curl -s -X POST -H \"x-zeroclaw-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://localhost:42617/admin/paircode/new"
+            "curl -s -X POST -H \"x-voltd-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://localhost:42617/admin/paircode/new"
         );
         assert_eq!(
             format_paircode_recovery_curl(
@@ -5826,7 +5827,7 @@ mod tests {
                 "",
                 std::path::Path::new("/zc/data/gateway-admin.token")
             ),
-            "curl -s -X POST -H \"x-zeroclaw-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://[::1]:42617/admin/paircode/new"
+            "curl -s -X POST -H \"x-voltd-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://[::1]:42617/admin/paircode/new"
         );
     }
 
@@ -5849,7 +5850,7 @@ mod tests {
         let args = String::from_utf8(output.stdout).unwrap();
         assert!(
             args.lines()
-                .any(|arg| arg == "x-zeroclaw-admin-token: synthetic-admin-token"),
+                .any(|arg| arg == "x-voltd-admin-token: synthetic-admin-token"),
             "{args}"
         );
         assert!(!tmp.path().join("escaped").exists());
@@ -5864,7 +5865,7 @@ mod tests {
                 "/gw",
                 std::path::Path::new("/zc/data/gateway-admin.token")
             ),
-            "curl -s -X POST -H \"x-zeroclaw-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/gw/admin/paircode/new"
+            "curl -s -X POST -H \"x-voltd-admin-token: $(cat '/zc/data/gateway-admin.token')\" http://127.0.0.1:42617/gw/admin/paircode/new"
         );
     }
 

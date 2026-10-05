@@ -941,7 +941,11 @@ pub fn constant_time_eq(a: &str, b: &str) -> bool {
 
 /// Request header that carries the gateway admin secret on the pairing-code
 /// admin routes (`/admin/paircode`, `/admin/paircode/new`).
-pub const GATEWAY_ADMIN_TOKEN_HEADER: &str = "x-zeroclaw-admin-token";
+pub const GATEWAY_ADMIN_TOKEN_HEADER: &str = "x-voltd-admin-token";
+
+/// Upstream spelling of [`GATEWAY_ADMIN_TOKEN_HEADER`], still accepted on the
+/// admin routes so an older client keeps working.
+pub const LEGACY_GATEWAY_ADMIN_TOKEN_HEADER: &str = "x-zeroclaw-admin-token";
 
 const GATEWAY_ADMIN_TOKEN_FILE: &str = "gateway-admin.token";
 
