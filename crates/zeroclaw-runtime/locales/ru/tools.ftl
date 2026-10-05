@@ -177,7 +177,7 @@ tool-web-fetch = Загружает веб-страницу и возвраща�
 
 tool-web-search-tool = Ищет информацию в интернете. Возвращает релевантные результаты поиска с заголовками, URL и описаниями. Используйте, чтобы найти актуальную информацию, новости или материалы по теме.
 tool-web-search-tool-error-duckduckgo-blocked = DuckDuckGo ограничивает частоту запросов с этой машины. Не повторяйте и не переформулируйте запрос; подождите несколько минут, загрузите известные URL напрямую через web_fetch, либо настройте SearXNG, Brave или Tavily в качестве провайдера web_search.
-tool-web-search-tool-error-searxng-not-configured = URL инстанса SearXNG не настроен. Укажите [web_search] searxng_instance_url в config.toml либо переопределите переменной окружения ZEROCLAW_web_search__searxng_instance_url.
+tool-web-search-tool-error-searxng-not-configured = URL инстанса SearXNG не настроен. Укажите [web_search] searxng_instance_url в config.toml либо переопределите переменной окружения VOLTD_web_search__searxng_instance_url.
 tool-web-search-tool-note-truncated-results = (остальные результаты опущены)
 
 tool-workspace = Управляет рабочими областями для нескольких клиентов. Подкоманды: list, switch, create, info, export. Каждая рабочая область имеет изолированные память, аудит, секреты и ограничения инструментов.
