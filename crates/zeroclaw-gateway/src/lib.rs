@@ -1898,7 +1898,7 @@ pub async fn run_gateway_with_plugin_webhooks(
         println!("     └{rule}┘");
         banner(
             "cli-gateway-banner-pairing-send",
-            &[("prefix", pfx), ("code", code)],
+            &[("prefix", pfx), ("code", &code)],
         );
     } else if pairing.require_pairing() {
         for line in already_paired_pairing_notice(host, actual_port, pfx, &admin_token_path) {
