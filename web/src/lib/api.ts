@@ -333,7 +333,7 @@ declare global {
  *  injected one. Empty otherwise, so the 403 -> CLI-hint fallback is unchanged. */
 function adminTokenHeaders(): Record<string, string> {
   const token = typeof window !== 'undefined' ? window.__voltAdminToken : undefined;
-  return typeof token === 'string' && token.length > 0 ? { 'x-zeroclaw-admin-token': token } : {};
+  return typeof token === 'string' && token.length > 0 ? { 'x-voltd-admin-token': token } : {};
 }
 
 /** Thrown when the localhost-only mint endpoint rejects a non-loopback caller. */
