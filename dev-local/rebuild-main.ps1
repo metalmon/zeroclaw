@@ -177,6 +177,15 @@ foreach ($b in $Branches) {
             $attempt++
         } while ($code -ne 0 -and $out -match "Permission denied" -and $attempt -lt 6)
         $LASTEXITCODE = $code
+        # A pick whose content the tree already carries: the sequencer stays armed, the
+        # tree is clean, and --continue refuses with "nothing to commit" every time. The
+        # empty-check above only catches the shape git words as "is now empty" in `git
+        # status`, so without this the loop spins on one commit forever.
+        if ($code -ne 0 -and $out -match "nothing to commit|is now empty|allow-empty") {
+            Write-Host "    (already in the tree — skipping)" -ForegroundColor Yellow
+            git cherry-pick --skip
+            continue
+        }
         if ($code -ne 0 -and $out -notmatch "Permission denied") {
             # Not the lock: fall through and let the loop inspect the new state
             # (another conflict further down the range, or an empty pick).
