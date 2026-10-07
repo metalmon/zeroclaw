@@ -19639,7 +19639,7 @@ pub struct WebAuthnConfig {
     /// Relying Party origin URL (e.g. `"https://example.com"`). Default: `"http://localhost:42617"`.
     #[serde(default = "default_webauthn_rp_origin")]
     pub rp_origin: String,
-    /// Relying Party display name. Default: "ZeroClaw".
+    /// Relying Party display name. Default: "Volt".
     #[serde(default = "default_webauthn_rp_name")]
     pub rp_name: String,
 }
@@ -19664,7 +19664,11 @@ fn default_webauthn_rp_origin() -> String {
 }
 
 fn default_webauthn_rp_name() -> String {
-    "ZeroClaw".into()
+    // The browser shows this name in its own passkey prompt, so it is the most
+    // visible string in the product and has to carry the product's name. Only
+    // the display name: the relying-party ID stays the host, so existing
+    // credentials keep working.
+    "Volt".into()
 }
 
 /// OTP validation strategy.
