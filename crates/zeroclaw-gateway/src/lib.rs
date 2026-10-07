@@ -11301,7 +11301,7 @@ data: [DONE]\n\n";
             mcp_pool: None,
             token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
             external_subjects: Arc::new(
-                zeroclaw_gateway::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+                crate::api_authz_external::ExternalSubjectStore::new_ephemeral(),
             ),
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             trust_forwarded_headers: false,
