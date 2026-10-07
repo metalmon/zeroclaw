@@ -16,7 +16,7 @@ import { fuzzyFilter } from "../../lib/fuzzy";
 import { ApiError, getSectionPicker, type PickerItem } from "../../lib/api";
 import { Badge, Button } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
-import { t } from "@/lib/i18n";
+import { t, badgeLabel } from "@/lib/i18n";
 
 interface SectionPickerProps {
   /** Section key, e.g. 'providers'. */
@@ -175,7 +175,7 @@ export default function SectionPicker({
               {item.badge && (
                 <Badge tone={badgeTone(item.badge)}>
                   {badgeIsGood(item.badge) && <Check className="h-3 w-3" />}
-                  {item.badge}
+                  {badgeLabel(item.badge)}
                 </Badge>
               )}
             </button>

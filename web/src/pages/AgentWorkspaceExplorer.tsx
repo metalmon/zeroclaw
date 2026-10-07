@@ -477,22 +477,20 @@ export default function AgentWorkspaceExplorer() {
         danger
         title={
           pendingDelete
-            ? `${t('workspace.delete_title_prefix')} ${pendingDelete.name}?`
+            ? t('workspace.delete_confirm_title', { value: pendingDelete.name })
             : t('workspace.delete_title')
         }
         message={
           pendingDelete ? (
             <>
-              {t('workspace.delete_message_prefix')}{' '}
-              {pendingDelete.kind === 'dir'
-                ? t('workspace.kind_directory')
-                : t('workspace.kind_file')}{' '}
-              <span className="font-mono text-pc-text-secondary">
-                {cwd ? `${cwd}/${pendingDelete.name}` : pendingDelete.name}
-              </span>{' '}
-              {t('workspace.delete_message_from')} {alias}
-              {t('workspace.delete_message_workspace_suffix')}
-              {pendingDelete.kind === 'dir' && ` ${t('workspace.delete_message_dir_note')}`}{' '}
+              {t('workspace.delete_message', {
+                kind: pendingDelete.kind === 'dir'
+                  ? t('workspace.kind_directory')
+                  : t('workspace.kind_file'),
+                path: cwd ? `${cwd}/${pendingDelete.name}` : pendingDelete.name,
+                alias,
+              })}{' '}
+              {pendingDelete.kind === 'dir' && `${t('workspace.delete_message_dir_note')} `}
               {t('workspace.delete_message_undone')}
             </>
           ) : undefined
@@ -516,7 +514,7 @@ export default function AgentWorkspaceExplorer() {
 
       <PromptDialog
         open={renaming !== null}
-        title={renaming ? `${t('workspace.rename_title_prefix')} ${renaming}` : t('workspace.rename_title')}
+        title={renaming ? t('workspace.rename_confirm_title', { value: renaming }) : t('workspace.rename_title')}
         message={t('workspace.rename_message')}
         initialValue={renaming ?? ''}
         confirmLabel={t('workspace.rename')}

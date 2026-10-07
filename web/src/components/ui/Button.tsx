@@ -23,11 +23,12 @@ const sizes: Record<ButtonSize, string> = {
 };
 
 const variants: Record<ButtonVariant, string> = {
-  // Accent fill with a fixed dark foreground that stays legible on the
-  // light-to-mid accents this design system ships (>= AA on the Operator accents).
+  // Primary ACTION button — the Volt brand bolt (amber→raspberry gradient).
+  // This is the one place the brand color leads; everyday accent chrome stays
+  // neutral. White foreground stays legible across the gradient in every theme.
   primary:
-    'bg-pc-accent border-transparent text-[#0b1220] hover:bg-pc-accent-light ' +
-    'active:brightness-95',
+    '[background-image:var(--pc-accent-gradient)] border-transparent text-white ' +
+    'hover:opacity-90 active:brightness-95',
   // Transparent until hovered — the calm default for secondary actions.
   // `--pc-hover` has no @theme utility, so the hover bg uses an arbitrary value.
   ghost:

@@ -229,8 +229,8 @@ export default function SkillsBundleEditor({ bundle }: Props) {
       <p className="text-sm" style={{ color: 'var(--pc-text-muted)' }}>
         {t('skills_bundle.intro_before_skill_md')}
         <code>SKILL.md</code> {t('skills_bundle.intro_after_skill_md')}{' '}
-        <code> scripts/</code>, <code>references/</code>,{' '}
-        {t('skills_bundle.intro_and')} <code>assets/</code>{' '}
+        <code> scripts/</code>, <code>references/</code>{' '}
+        {t('skills_bundle.intro_and')} <code>assets/</code>
         {t('skills_bundle.intro_subdirs')}
       </p>
 
@@ -480,7 +480,7 @@ function FrontmatterForm({ value, onChange, onTagsChange }: FrontmatterFormProps
         label={t('skills_bundle.license_label')}
         value={value.license ?? ''}
         onChange={(v) => onChange('license', v)}
-        placeholder="MIT"
+        placeholder={t('skills_bundle.license_placeholder')}
       />
       <Field
         label={t('skills_bundle.author_label')}
@@ -491,7 +491,7 @@ function FrontmatterForm({ value, onChange, onTagsChange }: FrontmatterFormProps
         label={t('skills_bundle.category_label')}
         value={value.category ?? ''}
         onChange={(v) => onChange('category', v)}
-        placeholder="coding, ops, …"
+        placeholder={t('skills_bundle.category_placeholder')}
       />
       <TagsField tags={value.tags ?? []} onTagsChange={onTagsChange} />
     </div>
@@ -560,7 +560,7 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
               <button
                 type="button"
                 onClick={() => removeTag(tag)}
-                aria-label={`Remove tag ${tag}`}
+                aria-label={t('skills_bundle.aria_remove_tag', { tag })}
                 className="leading-none"
                 style={{ color: 'var(--pc-text-muted)' }}
               >
@@ -571,7 +571,7 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
           {isOpenSkills && (
             <span
               className="inline-flex items-center text-xs px-2 py-0.5 rounded-md border opacity-60"
-              title="Loader-managed: community-synced skill (open-skills)"
+              title={t('skills_bundle.open_skills_badge_title')}
               style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-faint)' }}
             >
               open-skills
@@ -587,8 +587,8 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
                 addTag();
               }
             }}
-            placeholder="add tag…"
-            aria-label="Add tag"
+            placeholder={t('skills_bundle.tag_input_placeholder')}
+            aria-label={t('skills_bundle.tag_input_aria_label')}
             className="text-xs bg-transparent border rounded-md px-2 py-0.5 w-24"
             style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text)' }}
           />
@@ -787,8 +787,8 @@ function SlashOptionCard({
             type="text"
             value={option.name}
             onChange={(e) => onChange({ name: e.target.value })}
-            placeholder="lowercase_name"
-            aria-label={`Option ${index + 1} name`}
+            placeholder={t('skills_bundle.option_name_placeholder')}
+            aria-label={t('skills_bundle.aria_option_name', { n: index + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-sm"
             style={{ borderColor: 'var(--pc-border)' }}
           />
@@ -800,7 +800,7 @@ function SlashOptionCard({
           <select
             value={option.type}
             onChange={(e) => onType(e.target.value)}
-            aria-label={`Option ${index + 1} type`}
+            aria-label={t('skills_bundle.aria_option_type', { n: index + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-sm"
             style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text)' }}
           >
@@ -831,7 +831,7 @@ function SlashOptionCard({
             type="button"
             onClick={() => onMove(-1)}
             disabled={index === 0}
-            aria-label={`Move option ${index + 1} up`}
+            aria-label={t('skills_bundle.aria_option_move_up', { n: index + 1 })}
             className="text-xs px-1.5 py-0.5 rounded border disabled:opacity-30"
             style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-muted)' }}
           >
@@ -841,7 +841,7 @@ function SlashOptionCard({
             type="button"
             onClick={() => onMove(1)}
             disabled={index === count - 1}
-            aria-label={`Move option ${index + 1} down`}
+            aria-label={t('skills_bundle.aria_option_move_down', { n: index + 1 })}
             className="text-xs px-1.5 py-0.5 rounded border disabled:opacity-30"
             style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-muted)' }}
           >
@@ -850,7 +850,7 @@ function SlashOptionCard({
           <button
             type="button"
             onClick={onRemove}
-            aria-label="Remove option"
+            aria-label={t('skills_bundle.remove_option_aria_label')}
             className="text-xs px-1.5 py-0.5 rounded border"
             style={{ borderColor: 'var(--pc-border)', color: '#f87171' }}
           >
@@ -867,8 +867,8 @@ function SlashOptionCard({
           type="text"
           value={option.description}
           onChange={(e) => onChange({ description: e.target.value })}
-          placeholder="Shown to the user when picking this option"
-          aria-label={`Option ${index + 1} description`}
+          placeholder={t('skills_bundle.option_description_placeholder')}
+          aria-label={t('skills_bundle.aria_option_description', { n: index + 1 })}
           className="rounded-md border bg-transparent px-2 py-1 text-sm"
           style={{ borderColor: 'var(--pc-border)' }}
         />
@@ -959,8 +959,8 @@ function ChoicesEditor({ choices, onChange }: ChoicesEditorProps) {
             type="text"
             value={c.name}
             onChange={(e) => update(i, { name: e.target.value })}
-            placeholder="label"
-            aria-label={`Choice ${i + 1} label`}
+            placeholder={t('skills_bundle.choice_label_placeholder')}
+            aria-label={t('skills_bundle.aria_choice_label', { n: i + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-xs flex-1"
             style={{ borderColor: 'var(--pc-border)' }}
           />
@@ -971,15 +971,15 @@ function ChoicesEditor({ choices, onChange }: ChoicesEditorProps) {
             type="text"
             value={c.value}
             onChange={(e) => update(i, { value: e.target.value })}
-            placeholder="value"
-            aria-label={`Choice ${i + 1} value`}
+            placeholder={t('skills_bundle.choice_value_placeholder')}
+            aria-label={t('skills_bundle.aria_choice_value', { n: i + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-xs flex-1 font-mono"
             style={{ borderColor: 'var(--pc-border)' }}
           />
           <button
             type="button"
             onClick={() => remove(i)}
-            aria-label={`Remove choice ${i + 1}`}
+            aria-label={t('skills_bundle.aria_remove_choice', { n: i + 1 })}
             className="text-xs leading-none"
             style={{ color: 'var(--pc-text-muted)' }}
           >

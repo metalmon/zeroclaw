@@ -5,7 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { basePath } from '@/lib/basePath';
 import { getToken } from '@/lib/auth';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
-import { t } from '@/lib/i18n';
+import { t, fmtDate, fmtTime } from '@/lib/i18n';
 
 interface CanvasFrame {
   frame_id: string;
@@ -402,7 +402,7 @@ export default function Canvas() {
                           {frame.content_type}
                         </span>
                         <span className="text-pc-text-muted">
-                          {new Date(frame.timestamp).toLocaleTimeString()}
+                          {fmtTime(frame.timestamp)}
                         </span>
                       </div>
                       <div className="truncate mt-0.5 text-[0.65rem] text-pc-text-muted">
@@ -426,7 +426,7 @@ export default function Canvas() {
             <span className="mx-2 text-pc-text-faint">|</span>
             {t('canvas.frame_label')} <span className="font-mono text-pc-text-secondary">{currentFrame.frame_id.substring(0, 8)}</span>
           </span>
-          <span>{new Date(currentFrame.timestamp).toLocaleString()}</span>
+          <span>{fmtDate(currentFrame.timestamp, { dateStyle: 'medium', timeStyle: 'medium' })}</span>
         </div>
       )}
     </div>

@@ -21,6 +21,7 @@ const TITLE_KEYS: Record<string, string> = {
   logs: 'nav.logs',
   doctor: 'nav.doctor',
   pairing: 'nav.pairing',
+  roles: 'nav.roles',
   canvas: 'nav.canvas',
   'acp-console': 'nav.acp',
   quickstart: 'nav.quickstart',
@@ -50,7 +51,8 @@ export default function Layout() {
       const key = TITLE_KEYS[first];
       name = key ? t(key) : null;
     }
-    document.title = name ? `${name} — ZeroClaw` : 'ZeroClaw';
+    const productName = t('product.name');
+    document.title = name ? `${name} — ${productName}` : productName;
   }, [pathname]);
 
   return (

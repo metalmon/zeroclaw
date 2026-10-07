@@ -27,7 +27,7 @@ import {
   quickstartFields,
 } from "@/lib/api";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
-import { t } from "@/lib/i18n";
+import { plural, t } from "@/lib/i18n";
 import {
   requiredQuickstartSelectionsComplete,
   runtimeAfterProviderChange,
@@ -1006,7 +1006,7 @@ function PeerGroupsList({
                   {t("quickstart.channel_prefix")}
                   {pg.channel}
                   {pg.external_peers.length > 0
-                    ? ` · ${pg.external_peers.length} ${t("quickstart.peers_suffix")}`
+                    ? ` · ${plural(pg.external_peers.length, "quickstart.peers_suffix")}`
                     : ` · ${t("quickstart.no_peers")}`}
                 </code>
               </div>
@@ -1098,7 +1098,7 @@ function PeerGroupAddForm({
         value={peersBuf}
         onChange={setPeersBuf}
         multiline
-        placeholder="@alice&#10;@bob"
+        placeholder={t('quickstart.external_peers_placeholder')}
       />
 
       <div className="text-xs" style={MUTED}>

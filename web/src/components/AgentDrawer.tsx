@@ -120,7 +120,7 @@ export default function AgentDrawer({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`${t('agent.detail_aria_prefix')} ${agent.alias} ${t('agent.detail_aria_suffix')}`}
+      aria-label={t('agent.detail_aria', { value: agent.alias })}
       className="fixed inset-0 z-50 flex justify-end"
       onClick={onClose}
     >
@@ -144,7 +144,7 @@ export default function AgentDrawer({
                 kind="agent"
                 id={agent.alias}
                 className="block text-base font-semibold truncate text-pc-text hover:underline"
-                title={`${t('agent.open_config_prefix')}agents.${agent.alias}${t('agent.open_config_suffix')}`}
+                title={t('agent.open_config', { value: `agents.${agent.alias}` })}
               >
                 {agent.alias}
               </EntityLink>
@@ -153,7 +153,7 @@ export default function AgentDrawer({
                   kind="model-provider"
                   id={agent.modelProvider}
                   className="block text-xs truncate font-mono text-pc-text-muted hover:text-pc-text-secondary hover:underline"
-                  title={`${t('agent.open_config_prefix')}providers.models.${agent.modelProvider}${t('agent.open_config_suffix')}`}
+                  title={t('agent.open_config', { value: `providers.models.${agent.modelProvider}` })}
                 >
                   {agent.modelProvider}
                 </EntityLink>
@@ -210,7 +210,7 @@ export default function AgentDrawer({
                   kind="channel"
                   id={ch}
                   className={CHIP_CLASS}
-                  title={`${t('agent.open_config_prefix')}channels.${ch}${t('agent.open_config_suffix')}`}
+                  title={t('agent.open_config', { value: `channels.${ch}` })}
                 >
                   {ch}
                 </EntityLink>
@@ -243,7 +243,7 @@ export default function AgentDrawer({
               className="inline-flex items-center gap-1 hover:text-pc-text hover:underline"
               title={
                 agent.memoryBackend
-                  ? `${t('agent.memory_backend_title_prefix')} ${agent.memoryBackend}`
+                  ? t('agent.memory_backend_title', { value: agent.memoryBackend })
                   : t('agent.memory_backend_default_title')
               }
             >
@@ -274,7 +274,7 @@ export default function AgentDrawer({
                   kind="skill-bundle"
                   id={s}
                   className={CHIP_CLASS}
-                  title={`${t('agent.open_config_prefix')}skill-bundles.${s}${t('agent.open_config_suffix')}`}
+                  title={t('agent.open_config', { value: `skill-bundles.${s}` })}
                 >
                   {s}
                 </EntityLink>
@@ -290,7 +290,7 @@ export default function AgentDrawer({
                   kind="knowledge-bundle"
                   id={k}
                   className={CHIP_CLASS}
-                  title={`${t('agent.open_config_prefix')}knowledge-bundles.${k}${t('agent.open_config_suffix')}`}
+                  title={t('agent.open_config', { value: `knowledge-bundles.${k}` })}
                 >
                   {k}
                 </EntityLink>
@@ -306,7 +306,7 @@ export default function AgentDrawer({
                   kind="mcp-bundle"
                   id={m}
                   className={CHIP_CLASS}
-                  title={`${t('agent.open_config_prefix')}mcp-bundles.${m}${t('agent.open_config_suffix')}`}
+                  title={t('agent.open_config', { value: `mcp-bundles.${m}` })}
                 >
                   {m}
                 </EntityLink>
@@ -322,7 +322,7 @@ export default function AgentDrawer({
                   kind="peer-group"
                   id={pg}
                   className={CHIP_CLASS}
-                  title={`${t('agent.open_config_prefix')}peer_groups.${pg}${t('agent.open_config_suffix')}`}
+                  title={t('agent.open_config', { value: `peer_groups.${pg}` })}
                 >
                   {pg}
                 </EntityLink>
@@ -338,7 +338,7 @@ export default function AgentDrawer({
                   kind="cron"
                   id={c}
                   className={CHIP_CLASS}
-                  title={`${t('agent.open_config_prefix')}cron.${c}${t('agent.open_config_suffix')}`}
+                  title={t('agent.open_config', { value: `cron.${c}` })}
                 >
                   {c}
                 </EntityLink>
@@ -360,7 +360,7 @@ export default function AgentDrawer({
                   <Link
                     to={`/?tab=sessions&agent=${encodeURIComponent(agent.alias)}`}
                     className="hover:text-pc-accent hover:underline"
-                    title={`${t('agent.show_sessions_title')} ${agent.alias}`}
+                    title={t('agent.show_sessions_title', { value: agent.alias })}
                   >
                     {agent.sessionCount}
                   </Link>
@@ -383,7 +383,7 @@ export default function AgentDrawer({
                   <Link
                     to={`/?tab=memories&agent=${encodeURIComponent(agent.alias)}`}
                     className="hover:text-pc-accent hover:underline"
-                    title={`${t('agent.show_memories_title')} ${agent.alias}`}
+                    title={t('agent.show_memories_title', { value: agent.alias })}
                   >
                     {agent.memoryCount}
                   </Link>

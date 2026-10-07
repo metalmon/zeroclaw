@@ -17,6 +17,7 @@ import {
   Plugins,
   Quickstart,
   RunDetail,
+  Roles,
   Runs,
   Skills,
   SopEditor,
@@ -65,6 +66,7 @@ export const Router = () => (
         <Route path="/logs" element={<Logs />} />
         <Route path="/doctor" element={<Doctor />} />
         <Route path="/pairing" element={<Pairing />} />
+        <Route path="/roles" element={<Roles />} />
         <Route path="/canvas" element={<Canvas />} />
         <Route path="/acp-console" element={<AcpConsole />} />
         <Route path="/quickstart" element={<Quickstart />} />

@@ -8,7 +8,7 @@ import MarkdownEditor from '@/components/MarkdownEditor';
 import ToolPicker from '@/components/ToolPicker';
 import { PlannedCallsEditor } from '@/components/SopCalls';
 import SopStepList from '@/components/SopStepList';
-import { t } from '@/lib/i18n';
+import { plural, t, enumLabel } from '@/lib/i18n';
 import { loadAgentPickerSummaries } from '@/lib/agents';
 import {
   listSops,
@@ -289,7 +289,7 @@ function SelectField({
         {children}
         {(options ?? []).map((opt) => (
           <option key={opt} value={opt}>
-            {opt}
+            {enumLabel(opt)}
           </option>
         ))}
       </select>
@@ -500,7 +500,7 @@ function StepEditor({
         <TextField
           label={t('sops.routing_when')}
           value={routing.when ?? ''}
-          placeholder="$.value > 85"
+          placeholder={t('sops.routing_when_placeholder')}
           help={sopFieldHelp('StepRouting', 'when')}
           onChange={(v) => setRouting({ when: v || undefined })}
         />
@@ -856,7 +856,7 @@ function ConditionBuilder({
             <input
               type="text"
               value={parsed.path ?? ''}
-              placeholder="path.to.field"
+              placeholder={t('sops.condition_field_placeholder')}
               onChange={(e) =>
                 emit({ path: e.target.value, op: parsed.op, value: parsed.value })
               }
@@ -1359,9 +1359,16 @@ function DraftSidebar({
 }) {
   return (
     <Card className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="font-medium text-pc-text">{t('sops.editor_title')}</div>
-        <div className="flex gap-2">
+      {/* Header row must survive a much longer title than the English source
+          (e.g. Russian "Редактировать СОП") inside the fixed 20rem sidebar
+          column. min-w-0 + truncate lets the title give way instead of
+          wrapping onto the Cancel/Save buttons; flex-shrink-0 keeps those
+          buttons at full, always-readable size. */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 truncate font-medium text-pc-text" title={t('sops.editor_title')}>
+          {t('sops.editor_title')}
+        </div>
+        <div className="flex flex-shrink-0 gap-2">
           <button
             type="button"
             onClick={onCancel}
@@ -1606,7 +1613,7 @@ function ManualRunPanel({ name, sop }: { name: string; sop: Sop | null }) {
       try {
         JSON.parse(trimmed);
       } catch {
-        setRunError(`${t('sops.run_error')}: invalid JSON`);
+        setRunError(`${t('sops.run_error')}: ${t('sops.invalid_json')}`);
         return;
       }
     }
@@ -1785,7 +1792,7 @@ export function SopView() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {graph ? (
             <Badge tone="neutral">
-              {graph.nodes.length} {t('sops.steps')}
+              {plural(graph.nodes.length, 'sops.steps_count')}
             </Badge>
           ) : null}
           <div className="ml-auto flex flex-wrap gap-2">

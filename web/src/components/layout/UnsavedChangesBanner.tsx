@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import { Save, X } from 'lucide-react';
 import { Button } from '@/components/ui';
-import { t } from '@/lib/i18n';
+import { plural, t, sectionLabel } from '@/lib/i18n';
 import { ApiError, getSections, type ValidationWarning } from '@/lib/api';
 import { validationWarningMessage } from '@/lib/validationWarnings';
 import {
@@ -61,7 +61,9 @@ export default function UnsavedChangesBanner() {
 
   if (dirtyCount === 0) return null;
 
-  const labelFor = (key: string) => labels[key] ?? humanize(key);
+  // Prefer the localized section label; fall back to the gateway's EN label,
+  // then a humanized key.
+  const labelFor = (key: string) => sectionLabel(key, labels[key] ?? humanize(key));
   const sectionList = dirtySections.map(labelFor).join(', ');
 
   const onSave = async () => {
@@ -89,7 +91,7 @@ export default function UnsavedChangesBanner() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="text-sm text-pc-text">
           <span className="font-semibold text-status-warning">
-            {dirtyCount} {dirtyCount === 1 ? t('unsaved_banner.unsaved_change') : t('unsaved_banner.unsaved_changes')}
+            {plural(dirtyCount, 'unsaved_banner.unsaved_changes_count')}
           </span>
           {sectionList && (
             <span className="text-pc-text-secondary"> {t('unsaved_banner.in_sections_prefix')}{sectionList}</span>

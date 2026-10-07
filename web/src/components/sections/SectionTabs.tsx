@@ -53,7 +53,7 @@ export default function SectionTabs({ tabs, defaultKey }: SectionTabsProps) {
           text; inactive sits muted with a transparent border. The shared
           bottom hairline reads as a quiet baseline, not a heavy bar. */}
       <div
-        className="flex items-center gap-1 border-b border-pc-border -mx-2 px-2 overflow-x-auto"
+        className="flex items-center gap-1 border-b border-pc-border -mx-2 px-2 overflow-x-auto overflow-y-hidden"
         role="tablist"
       >
         {tabs.map((t) => {

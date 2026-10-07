@@ -4,7 +4,7 @@ import { apiFetch } from '@/lib/api';
 import type { LogEvent, LogsQueryParams, LogsResponse } from '@/lib/api';
 import { usePolling } from '@/hooks/usePolling';
 import { Badge, Button, PageHeader } from '@/components/ui';
-import { t } from '@/lib/i18n';
+import { plural, t, fmtTime } from '@/lib/i18n';
 
 const DEFAULT_SEVERITY_MIN = 9;
 const PAGE_LIMIT = 200;
@@ -93,11 +93,7 @@ function severityClasses(severityNumber: number): { text: string; chip: string }
 }
 
 function formatTimestamp(raw: string): string {
-  try {
-    return new Date(raw).toLocaleTimeString(undefined, { hour12: false });
-  } catch {
-    return raw;
-  }
+  return fmtTime(raw, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 }
 
 function buildQueryParams(
@@ -390,7 +386,7 @@ export default function Logs() {
           actions={
             <>
               <Badge tone="neutral">
-                {events.length} {t('logs.events')}
+                {plural(events.length, 'logs.events_count')}
                 {atEnd ? ` · ${t('logs.at_end')}` : ''}
               </Badge>
               {historyIncomplete && <Badge tone="warn">{t('logs.incomplete')}</Badge>}
@@ -490,7 +486,7 @@ export default function Logs() {
           type="text"
           value={filter.action}
           onChange={(event) => setFilter((prev) => ({ ...prev, action: event.target.value }))}
-          placeholder="event.action"
+          placeholder={t('logs.action_filter_placeholder')}
           className={`${CONTROL_CLASS} w-[160px]`}
         />
         <label className="flex items-center gap-1.5 text-[11px] cursor-pointer text-pc-text-muted">
@@ -547,7 +543,7 @@ export default function Logs() {
                 type="button"
                 onClick={() => setFieldEq(key, '')}
                 className="text-pc-text-faint hover:text-pc-text transition-colors"
-                aria-label={`${t('logs.remove_filter_prefix')}${key}${t('logs.remove_filter_suffix')}`}
+                aria-label={t('logs.remove_filter', { value: key })}
               >
                 <X className="h-3 w-3" />
               </button>

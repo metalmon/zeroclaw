@@ -1,6 +1,6 @@
 import { SkillCard } from '@/components/SkillCard';
 import { getAgentOptions, listAgentSkills, readSkill } from '@/lib/api';
-import { t } from '@/lib/i18n';
+import { plural, t } from '@/lib/i18n';
 import type { AgentSkillEntry, DroppedSkillEntry, SkillDocument } from '@/lib/api';
 import {
   BookOpen,
@@ -195,7 +195,7 @@ export default function Skills() {
             color: '#fbbf24',
           }}
         >
-          {dropped.length} {t('skills.skipped_count')}
+          {plural(dropped.length, 'skills.skipped_count')}
           <ul className="mt-2 space-y-1">
             {dropped.map((d) => (
               <li
