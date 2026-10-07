@@ -467,6 +467,7 @@ impl McpServer {
     /// (`McpServerConfig::tasks_enabled_effective`) rather than the live
     /// connection.
     #[cfg(test)]
+    #[allow(dead_code)]
     pub(crate) async fn advertised_tasks(&self) -> bool {
         self.inner.lock().await.advertise_tasks
     }

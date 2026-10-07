@@ -2489,6 +2489,7 @@ pub fn install_local_skill_source(
 
 #[cfg(test)]
 mod copy_tests {
+    #![allow(dead_code, unused_imports)]
     use super::*;
     #[cfg(unix)]
     use std::cell::Cell;

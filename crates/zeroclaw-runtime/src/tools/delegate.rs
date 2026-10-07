@@ -5136,6 +5136,7 @@ impl Observer for NoopObserver {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code, unused_imports)]
     use super::*;
     use crate::control_plane::{
         ControlPlaneHandle, SqliteTaskStore, TaskKind, TaskRecord, TaskRegistry, TaskStatus,

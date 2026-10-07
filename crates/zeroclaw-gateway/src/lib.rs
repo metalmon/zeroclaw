@@ -11279,6 +11279,10 @@ data: [DONE]\n\n";
             auto_save: true,
             task_supervisor: None,
             mcp_pool: None,
+            token_bindings: Arc::new(zeroclaw_config::authz::TokenBindingStore::new_ephemeral()),
+            external_subjects: Arc::new(
+                zeroclaw_gateway::api_authz_external::ExternalSubjectStore::new_ephemeral(),
+            ),
             pairing: Arc::new(PairingGuard::new(false, &[], PairingCodePolicy::default())),
             trust_forwarded_headers: false,
             rate_limiter: Arc::new(GatewayRateLimiter::new(100, 100, 100)),
