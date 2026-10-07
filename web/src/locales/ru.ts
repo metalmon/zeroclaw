@@ -1921,7 +1921,7 @@ export const ru: Record<string, string> = {
   'config.field.security.webauthn.rp_id.label': 'Идентификатор доверяющей стороны (RP ID)',
   'config.field.security.webauthn.rp_id.desc': 'Идентификатор доверяющей стороны (домен, например «example.com»). По умолчанию: «localhost».',
   'config.field.security.webauthn.rp_name.label': 'Отображаемое имя доверяющей стороны',
-  'config.field.security.webauthn.rp_name.desc': 'Отображаемое имя доверяющей стороны. По умолчанию: «ZeroClaw».',
+  'config.field.security.webauthn.rp_name.desc': 'Отображаемое имя доверяющей стороны. По умолчанию: «Volt».',
   'config.field.security.webauthn.rp_origin.label': 'Origin доверяющей стороны',
   'config.field.security.webauthn.rp_origin.desc': 'URL origin доверяющей стороны (например, `"https://example.com"`). По умолчанию: `"http://localhost:42617"`.',
 
