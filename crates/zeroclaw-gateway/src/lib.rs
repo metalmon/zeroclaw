@@ -2642,16 +2642,34 @@ pub async fn run_gateway_with_plugin_webhooks(
         inner
     };
 
-    // In dual-listener mode the primary listener is the PRIVATE surface
-    // (loopback by default) and stays plain TCP: `[gateway.tls]` is consumed
-    // by the public `/acp` listener spawned above, not by the control plane
-    // the local dashboard/CLI talk to over loopback.
-    let tls_enabled = !public_enabled
-        && config
-            .gateway
-            .tls
-            .as_ref()
-            .is_some_and(|tls_cfg| tls_cfg.enabled);
+    // In dual-listener mode the primary listener is the PRIVATE surface and
+    // stays plain TCP: `[gateway.tls]` is consumed by the public `/acp`
+    // listener spawned above, not by the control plane the local
+    // dashboard/CLI talk to over loopback.
+    //
+    // "over loopback" is the whole justification, so it is checked rather than
+    // assumed. Bound to an address the network can reach, the private surface
+    // carries admin, pairing and the full `/api/*` plane, and dropping TLS
+    // there would put all of it in clear text on the wire. So TLS stays on
+    // whenever this listener is not loopback, and a non-loopback private
+    // surface with no TLS at all refuses to start instead of serving the
+    // control plane in the open.
+    let private_is_loopback = actual_addr.ip().is_loopback();
+    let tls_configured = config
+        .gateway
+        .tls
+        .as_ref()
+        .is_some_and(|tls_cfg| tls_cfg.enabled);
+    if public_enabled && !private_is_loopback && !tls_configured {
+        anyhow::bail!(
+            "[gateway.public] is enabled and [gateway] host = {} is not loopback, but \
+             [gateway.tls] is absent or disabled: the private control plane (admin, pairing, \
+             /api/*) would be served in clear text on the network. Either bind [gateway] host \
+             to a loopback address, or enable [gateway.tls]",
+            actual_addr.ip()
+        );
+    }
+    let tls_enabled = tls_configured && (!public_enabled || !private_is_loopback);
     let app = if tls_enabled {
         app.layer(axum::middleware::from_fn(security_headers::apply_with_hsts))
     } else {
@@ -2660,7 +2678,9 @@ pub async fn run_gateway_with_plugin_webhooks(
 
     // ── TLS / mTLS setup ───────────────────────────────────────────
     let tls_acceptor = match &config.gateway.tls {
-        Some(tls_cfg) if tls_cfg.enabled && !public_enabled => {
+        // Same condition as `tls_enabled` above, and it has to stay the same: the
+        // headers say HSTS only when this arm actually wraps the listener in TLS.
+        Some(tls_cfg) if tls_enabled && tls_cfg.enabled => {
             let has_mtls = tls_cfg.client_auth.as_ref().is_some_and(|ca| ca.enabled);
             if has_mtls {
                 ::zeroclaw_log::record!(
