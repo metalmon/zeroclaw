@@ -361,7 +361,7 @@ function SchemaArgsEditor({
         label={t('sops.call_args')}
         value={args}
         onChange={onChange}
-        placeholder={'{"function": "add", "values": "{{steps.1.value}}"}'}
+        placeholder={t('sops.call_args_placeholder')}
         rows={4}
       />
     );

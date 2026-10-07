@@ -10,9 +10,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MarkdownEditor from '@/components/MarkdownEditor';
 import ReactMarkdown from 'react-markdown';
+import { useTheme } from '@/hooks/useTheme';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
-import { t } from '@/lib/i18n';
+import { t, fmtNumber } from '@/lib/i18n';
 import {
   ApiError,
   PersonalityConflictError,
@@ -56,6 +57,10 @@ export default function PersonalityEditor({ agent }: Props) {
 
   // Edit ↔ Preview toggle for the active tab.
   const [preview, setPreview] = useState(false);
+  // `prose-invert` (light-on-dark typography) must only apply in dark themes;
+  // on the light/paper palettes it would render near-white text on a light
+  // surface.
+  const { resolvedTheme } = useTheme();
 
   const loadIndex = useCallback(async () => {
     try {
@@ -394,7 +399,7 @@ export default function PersonalityEditor({ agent }: Props) {
 
           {preview ? (
             <div
-              className="prose prose-invert max-w-none rounded-md border px-4 py-3 text-sm overflow-y-auto"
+              className={`prose ${resolvedTheme === 'dark' ? 'prose-invert' : ''} max-w-none rounded-md border px-4 py-3 text-sm overflow-y-auto`}
               style={{
                 borderColor: 'var(--pc-border)',
                 background: 'var(--pc-bg-base)',
@@ -438,7 +443,7 @@ export default function PersonalityEditor({ agent }: Props) {
             style={{ color: 'var(--pc-text-muted)' }}
           >
             <span>
-              {charCount.toLocaleString()} / {maxChars.toLocaleString()} {t('personality.chars')}
+              {fmtNumber(charCount)} / {fmtNumber(maxChars)} {t('personality.chars')}
               {overLimit && (
                 <span style={{ color: 'var(--color-status-error)' }}>
                   {' '}— {t('personality.over_limit')}

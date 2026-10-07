@@ -6,6 +6,39 @@
    in the personality editor's Markdown preview. */
 @import "highlight.js/styles/github-dark.css";
 
+/* Chat reading serif — Plantin Cyr MT (Latin + Cyrillic), the same bundled
+   face the Volt desktop client uses for chat prose. Self-hosted (no external
+   font CDN); applied only to `.chat-markdown` so the rest of the UI keeps its
+   sans stack. */
+@font-face {
+  font-family: 'Plantin Cyr MT';
+  src: url('./fonts/plantin-cyr.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plantin Cyr MT';
+  src: url('./fonts/plantin-cyr-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plantin Cyr MT';
+  src: url('./fonts/plantin-cyr-italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plantin Cyr MT';
+  src: url('./fonts/plantin-cyr-bolditalic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 @theme {
   /* Theme-aware colors mapped to CSS custom properties */
   --color-pc-base: var(--pc-bg-base);
@@ -45,13 +78,15 @@
   --color-status-success-alpha-20: color-mix(in srgb, var(--color-status-success) 20%, transparent);
   --color-status-warning-alpha-05: color-mix(in srgb, var(--color-status-warning) 5%, transparent);
   --color-status-warning-alpha-20: color-mix(in srgb, var(--color-status-warning) 20%, transparent);
-  /* Backgrounds */
-  --pc-bg-base: #1e1e24;
-  --pc-bg-surface: #232329;
-  --pc-bg-elevated: #27272a;
-  --pc-bg-input: #1a1a20;
-  --pc-bg-code: #1a1a20;
-  --pc-bg-sidebar: rgba(30, 30, 36, 0.95);
+  /* Backgrounds (Volt dark — warm graphite, no pure black; mirrors the Volt
+     desktop client. ThemeContext overrides these per theme at runtime, but the
+     defaults here are the first-paint palette before JS applies a choice.) */
+  --pc-bg-base: #1b1e1f;
+  --pc-bg-surface: #282a2b;
+  --pc-bg-elevated: #313334;
+  --pc-bg-input: #212425;
+  --pc-bg-code: #202324;
+  --pc-bg-sidebar: rgba(27, 30, 31, 0.95);
 
   /* Derived surface tints — adapt automatically across every color theme
      because they color-mix the per-theme surface/text/accent tokens that the
@@ -61,21 +96,32 @@
   --pc-bg-surface-elevated: color-mix(in srgb, var(--pc-bg-elevated) 85%, var(--pc-text-primary) 15%);
 
   /* Borders */
-  --pc-border: rgba(255, 255, 255, 0.08);
-  --pc-border-strong: rgba(255, 255, 255, 0.1);
+  --pc-border: rgba(255, 255, 255, 0.09);
+  --pc-border-strong: rgba(255, 255, 255, 0.14);
 
-  /* Text */
-  --pc-text-primary: #d4d4d8;
-  --pc-text-secondary: #a1a1aa;
-  --pc-text-muted: #71717a;
-  --pc-text-faint: #52525b;
+  /* Text (warm off-white) */
+  --pc-text-primary: #f2f1ee;
+  --pc-text-secondary: #cbc6bf;
+  --pc-text-muted: #a19a91;
+  --pc-text-faint: #79726a;
 
-  /* Accent (cyan) */
-  --pc-accent: #22d3ee;
-  --pc-accent-light: #67e8f9;
-  --pc-accent-dim: rgba(34, 211, 238, 0.3);
-  --pc-accent-glow: rgba(34, 211, 238, 0.1);
-  --pc-accent-rgb: 34, 211, 238;
+  /* Everyday accent — a NEUTRAL warm tone (Volt keeps the brand restrained):
+     active/selected/focus and links use this, not the loud brand. In dark the
+     accent is a warm off-white; --pc-accent-foreground is the legible text on
+     an accent-filled surface. */
+  --pc-accent: #e9e3d8;
+  --pc-accent-light: #f4f1ea;
+  --pc-accent-dim: rgba(233, 227, 216, 0.22);
+  --pc-accent-glow: rgba(233, 227, 216, 0.08);
+  --pc-accent-rgb: 233, 227, 216;
+  --pc-accent-foreground: #1b1e1f;
+
+  /* Brand — the logo's amber→raspberry bolt. Reserved for "electric" spots:
+     primary-action buttons (.btn-electric / Button variant="primary") and the
+     brand mark. Everyday chrome stays on --pc-accent above. */
+  --pc-brand: #c12d6c;
+  --pc-accent-2: #ab5e17;
+  --pc-accent-gradient: linear-gradient(90deg, #ab5e17, #c12d6c);
 
   /* Link text — derived from the per-theme accent so it tracks every palette. */
   --pc-text-link: var(--pc-accent-light);
@@ -100,15 +146,25 @@
   --pc-separator: rgba(255, 255, 255, 0.05);
 
   /* Scrollbar */
-  --pc-scrollbar-thumb: #52525b;
-  --pc-scrollbar-track: #27272a;
-  --pc-scrollbar-thumb-hover: #71717a;
+  --pc-scrollbar-thumb: #3a3d3e;
+  --pc-scrollbar-track: #282a2b;
+  --pc-scrollbar-thumb-hover: #525657;
 
-  /* Fonts */
-  --pc-font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  /* Fonts — UI on the system sans stack (matching the Volt client, which keeps
+     everyday UI on the platform font). Runtime font choices override --pc-font-ui
+     via ThemeContext; --pc-font-chat is the bundled reading serif. */
+  --pc-font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
   --pc-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  --pc-font-chat: 'Plantin Cyr MT', Georgia, 'Times New Roman', serif;
+  /* Display / heading font — the same Plantin serif (Cyrillic-capable), used
+     as the editorial voice on page & section titles so the bundled face is
+     actually seen (chat is rare in an admin panel). */
+  --pc-font-heading: 'Plantin Cyr MT', Georgia, 'Times New Roman', serif;
   --pc-font-size: 15px;
   --pc-font-size-mono: 14px;
+  /* Chat prose reads a touch small in the serif, so it carries a small bump
+     over the body size (mirrors the client's serif bump). */
+  --pc-font-chat-size: calc(var(--pc-font-size) * 1.06);
 }
 
 html {
@@ -124,6 +180,13 @@ body {
   margin: 0;
   overflow-x: hidden;
   max-width: 100vw;
+}
+
+/* Page & section titles carry the display serif. Scoped to the two heading
+   levels the console uses for real titles; smaller headings (h3+) and the
+   dense label chrome stay on the sans UI stack. */
+h1, h2 {
+  font-family: var(--pc-font-heading);
 }
 
 #root {
@@ -359,9 +422,10 @@ code, kbd, pre {
   backdrop-filter: blur(16px);
 }
 
-/* Electric button (primary action) */
+/* Electric button (primary action) — the Volt brand gradient (amber→raspberry
+   bolt). Falls back to the solid accent where the gradient token is unset. */
 .btn-electric {
-  background: var(--pc-accent);
+  background: var(--pc-accent-gradient, var(--pc-accent));
   color: white;
   border: none;
   border-radius: 0.75rem;
@@ -409,9 +473,9 @@ code, kbd, pre {
   text-security: disc;
 }
 
-/* Primary action (pill) */
+/* Primary action (pill) — Volt brand bolt gradient. */
 .btn-primary {
-  background: var(--pc-accent);
+  background: var(--pc-accent-gradient, var(--pc-accent));
   color: white;
   border-radius: 1rem;
   font-weight: 600;
@@ -638,6 +702,20 @@ code, kbd, pre {
 }
 
 /* ── Markdown styles ── */
+/* Chat message prose (AgentChat) — the bundled reading serif, sized a rung up.
+   Code/mono inside still resolves to the mono stack via the .markdown-body
+   rules below. */
+.chat-markdown {
+  font-family: var(--pc-font-chat);
+  font-size: var(--pc-font-chat-size);
+}
+.chat-markdown code,
+.chat-markdown pre,
+.chat-markdown kbd {
+  font-family: var(--pc-font-mono);
+  font-size: var(--pc-font-size-mono);
+}
+
 .markdown-body pre {
   background: var(--pc-bg-code) !important;
   border: 1px solid var(--pc-border);

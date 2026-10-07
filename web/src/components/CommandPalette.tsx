@@ -12,6 +12,7 @@ import {
   Puzzle,
   Search,
   Settings,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Stethoscope,
@@ -42,6 +43,7 @@ const DESTINATIONS: Destination[] = [
   { to: '/integrations', icon: Puzzle, labelKey: 'nav.integrations', groupKey: 'nav.group.configure' },
   { to: '/cron', icon: Clock, labelKey: 'nav.cron', groupKey: 'nav.group.configure' },
   { to: '/logs', icon: Activity, labelKey: 'nav.logs', groupKey: 'nav.group.operations' },
+  { to: '/roles', icon: ShieldCheck, labelKey: 'nav.roles', groupKey: 'nav.group.operations' },
   { to: '/doctor', icon: Stethoscope, labelKey: 'nav.doctor', groupKey: 'nav.group.operations' },
   { to: '/canvas', icon: Monitor, labelKey: 'nav.canvas', groupKey: 'nav.group.operations' },
   { to: '/acp-console', icon: Terminal, labelKey: 'nav.acp', groupKey: 'nav.group.operations' },
@@ -414,7 +416,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
           )}
           {extraCount > 0 && (
             <div className="px-3 py-2 text-center text-[11px] text-pc-text-faint">
-              {t('nav.cmdk.more_prefix')}{extraCount} {t('nav.cmdk.more_suffix')}
+              {t('nav.cmdk.more', { value: extraCount })}
             </div>
           )}
         </div>
