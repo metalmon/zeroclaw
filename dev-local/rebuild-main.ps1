@@ -79,6 +79,7 @@ $Branches = @(
     "fork/quickstart-channel-types",           # Quickstart "create new channel" picker offers only channel kinds compiled into this binary (+ macOS-only iMessage) and the optional [gateway].onboarding_channel_types allowlist
     "fork/doctor-i18n-ru",                     # ru locale: cli/tools/sections.ftl compiled in + registration; doctor findings through Fluent (cli-doctor-*); RU for doctor/daemon banner/pairing/config warnings/RPC auth, full tool catalog, onboarding pickers (/api/tools + sections localized); voltd hints in the new keys
     "fork/voltd-rebrand",                      # cli.ftl + Rust literals zeroclaw->voltd / ZeroClaw->Volt (--version, banners, hints), panel display_name + logo, [[bin]] voltd (crate names stay zeroclaw)
+    "fork/panel-ru",                           # the panel itself in Russian under the Volt identity: ru.ts catalog + namespace allowlist, check-i18n gate, Roles screen, Users group, product.name. Stacked on fork/voltd-rebrand (which only renames the shell around the panel). WITHOUT this row the built binary embeds the upstream English panel.
     "local/dev-tooling"                       # local-only: fork CI (fork-build.yml) + this script; self-restoring, keep last
 )
 
