@@ -39,7 +39,6 @@ import FieldForm, {
 import PersonalityEditor from "../components/sections/PersonalityEditor";
 import SkillsBundleEditor from "../components/sections/SkillsBundleEditor";
 import BindChannelForm from "../components/sections/BindChannelForm";
-import ReloadDaemonButton from "../components/sections/ReloadDaemonButton";
 import SectionPicker, {
   badgeIsGood,
   badgeTone,
@@ -52,8 +51,9 @@ import SectionTabs, {
 import CostRatesEditor, {
   type CostRatesCategory,
 } from "../components/sections/CostRatesEditor";
-import { Badge, Button, Card, PageHeader } from "@/components/ui";
-import { t } from "@/lib/i18n";
+import { Badge, Button, Card } from "@/components/ui";
+import { t, plural, sectionDesc, sectionLabel, displayAlias, badgeLabel } from "@/lib/i18n";
+import { formatServerError } from "@/lib/serverError";
 
 // Display order for the curated sidebar groups. Each `SectionInfo.group`
 // from the gateway lands in one of these buckets (anything else falls
@@ -110,7 +110,10 @@ export default function Config() {
   };
   useEffect(fetchDrift, [activeKey]);
 
-  const [reloadKey, setReloadKey] = useState(0);
+  // Remount key for the field forms. Retained so form keys stay stable across
+  // renders; the daemon-reload flow now lives in the global header and does a
+  // full app refresh, so nothing bumps this locally anymore.
+  const [reloadKey] = useState(0);
   // Section whose "+ Add" affordance is open in the navigator (modal).
   const [addSection, setAddSection] = useState<SectionInfo | null>(null);
   // Bumped to make the navigator re-fetch its expanded sections' entities
@@ -132,13 +135,11 @@ export default function Config() {
       })
       .catch((e) => {
         if (cancelled) return;
-        if (e instanceof ApiError) {
-          setError(`[${e.envelope.code}] ${e.envelope.message}`);
-        } else {
-          setError(
-            `${t("config.load_sections_error")}${e instanceof Error ? e.message : String(e)}`,
-          );
-        }
+        setError(
+          e instanceof ApiError
+            ? formatServerError(e, e.envelope.message)
+            : `${t("config.load_sections_error")}${formatServerError(e, String(e))}`,
+        );
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -197,11 +198,7 @@ export default function Config() {
         `/config/${encodeURIComponent(sectionKey)}/${encodeURIComponent(typeKey)}/${encodeURIComponent(alias)}`,
       );
     } catch (e) {
-      if (e instanceof ApiError) {
-        setError(`[${e.envelope.code}] ${e.envelope.message}`);
-      } else {
-        setError(e instanceof Error ? e.message : String(e));
-      }
+      setError(formatServerError(e, String(e)));
     }
   };
 
@@ -245,7 +242,6 @@ export default function Config() {
         <WireTabForm
           key={`${reloadKey}-${activeSection.key}`}
           prefix={activeSection.key}
-          title={activeSection.label}
           reloadKey={reloadKey}
           onSaved={fetchDrift}
           drift={drifted}
@@ -296,7 +292,6 @@ export default function Config() {
           <WireTabForm
             key={`${reloadKey}-${fieldsPrefix}`}
             prefix={fieldsPrefix}
-            title={`${typeParam} / ${aliasParam}`}
             reloadKey={reloadKey}
             onSaved={fetchDrift}
             drift={drifted}
@@ -366,7 +361,7 @@ export default function Config() {
               className="self-start"
             >
               <ArrowLeft className="h-4 w-4" />
-              {t("config.back_to")}{activeSection.label}
+              {t("config.back_to")}{sectionLabel(activeSection.key, activeSection.label)}
             </Button>
             {isAgent && (
               <Link to={`/agent/${encodeURIComponent(typeParam)}`}>
@@ -380,7 +375,6 @@ export default function Config() {
           <WireTabForm
             key={`${reloadKey}-${fieldsPrefix}`}
             prefix={fieldsPrefix}
-            title={typeParam}
             reloadKey={reloadKey}
             onSaved={fetchDrift}
             drift={drifted}
@@ -396,7 +390,7 @@ export default function Config() {
         <AliasListView
           sectionKey={activeSection.key}
           typeKey={typeParam}
-          sectionHelp={activeSection.help}
+          sectionHelp={sectionDesc(activeSection.key, activeSection.help)}
           onSelectAlias={async (alias) => {
             await selectSectionItem(activeSection.key, typeParam, alias);
             navigate(
@@ -447,12 +441,11 @@ export default function Config() {
             className="self-start"
           >
             <ArrowLeft className="h-4 w-4" />
-            {t("config.back_to")}{activeSection.label}
+            {t("config.back_to")}{sectionLabel(activeSection.key, activeSection.label)}
           </Button>
           <FieldForm
             key={`${reloadKey}-${typeParam}`}
             prefix={typeParam}
-            title={typeParam}
             onSaved={fetchDrift}
             drift={drifted}
           />
@@ -467,7 +460,7 @@ export default function Config() {
       return (
         <AliasListView
           sectionKey={activeSection.key}
-          sectionHelp={activeSection.help}
+          sectionHelp={sectionDesc(activeSection.key, activeSection.help)}
           onSelectAlias={async (alias) => {
             await selectSectionItem(activeSection.key, alias);
             navigate(
@@ -507,7 +500,7 @@ export default function Config() {
                   state: { fieldsPrefix: resp.fields_prefix },
                 });
               } catch (e) {
-                setError(e instanceof Error ? e.message : String(e));
+                setError(formatServerError(e, String(e)));
               }
             })();
           }
@@ -528,17 +521,17 @@ export default function Config() {
           tabs={[
             {
               key: "types",
-              label: "Channel types",
+              label: t("config.channels.tab_types"),
               render: () => sectionOverview,
             },
             {
               key: "global",
-              label: "Global settings",
+              label: t("config.channels.tab_global"),
               render: () => (
                 <FieldForm
                   key={`${reloadKey}-channels-global`}
                   prefix="channels"
-                  title="Global channel settings"
+                  title={t('config.global_channel_settings_title')}
                   onSaved={fetchDrift}
                   drift={drifted}
                   includePath={isDirectChannelSetting}
@@ -548,7 +541,7 @@ export default function Config() {
             },
             {
               key: "bind",
-              label: "Bind identity",
+              label: t("config.channels.tab_bind"),
               render: () => (
                 <BindChannelForm
                   key={`${reloadKey}-channels-bind`}
@@ -569,7 +562,7 @@ export default function Config() {
   const crumbs: Array<{ label: string; url?: string }> = [
     { label: t("config.breadcrumb"), url: "/config" },
     {
-      label: activeSection?.label ?? "",
+      label: activeSection ? sectionLabel(activeSection.key, activeSection.label) : "",
       url: activeSection
         ? `/config/${encodeURIComponent(activeSection.key)}`
         : undefined,
@@ -577,13 +570,13 @@ export default function Config() {
   ];
   if (typeParam)
     crumbs.push({
-      label: typeParam,
+      label: displayAlias(typeParam),
       url:
         typeParam && aliasParam
           ? `/config/${encodeURIComponent(sectionParam ?? "")}/${encodeURIComponent(typeParam)}`
           : undefined,
     });
-  if (aliasParam) crumbs.push({ label: aliasParam });
+  if (aliasParam) crumbs.push({ label: displayAlias(aliasParam) });
 
   // A "real" selection exists only when the URL carries a section param.
   // Bare /config (no params) shows the calm empty-state placeholder in the
@@ -664,58 +657,38 @@ export default function Config() {
                 that chain, the save bar's `sticky bottom-0` anchors
                 to a content-height column and floats mid-viewport
                 instead of pinning to the bottom of the scroll area. */}
-            {/* Config header: section title + breadcrumb trail (as the
-                description slot) + the page-level actions. ReloadDaemonButton
-                keeps its own confirm modal — only the surrounding chrome is
-                restyled. */}
-            <PageHeader
-              title={activeSection.label}
-              description={
-                <span className="flex items-center gap-1.5 flex-wrap text-pc-text-muted">
-                  {crumbs.map((crumb, i) => (
-                    <span key={i} className="flex items-center gap-1.5">
-                      {i > 0 && (
-                        <ChevronRight className="h-3 w-3 text-pc-text-faint" />
-                      )}
-                      {crumb.url && i < crumbs.length - 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => navigate(crumb.url!)}
-                          className="text-pc-text-secondary hover:text-pc-text transition-colors"
-                        >
-                          {crumb.label}
-                        </button>
-                      ) : (
-                        <span className="text-pc-text font-medium">
-                          {crumb.label}
-                        </span>
-                      )}
+            {/* Config header: breadcrumb trail only. The generic "Settings"
+                title was dropped — the section name already lives in the
+                breadcrumb leaf and again as the section editor's own heading,
+                so a separate page title was pure repetition. The trail is
+                sized up (text-sm, bolder leaf) to carry the header on its own.
+                Daemon-level actions (Quickstart, Reload) now live in the global
+                top bar, not here — they were repeating on every section. */}
+            <nav
+              aria-label={t("config.breadcrumb")}
+              className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm"
+            >
+              {crumbs.map((crumb, i) => (
+                <span key={i} className="flex items-center gap-1.5">
+                  {i > 0 && (
+                    <ChevronRight className="h-4 w-4 text-pc-text-faint" />
+                  )}
+                  {crumb.url && i < crumbs.length - 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(crumb.url!)}
+                      className="text-pc-text-secondary transition-colors hover:text-pc-text"
+                    >
+                      {crumb.label}
+                    </button>
+                  ) : (
+                    <span className="font-semibold text-pc-text">
+                      {crumb.label}
                     </span>
-                  ))}
+                  )}
                 </span>
-              }
-              actions={
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate("/quickstart")}
-                    title={t("cfg.header.quickstart")}
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    {t("cfg.header.quickstart")}
-                  </Button>
-                  <ReloadDaemonButton
-                    onReloaded={() => {
-                      goToSection(activeSection.key);
-                      fetchDrift();
-                      setReloadKey((n) => n + 1);
-                      setNavRefresh((n) => n + 1);
-                    }}
-                  />
-                </>
-              }
-            />
+              ))}
+            </nav>
 
             <div className="flex-1 min-h-0 flex flex-col">{mainContent}</div>
           </div>
@@ -810,7 +783,7 @@ function AliasListView({
       .catch((e) => {
         if (!cancelled) {
           setAliases([]);
-          setError(e instanceof Error ? e.message : String(e));
+          setError(formatServerError(e, String(e)));
         }
       })
       .finally(() => {
@@ -832,13 +805,7 @@ function AliasListView({
     try {
       await onSelectAlias(trimmed);
     } catch (e) {
-      setAliasError(
-        e instanceof ApiError
-          ? e.envelope.message
-          : e instanceof Error
-            ? e.message
-            : String(e),
-      );
+      setAliasError(formatServerError(e, String(e)));
     }
   };
 
@@ -887,13 +854,7 @@ function AliasListView({
               mapPath={mapPath}
               onSelect={() =>
                 onSelectAlias(alias).catch((e) => {
-                  setError(
-                    e instanceof ApiError
-                      ? `[${e.envelope.code}] ${e.envelope.message}`
-                      : e instanceof Error
-                        ? e.message
-                        : String(e),
-                  );
+                  setError(formatServerError(e, String(e)));
                 })
               }
               onDeleted={() => {
@@ -904,7 +865,9 @@ function AliasListView({
                 setAliases((prev) => prev.map((a) => (a === alias ? to : a)));
                 if (warnings.length > 0) {
                   setError(
-                    `${t("config.rename_warnings_prefix")} ${warnings.join("; ")}`,
+                    t("config.rename_warnings_prefix", {
+                      value: warnings.join("; "),
+                    }),
                   );
                 }
               }}
@@ -966,6 +929,18 @@ function isDirectChannelSetting(path: string): boolean {
 }
 
 /**
+ * Localize a wire-tab label. Wire tabs come from the Rust schema's
+ * `#[tab(...)]` tokens (English identifiers like "General", "Connection");
+ * map each to a `config.wiretab.<lowercased>` catalog entry, falling back to
+ * the raw token so a newly-added tab still renders until it's translated.
+ */
+function wireTabLabel(tab: string): string {
+  const key = `config.wiretab.${tab.toLowerCase()}`;
+  const label = t(key);
+  return label === key ? tab : label;
+}
+
+/**
  * Build `SectionTabSpec[]` from the `tab` field on wire entries.
  *
  * Each distinct non-empty `tab` value becomes one tab whose `FieldForm`
@@ -979,7 +954,7 @@ function wireTabSpecs(
   prefix: string,
   ctx: {
     reloadKey: number;
-    title: string;
+    title?: string;
     onSaved: () => void;
     drifted: DriftEntry[];
   },
@@ -1002,7 +977,7 @@ function wireTabSpecs(
     const paths = tabPaths.get(tab)!;
     return {
       key: tab.toLowerCase().replace(/\s+/g, "-"),
-      label: tab,
+      label: wireTabLabel(tab),
       render: () => (
         <FieldForm
           key={`${ctx.reloadKey}-${prefix}-${tab}`}
@@ -1032,7 +1007,7 @@ function WireTabForm({
   extraTabs,
 }: {
   prefix: string;
-  title: string;
+  title?: string;
   reloadKey: number;
   onSaved: () => void;
   drift: DriftEntry[];
@@ -1111,7 +1086,7 @@ function AgentPeerGroupsTab({
       setMemberOf(memberships);
       setNonMembers(others);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatServerError(e, String(e)));
     } finally {
       setLoading(false);
     }
@@ -1146,7 +1121,7 @@ function AgentPeerGroupsTab({
       await reload();
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatServerError(e, String(e)));
     } finally {
       setAdding(false);
     }
@@ -1168,7 +1143,7 @@ function AgentPeerGroupsTab({
       await reload();
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatServerError(e, String(e)));
     }
   };
 
@@ -1328,12 +1303,7 @@ function AliasRow({
   const [plan, setPlan] = useState<DeletePlan | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const toErr = (err: unknown) =>
-    err instanceof ApiError
-      ? `[${err.envelope.code}] ${err.envelope.message}`
-      : err instanceof Error
-        ? err.message
-        : String(err);
+  const toErr = (err: unknown) => formatServerError(err, String(err));
 
   const startRename = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1431,7 +1401,8 @@ function AliasRow({
             )}
             {plan.live_acp_sessions ? (
               <div className={plan.blockers.length > 0 ? "mt-1" : ""}>
-                {plan.live_acp_sessions} {t("config.delete_live_acp")}
+                {plan.live_acp_sessions}{" "}
+                {plural(plan.live_acp_sessions, "config.delete_live_acp")}
               </div>
             ) : null}
           </div>
@@ -1532,13 +1503,13 @@ function SectionOverview({
       <div className="flex flex-col gap-4">
         <SectionPicker
           sectionKey={section.key}
-          help={section.help}
+          help={sectionDesc(section.key, section.help)}
           onPick={(item) => onPickType(item.key)}
         />
         <FieldForm
           key={`${section.key}-fields`}
           prefix={section.key}
-          title={`${section.label}${t("config.settings_suffix")}`}
+          title={`${sectionLabel(section.key, section.label)}${t("config.settings_suffix")}`}
           includePath={excludePicker}
         />
       </div>
@@ -1555,11 +1526,11 @@ function SectionOverview({
           className="self-start"
         >
           <ArrowLeft className="h-4 w-4" />
-          {t("config.back_to")}{section.label}
+          {t("config.back_to")}{sectionLabel(section.key, section.label)}
         </Button>
         <SectionPicker
           sectionKey={section.key}
-          help={section.help}
+          help={sectionDesc(section.key, section.help)}
           onPick={(item) => {
             setShowPicker(false);
             onPickType(item.key);
@@ -1573,7 +1544,7 @@ function SectionOverview({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-pc-text-secondary">{section.help}</p>
+        <p className="text-sm text-pc-text-secondary">{sectionDesc(section.key, section.help)}</p>
         <Button
           variant="primary"
           size="md"
@@ -1623,13 +1594,11 @@ function ConfiguredOnlyPicker({
         })
         .catch((e) => {
           if (cancelled) return;
-          if (e instanceof ApiError) {
-            setError(`[${e.envelope.code}] ${e.envelope.message}`);
-          } else {
-            setError(
-              `${t("config.load_items_error")}${e instanceof Error ? e.message : String(e)}`,
-            );
-          }
+          setError(
+            e instanceof ApiError
+              ? formatServerError(e, e.envelope.message)
+              : `${t("config.load_items_error")}${formatServerError(e, String(e))}`,
+          );
         })
         .finally(() => !cancelled && setLoading(false)),
     );
@@ -1663,7 +1632,7 @@ function ConfiguredOnlyPicker({
   if (items.length === 0) {
     return (
       <Card className="p-8 text-center text-sm text-pc-text-muted">
-        {t("config.nothing_configured_pre")} <strong>{section.label}</strong>{" "}
+        {t("config.nothing_configured_pre")} <strong>{sectionLabel(section.key, section.label)}</strong>{" "}
         {t("config.nothing_configured_mid")}{" "}
         <strong>{t("config.add_with_plus")}</strong>{" "}
         {t("config.nothing_configured_post")}
@@ -1691,7 +1660,7 @@ function ConfiguredOnlyPicker({
           <div className="flex items-center gap-2 flex-shrink-0">
             {item.badge && (
               <Badge tone={badgeTone(item.badge)}>
-                {item.badge}
+                {badgeLabel(item.badge)}
               </Badge>
             )}
             <ChevronRight className="h-4 w-4 text-pc-text-muted" />

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getStatus } from './api';
+import { ru } from '@/locales/ru';
 
 // ---------------------------------------------------------------------------
 // Translation dictionaries
@@ -492,18 +493,25 @@ const translations: Record<Locale, Record<string, string>> = {
     'plugins.registry_capabilities': "Registry capabilities",
     'plugins.permissions': "Requested permissions",
     'plugins.install_source': "Package identity",
+    // Product identity — one key so the name lives in a single place. A proper
+    // noun, so every locale carries the same value, not translated prose.
+    'product.name': "Volt Agent",
     // ── i18n sweep: keys added by the conversion workflow ──
     // Self-review follow-ups: singular forms for Doctor severity pills + the
     // relative-time suffixes used by lib/format.ts formatRelative.
-    'doctor.severity_warning': "warning",
-    'doctor.severity_error': "error",
+    // Count is rendered separately by SeverityFilterToggle ({count} {label}),
+    // so these forms are bare nouns — no {n}.
+    'doctor.severity_warning_one': "warning",
+    'doctor.severity_warning_other': "warnings",
+    'doctor.severity_error_one': "error",
+    'doctor.severity_error_other': "errors",
     'agent.rel_minutes': "m ago",
     'agent.rel_hours': "h ago",
     'agent.rel_days': "d ago",
     'agent.context_usage': "Context",
     'acp.agent_select_label': "ACP agent",
     'acp.agent_thought': "Agent thought",
-    'acp.default_prompt': "Summarize the current ZeroClaw gateway state in one paragraph.",
+    'acp.default_prompt': "Summarize the current Volt Agent gateway state in one paragraph.",
     'acp.manage_agents': "Manage agents",
     'acp.role_agent': "Agent",
     'acp.role_system': "System",
@@ -521,13 +529,12 @@ const translations: Record<Locale, Record<string, string>> = {
     'add_entity.alias_help': "A short stable name you'll use elsewhere in config to point at this entry. Lowercase letters, digits, single underscores; 1–63 chars; no leading/trailing/double underscores, dots, hyphens, or spaces.",
     'add_entity.alias_invalid': "Alias must use lowercase letters, digits, or single underscores only; no hyphens, dots, spaces, leading/trailing underscores, or double underscores.",
     'add_entity.choose_different_type': "Choose a different type",
-    'agent.open_config_prefix': "Open ",
-    'agent.open_config_suffix': " config",
-    'agentchat.empty_title': "ZeroClaw Agent",
+    'agent.open_config': "Open {value} config",
+    'agentchat.empty_title': "Volt Agent",
     'agentchat.files': "Files",
     'agentchat.open_workspace': "Open agent file workspace",
     'agentchat.thinking': "Thinking",
-    'agents_list.description': "Configured agents on this ZeroClaw instance.",
+    'agents_list.description': "Configured agents on this Volt Agent instance.",
     'agents_list.empty_hint': "Run Quickstart to create your first agent.",
     'agents_list.empty_title': "No agents configured yet",
     'agents_list.load_failed': "Failed to load agents",
@@ -576,17 +583,29 @@ const translations: Record<Locale, Record<string, string>> = {
     'config.alias_help_examples_post': "one, for example.",
     'config.alias_help_examples_pre': "). Aliases let you have several entries of the same type — a",
     'config.alias_help_intro': "A short stable name you’ll use everywhere else in config to point at this entry (agents, routes, and per-channel bindings reference it as",
-    'config.alias_help_no_rename': "Aliases can’t be renamed in v0.8.0",
-    'config.alias_help_rename_advice': "— pick something you’ll keep, or delete and recreate.",
+    'config.alias_help_no_rename': "Renaming updates config references automatically.",
+    'config.alias_help_rename_advice': "— for agents, anything left behind is flagged as a warning so you can fix it by hand.",
     'config.alias_help_rules': "Rules: lowercase letters, digits, single underscores; 1–63 chars; no leading/trailing/double underscores, no dots, hyphens, or spaces.",
     'config.alias_help_term': "Alias.",
     'config.alias_validation_error': "Alias must use lowercase letters, digits, or single underscores only; no hyphens, dots, spaces, leading/trailing underscores, or double underscores.",
     'config.all_settings': "All settings",
     'config.back_to': "Back to ",
     'config.breadcrumb': "Config",
+    'config.channels.tab_bind': "Bind identity",
+    'config.channels.tab_global': "Global settings",
+    'config.channels.tab_types': "Channel types",
     'config.confirm_delete_title': "Click again to confirm delete",
     'config.create_new': "Create new →",
     'config.delete_alias_title': "Delete this alias",
+    'config.delete_blocked': "Blocked by these references:",
+    'config.delete_checking': "Checking…",
+    'config.delete_confirm': "Confirm delete",
+    'config.delete_deleting': "Deleting…",
+    'config.delete_live_acp_one': "session",
+    'config.delete_live_acp_other': "sessions",
+    'config.delete_no_refs': "No other config references this entry.",
+    'config.delete_owned_state': "This will also remove the agent’s memory, cron jobs, and ACP session records. Conversation history is retained but no longer linked to this agent.",
+    'config.delete_scrubs': "Will automatically clear these references:",
     'config.empty_body': "Pick a section or entry from the navigator to view and edit it here.",
     'config.empty_title': "Select a setting",
     'config.load_items_error': "Couldn't load configured items: ",
@@ -601,13 +620,51 @@ const translations: Record<Locale, Record<string, string>> = {
     'config.remove_from_group': "Remove from group",
     'config.remove_member_mid': " from ",
     'config.remove_member_prefix': "Remove ",
+    'config.rename_alias_title': "Rename this alias",
+    'config.rename_warnings_prefix': "Renamed with warnings: {value}",
     'config.select_a_group': "select a group…",
     'config.settings_suffix': " settings",
     'config.tab_aliases': "Aliases",
     'config.tab_costs': "Costs",
     'config.tab_peer_groups': "Peer Groups",
     'config.tab_personality': "Personality",
+    'config.global_channel_settings_title': "Global channel settings",
     'config.tab_skills': "Skills",
+    // Wire-tab labels: the Rust schema's #[tab(...)] tokens, keyed by the
+    // lowercased identifier. wireTabLabel() falls back to the raw token for
+    // any tab not listed here.
+    'config.wiretab.general': "General",
+    'config.wiretab.behavior': "Behavior",
+    'config.wiretab.advanced': "Advanced",
+    'config.wiretab.connection': "Connection",
+    'config.wiretab.limits': "Limits",
+    'config.wiretab.model': "Model",
+    'config.wiretab.providers': "Providers",
+    'config.wiretab.bundles': "Bundles",
+    'config.wiretab.settings': "Settings",
+    'config.wiretab.channels': "Channels",
+    'config.wiretab.workspace': "Workspace",
+    'config.wiretab.tuning': "Tuning",
+    'config.wiretab.servers': "Servers",
+    'config.wiretab.memory': "Memory",
+    'config.wiretab.cron': "Cron",
+    'config.wiretab.costs': "Costs",
+    // Status badges on config pickers/cards (schema-driven `item.badge`),
+    // keyed by the lowercased badge with spaces as underscores.
+    'config.badge.configured': "configured",
+    'config.badge.not_configured': "not configured",
+    'config.badge.needs_setup': "needs setup",
+    'config.badge.active': "active",
+    'config.badge.inactive': "inactive",
+    'config.badge.set': "set",
+    'config.badge.unset': "unset",
+    'config.badge.created': "created",
+    'config.badge.missing': "missing",
+    'config.badge.enabled': "enabled",
+    'config.badge.disabled': "disabled",
+    'config.badge.paired': "paired",
+    // Magic entity-alias display names (breadcrumb / navigator / lists).
+    'alias.default': "default",
     'cost_rates.add': "Add",
     'cost_rates.add_one_below': "Add one below.",
     'cost_rates.add_rates': "Add rates",
@@ -625,7 +682,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'cron.agent_label': "Agent",
     'cron.agent_required_error': "Pick an agent for this cron job",
     'cron.all_tools': "all tools",
-    'cron.catch_up_description': "Run all overdue jobs when ZeroClaw starts after downtime",
+    'cron.catch_up_description': "Run all overdue jobs when Volt Agent starts after downtime",
     'cron.catch_up_title': "Catch up missed jobs on startup",
     'cron.command_placeholder': "e.g. cleanup --older-than 7d",
     'cron.delivery': "Delivery",
@@ -653,12 +710,17 @@ const translations: Record<Locale, Record<string, string>> = {
     'cron.show_recent_runs': "Show this job's recent runs",
     'cron.timezone_placeholder': "e.g. America/New_York",
     'dashboard.cpu.label': "CPU",
+    // Uptime unit suffixes (en: no space, ru: leading space) + cost amount
+    // layout (currency symbol position differs by locale).
+    'dashboard.dur_d': "d",
+    'dashboard.dur_h': "h",
+    'dashboard.dur_m': "m",
+    'dashboard.cost.amount': "${amount}",
     'dashboard.fix': "Fix",
     'dashboard.last_ok_title': "last ok:",
     'dashboard.load_agents_error': "Failed to load agents",
     'dashboard.ok_prefix': "ok",
-    'dashboard.open_config_prefix': "Open ",
-    'dashboard.open_config_suffix': " config",
+    'dashboard.open_config_title': "Open {path} config",
     'dashboard.ram.label': "RAM",
     'dashboard.rel.days_ago': "d ago",
     'dashboard.rel.hours_ago': "h ago",
@@ -684,9 +746,17 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.no_filter_match': "No findings match the active severity filter.",
     'doctor.open_config': "Open config",
     'doctor.run_failed': "Failed to run diagnostics",
-    'doctor.severity_errors': "errors",
     'doctor.severity_ok': "ok",
-    'doctor.severity_warnings': "warnings",
+    // Diagnostics category group headers (CSS-uppercased) + per-finding
+    // severity badges.
+    'doctor.category.config': "config",
+    'doctor.category.workspace': "workspace",
+    'doctor.category.daemon': "daemon",
+    'doctor.category.environment': "environment",
+    'doctor.category.cli-tools': "cli-tools",
+    'doctor.badge.ok': "ok",
+    'doctor.badge.warn': "warn",
+    'doctor.badge.error': "error",
     'doctor.show_prefix': "Show ",
     'doctor_fix.done': "Done",
     'doctor_fix.open_full_page': "Open full page",
@@ -701,6 +771,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'entity_toggle.overwrite': "Overwrite",
     'entity_toggle.save_failed': "save failed",
     'fieldform.add': "Add",
+    'fieldform.array_value_placeholder': '["value1", "value2"]',
     'fieldform.badge_advanced': "Advanced",
     'fieldform.badge_auth_option': "Auth option",
     'fieldform.badge_endpoint_option': "Endpoint option",
@@ -725,12 +796,14 @@ const translations: Record<Locale, Record<string, string>> = {
     'fieldform.edit_in_source_suffix': " in its source section",
     'fieldform.element_shape_unavailable': "Element shape unavailable from schema; edit raw JSON below.",
     'fieldform.empty': "empty",
-    'fieldform.entries': "entries",
-    'fieldform.entry': "entry",
+    'fieldform.entries_count_one': "{n} entry",
+    'fieldform.entries_count_other': "{n} entries",
     'fieldform.fetching_models_help': "Fetching available models from the provider's catalog…",
     'fieldform.fetching_models_placeholder': "Fetching models…",
     'fieldform.field_label': "field",
     'fieldform.filter_aria': "Filter fields",
+    'fieldform.filter_count_one': "Filter {n} field — fuzzy match on name or path",
+    'fieldform.filter_count_other': "Filter {n} fields — fuzzy match on name or path",
     'fieldform.filter_prefix': "Filter ",
     'fieldform.filter_suffix': " fields — fuzzy match on name or path",
     'fieldform.key_placeholder': "key",
@@ -758,6 +831,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'fieldform.remove_entry': "Remove this entry",
     'fieldform.reset_to_default': "Reset to default / unset",
     'fieldform.save_failed_prefix': "Save failed: ",
+    'fieldform.saved_count_one': "{n} field saved.",
+    'fieldform.saved_count_other': "{n} fields saved.",
     'fieldform.saved_prefix': "Saved ",
     'fieldform.saved_suffix': " field(s).",
     'fieldform.saves_as_null': " — saves as null",
@@ -782,6 +857,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'logs.add_filter': "Add filter",
     'logs.any_category': "Any category",
     'logs.any_outcome': "Any outcome",
+    'logs.action_filter_placeholder': "event.action",
     'logs.at_end': "end",
     'logs.attributes': "attributes",
     'logs.clear_filters': "clear",
@@ -791,22 +867,21 @@ const translations: Record<Locale, Record<string, string>> = {
     'logs.load_older': "Load older",
     'logs.no_events': "No events match the current filters.",
     'logs.pick_a_key': "Pick a key…",
-    'logs.remove_filter_prefix': "Remove ",
-    'logs.remove_filter_suffix': " filter",
+    'logs.remove_filter': "Remove {value} filter",
     'logs.search_placeholder': "Search message + attributes",
     'logs.severity_any': "Any",
     'logs.since_daemon_start': "Since daemon start",
     'pairing.dismiss': "Dismiss",
     'pairing.ip': "IP",
     'pairing.revoke': "Revoke",
-    'pairing.revoke_message_prefix': "This will revoke",
-    'pairing.revoke_message_suffix': "'s access. It will need to be paired again to reconnect.",
+    'pairing.revoke_message': "{value} will lose access. It will need to be paired again to reconnect.",
     'pairing.revoke_title': "Revoke device?",
     'pairing.this_device': "this device",
     'pairing.unknown': "Unknown",
     'pairing.unnamed': "Unnamed",
     'pairing.unpaired_hint': "Pairing is required, so the device list can't be read from here. Pair this browser with a code (above) — then your paired devices will appear.",
     'pairing.unpaired_title': "This browser isn't paired yet",
+    'pairing.code_input_placeholder': "pairing code",
     'personality.chars': "chars",
     'personality.conflict_message': "changed on disk while you were editing. Pick how to resolve:",
     'personality.editor_intro': "These markdown files shape your agent's voice and context. The runtime reads them at every request, so changes take effect on the next message — no daemon reload needed.",
@@ -860,6 +935,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'quickstart.description': "Create one working agent end-to-end. Pick a provider, choose your profiles, and start chatting.",
     'quickstart.discard': "Discard",
     'quickstart.external_peers_label': "External peers (one per line or comma-separated)",
+    'quickstart.external_peers_placeholder': "@alice&#10;@bob",
     'quickstart.local_suffix': "(local)",
     'quickstart.memory_title': "Memory",
     'quickstart.model': "model",
@@ -872,7 +948,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'quickstart.peer_group_named_prefix': "Peer group will be named ",
     'quickstart.peer_groups_none': "none — channels accept no peers",
     'quickstart.peer_groups_title': "Peer groups",
-    'quickstart.peers_suffix': "peers",
+    'quickstart.peers_suffix_one': "peer",
+    'quickstart.peers_suffix_other': "peers",
     'quickstart.personality_files_none': "none — agent uses bootstrap defaults",
     'quickstart.personality_files_title': "Personality files",
     'quickstart.pick_channel_type': "— pick a channel type —",
@@ -898,10 +975,13 @@ const translations: Record<Locale, Record<string, string>> = {
     'quickstart.use_template_title': "Stage the default template content for this file",
     'reload_banner.and_more_prefix': "…and ",
     'reload_banner.and_more_suffix': " more",
-    'reload_banner.differ_suffix': "differ from on-disk",
     'reload_banner.dismiss': "Dismiss",
-    'reload_banner.path_plural': "paths",
-    'reload_banner.path_singular': "path",
+    // Single family carries noun+verb agreement together ({n} embedded) —
+    // splitting the noun (plural) from a fixed verb suffix breaks
+    // agreement in languages where the verb also inflects by count (ru
+    // one/few/many all take different verb forms, not just the noun).
+    'reload_banner.drift_summary_one': "{n} path differs from on-disk",
+    'reload_banner.drift_summary_other': "{n} paths differ from on-disk",
     'reload_banner.pending_and_drift': "Config changed this session and on-disk drift detected",
     'reload_banner.pending_only': "Config changed — reload daemon to apply",
     'reload_banner.quickstart_saved': "Changes saved. Continue setup.",
@@ -942,10 +1022,10 @@ const translations: Record<Locale, Record<string, string>> = {
     'settings.default_dark': "Default Dark",
     'settings.light_themes': "Light Themes",
     'settings.tab.themes': "Themes",
-    'sidebar.brand': "ZeroClaw",
+    'sidebar.brand': "Volt Agent",
     'sidebar.close_menu': "Close menu",
-    'sidebar.gateway': "ZeroClaw Gateway",
-    'sidebar.logo_alt': "ZeroClaw",
+    'sidebar.gateway': "Volt Gateway",
+    'sidebar.logo_alt': "Volt Agent",
     'sidebar.mobile_menu': "Mobile menu",
     'sidebar.update_available': "Update available",
     'upgrade.title': "Upgrade",
@@ -993,7 +1073,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'skills.search': "Search skills…",
     'skills.shadows': "shadows",
     'skills.skill_md': "SKILL.md",
-    'skills.skipped_count': "skill(s) skipped (failed security audit)",
+    'skills.skipped_count_one': "{n} skill skipped (failed security audit)",
+    'skills.skipped_count_other': "{n} skills skipped (failed security audit)",
     'skills.title': "Skills",
     'skills_bundle.archive_skill': "Archive skill",
     'skills_bundle.author_label': "Author",
@@ -1017,9 +1098,28 @@ const translations: Record<Locale, Record<string, string>> = {
     'skills_bundle.name_placeholder': "my-skill",
     'skills_bundle.name_required': "Name is required.",
     'skills_bundle.new_skill': "+ New skill",
+    'skills_bundle.category_placeholder': "coding, ops, …",
+    'skills_bundle.remove_option_aria_label': "Remove option",
+    'skills_bundle.choice_label_placeholder': "label",
+    'skills_bundle.choice_value_placeholder': "value",
     'skills_bundle.no_skills_installed': "(no skills installed)",
     'skills_bundle.saving': "Saving…",
     'skills_bundle.version_label': "Version",
+    'skills_bundle.license_placeholder': "MIT",
+    'skills_bundle.open_skills_badge_title': "Loader-managed: community-synced skill (open-skills)",
+    'skills_bundle.tag_input_placeholder': "add tag…",
+    'skills_bundle.tag_input_aria_label': "Add tag",
+    'skills_bundle.option_name_placeholder': "lowercase_name",
+    'skills_bundle.option_description_placeholder': "Shown to the user when picking this option",
+    'skills_bundle.aria_remove_tag': 'Remove tag {tag}',
+    'skills_bundle.aria_option_name': 'Option {n} name',
+    'skills_bundle.aria_option_type': 'Option {n} type',
+    'skills_bundle.aria_option_move_up': 'Move option {n} up',
+    'skills_bundle.aria_option_move_down': 'Move option {n} down',
+    'skills_bundle.aria_option_description': 'Option {n} description',
+    'skills_bundle.aria_choice_label': 'Choice {n} label',
+    'skills_bundle.aria_choice_value': 'Choice {n} value',
+    'skills_bundle.aria_remove_choice': 'Remove choice {n}',
     'tool_call.args': "args",
     'tool_call.done': "done",
     'tool_call.running': "running",
@@ -1091,20 +1191,18 @@ const translations: Record<Locale, Record<string, string>> = {
     'tools.agent_disabled': "disabled",
     'tools.agent_select_default': "Default agent",
     'tools.agent_select_label': "Show tools for agent",
-    'tools.allow_prefix': "Allow ",
+    'tools.allow_in_profile': "Allow {tool} in {profile}",
     'tools.allowed': "Allowed",
-    'tools.block_prefix': "Block ",
+    'tools.block_in_profile': "Block {tool} in {profile}",
     'tools.blocked': "Blocked",
     'tools.changes_edit_prefix': "Changes edit",
     'tools.changes_edit_suffix': "and apply on the next daemon reload.",
     'tools.configure_access': "Configure tool access",
     'tools.description_prefix': "This catalog lists every tool the agent can call. Expand a tool to allow or block it per risk profile (gated via",
     'tools.description_suffix': ").",
-    'tools.in_profile_mid': " in ",
     'tools.load_profiles_error': "Couldn't load risk profiles",
     'tools.loading_profiles': "Loading risk profiles…",
-    'tools.open_profile_prefix': "Open ",
-    'tools.open_profile_suffix': " in config",
+    'tools.open_profile': "Open {value} in config",
     'tools.reason_all_allowed': "all tools allowed",
     'tools.reason_deny_all': "deny-all (no tools allowed)",
     'tools.reason_excluded': "excluded",
@@ -1118,17 +1216,17 @@ const translations: Record<Locale, Record<string, string>> = {
     'unsaved_banner.unsaved_change': "unsaved change",
     'unsaved_banner.unsaved_changes': "unsaved changes",
     'validation_warning.security_audit_disabled_drops_certificate_record': 'Audit logging is off, so certificate issuance and renewal have no audit-log record. Command execution is not audited under either setting: use an external supervisor, a process-observing logging wrapper, or OS-level process accounting if you need a record of what ran.',
+    'unsaved_banner.unsaved_changes_count_one': "{n} unsaved change",
+    'unsaved_banner.unsaved_changes_count_other': "{n} unsaved changes",
     'workspace.back_to_chat_prefix': "Back to chat",
     'workspace.binary_file_prefix': "Binary file",
     'workspace.binary_file_suffix': "Preview is base64-encoded; download via CLI to inspect.",
     'workspace.create': "Create",
+    'workspace.delete_confirm_title': "Delete {value}?",
+    'workspace.delete_message': "This will delete {kind} \"{path}\" from {alias}'s workspace.",
     'workspace.delete_message_dir_note': "Everything inside it goes too.",
-    'workspace.delete_message_from': "from",
-    'workspace.delete_message_prefix': "This will delete",
     'workspace.delete_message_undone': "This cannot be undone.",
-    'workspace.delete_message_workspace_suffix': "'s workspace.",
     'workspace.delete_title': "Delete?",
-    'workspace.delete_title_prefix': "Delete",
     'workspace.empty': "(empty)",
     'workspace.error_folder_name_dotdot': "Folder name cannot contain '..'",
     'workspace.error_rename_dotdot': "Rename target cannot contain '..'",
@@ -1142,8 +1240,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'workspace.rename': "Rename",
     'workspace.rename_message': "Enter a new name. Use a path to move it elsewhere in the workspace.",
     'workspace.rename_move_title': "Rename / move",
+    'workspace.rename_confirm_title': "Rename {value}",
     'workspace.rename_title': "Rename",
-    'workspace.rename_title_prefix': "Rename",
     'workspace.select_file_hint': "Select a file to view its contents.",
     'workspace.title': "Workspace",
     'workspace.up_one_level': ".. (up one level)",
@@ -1191,6 +1289,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.diagnostics': 'Diagnostics',
     'sops.step': 'Step',
     'sops.steps': 'steps',
+    'sops.steps_count_one': '{n} step',
+    'sops.steps_count_other': '{n} steps',
     'sops.empty': 'No SOPs found.',
     'sops.empty_graph': 'This SOP has no steps to render.',
     'sops.run_id_placeholder': 'Watch a run: paste run id',
@@ -1199,6 +1299,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.deny': 'Deny',
     'sops.run_payload_placeholder': 'Manual trigger payload (JSON)',
     'sops.run_error': 'Run failed',
+    'sops.invalid_json': 'invalid JSON',
     'sops.stop': 'Stop',
     'sops.stopping': 'Stopping…',
     'sops.stop_error': 'Failed to stop run. Retry.',
@@ -1315,6 +1416,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.routing_depends_on': 'depends on (fan-in)',
     'sops.routing_next': 'next step',
     'sops.routing_when': 'when (condition)',
+    'sops.routing_when_placeholder': '$.value > 85',
     'sops.on_failure': 'on failure',
     'sops.failure_fail': 'fail run',
     'sops.failure_retry': 'retry',
@@ -1331,6 +1433,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.trigger_alias_any': 'Any instance',
     'sops.trigger_condition': 'When (condition)',
     'sops.condition_field': 'Field',
+    'sops.condition_field_placeholder': 'path.to.field',
     'sops.condition_operator': 'Operator',
     'sops.condition_value': 'Value',
     'sops.condition_any': 'Any (fires always)',
@@ -1352,6 +1455,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.trigger_unconfigured': 'No instance configured for this channel.',
     'sops.trigger_setup_link': 'Set up this channel',
     'sops.trigger_manual_hint': 'Fires only when run by hand.',
+    'sops.trigger_edit_hint': 'Click to edit this trigger',
     'sops.trigger_none': 'No triggers. Add one to make this SOP fire on an event.',
     'sops.confirm_delete': 'Delete this SOP? This cannot be undone.',
     'sops.saving': 'Saving...',
@@ -1367,6 +1471,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.call_untitled': '(pick a tool)',
     'sops.call_tool': 'Tool',
     'sops.call_args': 'Arguments',
+    'sops.call_args_placeholder': '{"function": "add", "values": "{{steps.1.value}}"}',
     'sops.arg_unset': '(unset)',
     'sops.arg_none': 'This tool takes no arguments.',
     'sops.arg_binding_placeholder': 'value or {{steps.N.path}}',
@@ -1400,6 +1505,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'nav.group.operations': 'Operations',
     'nav.aria.primary': 'Primary navigation',
     'nav.pairing': 'Pairing',
+    'nav.roles': 'Roles',
     'nav.cmdk.placeholder': 'Search…',
     'nav.cmdk.title': 'Command palette',
     'nav.cmdk.empty': 'No results',
@@ -1411,8 +1517,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'nav.cmdk.header.sections': 'Config sections',
     'nav.cmdk.header.entries': 'Config entries',
     'nav.cmdk.loading_settings': 'loading settings…',
-    'nav.cmdk.more_prefix': '+',
-    'nav.cmdk.more_suffix': 'more — keep typing',
+    'nav.cmdk.more': '+{value} more — keep typing',
 
     // Dashboard
     'dash.title': 'Dashboard',
@@ -1488,6 +1593,40 @@ const translations: Record<Locale, Record<string, string>> = {
     'acp.error.init_failed': 'Failed to initialize ACP session',
     'acp.error.prompt_failed': 'ACP prompt failed',
     'acp.error.websocket': 'ACP WebSocket error',
+
+    // Stable `data.reason` codes carried on ACP JSON-RPC entitlement/pairing
+    // error frames (see the zeroclaw-channels `write_error_with_data` and
+    // zeroclaw-gateway `send_pre_auth_error_with_reason` helpers). The panel
+    // shows this localized headline, then appends the raw server `message`
+    // as detail (see `lib/serverError.ts`). `not_entitled` and
+    // `pending_principal` have no emitting call site yet (the matching
+    // denial paths return a plain HTTP 401, or are a success-path onboarding
+    // step, not a JSON-RPC error frame); kept ready for when they do.
+    'acp_error.pair_first': 'Pairing required',
+    'acp_error.not_entitled': 'Not entitled',
+    'acp_error.invalid_pair_code': 'Invalid pairing code',
+    'acp_error.pending_principal': 'Access not yet granted',
+    'acp_error.paired_not_entitled': 'Paired, but not entitled',
+    'acp_error.agent_not_permitted': 'Agent not permitted',
+
+    // Stable `ConfigApiCode` variants (crates/zeroclaw-config/src/api_error.rs)
+    // carried on a REST `ApiError.envelope.code`. Same localized-headline +
+    // English-detail pattern as `acp_error.*` above.
+    'error.path_not_found': 'Config path not found',
+    'error.validation_failed': 'Validation failed',
+    'error.config_changed_externally': 'Config changed outside the panel',
+    'error.reload_failed': 'Reload failed',
+    'error.op_not_supported': 'Unsupported operation',
+    'error.secret_test_forbidden': 'Operation not allowed on a secret field',
+    'error.value_type_mismatch': 'Invalid value type',
+    'error.required_field_empty': 'Required field is empty',
+    'error.invalid_numeric_range': 'Value out of range',
+    'error.invalid_format': 'Invalid format',
+    'error.invalid_enum_variant': 'Unknown value',
+    'error.dangling_reference': 'Reference not found',
+    'error.forbidden': 'Not authorized for this action',
+    'error.conflict': 'Already exists',
+    'error.internal_error': 'Internal server error',
 
     // Dashboard
     'dashboard.title': 'Dashboard',
@@ -1569,7 +1708,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'agent.sessions_load_failed': "Couldn't load conversations.",
     'agent.session_new': 'New conversation',
     'agent.session_untitled': 'Conversation',
-    'agent.session_messages': 'messages',
+    'agent.session_messages_count_one': 'message',
+    'agent.session_messages_count_other': 'messages',
     'agent.session_unsaved': 'Not saved yet',
     'agent.session_rename': 'Rename',
     'agent.session_rename_save': 'Save name',
@@ -1617,8 +1757,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'agent.stop': 'Stop',
 
     // Agent drawer / card
-    'agent.detail_aria_prefix': 'Agent',
-    'agent.detail_aria_suffix': 'detail',
+    'agent.detail_aria': 'Agent {value} detail',
     'agent.no_model_provider': 'no model_provider set',
     'agent.close': 'Close',
     'agent.enable': 'Enable agent',
@@ -1636,7 +1775,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'agent.risk_profile_title': 'Risk profile (autonomy/sandbox tier)',
     'agent.no_risk_profile': 'no risk profile',
     'agent.memory_backend_default': 'sqlite (default)',
-    'agent.memory_backend_title_prefix': 'Memory backend:',
+    'agent.memory_backend_title': 'Memory backend: {value}',
     'agent.memory_backend_default_title': 'No per-agent override. Inherits the default backend (sqlite) from [memory].',
     'agent.runtime_profile_title': 'Runtime profile (loop, token limits, retries)',
     'agent.stat.sessions': 'Sessions',
@@ -1649,21 +1788,21 @@ const translations: Record<Locale, Record<string, string>> = {
     'agent.cost_tracked_title': 'Month-to-date spend attributed to this agent',
     'agent.open_chat': 'Open chat',
     'agent.edit': 'Edit',
-    'agent.show_sessions_title': 'Show sessions for',
-    'agent.show_memories_title': 'Show memories for',
+    'agent.show_sessions_title': 'Show sessions for {value}',
+    'agent.show_memories_title': 'Show memories for {value}',
 
     // Agent card (list row)
     'agentcard.open_detail_prefix': 'Open',
     'agentcard.open_detail_suffix': 'detail',
-    'agentcard.channel': 'channel',
-    'agentcard.channels': 'channels',
+    'agentcard.channels_count_one': 'channel',
+    'agentcard.channels_count_other': 'channels',
     'agentcard.no_channels_bound': 'No channels bound',
     'agentcard.channels_title': 'Channels',
-    'agentcard.session': 'session',
-    'agentcard.sessions': 'sessions',
+    'agentcard.sessions_count_one': 'session',
+    'agentcard.sessions_count_other': 'sessions',
     'agentcard.active_sessions': 'Active sessions',
-    'agentcard.memory': 'memory',
-    'agentcard.memories': 'memories',
+    'agentcard.memories_count_one': 'memory',
+    'agentcard.memories_count_other': 'memories',
     'agentcard.stored_memories': 'Stored memories',
     'agentcard.this_month': 'this month',
 
@@ -1843,6 +1982,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'logs.connected': 'Connected',
     'logs.disconnected': 'Disconnected',
     'logs.events': 'events',
+    'logs.events_count_one': '{n} event',
+    'logs.events_count_other': '{n} events',
     'logs.jump_to_bottom': 'Jump to bottom',
     'logs.paused_hint': 'Log streaming is paused.',
     'logs.waiting_hint': 'Waiting for events...',
@@ -1868,14 +2009,14 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Warnings',
     'doctor.all_clear': 'All Clear',
     'doctor.system_diagnostics': 'System Diagnostics',
-    'doctor.empty_hint': 'Click "Run Diagnostics" to check your ZeroClaw installation.',
+    'doctor.empty_hint': 'Click "Run Diagnostics" to check your Volt Agent installation.',
 
     // Auth / Pairing
     'auth.pair': 'Pair Device',
     'auth.pairing_code': 'Pairing Code',
     'auth.pair_button': 'Pair',
     'auth.logout': 'Logout',
-    'auth.logout_confirm': 'Log out of ZeroClaw?',
+    'auth.logout_confirm': 'Log out of Volt Agent?',
     'auth.pairing_success': 'Pairing successful!',
     'auth.pairing_failed': 'Pairing failed. Please try again.',
     'auth.enter_code': 'Enter your pairing code to connect to the agent.',
@@ -1893,6 +2034,51 @@ const translations: Record<Locale, Record<string, string>> = {
     'pairing.load_error': 'Failed to load devices',
     'pairing.generate_error': 'Failed to generate pairing code',
     'pairing.revoke_error': 'Failed to revoke device',
+
+    // Roles (permission profiles + principal binding)
+    'roles.title': 'Roles',
+    'roles.description': 'Define permission profiles and bind principals to them to control which agents they can reach.',
+    'roles.new_profile': 'New Profile',
+    'roles.profiles_heading': 'Permission Profiles',
+    'roles.no_profiles': 'No permission profiles configured yet.',
+    'roles.profile_id': 'ID',
+    'roles.profile_id_placeholder': 'e.g. crm-team',
+    'roles.profile_id_immutable_hint': 'The ID cannot be changed after creation.',
+    'roles.allowed_agents': 'Allowed Agents',
+    'roles.all_agents': 'All agents (*)',
+    'roles.no_agents_configured': 'No agents configured.',
+    'roles.admin_toggle': 'Admin — full access and role management',
+    'roles.save': 'Save',
+    'roles.cancel': 'Cancel',
+    'roles.edit': 'Edit',
+    'roles.delete': 'Delete',
+    'roles.new_profile_title': 'New Profile',
+    'roles.edit_profile_title': 'Edit Profile',
+    'roles.delete_profile_title': 'Delete profile?',
+    'roles.delete_profile_message': 'This will delete the permission profile {value}. Principals still bound to it will keep a dangling reference that grants nothing until rebound.',
+    'roles.delete_profile_affected_one': '{n} principal now has a dangling reference to this profile and needs to be rebound:',
+    'roles.delete_profile_affected_other': '{n} principals now have a dangling reference to this profile and need to be rebound:',
+    'roles.principals_heading': 'Principals',
+    'roles.no_principals': 'No principals configured yet. Principals are created by pairing or the operator bootstrap — once one exists, bind it to a profile here.',
+    'roles.pending_badge': 'PENDING — no role assigned',
+    'roles.admin_badge': 'Admin',
+    'roles.bind_profile': 'Bind profile',
+    'roles.unbind': 'Unbind',
+    'roles.select_profile_placeholder': 'Select a profile…',
+    'roles.load_error': 'Failed to load roles',
+    'roles.save_error': 'Failed to save profile',
+    'roles.delete_error': 'Failed to delete profile',
+    'roles.bind_error': 'Failed to bind profile',
+    'roles.unbind_error': 'Failed to unbind profile',
+    'roles.forbidden_error': 'This action requires a principal bound to an admin profile.',
+    'roles.token_count_one': '{n} token',
+    'roles.token_count_other': '{n} tokens',
+    'roles.device_count_one': '{n} device',
+    'roles.device_count_other': '{n} devices',
+    'roles.legacy_agents_hint': 'Legacy inline agents (pre-migration):',
+    'roles.id_required': 'A profile ID is required.',
+    'roles.id_taken': 'A profile with this ID already exists.',
+    'roles.dismiss': 'Dismiss',
 
     // Common
     'common.loading': 'Loading...',
@@ -1950,6 +2136,26 @@ const translations: Record<Locale, Record<string, string>> = {
     'dashboard.inactive': 'Inactive',
     'dashboard.no_components': 'No components reporting',
     'dashboard.restarts': 'Restarts',
+    // Component health status badge (uppercased by CSS). Keyed by the raw
+    // lowercase status from status.health.components[].status.
+    'dashboard.health_status.ok': 'ok',
+    'dashboard.health_status.error': 'error',
+    'dashboard.health_status.starting': 'starting',
+    'dashboard.health_status.warn': 'warn',
+    'dashboard.health_status.degraded': 'degraded',
+    'dashboard.health_status.healthy': 'healthy',
+    // Process-level health component display names.
+    'dashboard.component.channels': 'channels',
+    'dashboard.component.control-plane': 'control-plane',
+    'dashboard.component.daemon': 'daemon',
+    'dashboard.component.enroll': 'enroll',
+    'dashboard.component.gateway': 'gateway',
+    'dashboard.component.heartbeat': 'heartbeat',
+    'dashboard.component.mqtt': 'mqtt',
+    'dashboard.component.relay': 'relay',
+    'dashboard.component.scheduler': 'scheduler',
+    'dashboard.component.socket': 'socket',
+    'dashboard.component.wss': 'wss',
     'dashboard.tab_overview': 'Overview',
     'dashboard.tab_sessions': 'Sessions',
     'dashboard.tab_channels': 'Channels',
@@ -1981,7 +2187,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'dashboard.ram.resident': 'resident (zeroclaw)',
     'dashboard.ram.unsupported': 'not supported on this platform',
     'dashboard.ram.of': 'of',
-    'dashboard.cpu.cores': 'cores',
+    'dashboard.cpu.cores_one': "core",
+    'dashboard.cpu.cores_other': "cores",
     'dashboard.cpu.normalized': 'normalized',
     'dashboard.cpu.across_all_cores': 'across all cores',
     'dashboard.cpu.unsupported': 'not supported on this platform',
@@ -2004,8 +2211,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'dashboard.no_sessions_match': 'No sessions match the current search and filters',
     'dashboard.view_messages': 'View messages',
     'dashboard.delete_session': 'Delete session',
-    'dashboard.confirm_delete_session_prefix': 'Delete session',
-    'dashboard.confirm_delete_suffix': '? This cannot be undone.',
+    'dashboard.confirm_delete_session': 'Delete session {id}? This cannot be undone.',
     'dashboard.flip_transcript': 'Flip transcript order',
     'dashboard.newest_first_short': 'newest first',
     'dashboard.oldest_first_short': 'oldest first',
@@ -2035,7 +2241,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'dashboard.cost.no_per_agent_pre': 'No per-agent tracking. Enable',
     'dashboard.cost.no_per_agent_post': '.',
     'dashboard.cost.no_model_usage': 'No model usage recorded in this window.',
-    'dashboard.cost.exchanges': 'exchanges',
+    'dashboard.cost.exchanges_one': 'exchange',
+    'dashboard.cost.exchanges_other': 'exchanges',
     'dashboard.cost.input_tokens': 'input tokens',
     'dashboard.cost.cached': 'cached',
     'dashboard.cost.output_tokens': 'output tokens',
@@ -2057,7 +2264,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'dashboard.mem.all_categories': 'All categories',
     'dashboard.mem.no_match': 'No memories match the current search and filters',
     'dashboard.mem.delete': 'Delete memory',
-    'dashboard.mem.confirm_delete_prefix': 'Delete memory',
+    'dashboard.mem.confirm_delete': 'Delete memory {key}? This cannot be undone.',
     'dashboard.mem.error_key_content_required': 'Key and content are required',
     'dashboard.mem.field_key': 'Key',
     'dashboard.mem.field_content': 'Content',
@@ -2074,15 +2281,16 @@ const translations: Record<Locale, Record<string, string>> = {
     'dashboard.mem.collapse': 'Collapse',
     'dashboard.mem.expand': 'Expand',
     'dashboard.mem.chars': 'chars',
-    'dashboard.mem.lines': 'lines',
+    'dashboard.mem.lines_one': 'line',
+    'dashboard.mem.lines_other': 'lines',
 
     // Dashboard — agents section
     'dashboard.start_quickstart': 'Start Quickstart',
     'dashboard.create_another_agent': 'Create another agent',
     'dashboard.loading_agents': 'Loading agents...',
     'dashboard.no_agents_configured': 'No agents configured yet.',
-    'dashboard.more_agent': 'more agent',
-    'dashboard.more_agents': 'more agents',
+    'dashboard.more_agents_count_one': '{n} more agent',
+    'dashboard.more_agents_count_other': '{n} more agents',
 
     // Settings
     'settings.title': 'Settings',
@@ -2106,6 +2314,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'theme.dark': 'Dark',
     'theme.light': 'Light',
     'theme.oled': 'OLED Black',
+    'theme.paper': 'Paper',
   },
 
   tr: {
@@ -11234,432 +11443,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'theme.oled': 'OLED Negru',
   },
 
-  ru: {
-    'sidebar.update_available': "Доступно обновление",
-    'upgrade.title': "Обновить",
-    'upgrade.current': "Текущая",
-    'upgrade.latest': "Последняя",
-    'upgrade.up_to_date': "У вас последняя версия.",
-    'upgrade.notes': "Примечания к выпуску",
-    'upgrade.check_failed': "Не удалось проверить обновления",
-    'upgrade.open_release': "Посмотреть выпуск",
-    'upgrade.close': "Закрыть",
-    'upgrade.checking': "Проверка обновлений…",
-    'upgrade.do_upgrade': "Обновить сейчас",
-    'upgrade.confirm': "Подтвердить обновление",
-    'upgrade.cancel': "Отмена",
-    'upgrade.confirm_body': "Это загрузит и заменит работающий бинарный файл. Предыдущая версия будет сохранена в резервной копии. Чтобы применить, потребуется перезапустить службу (или включить автоперезапуск под супервизором).",
-    'upgrade.auto_restart': "Автоматически перезапустить после обновления",
-    'upgrade.self_respawn_note': "Здесь нет супервизора — демон перезапускает себя сам. Если новая версия не запустится, служба останется выключенной (восстановите из резервной копии .bak).",
-    'upgrade.manual_note': "После обновления перезапустите службу, чтобы применить:",
-    'upgrade.upgrading': "Обновление…",
-    'upgrade.restarting': "Перезапуск службы…",
-    'upgrade.log': "Журнал",
-    'upgrade.done': "Обновление завершено",
-    'upgrade.now_running': "сейчас работает",
-    'upgrade.restart_to_apply': "Перезапустите для применения:",
-    'upgrade.failed': "Не удалось обновить",
-    'upgrade.disabled': "Самообновление отключено на этом шлюзе (установите gateway.allow_self_upgrade).",
-    'upgrade.checks_disabled': "Автоматическая проверка обновлений отключена (установите gateway.check_updates).",
-    'upgrade.recheck': "Проверить снова",
-    'upgrade.restart_waiting': "Ожидание возобновления работы нового процесса",
-    'upgrade.restart_elapsed': "Прошло",
-    'upgrade.reloading': "Перезагрузка панели управления…",
-    'upgrade.phase.preflight': "Предпроверка",
-    'upgrade.phase.download': "Загрузка",
-    'upgrade.phase.backup': "Резервная копия",
-    'upgrade.phase.verify': "Проверка",
-    'upgrade.phase.swap': "Замена",
-    'upgrade.phase.cleanup': "Очистка",
-    // Navigation
-    'nav.dashboard': 'Панель управления',
-    'nav.agent': 'Агент',
-    'nav.agents': 'Агент',
-    'nav.tools': 'Инструменты',
-    'nav.cron': 'Запланированные задачи',
-    'nav.integrations': 'Интеграции',
-    'nav.skills': 'Навыки',
-    'nav.memory': 'Память',
-    'nav.config': 'Config',
-    'nav.cost': 'Учёт расходов',
-    'nav.logs': 'Журналы',
-    'nav.doctor': 'Диагностика',
-    'nav.canvas': 'Холст',
-    'nav.acp': 'ACP',
-
-    // Dashboard
-    'dashboard.title': 'Панель управления',
-    'dashboard.provider': 'Провайдер',
-    'dashboard.model': 'Модель',
-    'dashboard.uptime': 'Время работы',
-    'dashboard.temperature': 'Температура',
-    'dashboard.gateway_port': 'Порт шлюза',
-    'dashboard.memory_backend': 'Бэкенд памяти',
-    'dashboard.paired': 'Сопряжено',
-    'dashboard.channels': 'Каналы',
-    'dashboard.health': 'Состояние',
-    'dashboard.status': 'Статус',
-    'dashboard.overview': 'Обзор',
-    'dashboard.system_info': 'Информация о системе',
-    'dashboard.quick_actions': 'Быстрые действия',
-
-    // Agent / Chat
-    'agent.title': 'Чат с агентом',
-    'agent.send': 'Отправить',
-    'agent.placeholder': 'Введите сообщение...',
-    'agent.start_conversation': 'Отправьте сообщение, чтобы начать разговор',
-    'agent.type_message': 'Введите сообщение...',
-    'agent.connecting': 'Подключение...',
-    'agent.connected': 'Подключено',
-    'agent.disconnected': 'Отключено',
-    'agent.reconnecting': 'Переподключение...',
-    'agent.thinking': 'Думаю...',
-    'agent.tool_call': 'Вызов инструмента',
-    'agent.tool_result': 'Результат инструмента',
-    'agent.connection_error': 'Ошибка соединения. Попытка переподключения...',
-    'agent.tool_call_prefix': '[Вызов инструмента]',
-    'agent.tool_result_prefix': '[Результат инструмента]',
-    'agent.error_prefix': '[Ошибка]',
-    'agent.unknown_error': 'Неизвестная ошибка',
-    'agent.send_error': 'Не удалось отправить сообщение. Пожалуйста, попробуйте снова.',
-    'agent.copy_message': 'Скопировать сообщение',
-    'agent.connected_status': 'Подключено',
-    'agent.disconnected_status': 'Отключено',
-
-    // Slash commands (#7137)
-    'agent.cmd_unknown': 'Неизвестная команда: {cmd}. Введите /help, чтобы увидеть доступные команды.',
-    'agent.cmd_help_header': 'Доступные команды:',
-    'agent.cmd_help_help': 'показать этот список команд',
-    'agent.cmd_help_clear': 'очистить разговор',
-    'agent.cmd_help_model': 'показать или сменить активную модель',
-    'agent.cmd_cleared': 'Разговор очищен.',
-    'agent.cmd_model_current': 'Текущая модель: {model}',
-    'agent.cmd_model_none': 'В настоящее время модель не выбрана.',
-    'agent.cmd_model_available': 'Доступные модели: {models}',
-    'agent.cmd_model_unknown': 'Неизвестная модель: {model}. Доступные модели: {models}',
-    'agent.cmd_model_switching': 'Переключение на модель: {model}…',
-    'agent.cmd_model_busy': 'Переключение модели уже выполняется. Дождитесь его завершения.',
-    'agent.cmd_model_failed': 'Не удалось переключиться на модель: {model}.',
-    'agent.cmd_help_escape': 'Совет: чтобы отправить сообщение, начинающееся с /, введите вместо этого // (например, //foo отправит /foo).',
-    'agent.cmd_hint_title': 'Команды',
-
-    // Tools
-    'tools.title': 'Доступные инструменты',
-    'tools.name': 'Название',
-    'tools.description': 'Описание',
-    'tools.parameters': 'Параметры',
-    'tools.search': 'Поиск инструментов...',
-    'tools.empty': 'Нет доступных инструментов.',
-    'tools.count': 'Всего инструментов',
-    'tools.agent_tools': 'Инструменты агента',
-    'tools.cli_tools': 'Инструменты CLI',
-    'tools.parameter_schema': 'Схема параметров',
-    'tools.path': 'Путь',
-    'tools.version': 'Версия',
-    'tools.category': 'Категория',
-    'tools.load_error': 'Не удалось загрузить инструменты',
-
-    // Cron
-    'cron.title': 'Запланированные задачи',
-    'cron.scheduled_tasks': 'Запланированные задачи',
-    'cron.add': 'Добавить задачу',
-    'cron.add_job': 'Добавить задачу',
-    'cron.add_modal_title': 'Добавить задачу Cron',
-    'cron.delete': 'Удалить',
-    'cron.enable': 'Включить',
-    'cron.disable': 'Отключить',
-    'cron.name': 'Название',
-    'cron.name_optional': 'Название (необязательно)',
-    'cron.command': 'Команда',
-    'cron.command_required': 'Команда',
-    'cron.schedule': 'Расписание',
-    'cron.schedule_required': 'Расписание',
-    'cron.next_run': 'Следующий запуск',
-    'cron.last_run': 'Последний запуск',
-    'cron.last_status': 'Последний статус',
-    'cron.enabled': 'Включено',
-    'cron.enabled_status': 'Включено',
-    'cron.disabled_status': 'Отключено',
-    'cron.empty': 'Нет запланированных задач.',
-    'cron.confirm_delete': 'Вы уверены, что хотите удалить эту задачу?',
-    'cron.load_error': 'Не удалось загрузить задачи Cron',
-    'cron.validation_error': 'Расписание и команда обязательны.',
-    'cron.add_error': 'Не удалось добавить задачу',
-    'cron.delete_error': 'Не удалось удалить задачу',
-    'cron.cancel': 'Отмена',
-    'cron.adding': 'Добавление...',
-    'cron.id': 'ID',
-    'cron.actions': 'Действия',
-    'cron.loading_run_history': 'Загрузка истории запусков...',
-    'cron.load_run_history_error': 'Не удалось загрузить историю запусков',
-    'cron.no_runs': 'Записей о запусках пока нет.',
-    'cron.recent_runs': 'Последние запуски',
-    'cron.yes': 'Да',
-    'cron.no': 'Нет',
-    'cron.edit': 'Редактировать',
-    'cron.edit_modal_title': 'Редактировать задачу Cron',
-    'cron.edit_error': 'Не удалось обновить задачу',
-    'cron.saving': 'Сохранение...',
-    'cron.save': 'Сохранить',
-    'cron.job_type': 'Тип задачи',
-    'cron.job_type_shell': 'Shell',
-    'cron.job_type_agent': 'Агент',
-    'cron.prompt_required': 'Промпт',
-    'cron.prompt_placeholder': 'напр. Обобщи последние системные журналы',
-    'cron.prompt_required_error': 'Промпт обязателен для задач агента.',
-    'cron.command_required_error': 'Команда обязательна для shell-задач.',
-    'cron.model_optional': 'Модель (необязательно)',
-    'cron.model_placeholder': 'напр. gpt-4o (по умолчанию если пусто)',
-    'cron.session_target': 'Цель сессии',
-    'cron.session_isolated': 'Изолированная',
-    'cron.session_main': 'Основная',
-    'cron.allowed_tools_optional': 'Разрешённые инструменты (необязательно)',
-    'cron.allowed_tools_placeholder': 'напр. shell, file_read, memory_store',
-    'cron.uses_memory': 'Использовать Память',
-    'cron.uses_memory_help': 'Включить доступ к памяти для этой плановой задачи (по умолчанию: включено)',
-    'cron.trigger': 'Запустить сейчас',
-    'cron.trigger_error': 'Не удалось запустить задачу',
-    'cron.dismiss': 'Закрыть',
-
-    // Integrations
-    'integrations.title': 'Интеграции',
-    'integrations.available': 'Доступно',
-    'integrations.active': 'Активно',
-    'integrations.category': 'Категория',
-    'integrations.status': 'Статус',
-    'integrations.search': 'Поиск интеграций...',
-    'integrations.empty': 'Интеграции не найдены.',
-    'integrations.activate': 'Активировать',
-    'integrations.deactivate': 'Деактивировать',
-    'integrations.load_error': 'Не удалось загрузить интеграции',
-    'integrations.status_active': 'Активно',
-    'integrations.status_available': 'Доступно',
-
-    // Memory
-    'memory.title': 'Хранилище памяти',
-    'memory.memory_title': 'Память',
-    'memory.search': 'Поиск в памяти...',
-    'memory.search_placeholder': 'Поиск записей памяти...',
-    'memory.add': 'Сохранить в память',
-    'memory.add_memory': 'Добавить запись',
-    'memory.add_modal_title': 'Добавить запись',
-    'memory.delete': 'Удалить',
-    'memory.key': 'Ключ',
-    'memory.key_required': 'Ключ',
-    'memory.content': 'Содержимое',
-    'memory.content_required': 'Содержимое',
-    'memory.category': 'Категория',
-    'memory.category_optional': 'Категория (необязательно)',
-    'memory.timestamp': 'Время',
-    'memory.session': 'Сессия',
-    'memory.score': 'Оценка',
-    'memory.empty': 'Записей памяти не найдено.',
-    'memory.confirm_delete': 'Вы уверены, что хотите удалить эту запись памяти?',
-    'memory.all_categories': 'Все категории',
-    'memory.search_button': 'Поиск',
-    'memory.load_error': 'Не удалось загрузить память',
-    'memory.saving': 'Сохранение...',
-    'memory.validation_error': 'Ключ и содержимое обязательны.',
-    'memory.store_error': 'Не удалось сохранить запись',
-    'memory.delete_error': 'Не удалось удалить запись',
-    'memory.delete_confirm': 'Удалить?',
-    'memory.yes': 'Да',
-    'memory.no': 'Нет',
-    'memory.cancel': 'Отмена',
-
-    // Config
-
-    // Cost
-    'cost.title': 'Учёт расходов',
-    'cost.session': 'Стоимость сессии',
-    'cost.daily': 'Дневная стоимость',
-    'cost.monthly': 'Месячная стоимость',
-    'cost.total_tokens': 'Всего токенов',
-    'cost.request_count': 'Запросы',
-    'cost.by_model': 'Стоимость по модели',
-    'cost.model': 'Модель',
-    'cost.tokens': 'Токены',
-    'cost.requests': 'Запросы',
-    'cost.usd': 'Стоимость (USD)',
-    'cost.load_error': 'Не удалось загрузить данные о расходах',
-    'cost.session_cost': 'Стоимость сессии',
-    'cost.daily_cost': 'Дневная стоимость',
-    'cost.monthly_cost': 'Месячная стоимость',
-    'cost.total_requests': 'Всего запросов',
-    'cost.token_statistics': 'Статистика токенов',
-    'cost.avg_tokens_per_request': 'Среднее кол-во токенов / запрос',
-    'cost.cost_per_1k_tokens': 'Стоимость за 1K токенов',
-    'cost.model_breakdown': 'Разбивка по моделям',
-    'cost.no_model_data': 'Нет данных по моделям.',
-    'cost.cost': 'Стоимость',
-    'cost.share': 'Поделиться',
-
-    // Logs
-    'logs.title': 'Журнал в реальном времени',
-    'logs.live_logs': 'Журнал в реальном времени',
-    'logs.clear': 'Очистить',
-    'logs.pause': 'Пауза',
-    'logs.resume': 'Продолжить',
-    'logs.filter': 'Фильтр журналов...',
-    'logs.filter_label': 'Фильтр',
-    'logs.empty': 'Нет записей в журнале.',
-    'logs.connected': 'Подключено',
-    'logs.disconnected': 'Отключено',
-    'logs.events': 'события',
-    'logs.jump_to_bottom': 'Перейти вниз',
-    'logs.paused_hint': 'Потоковая передача журналов приостановлена.',
-    'logs.waiting_hint': 'Ожидание событий...',
-
-    // Doctor
-    'doctor.title': 'Диагностика системы',
-    'doctor.diagnostics_title': 'Диагностика',
-    'doctor.run': 'Запустить диагностику',
-    'doctor.run_diagnostics': 'Запустить диагностику',
-    'doctor.running': 'Выполняется диагностика...',
-    'doctor.running_btn': 'Выполняется...',
-    'doctor.running_desc': 'Выполняется диагностика...',
-    'doctor.running_hint': 'Это может занять несколько секунд.',
-    'doctor.ok': 'OK',
-    'doctor.warn': 'Предупреждение',
-    'doctor.error': 'Ошибка',
-    'doctor.severity': 'Серьёзность',
-    'doctor.category': 'Категория',
-    'doctor.message': 'Сообщение',
-    'doctor.empty': 'Диагностика ещё не проводилась.',
-    'doctor.summary': 'Сводка диагностики',
-    'doctor.issues_found': 'Обнаруженные проблемы',
-    'doctor.warnings_summary': 'Предупреждения',
-    'doctor.all_clear': 'Всё в порядке',
-    'doctor.system_diagnostics': 'Диагностика системы',
-    'doctor.empty_hint': 'Нажмите «Запустить диагностику», чтобы проверить установку ZeroClaw.',
-
-    // Auth / Pairing
-    'auth.pair': 'Сопряжение устройства',
-    'auth.pairing_code': 'Код сопряжения',
-    'auth.pair_button': 'Сопрячь',
-    'auth.logout': 'Выйти',
-    'auth.pairing_success': 'Сопряжение выполнено успешно!',
-    'auth.pairing_failed': 'Сопряжение не удалось. Пожалуйста, попробуйте снова.',
-    'auth.enter_code': 'Введите код сопряжения для подключения к агенту.',
-    'pairing.title': 'Сопряжение устройств',
-    'pairing.pair_new_device': 'Сопрячь новое устройство',
-    'pairing.pairing_code': 'Код сопряжения',
-    'pairing.code_hint': 'Введите этот код на новом устройстве',
-    'pairing.paired_devices': 'Сопряжённые устройства',
-    'pairing.no_devices': 'Нет сопряжённых устройств.',
-    'pairing.name': 'Название',
-    'pairing.type': 'Тип',
-    'pairing.paired': 'Сопряжено',
-    'pairing.last_seen': 'Последний раз в сети',
-    'pairing.actions': 'Действия',
-    'pairing.load_error': 'Не удалось загрузить устройства',
-    'pairing.generate_error': 'Не удалось создать код сопряжения',
-    'pairing.revoke_error': 'Не удалось отозвать устройство',
-
-    // Common
-    'common.loading': 'Загрузка...',
-    'common.error': 'Произошла ошибка.',
-    'common.retry': 'Повторить',
-    'common.cancel': 'Отмена',
-    'common.confirm': 'Подтвердить',
-    'common.save': 'Сохранить',
-    'common.delete': 'Удалить',
-    'common.edit': 'Редактировать',
-    'common.close': 'Закрыть',
-    'common.yes': 'Да',
-    'common.no': 'Нет',
-    'common.search': 'Поиск...',
-    'common.no_data': 'Нет данных.',
-    'common.refresh': 'Обновить',
-    'common.back': 'Назад',
-    'common.actions': 'Действия',
-    'common.name': 'Название',
-    'common.description': 'Описание',
-    'common.status': 'Статус',
-    'common.created': 'Создано',
-    'common.updated': 'Обновлено',
-
-    // Health
-    'health.title': 'Состояние системы',
-    'health.component': 'Компонент',
-    'health.status': 'Статус',
-    'health.last_ok': 'Последнее OK',
-    'health.last_error': 'Последняя ошибка',
-    'health.restart_count': 'Перезапуски',
-    'health.pid': 'ID процесса',
-    'health.uptime': 'Время работы',
-    'health.updated_at': 'Последнее обновление',
-
-    // Dashboard
-    'dashboard.provider_model': 'Провайдер / Модель',
-    'dashboard.since_last_restart': 'С последнего перезапуска',
-    'dashboard.paired_yes': 'Да',
-    'dashboard.paired_no': 'Нет',
-    'dashboard.cost_overview': 'Обзор расходов',
-    'dashboard.active_channels': 'Активные каналы',
-    'dashboard.filter_active': 'Активные',
-    'dashboard.filter_all': 'Все',
-    'dashboard.no_active_channels': 'Нет активных каналов',
-    'dashboard.component_health': 'Состояние компонентов',
-    'dashboard.load_error': 'Не удалось загрузить панель управления',
-    'dashboard.session_label': 'Сессия',
-    'dashboard.daily_label': 'Дневная',
-    'dashboard.monthly_label': 'Месячная',
-    'dashboard.total_tokens_label': 'Всего токенов',
-    'dashboard.requests_label': 'Запросы',
-    'dashboard.no_channels': 'Каналы не настроены',
-    'dashboard.active': 'Активно',
-    'dashboard.inactive': 'Неактивно',
-    'dashboard.no_components': 'Нет отчётов от компонентов',
-    'dashboard.restarts': 'Перезапуски',
-    'dashboard.tab_overview': 'Обзор',
-    'dashboard.tab_sessions': 'Сессии',
-    'dashboard.tab_channels': 'Каналы',
-    'dashboard.sessions_title': 'Активные сессии',
-    'dashboard.no_sessions': 'Нет активных сессий',
-    'dashboard.session_id': 'ID сессии',
-    'dashboard.session_started': 'Начало',
-    'dashboard.session_last_activity': 'Последняя активность',
-    'dashboard.session_messages': 'Сообщения',
-    'dashboard.session_details': 'Детали сессии',
-    'dashboard.session_history': 'Просмотр истории',
-    'dashboard.channels_title': 'Статус каналов',
-    'dashboard.no_channels_detail': 'Нет данных о каналах',
-    'dashboard.channel_type': 'Тип',
-    'dashboard.channel_messages': 'Сообщения',
-    'dashboard.channel_last_message': 'Последнее сообщение',
-    'dashboard.channel_config': 'Конфигурация',
-    'dashboard.channel_enabled': 'Включён',
-    'dashboard.channel_disabled': 'Отключён',
-    'dashboard.loading_sessions': 'Загрузка сессий...',
-    'dashboard.loading_channels': 'Загрузка каналов...',
-    'dashboard.load_sessions_error': 'Не удалось загрузить сессии',
-    'dashboard.load_channels_error': 'Не удалось загрузить каналы',
-    'dashboard.never': 'Никогда',
-
-    // Settings
-    'settings.title': 'Настройки',
-    'settings.tab.appearance': 'Внешний вид',
-    'settings.tab.typography': 'Типографика',
-    'settings.appearance': 'Внешний вид',
-    'settings.typography': 'Типографика',
-    'settings.fontUi': 'Шрифт интерфейса',
-    'settings.fontMono': 'Шрифт кода',
-    'settings.fontSize': 'Размер шрифта интерфейса',
-    'settings.fontMonoSize': 'Размер шрифта кода',
-    'settings.preview': 'Предпросмотр',
-    'settings.previewText': 'Съешь ещё этих мягких французских булок, да выпей чаю.',
-    'settings.fontNote': 'Изменения шрифта применяются при перезагрузке страницы.',
-    'settings.language': 'Язык',
-
-    // Theme
-    'theme.mode': 'Режим темы',
-    'theme.accent': 'Цвет акцента',
-    'theme.system': 'Системная',
-    'theme.dark': 'Тёмная',
-    'theme.light': 'Светлая',
-    'theme.oled': 'OLED чёрная',
-  },
+  ru,
 
   sv: {
     'sidebar.update_available': "Uppdatering tillgänglig",
@@ -14166,6 +13950,9 @@ export function getLocale(): Locale {
 
 export function setLocale(locale: Locale): void {
   currentLocale = locale;
+  if (typeof document !== 'undefined' && document.documentElement) {
+    document.documentElement.lang = locale;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -14175,9 +13962,20 @@ export function setLocale(locale: Locale): void {
 /**
  * Translate a key using the current locale. Returns the key itself if no
  * translation is found.
+ *
+ * When `vars` is given, every `{name}` token in the resolved string is
+ * replaced with the corresponding value from `vars` (coerced to a string).
+ * Tokens with no matching entry in `vars` are left as-is. Omitting `vars`
+ * keeps the previous no-interpolation behavior unchanged. `plural()` handles
+ * its own `{n}` substitution independently and does not call `t()`, so the
+ * two never double-substitute the same token.
  */
-export function t(key: string): string {
-  return translations[currentLocale]?.[key] ?? translations.en[key] ?? key;
+export function t(key: string, vars?: Record<string, string | number>): string {
+  const value = translations[currentLocale]?.[key] ?? translations.en[key] ?? key;
+  if (!vars) return value;
+  return value.replace(/\{(\w+)\}/g, (match, name: string) =>
+    Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : match,
+  );
 }
 
 /**
@@ -14189,8 +13987,280 @@ export function tLocale(key: string, locale: Locale): string {
 }
 
 // ---------------------------------------------------------------------------
+// Config field label/description catalog
+// ---------------------------------------------------------------------------
+
+/**
+ * Config field paths returned by the daemon (`GET /api/config/list`) are
+ * RUNTIME instances — a map/list key segment is the operator's own alias
+ * (`agents.crm-bot.model_provider`, `authz.principals.alice.allowed_agents`),
+ * not a schema field name. A hand-authored label/description catalog is
+ * keyed by the SCHEMA shape instead, so every instance of a map shares one
+ * entry: collapse the alias segment to `*` (`agents.*.model_provider`).
+ *
+ * Deliberately narrow: only the map/list sections that currently have
+ * catalog entries are listed. Extend this list alongside new
+ * `config.field.*` entries for a section — an unlisted dynamic section
+ * simply won't find a catalog key (EN fallback), the same as any other
+ * un-authored field.
+ */
+const DYNAMIC_KEY_SECTIONS: { prefix: string; keySegmentIndex: number }[] = [
+  { prefix: "agents.", keySegmentIndex: 1 },
+  { prefix: "authz.principals.", keySegmentIndex: 2 },
+  { prefix: "authz.profiles.", keySegmentIndex: 2 },
+  { prefix: "runtime_profiles.", keySegmentIndex: 1 },
+  { prefix: "risk_profiles.", keySegmentIndex: 1 },
+  // `providers.models.<type>.<alias>.<field>` carries TWO instance
+  // segments: `<type>` is the model_provider family (ollama, anthropic, ...
+  // a fixed struct-field name per `ModelProviders`, but still not a single
+  // reusable catalog key on its own) and `<alias>` is the operator-chosen
+  // profile name. Both entries apply to the same path (the loop below sets
+  // each listed index independently), collapsing it to
+  // `providers.models.*.*.<field>` — one catalog entry covers every
+  // provider family and alias, matching the near-identical field set/help
+  // text shared across all `*ModelProviderConfig` structs.
+  { prefix: "providers.models.", keySegmentIndex: 2 },
+  { prefix: "providers.models.", keySegmentIndex: 3 },
+];
+
+export function normalizeConfigFieldPath(path: string): string {
+  const segments = path.split(".");
+  for (const { prefix, keySegmentIndex } of DYNAMIC_KEY_SECTIONS) {
+    if (path.startsWith(prefix) && segments.length > keySegmentIndex) {
+      segments[keySegmentIndex] = "*";
+    }
+  }
+  return segments.join(".");
+}
+
+/**
+ * Look up a hand-authored RU (or other locale) label for a config field,
+ * keyed by its normalized schema path (`config.field.<normpath>.label`).
+ * Falls back to `fallback` (today: the schema-agnostic humanized leaf) when
+ * no catalog entry exists — so an un-authored field renders exactly as it
+ * did before this catalog existed.
+ */
+export function fieldLabel(path: string, fallback: string): string {
+  const key = `config.field.${normalizeConfigFieldPath(path)}.label`;
+  return translations[currentLocale]?.[key] ?? fallback;
+}
+
+/**
+ * Look up a hand-authored RU (or other locale) description for a config
+ * field, keyed by its normalized schema path (`config.field.<normpath>.desc`).
+ * Falls back to `fallback` (today: the Rust `///` doc comment resolved via
+ * `descriptionForPath`) when no catalog entry exists.
+ */
+export function fieldDesc(path: string, fallback: string | null): string | null {
+  const key = `config.field.${normalizeConfigFieldPath(path)}.desc`;
+  return translations[currentLocale]?.[key] ?? fallback;
+}
+
+// ---------------------------------------------------------------------------
+// Config SECTION label/description catalog
+// ---------------------------------------------------------------------------
+//
+// Distinct from the field catalog above: this covers the section itself —
+// the left config sub-nav entry, its group heading, the section page
+// heading, the breadcrumb segment, and the section's intro blurb (Rust
+// `SectionInfo.label` / `.help`, `SectionGroup::label()`). Same pattern:
+// hand-authored catalog keyed by the section's stable wire id
+// (`SectionInfo.key`, e.g. "providers.models", "agents"), EN fallback to
+// whatever the gateway already sent when no catalog entry exists.
+
+/**
+ * Look up a hand-authored label for a config SECTION (nav entry / page
+ * heading / breadcrumb segment), keyed by its wire id. Falls back to the
+ * gateway-humanized label when no catalog entry exists.
+ */
+export function sectionLabel(id: string, fallback: string): string {
+  const key = `config.section.${id}.label`;
+  return translations[currentLocale]?.[key] ?? fallback;
+}
+
+/**
+ * Look up a hand-authored intro description for a config SECTION (shown
+ * above its picker/field list), keyed by its wire id. Falls back to the
+ * gateway's `SectionInfo.help` (verbatim from the TUI) when no catalog
+ * entry exists.
+ */
+export function sectionDesc(id: string, fallback: string): string {
+  const key = `config.section.${id}.desc`;
+  return translations[currentLocale]?.[key] ?? fallback;
+}
+
+/**
+ * Look up a hand-authored label for a config section GROUP heading
+ * (Foundation / Agent / Tools / ...), keyed by a snake_case id derived
+ * from the group's EN label (e.g. "Multi-agent" -> "multi_agent"). Falls
+ * back to the EN label itself when no catalog entry exists.
+ */
+export function sectionGroupLabel(groupLabel: string): string {
+  const id = groupLabel.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const key = `config.section_group.${id}`;
+  return translations[currentLocale]?.[key] ?? groupLabel;
+}
+
+/**
+ * Display name for an entity alias in navigation surfaces (breadcrumb,
+ * section navigator, alias lists). Most aliases are user-chosen identifiers
+ * shown verbatim; a few magic ones (e.g. "default") read better localized.
+ * The on-disk key is never rewritten — this is display-only.
+ */
+export function displayAlias(alias: string): string {
+  const key = `alias.${alias.toLowerCase()}`;
+  return translations[currentLocale]?.[key] ?? alias;
+}
+
+/**
+ * Display name for an entity label that may be a `type / alias` compound
+ * (two-tier providers show "ollama / default" in the navigator). Localizes
+ * each segment via displayAlias, so only magic aliases like "default" change
+ * ("ollama / default" -> "ollama / По умолчанию"). Display-only — the on-disk
+ * key is never rewritten, so search/matching still use the raw label.
+ */
+export function displayEntityLabel(label: string): string {
+  return label
+    .split(" / ")
+    .map((segment) => displayAlias(segment))
+    .join(" / ");
+}
+
+/**
+ * Display label for a schema enum value shown in a config dropdown
+ * (autonomy level, execution mode, delivery, …). Display-only — the stored
+ * value stays the raw token. Falls back to the raw token, so untranslated /
+ * technical values (mp3, bm25, firejail, …) render unchanged.
+ */
+export function enumLabel(value: string): string {
+  const key = `enum.${value}`;
+  return translations[currentLocale]?.[key] ?? value;
+}
+
+/**
+ * Localize a schema-driven status badge ("configured", "needs setup", ...)
+ * rendered on config pickers/cards. Falls back to the raw badge text for any
+ * value not in the catalog.
+ */
+export function badgeLabel(badge: string): string {
+  const key = `config.badge.${badge.toLowerCase().replace(/\s+/g, "_")}`;
+  return translations[currentLocale]?.[key] ?? badge;
+}
+
+// ---------------------------------------------------------------------------
+// Pluralization
+// ---------------------------------------------------------------------------
+
+/**
+ * Translate a count-dependent string using CLDR plural rules for the current
+ * locale (e.g. Russian's one/few/many/other, not just English's binary
+ * one/other). `baseKey` is combined with the selected category to form the
+ * lookup key (`${baseKey}_${category}`, e.g. `runs.count_one`).
+ *
+ * Fallback order per candidate key: current-locale form -> English form.
+ * Candidates are tried in order: `${baseKey}_${category}`, then
+ * `${baseKey}_other`, then the bare `baseKey` itself, then the key literal.
+ * Any `{n}` in the resolved string is replaced with `n`.
+ */
+export function plural(n: number, baseKey: string): string {
+  const category = new Intl.PluralRules(currentLocale).select(n);
+  const candidates = [`${baseKey}_${category}`, `${baseKey}_other`, baseKey];
+
+  let raw: string | undefined;
+  for (const candidate of candidates) {
+    raw = translations[currentLocale]?.[candidate] ?? translations.en[candidate];
+    if (raw !== undefined) break;
+  }
+
+  return (raw ?? baseKey).replace(/\{n\}/g, String(n));
+}
+
+// ---------------------------------------------------------------------------
+// Locale-aware date/time/number formatting
+// ---------------------------------------------------------------------------
+
+function toDate(d: Date | number | string): Date | null {
+  const date = d instanceof Date ? d : new Date(d);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Format a date using the current panel locale. Falls back to the raw input
+ * (stringified) if the input is not a valid date.
+ */
+export function fmtDate(d: Date | number | string, opts?: Intl.DateTimeFormatOptions): string {
+  const date = toDate(d);
+  if (!date) return String(d);
+  try {
+    return new Intl.DateTimeFormat(currentLocale, opts).format(date);
+  } catch {
+    return date.toISOString();
+  }
+}
+
+/**
+ * Format a time using the current panel locale (hour/minute/second by default).
+ */
+export function fmtTime(d: Date | number | string, opts?: Intl.DateTimeFormatOptions): string {
+  const date = toDate(d);
+  if (!date) return String(d);
+  try {
+    return new Intl.DateTimeFormat(currentLocale, opts ?? { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(date);
+  } catch {
+    return date.toISOString();
+  }
+}
+
+/**
+ * Format a number using the current panel locale's grouping/decimal conventions.
+ */
+export function fmtNumber(n: number, opts?: Intl.NumberFormatOptions): string {
+  if (!Number.isFinite(n)) return String(n);
+  try {
+    return new Intl.NumberFormat(currentLocale, opts).format(n);
+  } catch {
+    return String(n);
+  }
+}
+
+/**
+ * Format a relative time (e.g. "3 hours ago") using the current panel locale.
+ * `value` is negative for the past, positive for the future.
+ */
+export function fmtRelative(value: number, unit: Intl.RelativeTimeFormatUnit): string {
+  try {
+    return new Intl.RelativeTimeFormat(currentLocale, { numeric: 'auto' }).format(value, unit);
+  } catch {
+    return `${value} ${unit}`;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Supported locales
 // ---------------------------------------------------------------------------
+
+/**
+ * Normalize a raw locale string (e.g. `navigator.language` "ru-RU", or the
+ * daemon's `/api/status` "locale" field) to a supported `Locale` code.
+ * Strips region/script subtags and falls back to 'en' when the base
+ * language is not one of SUPPORTED_LOCALES.
+ */
+export function normalizeLocale(raw: string | null | undefined): Locale {
+  if (!raw) return 'en';
+  const base = raw.toLowerCase().replace(/-.*/, '').replace(/_.*/, '');
+  return (base in translations) ? (base as Locale) : 'en';
+}
+
+/**
+ * Detect a locale from the browser's own language preference
+ * (`navigator.language`), matched against SUPPORTED_LOCALES. Used as the
+ * pre-auth / pre-status initial locale, before the server's enterprise
+ * default is known. Falls back to 'en' when unavailable or unmatched.
+ */
+export function detectBrowserLocale(): Locale {
+  if (typeof navigator === 'undefined' || !navigator.language) return 'en';
+  return normalizeLocale(navigator.language);
+}
 
 export const SUPPORTED_LOCALES: { code: Locale; name: string }[] = [
   { code: 'ar', name: 'العربية' },
@@ -14243,8 +14313,7 @@ export function useLocale(): { locale: Locale; t: (key: string) => string } {
     getStatus()
       .then((status) => {
         if (cancelled) return;
-        const raw = (status.locale || 'en').toLowerCase().replace(/-.*/, '').replace(/_.*/, '');
-        const detected: Locale = (raw in translations) ? (raw as Locale) : 'en';
+        const detected = normalizeLocale(status.locale);
         setLocale(detected);
         setLocaleState(detected);
       })

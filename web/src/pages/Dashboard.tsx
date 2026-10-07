@@ -163,7 +163,7 @@ import EntityLink from "@/components/EntityLink";
 import EntityEnabledToggle from "@/components/EntityEnabledToggle";
 import { useSSE } from "@/hooks/useSSE";
 import { usePolling } from "@/hooks/usePolling";
-import { t } from "@/lib/i18n";
+import { t, fmtDate, fmtNumber, fmtRelative, plural } from "@/lib/i18n";
 import { StatCard, PageHeader, ConfirmDialog } from "@/components/ui";
 
 type TabId =
@@ -178,13 +178,19 @@ function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  if (d > 0) return `${d}d ${h}h ${m}m`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  const du = t("dashboard.dur_d");
+  const hu = t("dashboard.dur_h");
+  const mu = t("dashboard.dur_m");
+  if (d > 0) return `${d}${du} ${h}${hu} ${m}${mu}`;
+  if (h > 0) return `${h}${hu} ${m}${mu}`;
+  return `${m}${mu}`;
 }
 
+// Cost amount with a locale-driven currency layout (en: "$X", ru: "X ₽").
+// The symbol is display-only — the numeric value is whatever currency the cost
+// rates were entered in (default model pricing is USD).
 function formatUSD(value: number): string {
-  return `$${value.toFixed(4)}`;
+  return t("dashboard.cost.amount", { amount: value.toFixed(4) });
 }
 
 function formatBytes(bytes: number): string {
@@ -273,7 +279,7 @@ function ProcessCpuCard({ process }: { process?: ProcessStats }) {
       <p className="text-sm truncate" style={{ color: "var(--pc-text-muted)" }}>
         {supported
           ? ncpu > 0
-            ? `${ncpu} ${t("dashboard.cpu.cores")} · ${(pct / ncpu).toFixed(1)}% ${t("dashboard.cpu.normalized")}`
+            ? `${ncpu} ${plural(ncpu, "dashboard.cpu.cores")} · ${(pct / ncpu).toFixed(1)}% ${t("dashboard.cpu.normalized")}`
             : t("dashboard.cpu.across_all_cores")
           : t("dashboard.cpu.unsupported")}
       </p>
@@ -282,36 +288,50 @@ function ProcessCpuCard({ process }: { process?: ProcessStats }) {
 }
 
 function formatLocalDateTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return fmtDate(d, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 function formatRelative(iso: string): string {
   try {
     const diff = Date.now() - new Date(iso).getTime();
     const seconds = Math.floor(diff / 1000);
-    if (seconds < 60) return `${seconds}${t("dashboard.rel.seconds_ago")}`;
+    if (seconds < 60) return fmtRelative(-seconds, "second");
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}${t("dashboard.rel.minutes_ago")}`;
+    if (minutes < 60) return fmtRelative(-minutes, "minute");
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}${t("dashboard.rel.hours_ago")}`;
+    if (hours < 24) return fmtRelative(-hours, "hour");
     const days = Math.floor(hours / 24);
-    return `${days}${t("dashboard.rel.days_ago")}`;
+    return fmtRelative(-days, "day");
   } catch {
     return iso;
   }
+}
+
+// Localized display name for a process-level health component (gateway,
+// scheduler, …). Unknown/technical component ids (mqtt, wss) fall back to the
+// raw id via their identity catalog entry or the miss path.
+function componentLabel(name: string): string {
+  const key = `dashboard.component.${name}`;
+  const label = t(key);
+  return label === key ? name : label;
+}
+
+// Localized label for a component health status ("ok"/"error"/"starting").
+// The badge CSS uppercases it, so the catalog carries natural-case forms.
+// Unknown statuses render verbatim.
+function healthStatusLabel(status: string): string {
+  const key = `dashboard.health_status.${status.toLowerCase()}`;
+  const label = t(key);
+  return label === key ? status : label;
 }
 
 function healthColor(status: string): string {
@@ -588,7 +608,7 @@ function OverviewTab({
               className="font-mono"
               style={{ color: "var(--pc-text-primary)" }}
             >
-              {cost.total_tokens.toLocaleString()}
+              {fmtNumber(cost.total_tokens)}
             </span>
           </div>
           <div className="flex justify-between text-sm mt-1">
@@ -599,7 +619,7 @@ function OverviewTab({
               className="font-mono"
               style={{ color: "var(--pc-text-primary)" }}
             >
-              {cost.request_count.toLocaleString()}
+              {fmtNumber(cost.request_count)}
             </span>
           </div>
         </div>
@@ -668,7 +688,7 @@ function OverviewTab({
                     id={name}
                     className="flex items-center justify-between py-2.5 px-3 rounded-xl transition-all hover:opacity-90"
                     style={{ background: "var(--pc-bg-elevated)" }}
-                    title={`${t("dashboard.open_config_prefix")}channels.${name}${t("dashboard.open_config_suffix")}`}
+                    title={t("dashboard.open_config_title", { path: `channels.${name}` })}
                   >
                     <span
                       className="text-sm font-mono font-medium"
@@ -743,7 +763,7 @@ function OverviewTab({
             return (
               <div className="space-y-2">
                 {sorted.map(([name, comp]) => {
-                  const display = name;
+                  const display = componentLabel(name);
                   const lastErr = comp.last_error ?? null;
                   const lastOk = comp.last_ok ?? null;
                   return (
@@ -764,7 +784,7 @@ function OverviewTab({
                           }}
                         />
                         <span
-                          className="text-sm font-medium font-mono break-all"
+                          className="text-sm font-medium break-all"
                           style={{ color: "var(--pc-text-primary)" }}
                         >
                           {display}
@@ -777,7 +797,7 @@ function OverviewTab({
                             border: `1px solid ${healthBorder(comp.status)}`,
                           }}
                         >
-                          {comp.status}
+                          {healthStatusLabel(comp.status)}
                         </span>
                       </div>
                       {lastErr ? (
@@ -1265,7 +1285,7 @@ function SessionsTab() {
                         background: "rgba(var(--pc-accent-rgb), 0.10)",
                         color: "var(--pc-accent-light)",
                       }}
-                      title={`${t("dashboard.open_config_prefix")}agents.${session.agent_alias}${t("dashboard.open_config_suffix")}`}
+                      title={t("dashboard.open_config_title", { path: `agents.${session.agent_alias}` })}
                     >
                       {session.agent_alias}
                     </EntityLink>
@@ -1279,7 +1299,7 @@ function SessionsTab() {
                         background: "rgba(167, 139, 250, 0.10)",
                         color: "#a78bfa",
                       }}
-                      title={`${t("dashboard.open_config_prefix")}channels.${session.channel_id}${t("dashboard.open_config_suffix")}`}
+                      title={t("dashboard.open_config_title", { path: `channels.${session.channel_id}` })}
                     >
                       {session.channel_id}
                     </EntityLink>
@@ -1470,7 +1490,7 @@ function SessionsTab() {
         open={pendingDelete !== null}
         danger
         title={t("common.delete")}
-        message={`${t("dashboard.confirm_delete_session_prefix")} ${pendingDelete?.session_id ?? ""}${t("dashboard.confirm_delete_suffix")}`}
+        message={t("dashboard.confirm_delete_session", { id: pendingDelete?.session_id ?? "" })}
         confirmLabel={t("common.delete")}
         onConfirm={() => {
           // Close the dialog first (capturing the target): a confirm clicked
@@ -1606,7 +1626,7 @@ function ChannelsTab() {
                   kind="channel"
                   id={channel.name}
                   className="text-sm font-semibold font-mono break-all hover:underline"
-                  title={`${t("dashboard.open_config_prefix")}channels.${channel.name}${t("dashboard.open_config_suffix")}`}
+                  title={t("dashboard.open_config_title", { path: `channels.${channel.name}` })}
                 >
                   <span style={{ color: "var(--pc-text-primary)" }}>
                     {channel.name}
@@ -1623,7 +1643,7 @@ function ChannelsTab() {
                         kind="agent"
                         id={channel.owning_agent}
                         className="hover:underline font-mono"
-                        title={`${t("dashboard.open_config_prefix")}agents.${channel.owning_agent}${t("dashboard.open_config_suffix")}`}
+                        title={t("dashboard.open_config_title", { path: `agents.${channel.owning_agent}` })}
                       >
                         {channel.owning_agent}
                       </EntityLink>
@@ -2100,17 +2120,17 @@ function CostTab({
                       className="flex items-center gap-3 text-xs flex-wrap"
                       style={{ color: "var(--pc-text-muted)" }}
                     >
-                      <span>{row.request_count} {t("dashboard.cost.exchanges")}</span>
+                      <span>{row.request_count} {plural(row.request_count, "dashboard.cost.exchanges")}</span>
                       <span>
-                        {row.input_tokens.toLocaleString()} {t("dashboard.cost.input_tokens")}
+                        {fmtNumber(row.input_tokens)} {t("dashboard.cost.input_tokens")}
                       </span>
                       {row.cached_input_tokens > 0 && (
                         <span>
-                          {row.cached_input_tokens.toLocaleString()} {t("dashboard.cost.cached")}
+                          {fmtNumber(row.cached_input_tokens)} {t("dashboard.cost.cached")}
                         </span>
                       )}
                       <span>
-                        {row.output_tokens.toLocaleString()} {t("dashboard.cost.output_tokens")}
+                        {fmtNumber(row.output_tokens)} {t("dashboard.cost.output_tokens")}
                       </span>
                     </div>
                   </li>
@@ -2171,17 +2191,17 @@ function CostTab({
                       className="flex items-center gap-3 text-xs flex-wrap"
                       style={{ color: "var(--pc-text-muted)" }}
                     >
-                      <span>{row.request_count} {t("dashboard.cost.exchanges")}</span>
+                      <span>{row.request_count} {plural(row.request_count, "dashboard.cost.exchanges")}</span>
                       <span>
-                        {row.input_tokens.toLocaleString()} {t("dashboard.cost.input_tokens")}
+                        {fmtNumber(row.input_tokens)} {t("dashboard.cost.input_tokens")}
                       </span>
                       {row.cached_input_tokens > 0 && (
                         <span>
-                          {row.cached_input_tokens.toLocaleString()} {t("dashboard.cost.cached")}
+                          {fmtNumber(row.cached_input_tokens)} {t("dashboard.cost.cached")}
                         </span>
                       )}
                       <span>
-                        {row.output_tokens.toLocaleString()} {t("dashboard.cost.output_tokens")}
+                        {fmtNumber(row.output_tokens)} {t("dashboard.cost.output_tokens")}
                       </span>
                     </div>
                   </li>
@@ -2550,7 +2570,7 @@ function MemoriesTab() {
                         background: "rgba(var(--pc-accent-rgb), 0.10)",
                         color: "var(--pc-accent-light)",
                       }}
-                      title={`${t("dashboard.open_config_prefix")}agents.${entry.agent_alias}${t("dashboard.open_config_suffix")}`}
+                      title={t("dashboard.open_config_title", { path: `agents.${entry.agent_alias}` })}
                     >
                       {entry.agent_alias}
                     </EntityLink>
@@ -2733,7 +2753,7 @@ function MemoriesTab() {
         open={pendingDelete !== null}
         danger
         title={t("common.delete")}
-        message={`${t("dashboard.mem.confirm_delete_prefix")} ${pendingDelete?.key ?? ""}${t("dashboard.confirm_delete_suffix")}`}
+        message={t("dashboard.mem.confirm_delete", { key: pendingDelete?.key ?? "" })}
         confirmLabel={t("common.delete")}
         onConfirm={() => {
           // Close the dialog first (capturing the target): a confirm clicked
@@ -2789,7 +2809,7 @@ function MemoryContent({
         >
           {expanded
             ? t("dashboard.mem.collapse")
-            : `${t("dashboard.mem.expand")} (${content.length.toLocaleString()} ${t("dashboard.mem.chars")}, ${newlines + 1} ${t("dashboard.mem.lines")})`}
+            : `${t("dashboard.mem.expand")} (${fmtNumber(content.length)} ${t("dashboard.mem.chars")}, ${newlines + 1} ${plural(newlines + 1, "dashboard.mem.lines")})`}
         </button>
       )}
     </>
@@ -2824,7 +2844,7 @@ function formatMetricUsd(value: number): string {
   if (value < 0.01) return "<$0.01";
   // Below $100 keep cents; the prior `< 1` and `< 100` branches were identical.
   if (value < 100) return `$${value.toFixed(2)}`;
-  return `$${Math.round(value).toLocaleString()}`;
+  return `$${fmtNumber(Math.round(value))}`;
 }
 
 function DashboardMetrics({ agents }: { agents: AgentSummary[] }) {
@@ -2862,14 +2882,14 @@ function DashboardMetrics({ agents }: { agents: AgentSummary[] }) {
       />
       <StatCard
         label={t("dash.metric.sessions")}
-        value={totalSessions.toLocaleString()}
+        value={fmtNumber(totalSessions)}
         sublabel={t("dash.metric.sessions.sub")}
         icon={<MessageSquare className="h-5 w-5" />}
         tone="neutral"
       />
       <StatCard
         label={t("dash.metric.memories")}
-        value={totalMemories.toLocaleString()}
+        value={fmtNumber(totalMemories)}
         sublabel={t("dash.metric.memories.sub")}
         icon={<Brain className="h-5 w-5" />}
         tone="neutral"
@@ -3076,10 +3096,7 @@ function AgentsSection() {
               to="/agents"
               className="flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium border-t border-pc-border text-pc-text-muted transition-colors hover:bg-[var(--pc-hover)] hover:text-pc-text"
             >
-              {t("dash.view_all")} · {hiddenCount}{" "}
-              {hiddenCount === 1
-                ? t("dashboard.more_agent")
-                : t("dashboard.more_agents")}
+              {t("dash.view_all")} · {plural(hiddenCount, "dashboard.more_agents_count")}
               <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           )}

@@ -3,7 +3,7 @@ import { Check, ChevronDown, MessagesSquare, Pencil, Plus, Trash2, X } from 'luc
 import { useAgent } from '@/contexts/AgentContext';
 import { getSessions } from '@/lib/api';
 import { formatRelative } from '@/lib/format';
-import { t } from '@/lib/i18n';
+import { plural, t } from '@/lib/i18n';
 
 /**
  * One row of the picker. Deliberately not the API `Session` shape: the active
@@ -435,7 +435,7 @@ export function SessionPicker({ agentAlias }: { agentAlias: string }) {
                     {takenElsewhere
                       ? t('agent.session_open_elsewhere')
                       : row.persisted
-                        ? `${row.messageCount} ${t('agent.session_messages')} · ${formatRelative(row.lastActivity)}`
+                        ? `${row.messageCount} ${plural(row.messageCount, 'agent.session_messages_count')} · ${formatRelative(row.lastActivity)}`
                         : t('agent.session_unsaved')}
                   </span>
                 </button>

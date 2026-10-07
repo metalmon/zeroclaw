@@ -14,7 +14,7 @@ import { runDoctor } from '@/lib/api';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
 import ReloadDaemonButton from '@/components/sections/ReloadDaemonButton';
 import DoctorFixModal from '@/components/DoctorFixModal';
-import { t } from '@/lib/i18n';
+import { plural, t } from '@/lib/i18n';
 
 type Severity = DiagResult['severity'];
 
@@ -144,6 +144,23 @@ function SeverityFilterToggle({
   );
 }
 
+// Localized group header for a diagnostics category (config/daemon/…). The
+// header CSS uppercases it, so the catalog carries natural-case forms.
+// Unknown categories render verbatim.
+function doctorCategoryLabel(category: string): string {
+  const key = `doctor.category.${category}`;
+  const label = t(key);
+  return label === key ? category : label;
+}
+
+// Localized per-finding severity badge (ok/warn/error). Unknown values render
+// verbatim.
+function doctorSeverityLabel(severity: Severity): string {
+  const key = `doctor.badge.${severity}`;
+  const label = t(key);
+  return label === key ? severity : label;
+}
+
 function severityIcon(severity: Severity) {
   switch (severity) {
     case 'ok':
@@ -264,14 +281,14 @@ export default function Doctor() {
             <SeverityFilterToggle
               active={!hidden.has('warn')}
               count={warnCount}
-              label={warnCount !== 1 ? t('doctor.severity_warnings') : t('doctor.severity_warning')}
+              label={plural(warnCount, 'doctor.severity_warning')}
               icon={<AlertTriangle className="h-5 w-5 text-status-warning" />}
               onToggle={() => toggleSeverity('warn')}
             />
             <SeverityFilterToggle
               active={!hidden.has('error')}
               count={errorCount}
-              label={errorCount !== 1 ? t('doctor.severity_errors') : t('doctor.severity_error')}
+              label={plural(errorCount, 'doctor.severity_error')}
               icon={<XCircle className="h-5 w-5 text-status-error" />}
               onToggle={() => toggleSeverity('error')}
             />
@@ -301,7 +318,7 @@ export default function Doctor() {
             .map(([category, items]) => (
               <div key={category}>
                 <h3 className="text-sm font-semibold uppercase tracking-wider mb-3 capitalize text-pc-text-muted">
-                  {category}
+                  {doctorCategoryLabel(category)}
                 </h3>
                 <div className="space-y-2">
                   {items.map((result, idx) => {
@@ -339,7 +356,7 @@ export default function Doctor() {
                           </Link>
                         )}
                         <Badge tone={result.severity}>
-                          {result.severity}
+                          {doctorSeverityLabel(result.severity)}
                         </Badge>
                       </Card>
                     );

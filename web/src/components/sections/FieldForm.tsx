@@ -48,7 +48,7 @@ import ToolPermissionGrid, {
 import { profileLevelFromDraft, parseOptionalAllowedTools, parseDenyAllToolsDraft, serializeAllowedTools } from "@/components/ToolPermissionGrid.logic";
 import { Badge, Button, ComboBox, Select } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
-import { t } from "@/lib/i18n";
+import { fieldDesc, fieldLabel, plural, t, enumLabel, sectionLabel } from "@/lib/i18n";
 import {
   ApiError,
   descriptionForPath,
@@ -791,7 +791,12 @@ function AgentEmptyAliasFallback({
   fieldKind: keyof AgentOptionsResponse;
 }) {
   const path = AGENT_ALIAS_SOURCE_PATH[fieldKind];
-  const label = fieldKind.replace(/_/g, " ");
+  // Localized section label for the empty-state copy ("Нет каналов…",
+  // "Настроить каналы") — otherwise the raw section key ("channels") leaks
+  // into the Russian text. Only model_providers' section id differs from the
+  // field kind.
+  const sectionId = fieldKind === "model_providers" ? "providers.models" : fieldKind;
+  const label = sectionLabel(sectionId, fieldKind.replace(/_/g, " "));
   return (
     <div
       className="text-xs px-3 py-2 rounded border"
@@ -1142,7 +1147,7 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
 
       try {
         const resp = await patchConfig(ops);
-        setSavedAt(`${t("fieldform.saved_prefix")}${resp.results.length}${t("fieldform.saved_suffix")}`);
+        setSavedAt(plural(resp.results.length, "fieldform.saved_count"));
         if (scopeActionsToIncludedPaths && includePath) {
           configDraft.discardPaths(actionablePaths);
         } else {
@@ -1446,7 +1451,7 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
             type="text"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder={`${t("fieldform.filter_prefix")}${visibleEntries.length}${t("fieldform.filter_suffix")}`}
+            placeholder={plural(visibleEntries.length, "fieldform.filter_count")}
             className="input-electric w-full px-3 py-2 text-sm"
             aria-label={t("fieldform.filter_aria")}
           />
@@ -1509,7 +1514,7 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
                 onUndoTombstone={() => configDraft.unstageTombstone(f.path)}
                 error={fieldErrors[f.path]}
                 onDelete={showDelete ? () => handleDelete(f.path) : undefined}
-                description={descriptionForPath(schema, f.path)}
+                description={fieldDesc(f.path, descriptionForPath(schema, f.path))}
                 elementProps={
                   f.kind === "object-array"
                     ? objectArrayElementProps(schema, f.path)
@@ -1924,7 +1929,7 @@ function FieldRow({
             htmlFor={entry.path}
             title={`${entry.path}${entry.type_hint ? ` — ${entry.type_hint}` : ""}`}
           >
-            {humanizeFieldLabel(entry.path)}
+            {fieldLabel(entry.path, humanizeFieldLabel(entry.path))}
             {requirement && (
               <Badge
                 tone={requirementBadgeTone(requirement.tone)}
@@ -1996,7 +2001,7 @@ function FieldRow({
               { value: "", label: "—" },
               ...(entry.enum_variants ?? []).map((v) => ({
                 value: v,
-                label: v,
+                label: enumLabel(v),
               })),
             ]}
           />
@@ -2263,7 +2268,7 @@ function FieldRow({
           <button
             type="button"
             onClick={() => setShowComment(true)}
-            className="inline-flex items-center gap-1 text-xs text-pc-text-faint hover:text-pc-text-secondary transition-colors"
+            className="ml-3 inline-flex items-center gap-1 text-xs text-pc-text-faint hover:text-pc-text-secondary transition-colors"
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
             {t("cfg.field.commentAdd")}
@@ -2330,10 +2335,7 @@ function ArrayFieldEditor({
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
-          {rows.length}{" "}
-          {rows.length === 1
-            ? t("fieldform.entry")
-            : t("fieldform.entries")}
+          {plural(rows.length, "fieldform.entries_count")}
           {isOptional && rows.length === 0
             ? t("fieldform.saves_as_null")
             : null}
@@ -2443,7 +2445,7 @@ function ArrayFieldEditor({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="input-electric w-full px-3 py-2 text-sm font-mono resize-y"
-          placeholder='["value1", "value2"]'
+          placeholder={t('fieldform.array_value_placeholder')}
         />
       )}
     </div>
@@ -2537,8 +2539,7 @@ function ObjectArrayEditor({
     <div className="space-y-2" id={inputId}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
-          {rows.length}{" "}
-          {rows.length === 1 ? t("fieldform.entry") : t("fieldform.entries")}
+          {plural(rows.length, "fieldform.entries_count")}
         </span>
         <button
           type="button"
@@ -2777,8 +2778,7 @@ function KeyValueChipEditor({
     <div className="space-y-1.5 mt-1">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
-          {pairs.length}{" "}
-          {pairs.length === 1 ? t("fieldform.entry") : t("fieldform.entries")}
+          {plural(pairs.length, "fieldform.entries_count")}
         </span>
         <div
           className="inline-flex rounded-md overflow-hidden border text-xs"

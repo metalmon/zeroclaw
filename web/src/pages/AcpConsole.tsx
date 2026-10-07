@@ -27,7 +27,8 @@ import {
   type AcpSessionUpdateParams,
   type JsonRpcId,
 } from '@/lib/acp';
-import { t } from '@/lib/i18n';
+import { t, fmtTime } from '@/lib/i18n';
+import { formatServerError } from '@/lib/serverError';
 import { ThoughtChunkBuffer } from './acp-console/thought-stream';
 
 type ConsoleMessageKind = 'user' | 'assistant' | 'thought' | 'tool' | 'system';
@@ -53,7 +54,7 @@ const DEFAULT_PROMPT_KEY = 'acp.default_prompt';
 const MAX_DETAIL_CHARS = 8_000;
 
 function nowLabel(): string {
-  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return fmtTime(new Date(), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function messageId(): string {
@@ -179,7 +180,7 @@ export default function AcpConsole() {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : t('acp.error.load_agents'));
+        setError(formatServerError(err, t('acp.error.load_agents')));
       })
       .finally(() => {
         if (!cancelled) setAgentsLoading(false);
@@ -341,7 +342,7 @@ export default function AcpConsole() {
       pushEvent(`session/new complete: ${agentAlias ?? 'server default'}`);
     } catch (err) {
       if (isCurrentConnection(client, connectionSeq)) {
-        setError(err instanceof Error ? err.message : t('acp.error.init_failed'));
+        setError(formatServerError(err, t('acp.error.init_failed')));
       }
     } finally {
       if (isCurrentConnection(client, connectionSeq)) {
@@ -436,7 +437,7 @@ export default function AcpConsole() {
     && prompt.trim().length > 0;
   const agentLabel = useMemo(() => {
     const info = initResult?.agentInfo;
-    return info?.title ?? info?.name ?? 'ZeroClaw ACP';
+    return info?.title ?? info?.name ?? 'Volt Agent ACP';
   }, [initResult]);
 
   const sendPrompt = async () => {
@@ -480,7 +481,7 @@ export default function AcpConsole() {
     } catch (err) {
       if (isCurrentConnection(client, connectionSeq)) {
         flushThoughtStream();
-        setError(err instanceof Error ? err.message : t('acp.error.prompt_failed'));
+        setError(formatServerError(err, t('acp.error.prompt_failed')));
       }
     } finally {
       if (isCurrentConnection(client, connectionSeq)) {
