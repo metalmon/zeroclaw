@@ -13,8 +13,8 @@ export interface DoctorFixModalProps {
   /** Whether the modal is mounted/visible. */
   open: boolean;
   /** Dotted config entity prefix to edit, e.g. `providers.models.openai.ss`
-   *  or `channels.discord.gnosis`. FieldForm fetches and renders every field
-   *  under this prefix and owns its own Save. */
+   * or `channels.discord.gnosis`. FieldForm fetches and renders every field
+   * under this prefix and owns its own Save. */
   prefix: string;
   /** Human-friendly entity name shown in the header (e.g. `openai.ss`). */
   entity: string;
@@ -78,21 +78,21 @@ export default function DoctorFixModal({
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-10"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-pc-base/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
       <div
         ref={panelRef}
-        className="relative w-full max-w-2xl mx-4 rounded-[var(--radius-lg)] border border-pc-border bg-pc-base shadow-[var(--pc-shadow-md)] animate-fade-in"
+        className="relative w-full max-w-2xl mx-4 rounded-[var(--radius-lg)] border border-border bg-background shadow-[var(--color-shadow-md)] animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-6 pt-5 pb-4 border-b border-pc-border">
+        <div className="flex items-center justify-between gap-3 px-6 pt-5 pb-4 border-b border-border">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-pc-text-muted">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               {t('doctor_fix.title')}
             </p>
             <h2
               id={titleId}
-              className="text-sm font-semibold text-pc-text font-mono break-all"
+              className="text-sm font-semibold text-foreground font-mono break-all"
             >
               {entity}
             </h2>
@@ -102,7 +102,7 @@ export default function DoctorFixModal({
             type="button"
             onClick={onClose}
             aria-label={t('common.close')}
-            className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-pc-border bg-transparent text-pc-text-secondary transition-colors duration-150 hover:bg-[var(--pc-hover)] hover:text-pc-text hover:border-pc-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base"
+            className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none "
           >
             <X className="h-4 w-4" />
           </button>
@@ -114,10 +114,10 @@ export default function DoctorFixModal({
         </div>
 
         {/* Footer — escape hatch to the full config page + close. */}
-        <div className="flex items-center justify-between gap-2 px-6 py-4 border-t border-pc-border">
+        <div className="flex items-center justify-between gap-2 px-6 py-4 border-t border-border">
           <Link
             to={href}
-            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-pc-border bg-transparent px-3.5 text-sm font-medium text-pc-text-secondary transition-colors duration-150 hover:bg-[var(--pc-hover)] hover:text-pc-text hover:border-pc-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base"
+            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-border bg-transparent px-3.5 text-sm font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none "
           >
             {t('doctor_fix.open_full_page')}
             <ExternalLink className="h-3.5 w-3.5" />

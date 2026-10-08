@@ -9,7 +9,7 @@ export interface BadgeProps {
 }
 
 const tones: Record<BadgeTone, string> = {
-  neutral: 'bg-pc-elevated text-pc-text-secondary border-pc-border',
+  neutral: 'bg-secondary text-text-secondary border-border',
   ok: 'bg-status-success/10 text-status-success border-status-success/20',
   warn: 'bg-status-warning/10 text-status-warning border-status-warning/20',
   error: 'bg-status-error/10 text-status-error border-status-error/20',

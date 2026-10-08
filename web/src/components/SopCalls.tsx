@@ -13,10 +13,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Pin, Plus, Trash2 } from 'lucide-react';
 import { t } from '@/lib/i18n';
+import { localizeToolArgDesc } from '@/lib/toolDescriptionsRu';
+import { HelpTip } from '@/components/ui';
+import { Select } from '@/components/ui/Select';
 import type { PlannedToolCall, StepToolCall } from '@/lib/sops';
 import { loadCatalog, type CatalogEntry } from '@/components/ToolPicker';
 
-const INPUT_CLS = 'w-full rounded border border-pc-border bg-pc-surface px-2 py-1 text-pc-text';
+const INPUT_CLS = 'input-electric w-full px-2 py-1';
 
 /// Shared, cached load of the tool catalog (built-in agent tools + CLI tools).
 /// `loadCatalog` is process-cached, so every mounted editor resolves instantly
@@ -45,14 +48,19 @@ function stringify(value: unknown): string {
 
 /// JSON textarea that keeps invalid intermediate text local and only
 /// propagates parseable values. The parse error stays visible until fixed.
-function JsonField({
+/// A blank buffer propagates `undefined` (not a parse error) so optional
+/// JSON fields (capability `with`, step `schema.input`/`.output`) can be
+/// cleared back to "unset" by emptying the textarea.
+export function JsonField({
   label,
+  help,
   value,
   onChange,
   placeholder,
   rows = 3,
 }: {
   label: string;
+  help?: string | null;
   value: unknown;
   onChange: (next: unknown) => void;
   placeholder?: string;
@@ -60,10 +68,15 @@ function JsonField({
 }) {
   const [text, setText] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
-  const shown = text ?? stringify(value);
+  // An unset optional field (`undefined`/`null`) shows a BLANK textarea, not
+  // `"{}"` — otherwise "not configured" reads as "configured empty object".
+  // The empty↔undefined round-trip in onChange (blank → undefined) then holds.
+  const shown = text ?? (value == null ? '' : stringify(value));
   return (
     <label className="block text-xs">
-      <span className="mb-1 block text-pc-text-muted">{label}</span>
+      <span className="mb-1 block text-muted-foreground">
+        {help ? <HelpTip text={help}>{label}</HelpTip> : label}
+      </span>
       <textarea
         value={shown}
         rows={rows}
@@ -72,6 +85,11 @@ function JsonField({
         onChange={(e) => {
           const raw = e.target.value;
           setText(raw);
+          if (raw.trim() === '') {
+            onChange(undefined);
+            setParseError(null);
+            return;
+          }
           try {
             onChange(JSON.parse(raw));
             setParseError(null);
@@ -82,9 +100,13 @@ function JsonField({
         onBlur={() => {
           if (!parseError) setText(null);
         }}
-        className={`${INPUT_CLS} font-mono text-xs`}
+        className={`${INPUT_CLS} font-mono text-xs ${parseError ? 'border-status-error' : ''}`}
       />
-      {parseError ? <p className="mt-1 text-xs text-status-error">{parseError}</p> : null}
+      {parseError ? (
+        <p className="mt-1 text-xs text-status-error">
+          {t('sops.json_invalid')}: {parseError}
+        </p>
+      ) : null}
     </label>
   );
 }
@@ -101,20 +123,20 @@ function Accordion({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded border border-pc-border">
+    <div className="rounded border border-border">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-xs text-pc-text hover:bg-pc-elevated"
+        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-xs text-foreground hover:bg-secondary"
       >
         {open ? (
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-pc-text-muted" aria-hidden />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
         ) : (
-          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-pc-text-muted" aria-hidden />
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
         )}
         {header}
       </button>
-      {open ? <div className="space-y-2 border-t border-pc-border p-2">{children}</div> : null}
+      {open ? <div className="space-y-2 border-t border-border p-2">{children}</div> : null}
     </div>
   );
 }
@@ -139,7 +161,7 @@ function ToolSelect({
 
   return (
     <label className="block flex-1 text-xs">
-      <span className="mb-1 block text-pc-text-muted">{t('sops.call_tool')}</span>
+      <span className="mb-1 block text-muted-foreground">{t('sops.call_tool')}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -218,12 +240,14 @@ function isBinding(value: unknown): value is string {
 /// holding a `{{…}}` binding always renders as a text input so the binding is
 /// editable regardless of the declared type.
 function SchemaField({
+  tool,
   name,
   prop,
   required,
   value,
   onChange,
 }: {
+  tool: string;
   name: string;
   prop: SchemaProp;
   required: boolean;
@@ -231,12 +255,13 @@ function SchemaField({
   onChange: (next: unknown) => void;
 }) {
   const type = primaryType(prop);
+  const description = localizeToolArgDesc(tool, name, prop.description);
   const label = (
-    <span className="mb-1 block text-pc-text-muted">
+    <span className="mb-1 block text-muted-foreground">
       <span className="font-mono">{name}</span>
       {required ? <span className="text-status-error"> *</span> : null}
-      {prop.description ? (
-        <span className="ml-1 text-pc-text-faint">{prop.description}</span>
+      {description ? (
+        <span className="ml-1 text-text-faint">{description}</span>
       ) : null}
     </span>
   );
@@ -259,18 +284,16 @@ function SchemaField({
     return (
       <label className="block text-xs">
         {label}
-        <select
+        <Select
           value={value === undefined || value === null ? '' : String(value)}
-          onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
-          className={`${INPUT_CLS} font-mono text-xs`}
-        >
-          <option value="">{t('sops.arg_unset')}</option>
-          {prop.enum.map((opt) => (
-            <option key={String(opt)} value={String(opt)}>
-              {String(opt)}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => onChange(v === '' ? undefined : v)}
+          options={[
+            { value: '', label: t('sops.arg_unset') },
+            ...prop.enum.map((opt) => ({ value: String(opt), label: String(opt) })),
+          ]}
+          className="w-full"
+          triggerClassName="font-mono text-xs"
+        />
       </label>
     );
   }
@@ -342,10 +365,12 @@ function SchemaField({
 }
 
 function SchemaArgsEditor({
+  tool,
   parameters,
   args,
   onChange,
 }: {
+  tool: string;
   parameters: unknown;
   args: unknown;
   onChange: (next: unknown) => void;
@@ -379,18 +404,19 @@ function SchemaArgsEditor({
 
   const names = Object.keys(schema.properties);
   if (names.length === 0) {
-    return <div className="text-xs text-pc-text-faint">{t('sops.arg_none')}</div>;
+    return <div className="text-xs text-text-faint">{t('sops.arg_none')}</div>;
   }
 
   return (
     <div className="space-y-2">
-      <span className="block text-xs text-pc-text-muted">{t('sops.call_args')}</span>
+      <span className="block text-xs text-muted-foreground">{t('sops.call_args')}</span>
       {names.map((name) => {
         const prop = schema.properties[name];
         if (!prop) return null;
         return (
           <SchemaField
             key={name}
+            tool={tool}
             name={name}
             prop={prop}
             required={schema.required.includes(name)}
@@ -424,23 +450,23 @@ export function PlannedCallsEditor({
     onChange(calls.map((c, j) => (j === i ? { ...c, ...patch } : c)));
   };
   return (
-    <div className="rounded border border-pc-border p-2">
+    <div className="rounded border border-border p-2">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-xs font-medium text-pc-text">{t('sops.planned_calls')}</span>
+        <span className="text-xs font-medium text-foreground">{t('sops.planned_calls')}</span>
         <button
           type="button"
           onClick={() => {
             onChange([...calls, { tool: '', args: {} }]);
             setOpenIdx(calls.length);
           }}
-          className="rounded border border-pc-border px-2 py-0.5 text-xs text-pc-text hover:bg-pc-elevated"
+          className="rounded border border-border px-2 py-0.5 text-xs text-foreground hover:bg-secondary"
         >
           <Plus className="mr-1 inline h-3 w-3" aria-hidden />
           {t('sops.add_call')}
         </button>
       </div>
       {calls.length === 0 ? (
-        <div className="text-xs text-pc-text-faint">{t('sops.no_calls')}</div>
+        <div className="text-xs text-text-faint">{t('sops.no_calls')}</div>
       ) : (
         <div className="space-y-1">
           {calls.map((call, i) => {
@@ -453,14 +479,14 @@ export function PlannedCallsEditor({
                 onToggle={() => setOpenIdx((cur) => (cur === i ? null : i))}
                 header={
                   <>
-                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-pc-accent text-[10px] font-semibold text-[#0b1220]">
+                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-primary text-[10px] font-semibold text-primary-foreground">
                       {i}
                     </span>
                     <span className="min-w-0 flex-1 truncate font-mono">
                       {call.tool || t('sops.call_untitled')}
                     </span>
                     {call.pinned !== undefined && call.pinned !== null ? (
-                      <Pin className="h-3 w-3 shrink-0 text-pc-accent" aria-hidden />
+                      <Pin className="h-3 w-3 shrink-0 text-primary" aria-hidden />
                     ) : null}
                   </>
                 }
@@ -477,26 +503,27 @@ export function PlannedCallsEditor({
                       onChange(calls.filter((_, j) => j !== i));
                       setOpenIdx(null);
                     }}
-                    className="rounded px-1.5 py-1 text-status-error hover:bg-pc-elevated"
+                    className="rounded px-1.5 py-1 text-status-error hover:bg-secondary"
                     aria-label={t('sops.remove_call')}
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden />
                   </button>
                 </div>
                 <SchemaArgsEditor
+                  tool={call.tool}
                   parameters={schemaParams}
                   args={call.args}
                   onChange={(next) => setCall(i, { args: next })}
                 />
-                <p className="text-xs text-pc-text-faint">{t('sops.call_binding_hint')}</p>
+                <p className="text-xs text-text-faint">{t('sops.call_binding_hint')}</p>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-pc-text-muted">{t('sops.call_pinned')}</span>
+                  <span className="text-xs text-muted-foreground">{t('sops.call_pinned')}</span>
                   <div className="flex gap-2">
                     {sample?.output_data !== undefined && sample?.output_data !== null ? (
                       <button
                         type="button"
                         onClick={() => setCall(i, { pinned: sample.output_data })}
-                        className="rounded border border-pc-border px-2 py-0.5 text-xs text-pc-text hover:bg-pc-elevated"
+                        className="rounded border border-border px-2 py-0.5 text-xs text-foreground hover:bg-secondary"
                       >
                         <Pin className="mr-1 inline h-3 w-3" aria-hidden />
                         {t('sops.pin_from_run')}
@@ -506,7 +533,7 @@ export function PlannedCallsEditor({
                       <button
                         type="button"
                         onClick={() => setCall(i, { pinned: null })}
-                        className="rounded border border-pc-border px-2 py-0.5 text-xs text-pc-text-muted hover:bg-pc-elevated"
+                        className="rounded border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary"
                       >
                         {t('sops.unpin')}
                       </button>
@@ -542,7 +569,7 @@ export function CapturedCallList({ calls }: { calls: StepToolCall[] }) {
           onToggle={() => setOpenIdx((cur) => (cur === call.index ? null : call.index))}
           header={
             <>
-              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-pc-accent text-[10px] font-semibold text-[#0b1220]">
+              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-primary text-[10px] font-semibold text-primary-foreground">
                 {call.index}
               </span>
               <span className="min-w-0 flex-1 truncate font-mono">{call.tool}</span>
@@ -551,13 +578,13 @@ export function CapturedCallList({ calls }: { calls: StepToolCall[] }) {
               >
                 {call.success ? t('sops.call_ok') : t('sops.call_failed')}
               </span>
-              <span className="shrink-0 text-[10px] text-pc-text-faint">{call.duration_ms}ms</span>
+              <span className="shrink-0 text-[10px] text-text-faint">{call.duration_ms}ms</span>
             </>
           }
         >
           <div className="text-xs">
-            <span className="mb-1 block text-pc-text-muted">{t('sops.call_args')}</span>
-            <pre className="max-h-40 overflow-auto rounded bg-pc-bg-base p-2 font-mono text-xs text-pc-text">
+            <span className="mb-1 block text-muted-foreground">{t('sops.call_args')}</span>
+            <pre className="max-h-40 overflow-auto rounded bg-background p-2 font-mono text-xs text-foreground">
               {stringify(call.args)}
             </pre>
           </div>
@@ -565,15 +592,15 @@ export function CapturedCallList({ calls }: { calls: StepToolCall[] }) {
             <div className="text-xs text-status-error">{call.error}</div>
           ) : null}
           <div className="text-xs">
-            <span className="mb-1 block text-pc-text-muted">{t('sops.call_output')}</span>
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-pc-bg-base p-2 font-mono text-xs text-pc-text">
+            <span className="mb-1 block text-muted-foreground">{t('sops.call_output')}</span>
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background p-2 font-mono text-xs text-foreground">
               {call.output}
             </pre>
           </div>
           {call.output_data !== undefined && call.output_data !== null ? (
             <div className="text-xs">
-              <span className="mb-1 block text-pc-text-muted">{t('sops.call_output_data')}</span>
-              <pre className="max-h-40 overflow-auto rounded bg-pc-bg-base p-2 font-mono text-xs text-pc-text">
+              <span className="mb-1 block text-muted-foreground">{t('sops.call_output_data')}</span>
+              <pre className="max-h-40 overflow-auto rounded bg-background p-2 font-mono text-xs text-foreground">
                 {stringify(call.output_data)}
               </pre>
             </div>

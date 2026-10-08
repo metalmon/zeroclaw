@@ -7,8 +7,8 @@ export type { CardProps } from './Card';
 export { StatCard } from './StatCard';
 export type { StatCardProps, StatTone } from './StatCard';
 
-export { Button } from './Button';
-export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
+export { Button, buttonVariants } from './Button';
+export type { ButtonProps } from './Button';
 
 export { Badge } from './Badge';
 export type { BadgeProps, BadgeTone } from './Badge';
@@ -26,3 +26,7 @@ export { Select } from './Select';
 export type { SelectProps, SelectOption } from './Select';
 
 export { HelpTip } from './HelpTip';
+
+export { EmptyState } from './empty-state';
+
+export { Switch } from './switch';

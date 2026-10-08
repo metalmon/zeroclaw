@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   bindPrincipalProfile,
+  createAuthzPrincipal,
   createAuthzProfile,
+  deleteAuthzPrincipal,
   deleteAuthzProfile,
   getAuthzAgents,
+  getExternalSubjects,
   loadAuthzPrincipals,
   listAuthzProfiles,
   unbindPrincipalProfile,
@@ -12,11 +15,14 @@ import {
   type AuthzProfileBody,
   type AuthzPrincipalSummary,
   type DeleteAuthzProfileResponse,
+  type ExternalSubject,
 } from '@/lib/api';
 
 export interface UseRolesResult {
   profiles: AuthzProfile[];
   principals: AuthzPrincipalSummary[];
+  /** External (SSO) users; `null` when the gateway has no such route (404). */
+  external: ExternalSubject[] | null;
   /** Every configured agent alias, for the `allowed_agents` multiselect. */
   agents: string[];
   loading: boolean;
@@ -29,6 +35,9 @@ export interface UseRolesResult {
   deleteProfile: (id: string) => Promise<DeleteAuthzProfileResponse>;
   bindProfile: (principalId: string, profileId: string) => Promise<void>;
   unbindProfile: (principalId: string, profileId: string) => Promise<void>;
+  createPrincipal: (id: string, profiles: string[]) => Promise<void>;
+  /** `force` drops devices/tokens still bound to the principal (the 409 path). */
+  deletePrincipal: (id: string, force?: boolean) => Promise<void>;
 }
 
 /**
@@ -42,6 +51,7 @@ export interface UseRolesResult {
 export function useRoles(): UseRolesResult {
   const [profiles, setProfiles] = useState<AuthzProfile[]>([]);
   const [principals, setPrincipals] = useState<AuthzPrincipalSummary[]>([]);
+  const [external, setExternal] = useState<ExternalSubject[] | null>(null);
   const [agents, setAgents] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,13 +59,16 @@ export function useRoles(): UseRolesResult {
   const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [profilesResp, principalsList, agentsResp] = await Promise.all([
+      const [profilesResp, principalsList, agentsResp, externalList] = await Promise.all([
         listAuthzProfiles(),
         loadAuthzPrincipals(),
         getAuthzAgents(),
+        // Older gateways have no external-users route: that is a hidden group, not an error.
+        getExternalSubjects().catch(() => null),
       ]);
       setProfiles(profilesResp.profiles);
       setPrincipals(principalsList);
+      setExternal(externalList);
       setAgents(agentsResp.agents);
       setError(null);
     } catch (err) {
@@ -112,9 +125,26 @@ export function useRoles(): UseRolesResult {
     [fetchAll],
   );
 
+  const createPrincipal = useCallback(
+    async (id: string, profiles: string[]) => {
+      await createAuthzPrincipal({ id, profiles });
+      await fetchAll();
+    },
+    [fetchAll],
+  );
+
+  const deletePrincipal = useCallback(
+    async (id: string, force = false) => {
+      await deleteAuthzPrincipal(id, force);
+      await fetchAll();
+    },
+    [fetchAll],
+  );
+
   return {
     profiles,
     principals,
+    external,
     agents,
     loading,
     error,
@@ -124,5 +154,7 @@ export function useRoles(): UseRolesResult {
     deleteProfile,
     bindProfile,
     unbindProfile,
+    createPrincipal,
+    deletePrincipal,
   };
 }

@@ -1,6 +1,7 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import { Spinner } from '../components/ui/spinner';
 import {
   AcpConsole,
   AgentChat,
@@ -24,15 +25,23 @@ import {
   SopView,
   SopsList,
   Tools,
+  Users,
 } from './lazyPages';
 
+// Lazy route chunks usually resolve in a few ms, so a spinner shown
+// immediately just flickers on every section switch. Hold it back: render
+// nothing for the first 250ms and only surface the bolt if the load is
+// genuinely slow (a cold chunk, a throttled network).
 function RouteFallback() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setShow(true), 250);
+    return () => window.clearTimeout(id);
+  }, []);
+  if (!show) return null;
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
-      <div
-        className="h-8 w-8 border-2 rounded-full animate-spin"
-        style={{ borderColor: 'var(--pc-border)', borderTopColor: 'var(--pc-accent)' }}
-      />
+      <Spinner size={32} className="text-muted-foreground" />
     </div>
   );
 }
@@ -67,6 +76,7 @@ export const Router = () => (
         <Route path="/doctor" element={<Doctor />} />
         <Route path="/pairing" element={<Pairing />} />
         <Route path="/roles" element={<Roles />} />
+        <Route path="/users" element={<Users />} />
         <Route path="/canvas" element={<Canvas />} />
         <Route path="/acp-console" element={<AcpConsole />} />
         <Route path="/quickstart" element={<Quickstart />} />

@@ -22,6 +22,7 @@ const TITLE_KEYS: Record<string, string> = {
   doctor: 'nav.doctor',
   pairing: 'nav.pairing',
   roles: 'nav.roles',
+  users: 'nav.users',
   canvas: 'nav.canvas',
   'acp-console': 'nav.acp',
   quickstart: 'nav.quickstart',
@@ -56,13 +57,13 @@ export default function Layout() {
   }, [pathname]);
 
   return (
-    <div className="min-h-screen bg-pc-base text-pc-text">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Fixed slim icon rail (desktop) + drawer (mobile). */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main area — offset by the fixed 56px rail on desktop, full-width on
           mobile. The rail is always slim, so the offset is constant. */}
-      <div className="flex flex-col flex-1 min-w-0 h-screen md:ml-14 ml-0">
+      <div className="flex flex-col flex-1 min-w-0 h-screen md:ml-60 ml-0">
         <Header
           onMenuToggle={() => setSidebarOpen((v) => !v)}
           onOpenPalette={openPalette}
@@ -76,7 +77,7 @@ export default function Layout() {
             changes within a page (e.g. /config/providers → /config/browser).
             Keying on the full pathname remounted the entire route tree
             on every section click and reset scroll/state. */}
-        <main className="flex-1 overflow-y-auto min-h-0">
+        <main className="no-scrollbar flex-1 overflow-y-auto min-h-0">
           <ErrorBoundary key={pathname.split('/')[1] ?? ''}>
             <Outlet />
           </ErrorBoundary>

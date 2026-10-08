@@ -34,31 +34,31 @@ export default function ApprovalBanner({ pending, onRespond }: ApprovalBannerPro
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <p
                 id="approval-banner-title"
-                className="text-sm font-semibold text-pc-text"
+                className="text-sm font-semibold text-foreground"
               >
                 {t('agent.approval_title')}
               </p>
               <span
-                className="text-xs font-mono text-pc-text-muted"
+                className="text-xs font-mono text-muted-foreground"
                 aria-hidden="true"
               >
                 {t('agent.approval_timeout_in')}: {remainingSec}s
               </span>
             </div>
-            <p className="text-xs mt-1 text-pc-text-secondary">
-              <span className="text-pc-text-muted">{t('agent.approval_tool')}:</span>{' '}
+            <p className="text-xs mt-1 text-text-secondary">
+              <span className="text-muted-foreground">{t('agent.approval_tool')}:</span>{' '}
               <span className="font-mono">{pending.toolName}</span>
             </p>
             {pending.argumentsSummary && (
               <>
                 <p
-                  className="text-xs mt-1 text-pc-text-muted"
+                  className="text-xs mt-1 text-muted-foreground"
                   id="approval-banner-args-label"
                 >
                   {t('agent.approval_arguments')}:
                 </p>
                 <pre
-                  className="text-xs mt-1 whitespace-pre-wrap break-words leading-relaxed p-2 rounded-[var(--radius-md)] max-h-40 overflow-auto bg-pc-code text-pc-text-secondary border border-pc-border"
+                  className="text-xs mt-1 whitespace-pre-wrap break-words leading-relaxed p-2 rounded-[var(--radius-md)] max-h-40 overflow-auto bg-code text-text-secondary border border-border"
                   aria-labelledby="approval-banner-args-label"
                 >
                   {pending.argumentsSummary}
@@ -71,7 +71,7 @@ export default function ApprovalBanner({ pending, onRespond }: ApprovalBannerPro
         <div className="flex items-center gap-2 justify-end">
           <Button
             size="sm"
-            variant="danger"
+            variant="destructive"
             onClick={() => onRespond('deny')}
           >
             <X className="h-3.5 w-3.5" />
@@ -88,7 +88,7 @@ export default function ApprovalBanner({ pending, onRespond }: ApprovalBannerPro
           </Button>
           <Button
             size="sm"
-            variant="primary"
+            variant="default"
             onClick={() => onRespond('approve')}
           >
             <Check className="h-3.5 w-3.5" />

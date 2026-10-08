@@ -41,11 +41,11 @@ export const SkillCard = ({ skill, onExpand, isExpanded, skillDetail }: SkillCar
       <div className="flex items-center gap-2 min-w-0">
         <BookOpen
           className="h-4 w-4 shrink-0"
-          style={{ color: 'var(--pc-accent)' }}
+          style={{ color: 'var(--color-primary)' }}
         />
         <h3
           className="text-sm font-semibold truncate"
-          style={{ color: 'var(--pc-text-primary)' }}
+          style={{ color: 'var(--color-foreground)' }}
         >
           {skill.name}
         </h3>
@@ -54,12 +54,12 @@ export const SkillCard = ({ skill, onExpand, isExpanded, skillDetail }: SkillCar
         (isExpanded ? (
           <ChevronDown
             className="h-4 w-4 shrink-0"
-            style={{ color: 'var(--pc-accent)' }}
+            style={{ color: 'var(--color-primary)' }}
           />
         ) : (
           <ChevronRight
             className="h-4 w-4 shrink-0"
-            style={{ color: 'var(--pc-text-faint)' }}
+            style={{ color: 'var(--color-text-faint)' }}
           />
         ))}
     </div>
@@ -68,7 +68,7 @@ export const SkillCard = ({ skill, onExpand, isExpanded, skillDetail }: SkillCar
   const description = skill.description && (
     <p
       className="text-sm mt-2 line-clamp-2"
-      style={{ color: 'var(--pc-text-muted)' }}
+      style={{ color: 'var(--color-muted-foreground)' }}
     >
       {skill.description}
     </p>
@@ -85,7 +85,7 @@ export const SkillCard = ({ skill, onExpand, isExpanded, skillDetail }: SkillCar
           className="w-full text-left p-4 transition-all h-full flex flex-col"
           style={{ background: 'transparent' }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--pc-hover)';
+            e.currentTarget.style.background = 'var(--color-hover)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
@@ -104,11 +104,11 @@ export const SkillCard = ({ skill, onExpand, isExpanded, skillDetail }: SkillCar
       {/* Origin / meta row */}
       <div
         className="flex items-center gap-2 px-4 py-3 border-t"
-        style={{ borderColor: 'var(--pc-border)' }}
+        style={{ borderColor: 'var(--color-border)' }}
       >
         <span
           className="text-[10px] font-mono truncate"
-          style={{ color: 'var(--pc-text-faint)' }}
+          style={{ color: 'var(--color-text-faint)' }}
         >
           {originLabel(skill)}
         </span>
@@ -127,7 +127,7 @@ export const SkillCard = ({ skill, onExpand, isExpanded, skillDetail }: SkillCar
           <Link
             to={editHref}
             className="inline-flex items-center gap-1 text-[10px] font-semibold ml-auto"
-            style={{ color: 'var(--pc-accent)' }}
+            style={{ color: 'var(--color-primary)' }}
             aria-label={`${t('common.edit')} ${skill.name}`}
             onClick={(e) => e.stopPropagation()}
           >
@@ -141,16 +141,16 @@ export const SkillCard = ({ skill, onExpand, isExpanded, skillDetail }: SkillCar
       {canExpand && isExpanded && (
         <div
           className="border-t p-4 space-y-3 animate-fade-in"
-          style={{ borderColor: 'var(--pc-border)' }}
+          style={{ borderColor: 'var(--color-border)' }}
         >
           {skillDetail?.frontmatter.version && (
-            <div className="flex gap-2 text-xs" style={{ color: 'var(--pc-text-muted)' }}>
-              <span className="font-semibold" style={{ color: 'var(--pc-text-secondary)' }}>v</span>
+            <div className="flex gap-2 text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+              <span className="font-semibold" style={{ color: 'var(--color-text-secondary)' }}>v</span>
               {skillDetail.frontmatter.version}
             </div>
           )}
           {skillDetail?.frontmatter.author && (
-            <div className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
+            <div className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
               {skillDetail.frontmatter.author}
             </div>
           )}
@@ -158,13 +158,13 @@ export const SkillCard = ({ skill, onExpand, isExpanded, skillDetail }: SkillCar
             <div>
               <p
                 className="text-[10px] font-semibold uppercase tracking-wider mb-2"
-                style={{ color: 'var(--pc-text-muted)' }}
+                style={{ color: 'var(--color-muted-foreground)' }}
               >
                 {t('skills.skill_md')}
               </p>
               <pre
                 className="text-xs rounded-xl p-3 overflow-x-auto max-h-64 overflow-y-auto font-mono whitespace-pre-wrap"
-                style={{ background: 'var(--pc-bg-base)', color: 'var(--pc-text-secondary)' }}
+                style={{ background: 'var(--color-background)', color: 'var(--color-text-secondary)' }}
               >
                 {skillDetail.body}
               </pre>

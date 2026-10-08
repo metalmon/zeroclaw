@@ -176,10 +176,10 @@ function resolveThemeScheme(mode: ThemeMode): 'dark' | 'light' {
 
 function fontVars(uiFont: UiFont, monoFont: MonoFont, uiFontSize: number, monoFontSize: number) {
   return {
-    '--pc-font-ui': uiFontStacks[uiFont],
-    '--pc-font-mono': monoFontStacks[monoFont],
-    '--pc-font-size': `${uiFontSize}px`,
-    '--pc-font-size-mono': `${monoFontSize}px`,
+    '--font-sans': uiFontStacks[uiFont],
+    '--font-mono': monoFontStacks[monoFont],
+    '--font-size': `${uiFontSize}px`,
+    '--font-size-mono': `${monoFontSize}px`,
   };
 }
 

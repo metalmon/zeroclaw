@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, FolderOpen, ChevronRight, RefreshCw, FolderPlus, Trash2 } from 'lucide-react';
 import { Button, ConfirmDialog } from '@/components/ui';
+import { Spinner } from '@/components/ui/spinner';
 import { t } from '@/lib/i18n';
 import {
   ApiError,
@@ -172,13 +173,13 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
     <div
       ref={panelRef}
       tabIndex={-1}
-      className="rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface shadow-[var(--pc-shadow-md)] overflow-hidden focus:outline-none"
+      className="rounded-[var(--radius-lg)] border border-border bg-card shadow-[var(--color-shadow-md)] overflow-hidden focus:outline-none"
       role="dialog"
       aria-label={t('dir_picker.aria_label')}
     >
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-pc-border text-xs text-pc-text-secondary">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border text-xs text-text-secondary">
         <FolderOpen className="h-3.5 w-3.5 flex-shrink-0" />
-        <code className="flex-1 min-w-0 truncate text-pc-text">
+        <code className="flex-1 min-w-0 truncate text-foreground">
           shared/{cwd}
         </code>
         <button
@@ -186,7 +187,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
           onClick={() => setCreating((v) => !v)}
           title={t('dir_picker.new_folder_here')}
           aria-label={t('dir_picker.new_folder_here')}
-          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-pc-text-muted transition-colors hover:bg-[var(--pc-hover)] hover:text-pc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-surface"
+          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none "
         >
           <FolderPlus className="h-3.5 w-3.5" />
         </button>
@@ -195,14 +196,14 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
           onClick={reload}
           title={t('common.refresh')}
           aria-label={t('common.refresh')}
-          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-pc-text-muted transition-colors hover:bg-[var(--pc-hover)] hover:text-pc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-surface"
+          className="h-6 w-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none "
         >
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {creating && (
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-pc-border">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
           <input
             type="text"
             value={newDirName}
@@ -220,7 +221,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
           />
           <Button
             size="sm"
-            variant="primary"
+            variant="default"
             onClick={() => void handleCreate()}
             disabled={!newDirName.trim()}
           >
@@ -239,13 +240,13 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
         </div>
       )}
 
-      <ul className="max-h-72 overflow-y-auto divide-y divide-pc-border">
+      <ul className="max-h-72 overflow-y-auto divide-y divide-border">
         {parent !== null && (
           <li>
             <button
               type="button"
               onClick={() => setCwd(parent)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-pc-text-secondary transition-colors hover:bg-[var(--pc-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--pc-focus)]"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-text-secondary transition-colors hover:bg-[var(--color-hover)] focus-visible:outline-none "
             >
               <ArrowUp className="h-3.5 w-3.5 flex-shrink-0" />
               {t('dir_picker.up_one_level')}
@@ -254,17 +255,14 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
         )}
         {loading ? (
           <li className="px-3 py-6 flex items-center justify-center">
-            <div
-              className="h-5 w-5 border-2 rounded-full animate-spin"
-              style={{ borderColor: 'var(--pc-border)', borderTopColor: 'var(--pc-accent)' }}
-            />
+            <Spinner size={20} />
           </li>
         ) : error ? (
           <li className="px-3 py-3 text-xs text-status-error">
             {error}
           </li>
         ) : entries.length === 0 ? (
-          <li className="px-3 py-3 text-xs italic text-pc-text-faint">
+          <li className="px-3 py-3 text-xs italic text-text-faint">
             {t('dir_picker.empty')}
           </li>
         ) : (
@@ -275,11 +273,11 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
                   <button
                     type="button"
                     onClick={() => enterDir(entry.name)}
-                    className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left text-pc-text transition-colors hover:bg-[var(--pc-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--pc-focus)]"
+                    className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left text-foreground transition-colors hover:bg-[var(--color-hover)] focus-visible:outline-none "
                   >
-                    <FolderOpen className="h-3.5 w-3.5 flex-shrink-0 text-pc-accent" />
+                    <FolderOpen className="h-3.5 w-3.5 flex-shrink-0 text-primary" />
                     <span className="flex-1 min-w-0 truncate">{entry.name}</span>
-                    <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-pc-text-muted" />
+                    <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                   </button>
                   <button
                     type="button"
@@ -287,17 +285,17 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
                     disabled={busyDir === entry.name}
                     title={`${t('dir_picker.delete_prefix')}shared/${cwd ? `${cwd}/` : ''}${entry.name}`}
                     aria-label={`${t('dir_picker.delete_prefix')}shared/${cwd ? `${cwd}/` : ''}${entry.name}`}
-                    className="px-2 text-status-error opacity-60 transition-colors hover:opacity-100 hover:bg-status-error/10 disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--pc-focus)]"
+                    className="px-2 text-status-error opacity-60 transition-colors hover:opacity-100 hover:bg-status-error/10 disabled:opacity-30 focus-visible:outline-none "
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 px-3 py-2 text-sm text-pc-text-muted">
+                <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
                   <span className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="flex-1 min-w-0 truncate">{entry.name}</span>
                   {typeof entry.size === 'number' && (
-                    <span className="text-xs text-pc-text-faint">
+                    <span className="text-xs text-text-faint">
                       {formatBytes(entry.size)}
                     </span>
                   )}
@@ -308,8 +306,8 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
         )}
       </ul>
 
-      <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-pc-border">
-        <span className="text-xs text-pc-text-faint">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-border">
+        <span className="text-xs text-text-faint">
           {t('dir_picker.relative_hint_prefix')}<code>shared/</code>{t('dir_picker.relative_hint_suffix')}
         </span>
         <div className="flex items-center gap-2">
@@ -318,7 +316,7 @@ export default function DirectoryPicker({ value, onSelect, onClose }: DirectoryP
           </Button>
           <Button
             size="sm"
-            variant="primary"
+            variant="default"
             onClick={() => onSelect(cwd ? `shared/${cwd}` : 'shared')}
             title={t('dir_picker.use_this_title')}
           >

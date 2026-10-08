@@ -6,7 +6,8 @@ import { basePath } from '@/lib/basePath';
 import { getToken } from '@/lib/auth';
 import { formatRelative } from '@/lib/format';
 import { plural, t } from '@/lib/i18n';
-import { Badge, Card, PageHeader } from '@/components/ui';
+import { Badge, Card, EmptyState, PageHeader } from '@/components/ui';
+import { Spinner } from '@/components/ui/spinner';
 import { confirmsCancellation, runsStreamEffect } from './runs.logic';
 
 type RunsFrame =
@@ -150,46 +151,46 @@ export default function Runs() {
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4 px-6 py-6">
       <PageHeader
         title={t('runs.title')}
         description={t('runs.subtitle')}
         actions={
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5 text-xs text-pc-text-secondary">
+            <label className="flex items-center gap-1.5 text-xs text-text-secondary">
               <input
                 type="checkbox"
                 checked={activeOnly}
                 onChange={(e) => setActiveOnly(e.target.checked)}
-                className="accent-pc-accent"
+                className="accent-primary"
               />
               {t('runs.active_only')}
             </label>
-            <span className="inline-flex items-center gap-1 text-xs text-pc-text-muted">
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <Activity
-                className={`h-3.5 w-3.5 ${connected ? 'text-status-success' : 'text-pc-text-muted'}`}
+                className={`h-3.5 w-3.5 ${connected ? 'text-status-success' : 'text-muted-foreground'}`}
                 aria-hidden
               />
               {t('runs.live')}
             </span>
-            <span className="text-xs text-pc-text-muted">{count(shown.length)}</span>
+            <span className="text-xs text-muted-foreground">{count(shown.length)}</span>
           </div>
         }
       />
 
       {disabled ? (
-        <Card className="p-8 text-center text-sm text-pc-text-muted">{t('runs.disabled')}</Card>
+        <Card className="p-8 text-center text-sm text-muted-foreground">{t('runs.disabled')}</Card>
       ) : !ready ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin text-pc-text-muted" aria-hidden />
+          <Spinner size={22} />
         </div>
       ) : shown.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-pc-text-muted">{t('runs.empty')}</Card>
+        <EmptyState icon={<Activity className="h-6 w-6" />} title={t('runs.empty')} />
       ) : (
         <Card className="overflow-hidden p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-pc-border text-left text-xs uppercase tracking-wide text-pc-text-muted">
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-2.5 font-medium">{t('runs.col_sop')}</th>
                 <th className="px-4 py-2.5 font-medium">{t('runs.col_status')}</th>
                 <th className="px-4 py-2.5 font-medium">{t('runs.col_progress')}</th>
@@ -199,22 +200,22 @@ export default function Runs() {
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-pc-border">
+            <tbody className="divide-y divide-border">
               {shown.map((r) => (
-                <tr key={r.run_id} className="hover:bg-pc-elevated/50">
-                  <td className="px-4 py-2.5 font-medium text-pc-text">{r.sop_name}</td>
+                <tr key={r.run_id} className="hover:bg-secondary/50">
+                  <td className="px-4 py-2.5 font-medium text-foreground">{r.sop_name}</td>
                   <td className="px-4 py-2.5">
                     <Badge tone={runStatusBadge(r.status)}>
                       {t(`sops.run_status.${r.status}`)}
                     </Badge>
                   </td>
-                  <td className="px-4 py-2.5 tabular-nums text-pc-text-secondary">
+                  <td className="px-4 py-2.5 tabular-nums text-text-secondary">
                     {r.current_step}/{r.total_steps}
                   </td>
-                  <td className="px-4 py-2.5 text-pc-text-secondary">{r.trigger_source}</td>
-                  <td className="px-4 py-2.5 text-pc-text-muted">{formatRelative(r.started_at)}</td>
+                  <td className="px-4 py-2.5 text-text-secondary">{r.trigger_source}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{formatRelative(r.started_at)}</td>
                   <td
-                    className="px-4 py-2.5 font-mono text-xs text-pc-text-muted"
+                    className="px-4 py-2.5 font-mono text-xs text-muted-foreground"
                     title={r.run_id}
                   >
                     {r.run_id.slice(0, 8)}
@@ -242,7 +243,7 @@ export default function Runs() {
                       ) : null}
                       <Link
                         to={`/runs/${encodeURIComponent(r.sop_name)}/${encodeURIComponent(r.run_id)}`}
-                        className="inline-flex items-center gap-1 text-xs text-pc-accent hover:underline"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                       >
                         {t('runs.open')}
                         <ExternalLink className="h-3 w-3" aria-hidden />

@@ -36,12 +36,12 @@ function RowFact({
 }) {
   return (
     <span
-      className="flex items-center gap-1 text-xs text-pc-text-secondary tabular-nums"
+      className="flex items-center gap-1 text-xs text-text-secondary tabular-nums"
       title={title}
     >
-      <Icon className="h-3.5 w-3.5 flex-shrink-0 text-pc-text-faint" />
-      <span className="font-medium text-pc-text">{value}</span>
-      <span className="hidden lg:inline text-pc-text-muted">{label}</span>
+      <Icon className="h-3.5 w-3.5 flex-shrink-0 text-text-faint" />
+      <span className="font-medium text-foreground">{value}</span>
+      <span className="hidden lg:inline text-muted-foreground">{label}</span>
     </span>
   );
 }
@@ -70,26 +70,26 @@ export default function AgentCard({ agent, onSelect, selected = false }: AgentCa
       aria-label={`${t('agentcard.open_detail_prefix')} ${agent.alias} ${t('agentcard.open_detail_suffix')}`}
       className={[
         'group w-full flex items-center gap-3 px-4 py-3 text-left',
-        'border-b border-pc-border last:border-b-0',
+        'border-b border-border last:border-b-0',
         'transition-colors duration-150 cursor-pointer',
-        'hover:bg-[var(--pc-hover)]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--pc-focus)]',
-        selected ? 'bg-pc-elevated' : '',
+        'hover:bg-[var(--color-hover)]',
+        'focus-visible:outline-none ',
+        selected ? 'bg-secondary' : '',
       ]
         .filter(Boolean)
         .join(' ')}
     >
       {/* Identity */}
-      <div className="h-8 w-8 rounded-[var(--radius-md)] flex-shrink-0 flex items-center justify-center bg-pc-accent/10">
-        <Bot className="h-4 w-4 text-pc-accent" />
+      <div className="h-8 w-8 rounded-[var(--radius-md)] flex-shrink-0 flex items-center justify-center bg-primary/10">
+        <Bot className="h-4 w-4 text-primary" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm font-semibold truncate text-pc-text">
+          <span className="text-sm font-semibold truncate text-foreground">
             {agent.displayName || agent.alias}
           </span>
           {agent.displayName ? (
-            <span className="text-xs font-mono text-pc-text-muted truncate flex-shrink-0">
+            <span className="text-xs font-mono text-muted-foreground truncate flex-shrink-0">
               {agent.alias}
             </span>
           ) : null}
@@ -98,7 +98,7 @@ export default function AgentCard({ agent, onSelect, selected = false }: AgentCa
             {agent.enabled ? t('agent.enabled') : t('agent.disabled')}
           </Badge>
         </div>
-        <span className="block text-xs truncate font-mono text-pc-text-muted">
+        <span className="block text-xs truncate font-mono text-muted-foreground">
           {agent.modelProvider || t('agent.no_model_provider')}
         </span>
       </div>
@@ -150,13 +150,13 @@ export default function AgentCard({ agent, onSelect, selected = false }: AgentCa
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') openChat(e);
         }}
-        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-[var(--radius-md)] flex-shrink-0 text-xs font-medium cursor-pointer bg-pc-accent/10 text-pc-accent hover:bg-pc-accent/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]"
+        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-[var(--radius-md)] flex-shrink-0 text-xs font-medium cursor-pointer bg-primary/10 text-primary hover:bg-primary/20 transition-colors focus-visible:outline-none "
       >
         <MessageSquare className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">{t('agent.open_chat')}</span>
       </span>
 
-      <ChevronRight className="h-4 w-4 flex-shrink-0 text-pc-text-faint transition-colors group-hover:text-pc-text-muted" />
+      <ChevronRight className="h-4 w-4 flex-shrink-0 text-text-faint transition-colors group-hover:text-muted-foreground" />
     </button>
   );
 }
