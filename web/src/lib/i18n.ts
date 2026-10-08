@@ -2223,7 +2223,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'users.external_heading': 'External (SSO)',
     'users.new_local': 'New user',
     'users.new_local_title': 'New user',
-    'users.no_local': 'No users yet. Users come from Keycloak (by group) or are created here by hand for pairing-code login.',
+    'users.no_local': 'No users yet. Users come from the login provider (by group) or are created here by hand for pairing-code login.',
     'users.no_external': 'No SSO users have signed in yet.',
     'users.external_hint': 'Permissions of external users are set by the identity provider groups; they cannot be changed here.',
     'users.idp_warning': 'A local user signs in with a pairing code. Identity-provider (SSO) users are created automatically by group; there is no need to add them here.',
