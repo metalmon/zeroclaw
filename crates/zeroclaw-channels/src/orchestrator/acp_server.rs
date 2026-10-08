@@ -2236,6 +2236,25 @@ impl AcpServer {
         let turn_handle = zeroclaw_spawn::spawn!(async move {
             let mut session = session_arc.lock().await;
             let (turn_alias, turn_provider, turn_model) = session.agent.attribution_fields();
+            // Ход канваса выполняет инструмент и не обращается к модели, но
+            // наверх уходит тем же типом, что и обычный ход: вызывающая сторона
+            // одна, и разбирать два разных исхода ей незачем.
+            let (canvas_provider, canvas_model) = (turn_provider.clone(), turn_model.clone());
+            let canvas_success = move |response: String| {
+                zeroclaw_runtime::agent::agent::StreamedTurnSuccess {
+                    response,
+                    new_messages: Vec::new(),
+                    provider_name: canvas_provider.clone(),
+                    model: canvas_model.clone(),
+                    final_context_limits: None,
+                    safeguard_fallback: None,
+                }
+            };
+            let canvas_failure = |error: anyhow::Error| zeroclaw_runtime::agent::agent::StreamedTurnError {
+                error,
+                committed_response: String::new(),
+                new_messages: Vec::new(),
+            };
             let history_trim_generation_before_turn = session.agent.history_trim_generation();
             // Stamp the resolved per-turn alias so `/api/cost?agent=<alias>`
             // attributes this spend.
@@ -2297,8 +2316,9 @@ impl AcpServer {
                                                     .as_ref()
                                                     .map(|o| o.output.clone())
                                                     .unwrap_or_default();
-                                                (text, Vec::new())
+                                                canvas_success(text)
                                             })
+                                            .map_err(canvas_failure)
                                     } else {
                                         // §3c combined: gated tool first, abort on
                                         // denial/failure, then a model turn. The
@@ -2322,6 +2342,8 @@ impl AcpServer {
                                                 Some(cancel_token),
                                             )
                                             .await
+                                            .map(|(text, _)| canvas_success(text))
+                                            .map_err(canvas_failure)
                                     }
                                 }
                                 None => {
