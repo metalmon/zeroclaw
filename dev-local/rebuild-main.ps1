@@ -61,6 +61,7 @@ $Branches = @(
     "feat/mcp-tasks-host",                     # local-only (no PR yet): MCP tasks-extension host — supervisor polls task-augmented tool calls (kutsu place_call) and injects the result reactively into the originating session
     "fix/mcp-scope-connection-pool",           # local-only (no PR yet): stacked on feat/mcp-tasks-host — daemon-owned per-scope MCP connection pool shared by all sessions + the task poller (one process per scope; fixes kutsu double-spawn)
     "feat/acp-ui-resource-artifacts",          # local-only (no PR): ACP ui:// UI-resource artifacts — canvas render emits a ui:// text resource on tool_call_update (+ content_file input, + store:false session isolation); paired with the Thunderbolt client. Off pristine master, applies clean.
+    "feat/acp-canvas-action-channel",          # local-only (no PR): canvas control action over ACP — `_meta.toolCall` dispatches a gated tool-only turn, `_meta.ui.prompt` a combined tool+model turn; without it the daemon rejects a canvas action as a prompt with no text part. Stacks on feat/acp-ui-resource-artifacts.
     # ── Enterprise authz re-host on upstream #8289 (2026-10-04). A STACK: each
     # branch is based on the previous one (script cherry-picks only the delta).
     # Order matters; keep contiguous. Source of truth for the design:
