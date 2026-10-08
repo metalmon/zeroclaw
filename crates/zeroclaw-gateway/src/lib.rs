@@ -944,6 +944,11 @@ fn config_admin_router(inbound_auth: &Arc<principal_gate::GatewayInboundAuth>) -
 // One parameter per daemon-owned dependency; a bundling struct would only
 // move the list. Matches the existing allowance on the runtime spawn paths.
 #[allow(clippy::too_many_arguments)]
+/// How long a shutting-down gateway waits for live connections before it drops
+/// them and releases the port. Short on purpose: a reload is the common case,
+/// and a client reconnects on its own.
+const GATEWAY_SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
+
 pub async fn run_gateway(
     host: &str,
     port: u16,
@@ -2547,7 +2552,17 @@ pub async fn run_gateway_with_plugin_webhooks(
         }
     } else {
         // Plain TCP — use axum's built-in serve.
-        axum::serve(
+        //
+        // Graceful shutdown waits for every live connection to finish, and an
+        // ACP WebSocket does not finish while the operator keeps the client
+        // open. The listener then holds the port for as long as that client is
+        // connected, and the next daemon generation cannot bind it - a reload
+        // that looks like "the gateway is down" for good. So the wait is
+        // bounded: after the grace window the server future is dropped, which
+        // closes the listener and the connections with it. The client
+        // reconnects; the alternative is a daemon that never serves again.
+        let mut grace_rx = shutdown_rx.clone();
+        let server = axum::serve(
             listener,
             app.into_make_service_with_connect_info::<SocketAddr>(),
         )
@@ -2558,8 +2573,24 @@ pub async fn run_gateway_with_plugin_webhooks(
                 ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
                 "ZeroClaw Gateway shutting down"
             );
-        })
-        .await?;
+        });
+        tokio::pin!(server);
+        tokio::select! {
+            result = &mut server => result?,
+            () = async move {
+                let _ = grace_rx.changed().await;
+                tokio::time::sleep(GATEWAY_SHUTDOWN_GRACE).await;
+            } => {
+                ::zeroclaw_log::record!(
+                    WARN,
+                    ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Timeout)
+                        .with_attrs(::serde_json::json!({
+                            "grace_seconds": GATEWAY_SHUTDOWN_GRACE.as_secs(),
+                        })),
+                    "gateway shutdown grace expired with connections still open; releasing the port"
+                );
+            }
+        }
     }
 
     if let Some(task) = mdns_task {
