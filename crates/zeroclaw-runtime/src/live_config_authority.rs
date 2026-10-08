@@ -583,13 +583,6 @@ struct AliasLifecycleState {
 }
 
 impl AliasLifecycleState {
-    fn is_idle(&self) -> bool {
-        self.reservations == 0
-            && self.live_sessions == 0
-            && self.active_turns == 0
-            && !self.deleting
-    }
-
     /// What a closing generation actually has to wait for: work in flight.
     ///
     /// A live session is an open client attachment, not work: the operator
