@@ -6904,7 +6904,7 @@ mod tests {
 
     /// Clear a WaitingApproval gate through the production out-of-band chokepoint
     /// (a CLI principal), returning the resumed action. Mirrors what a real
-    /// `zeroclaw sop approve` does, replacing the old `approve_step` agent path.
+    /// `voltd sop approve` does, replacing the old `approve_step` agent path.
     fn approve_gate_cli(engine: &mut SopEngine, run_id: &str) -> SopRunAction {
         match engine
             .resolve_gate(

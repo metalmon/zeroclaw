@@ -37,7 +37,7 @@ fn mt_args(key: &str, args: &[(&str, &str)], fallback: &str) -> String {
     }
 }
 
-/// Handle `zeroclaw memory <subcommand>` CLI commands.
+/// Handle `voltd memory <subcommand>` CLI commands.
 pub async fn handle_command(command: crate::MemoryCommands, config: &Config) -> Result<()> {
     match command {
         crate::MemoryCommands::List {

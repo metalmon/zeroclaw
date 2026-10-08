@@ -473,7 +473,7 @@ impl V2Config {
 /// `[gateway]` rides through the V2→V3 step inside `passthrough`, so without
 /// this the migrated document keeps the retired `pairing_dashboard.code_length`
 /// — a key nothing reads — and never surfaces the policy that actually decides
-/// pairing-code strength. `zeroclaw config generate 3` emits that document
+/// pairing-code strength. `voltd config generate 3` emits that document
 /// verbatim, so a generated starting config would advertise the wrong setting.
 ///
 /// An operator who already hand-wrote `[gateway.pairing_code]` keeps it: the

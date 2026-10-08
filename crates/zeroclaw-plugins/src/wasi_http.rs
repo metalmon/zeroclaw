@@ -142,7 +142,7 @@ fn egress_grant_remedy(
     let field = format!("plugins.entries.{key}.egress_hosts");
     Some(match existing {
         Some(existing) => format!(
-            "grant reach with: zeroclaw config set {field} {}",
+            "grant reach with: voltd config set {field} {}",
             list_with(existing, host)
         ),
         None => format!(
@@ -165,7 +165,7 @@ fn egress_private_remedy(
     let preface = "the host is granted but resolves to a private, loopback or link-local address;";
     Some(match existing {
         Some(existing) => format!(
-            "{preface} allow that address class for it with: zeroclaw config set {field} {}",
+            "{preface} allow that address class for it with: voltd config set {field} {}",
             list_with(existing, host)
         ),
         None => format!(
@@ -1232,7 +1232,7 @@ mod tests {
         let remedy = egress_grant_remedy(id, "new.example.com", Some(&existing))
             .expect("a missing grant has a fix");
         let expected = format!(
-            "grant reach with: zeroclaw config set plugins.entries.{key}.egress_hosts '[\"docs.example.com\",\"new.example.com\"]'"
+            "grant reach with: voltd config set plugins.entries.{key}.egress_hosts '[\"docs.example.com\",\"new.example.com\"]'"
         );
         assert_eq!(remedy, expected, "{remedy}");
     }
@@ -1259,7 +1259,7 @@ mod tests {
         let remedy = egress_grant_remedy(id, "new.example.com", Some(&existing))
             .expect("a missing grant has a fix");
         let expected = format!(
-            "grant reach with: zeroclaw config set plugins.entries.{key}.egress_hosts '[\"o'\\''brien.example\",\"new.example.com\"]'"
+            "grant reach with: voltd config set plugins.entries.{key}.egress_hosts '[\"o'\\''brien.example\",\"new.example.com\"]'"
         );
         assert_eq!(remedy, expected, "{remedy}");
     }
@@ -1576,7 +1576,7 @@ mod tests {
         ));
         for (host, error) in [("new.example.com", not_granted), ("127.0.0.1", private)] {
             let remedy = egress_remedy(id, host, &error, None).expect("still has a fix");
-            assert!(!remedy.contains("zeroclaw config set"), "{remedy}");
+            assert!(!remedy.contains("voltd config set"), "{remedy}");
             assert!(
                 remedy.contains("alongside its existing entries"),
                 "{remedy}"

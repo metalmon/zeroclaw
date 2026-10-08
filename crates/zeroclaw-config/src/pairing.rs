@@ -112,7 +112,7 @@ pub enum PairingCodePolicyError {
 
 /// The one pairing-code generation policy.
 ///
-/// Every code the gateway issues — the startup code, `zeroclaw gateway
+/// Every code the gateway issues — the startup code, `voltd gateway
 /// get-paircode --new`, `POST /api/pairing/initiate`, and the rotate-device
 /// flow — comes from this policy via [`PairingGuard`]. There is no second
 /// pairing-code setting anywhere in the schema.

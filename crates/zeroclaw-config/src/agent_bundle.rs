@@ -258,9 +258,7 @@ pub struct ExportPlan {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ExportError {
-    #[error(
-        "agent '{0}' is not configured; run `zeroclaw agents list` to see the configured aliases"
-    )]
+    #[error("agent '{0}' is not configured; run `voltd agents list` to see the configured aliases")]
     UnknownAgent(String),
 
     #[error("failed to serialize configuration for export: {0}")]
@@ -500,7 +498,7 @@ pub fn plan_export(config: &Config, alias: &str) -> Result<ExportPlan, ExportErr
     // INVARIANT: a server name addresses exactly one entry in the closure.
     // The manifest's `required_secrets` paths are addressed by that name
     // (`mcp.servers.github.env.GITHUB_TOKEN`), and the promise that they can be
-    // pasted into `zeroclaw config set` holds only while it is true. Two things
+    // pasted into `voltd config set` holds only while it is true. Two things
     // hold it up: `Config::validate` rejects duplicate `mcp.servers` names, and
     // `mcp_servers_for_bundles` resolves each granted name to the first
     // matching entry, so even a config hand-edited past validation collapses to
@@ -1494,7 +1492,7 @@ fn split_provider_ref(reference: &str) -> Option<(&str, &str)> {
 ///
 /// Array elements carrying a `name` are addressed by that natural key
 /// (`mcp.servers.github.env.TOKEN`) so reported paths match the ones
-/// `zeroclaw config set` accepts. That addressing is only unambiguous while
+/// `voltd config set` accepts. That addressing is only unambiguous while
 /// names are unique within the array; `mcp.servers` is the only array the
 /// closure carries, and the invariant that keeps it so is recorded where it is
 /// built in [`plan_export`].
@@ -1565,7 +1563,7 @@ fn find_ciphertext(value: &toml::Value, path: &str) -> Option<String> {
 const CONFIG_HEADER: &str = "\
 # ZeroClaw agent bundle — config closure.
 #
-# This is a FRAGMENT, not a complete config.toml. `zeroclaw agents import`
+# This is a FRAGMENT, not a complete config.toml. `voltd agents import`
 # merges it into the target install; it never replaces the target's config.
 # Empty-string values are credentials that were scrubbed on export and must be
 # supplied on the target — see `required_secrets` in zeroclaw-agent.toml.
@@ -1880,7 +1878,7 @@ mod tests {
     }
 
     /// `required_secrets` promises paths that can be pasted into
-    /// `zeroclaw config set`, which holds only while a server name addresses
+    /// `voltd config set`, which holds only while a server name addresses
     /// one entry. `Config::validate` rejects duplicate names, so this pins what
     /// the exporter does on its own with a config that reached it hand-edited.
     #[test]

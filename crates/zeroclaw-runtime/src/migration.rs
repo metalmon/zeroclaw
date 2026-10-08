@@ -133,7 +133,7 @@ fn target_memory_backend(config: &Config) -> Result<Box<dyn Memory>> {
 }
 
 /// Memory handle for the post-import `--reindex` pass, with the configured
-/// embedder resolved and wired in. Mirrors `zeroclaw memory reindex`
+/// embedder resolved and wired in. Mirrors `voltd memory reindex`
 /// (`create_memory_with_embedder` in the CLI): same storage resolution, same
 /// embedding-route handling, so `migrate openclaw --reindex` is equivalent to
 /// running the standalone reindex command right after the import.

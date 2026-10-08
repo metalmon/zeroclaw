@@ -189,7 +189,7 @@ pub struct RelayBridgeConfig {
 /// nonce.
 ///
 /// The registration key is NOT single-purpose: it also signs the
-/// `zeroclaw relay claim` ownership proof. A signer that will put its signature
+/// `voltd relay claim` ownership proof. A signer that will put its signature
 /// on arbitrary relay-supplied bytes is therefore a signing oracle - a hostile
 /// relay the daemon is configured to dial could send a complete tagged claim
 /// message as the challenge and collect a valid proof over its own token,
@@ -323,7 +323,7 @@ pub fn persist_node_id(data_dir: &std::path::Path, id: &str) -> Result<()> {
     Ok(())
 }
 
-/// The on-demand rotation trigger file. `zeroclaw security relay-rotate-node-id`
+/// The on-demand rotation trigger file. `voltd security relay-rotate-node-id`
 /// touches it; the running bridge polls for it and rotates when it appears.
 pub fn rotate_trigger_path(data_dir: &std::path::Path) -> std::path::PathBuf {
     data_dir.join("relay").join("rotate-now")

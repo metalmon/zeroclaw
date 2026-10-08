@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 /// application (`warn_verifiable_intent_withheld` in `src/main.rs`).
 ///
 /// The prose deliberately differs per surface — the [`ValidationWarning`]
-/// message is the stable English contract for API consumers, `zeroclaw doctor`
+/// message is the stable English contract for API consumers, `voltd doctor`
 /// renders a localized line through Fluent, and the trace carries an operator
 /// log sentence. The code is what ties them together, which is why it is shared
 /// and the wording is not.
@@ -88,7 +88,7 @@ pub const SECURITY_AUDIT_DISABLED_DROPS_CERTIFICATE_RECORD: &str =
 ///   credential chain verifier exists, so enabling the section does not enable
 ///   credential verification. The runtime also traces this at config load, and
 ///   that trace has no sink under `observability.log_persistence = "none"`;
-///   this warning is the channel that survives, since `zeroclaw doctor` and the
+///   this warning is the channel that survives, since `voltd doctor` and the
 ///   config API read the structured list rather than the log.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]

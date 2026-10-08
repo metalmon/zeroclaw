@@ -1174,7 +1174,7 @@ fn ensure_disk_at_current_version_blocks_stale() {
         .expect_err("V1 disk fails the gate")
         .to_string();
     assert!(
-        err.contains("zeroclaw config migrate"),
+        err.contains("voltd config migrate"),
         "error message must direct user to run migrate, got: {err}"
     );
 }
@@ -2198,7 +2198,7 @@ fn generate_current_emits_at_current_schema_version() {
 
 // ── Pairing-code policy ──────────────────────────────
 
-/// Review MAJOR-3: `zeroclaw config generate 3` must not hand the operator
+/// Review MAJOR-3: `voltd config generate 3` must not hand the operator
 /// a config that names the retired `pairing_dashboard.code_length`, and must
 /// surface the `[gateway.pairing_code]` policy that actually decides pairing
 /// strength. The generator migrates the frozen V1 fixture, which still

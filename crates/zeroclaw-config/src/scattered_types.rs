@@ -255,7 +255,7 @@ fn default_eval_mode() -> String {
 }
 
 /// Configuration for the agent evaluation harness (`[eval]`), surfaced via the
-/// `zeroclaw eval` command. Distinct from `[agent.eval]`, which is the in-loop
+/// `voltd eval` command. Distinct from `[agent.eval]`, which is the in-loop
 /// response-quality scorer.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]

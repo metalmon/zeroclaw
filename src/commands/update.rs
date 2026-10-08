@@ -1,4 +1,4 @@
-//! `zeroclaw update` — self-update pipeline with rollback.
+//! `voltd update` — self-update pipeline with rollback.
 
 use anyhow::{Context, Result, bail};
 use sha2::{Digest, Sha256};

@@ -937,7 +937,7 @@ pub fn load_sops_from_directory(
 }
 
 /// Load all SOPs from the configured directory and also return the ones that
-/// failed to load, as `(directory name, error)`, for `zeroclaw sop validate`.
+/// failed to load, as `(directory name, error)`, for `voltd sop validate`.
 pub fn load_sops_report(
     install_root: &Path,
     config_dir: Option<&str>,

@@ -1,4 +1,4 @@
-//! `zeroclaw agents export` — write an agent bundle to disk.
+//! `voltd agents export` — write an agent bundle to disk.
 //!
 //! The closure computation, credential scrubbing, and risk analysis all live
 //! in [`zeroclaw_config::agent_bundle`]. This module is the I/O half: it

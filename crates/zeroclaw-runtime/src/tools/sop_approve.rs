@@ -133,7 +133,7 @@ impl Tool for SopApproveTool {
                 output: ToolOutput::default(),
                 error: Some(
                     "This SOP gate requires an out-of-band approver \
-                     (approval_mode = out_of_band_required). Use `zeroclaw sop approve <run_id>` \
+                     (approval_mode = out_of_band_required). Use `voltd sop approve <run_id>` \
                      or the dashboard."
                         .to_string(),
                 ),

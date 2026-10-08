@@ -1,4 +1,4 @@
-//! `zeroclaw relay claim` — bind this daemon to a ZeroRelay account (self-serve).
+//! `voltd relay claim` — bind this daemon to a ZeroRelay account (self-serve).
 //!
 //! Derives the daemon's relay-registration identity, proves control of it with an
 //! Ed25519 signature, POSTs the proof to the control plane's `/v1/claim` endpoint,
@@ -334,7 +334,7 @@ fn ensure_control_is_secure(control: &str) -> Result<String> {
     }
 }
 
-/// Handle `zeroclaw relay claim <TOKEN> --control <URL>`.
+/// Handle `voltd relay claim <TOKEN> --control <URL>`.
 ///
 /// Fails closed: a bad token, a non-https control URL, an unreachable control
 /// plane, a non-success response, or an unwritable config each abort with an
@@ -386,7 +386,7 @@ pub async fn handle_claim(config: &mut Config, claim_token: &str, control: &str)
     if token.is_empty() {
         anyhow::bail!(
             "a claim token is required. Get one from your ZeroRelay account, then run: \
-             zeroclaw relay claim <TOKEN> --control <URL>"
+             voltd relay claim <TOKEN> --control <URL>"
         );
     }
     let control = control.trim().trim_end_matches('/');

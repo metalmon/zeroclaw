@@ -30,7 +30,7 @@ pub fn egress_hosts_path(instance_key: &str) -> String {
     format!("plugins.entries.{instance_key}.egress_hosts")
 }
 
-/// The exact `zeroclaw config set` invocation that makes `hosts` the instance
+/// The exact `voltd config set` invocation that makes `hosts` the instance
 /// row's granted allowlist.
 ///
 /// `config set` on a string array **replaces** the list rather than appending

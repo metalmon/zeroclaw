@@ -1251,7 +1251,7 @@ mod tests {
     fn plugin_egress_grant_ceremony_strings_format_in_every_locale() {
         // The grant ceremony is the one moment an operator is told what
         // network reach a plugin was granted, and the `{$command}` argument is
-        // the literal `zeroclaw config set plugins.entries.<zpi1_key>...`
+        // the literal `voltd config set plugins.entries.<zpi1_key>...`
         // invocation they are expected to run. A catalogue that drops the key
         // ships the raw `{key}` sentinel; one that drops the placeholder ships
         // a command the operator cannot execute. Assert both, in every shipped

@@ -101,7 +101,7 @@ pub fn migrate_file(input: &str) -> Result<Option<String>> {
     }
 }
 
-/// Embedded V1 fixture used by [`generate`] / the `zeroclaw config generate`
+/// Embedded V1 fixture used by [`generate`] / the `voltd config generate`
 /// CLI. Authored against the V1 schema at the parent of the V2-intro
 /// commit; see `fixtures/v1.toml`.
 const V1_FIXTURE: &str = include_str!("../fixtures/v1.toml");
@@ -216,7 +216,7 @@ fn encrypt_in_place(value: &mut toml::Value, store: &crate::secrets::SecretStore
 }
 
 /// Versioned TOML → validated V3 `Config`, strict: any defect errors.
-/// Used by repair tooling (`zeroclaw config migrate`, `model_routing_config`)
+/// Used by repair tooling (`voltd config migrate`, `model_routing_config`)
 /// that needs the precise failure. Daemon load uses the resilient path.
 pub fn migrate_to_current(input: &str) -> Result<Config> {
     let _attribution = ::zeroclaw_log::attribution_span!(&ConfigLoadAttribution).entered();
@@ -269,7 +269,7 @@ pub fn migrate_to_current_salvaged(input: &str) -> ResilientLoad {
                     .with_outcome(::zeroclaw_log::EventOutcome::Failure)
                     .with_attrs(::serde_json::json!({ "error": format!("{err:#}") })),
                 "config could not be parsed or migrated; starting on defaults so it \
-                 can be repaired (gateway /api/config, `zeroclaw config migrate`)"
+                 can be repaired (gateway /api/config, `voltd config migrate`)"
             );
             return ResilientLoad {
                 config: Config::default(),
@@ -759,7 +759,7 @@ pub fn ensure_disk_at_current_version(path: &Path) -> Result<()> {
         );
     }
     anyhow::bail!(
-        "config at {} is schema_version {from}; run `zeroclaw config migrate` to update before modifying",
+        "config at {} is schema_version {from}; run `voltd config migrate` to update before modifying",
         path.display().to_string(),
     );
 }

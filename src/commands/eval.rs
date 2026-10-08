@@ -1,4 +1,4 @@
-//! `zeroclaw eval` — run the agent evaluation harness.
+//! `voltd eval` — run the agent evaluation harness.
 
 use anyhow::Result;
 use std::path::PathBuf;
