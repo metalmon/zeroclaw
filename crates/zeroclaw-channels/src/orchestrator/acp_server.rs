@@ -2176,7 +2176,8 @@ impl AcpServer {
                                         // §3 tool-only: no model turn; the top-level
                                         // prompt is ignored entirely.
                                         // Nothing served a model here, so the route fields
-                                        // never asked.
+                                        // stay empty rather than naming a provider that
+                                        // was never asked.
                                         session
                                             .agent
                                             .run_canvas_tool_only_turn(
