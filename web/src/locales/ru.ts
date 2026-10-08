@@ -3659,6 +3659,7 @@ export const ru: Record<string, string> = {
   'reload_btn.timeout_prefix': 'Демон не ответил за ',
   'reload_btn.timeout_suffix': ' с. Проверьте журналы шлюза (возможно, он еще запускается, либо произошел сбой).',
   'reload_btn.waiting': 'Ожидание демона…',
+  'reload_btn.waiting_slow': 'Демон еще поднимается…',
 
   // Section navigator (settings tree sidebar)
   'section_nav.add_to_prefix': 'Добавить в ',

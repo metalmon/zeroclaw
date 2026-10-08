@@ -5,9 +5,12 @@
 // UX:
 //  1. Click — modal opens explaining what reload does.
 //  2. Confirm — POST /admin/reload (raises SIGUSR1 inside the daemon).
-//  3. Poll /health every 500ms with timeout 30s. Briefly the daemon is
-//     unreachable (gateway listener drops + rebinds); button shows
-//     "Reloading..." then "Waiting for daemon..." then "Daemon back ✓".
+//  3. Poll /health every 500ms. Briefly the daemon is unreachable (gateway
+//     listener drops + rebinds); button shows "Reloading..." then "Waiting
+//     for daemon..." then "Daemon back ✓". A reload re-publishes every agent
+//     and respawns every MCP server, which on a large install takes well over
+//     the 30s this used to call a failure, so after `timeoutMs` the wait only
+//     changes its wording and keeps polling until `hardCapMs`.
 //  4. After /health responds, the parent's `onReloaded` runs (typically
 //     reloads page state).
 //
@@ -24,8 +27,10 @@ import { t } from '@/lib/i18n';
 interface ReloadDaemonButtonProps {
   /** Called when /health answers post-reload (parent typically reloads its data). */
   onReloaded?: () => void;
-  /** Override the default 30s health-poll timeout. */
+  /** How long the wait stays silent before it says the daemon is slow. */
   timeoutMs?: number;
+  /** When to give up entirely and report a failure. */
+  hardCapMs?: number;
   /** Icon-only rendering for the global header (label shown as a tooltip). */
   compact?: boolean;
 }
@@ -34,11 +39,16 @@ type State =
   | { kind: 'idle' }
   | { kind: 'confirming' }
   | { kind: 'reloading' }       // POST /admin/reload sent
-  | { kind: 'waiting'; since: number }  // polling /health
+  | { kind: 'waiting'; since: number; slow: boolean }  // polling /health
   | { kind: 'back' }            // /health answered after reload
   | { kind: 'error'; message: string };
 
-export default function ReloadDaemonButton({ onReloaded, timeoutMs = 30_000, compact = false }: ReloadDaemonButtonProps) {
+export default function ReloadDaemonButton({
+  onReloaded,
+  timeoutMs = 30_000,
+  hardCapMs = 300_000,
+  compact = false,
+}: ReloadDaemonButtonProps) {
   const [state, setState] = useState<State>({ kind: 'idle' });
   const reloadAvailable = useReloadAvailable();
 
@@ -66,10 +76,17 @@ export default function ReloadDaemonButton({ onReloaded, timeoutMs = 30_000, com
 
     // The daemon is signalled. Wait briefly for it to actually drop the
     // listener, then poll /health until it answers.
-    setState({ kind: 'waiting', since: Date.now() });
-    const deadline = Date.now() + timeoutMs;
+    const since = Date.now();
+    setState({ kind: 'waiting', since, slow: false });
+    const slowAt = since + timeoutMs;
+    const deadline = since + hardCapMs;
+    let slow = false;
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 500));
+      if (!slow && Date.now() >= slowAt) {
+        slow = true;
+        setState({ kind: 'waiting', since, slow });
+      }
       try {
         const r = await fetch('/health', { cache: 'no-store' });
         if (r.ok) {
@@ -88,7 +105,7 @@ export default function ReloadDaemonButton({ onReloaded, timeoutMs = 30_000, com
     }
     setState({
       kind: 'error',
-      message: `${t('reload_btn.timeout_prefix')}${(timeoutMs / 1000).toFixed(0)}${t('reload_btn.timeout_suffix')}`,
+      message: `${t('reload_btn.timeout_prefix')}${(hardCapMs / 1000).toFixed(0)}${t('reload_btn.timeout_suffix')}`,
     });
   };
 
@@ -124,7 +141,9 @@ export default function ReloadDaemonButton({ onReloaded, timeoutMs = 30_000, com
           (state.kind === 'reloading'
             ? t('reload_btn.reloading')
             : state.kind === 'waiting'
-              ? t('reload_btn.waiting')
+              ? state.slow
+                ? t('reload_btn.waiting_slow')
+                : t('reload_btn.waiting')
               : state.kind === 'back'
                 ? t('reload_btn.back')
                 : t('reload_btn.reload_daemon'))}
