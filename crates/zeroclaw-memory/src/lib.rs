@@ -865,7 +865,7 @@ fn reconcile_embedding_identity(
                         })),
                     "memory: embedding identity changed; stored vectors invalidated and \
                      embedding cache cleared (content retained). Semantic recall is \
-                     keyword-only until re-embedded — run `zeroclaw memory reindex`"
+                     keyword-only until re-embedded — run `voltd memory reindex`"
                 );
                 if auto_reindex && invalidated > 0 {
                     spawn_auto_reindex(mem);
@@ -894,14 +894,14 @@ fn reconcile_embedding_identity(
 /// Kick off the gated re-embed in the background after an identity
 /// migration, when `[memory] auto_reindex_on_identity_change` opts in.
 /// Outside an async runtime (no tokio context) the spawn is skipped and the
-/// operator is pointed at `zeroclaw memory reindex` instead.
+/// operator is pointed at `voltd memory reindex` instead.
 fn spawn_auto_reindex(mem: &SqliteMemory) {
     let Ok(handle) = tokio::runtime::Handle::try_current() else {
         ::zeroclaw_log::record!(
             WARN,
             ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note),
             "memory: auto_reindex_on_identity_change is set but no async runtime is \
-             available here; run `zeroclaw memory reindex` to re-embed"
+             available here; run `voltd memory reindex` to re-embed"
         );
         return;
     };
@@ -923,7 +923,7 @@ fn spawn_auto_reindex(mem: &SqliteMemory) {
                         .with_outcome(::zeroclaw_log::EventOutcome::Failure)
                         .with_attrs(::serde_json::json!({"error": format!("{e}")})),
                     "memory: background re-embed after embedding identity change failed; \
-                     run `zeroclaw memory reindex` to retry"
+                     run `voltd memory reindex` to retry"
                 );
             }
         }
@@ -2229,7 +2229,7 @@ store_timeout_ms = 40000
         // rather than an `Ok` handle of any kind (markdown fallback included).
     }
 
-    /// The migration/CLI factory (used by `zeroclaw memory
+    /// The migration/CLI factory (used by `voltd memory
     /// list`/`get`/`stats`/`clear`) must support Postgres and Qdrant, not
     /// just sqlite/lucid/markdown — those two backends need resolved
     /// `[storage.*]` config that the old sqlite-only builder path had no way
@@ -2264,7 +2264,7 @@ url = "http://localhost:6333"
     /// migration factory now surfaces the same storage-aware error the
     /// runtime gives — not the old unconditional "postgres backend requires
     /// storage config; call create_memory_with_storage_and_routes instead"
-    /// bail that made `zeroclaw memory list` unusable for every Postgres
+    /// bail that made `voltd memory list` unusable for every Postgres
     /// user regardless of config.
     #[test]
     fn migration_factory_postgres_without_storage_alias_errors() {

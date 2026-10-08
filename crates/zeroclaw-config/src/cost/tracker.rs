@@ -727,7 +727,7 @@ impl CostTracker {
     ///
     /// [`CostSummary::by_model`] stays daily-scoped for dashboard and RPC
     /// consumers. Operator surfaces that qualify the monthly total, such as
-    /// the `zeroclaw status` pricing-unavailable warning, need the whole
+    /// the `voltd status` pricing-unavailable warning, need the whole
     /// month's recorded provenance so unpriced usage from an earlier day
     /// does not disappear at UTC day rollover while the monthly spend still
     /// omits its cost. Derived from the persisted ledger on demand; nothing

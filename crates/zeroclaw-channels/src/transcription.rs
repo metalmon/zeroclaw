@@ -2248,7 +2248,7 @@ mod tests {
 
     #[test]
     fn local_whisper_provider_accepts_config_init_default_after_url_and_token_filled() {
-        // Mirrors the post-init state from a `zeroclaw config init
+        // Mirrors the post-init state from a `voltd config init
         // transcription.local_whisper` followed by the operator setting
         // `url` and `bearer_token`: the scaffolded `max_audio_bytes` /
         // `timeout_secs` defaults must already be valid, so from_config
@@ -2373,17 +2373,17 @@ mod tests {
     /// the CLI and daemon hit them:
     ///
     /// 1. **Pre-existing config.toml** — `Config::load_or_init` has
-    ///    already created `config.toml` before any `zeroclaw config`
+    ///    already created `config.toml` before any `voltd config`
     ///    subcommand runs, so every `save_dirty()` below takes the
     ///    incremental existing-document path (`apply_dirty_path`), never
     ///    the full-save fallback for a missing file.
     /// 2. **Scaffold + persist** — `Config::init_defaults(Some(
     ///    "transcription.local_whisper"))` is the exact call the
-    ///    `zeroclaw config init <section>` handler makes
+    ///    `voltd config init <section>` handler makes
     ///    (`ConfigCommands::Init` in `src/main.rs`), persisted through
     ///    the same `mark_dirty`/`save_dirty` path the handler uses.
     /// 3. **Operator edits** — `set_prop_persistent` is the exact call
-    ///    the `zeroclaw config set <path> <value>` handler makes
+    ///    the `voltd config set <path> <value>` handler makes
     ///    (`ConfigCommands::Set`): it sets the field and marks that path
     ///    dirty, so `transcription.enabled` is persisted as its own dirty
     ///    path rather than riding along on a full save.

@@ -2340,7 +2340,7 @@ async fn process_chat_message(
                 "provider_ref": provider_ref_full,
             }));
 
-            // Append a runtime-trace.jsonl record so a `zeroclaw doctor`
+            // Append a runtime-trace.jsonl record so a `voltd doctor`
             // sweep sees gateway WS turns alongside channel and CLI turns.
             // Closes the gateway-side trace gap from
             ::zeroclaw_log::record!(

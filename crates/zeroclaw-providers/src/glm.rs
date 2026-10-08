@@ -98,7 +98,7 @@ impl GlmModelProvider {
         if self.api_key_id.is_empty() || self.api_key_secret.is_empty() {
             anyhow::bail!(
                 "GLM API key not set or invalid format. Expected 'id.secret'. \
-                 Set GLM_API_KEY env var or run `zeroclaw quickstart --model-provider glm --api-key <id.secret>`."
+                 Set GLM_API_KEY env var or run `voltd quickstart --model-provider glm --api-key <id.secret>`."
             );
         }
 

@@ -830,7 +830,7 @@ impl LineChannel {
             if let Some(code) = guard.pairing_code() {
                 // Mirror Telegram/WeChat: a backgrounded daemon discards
                 // stdout, so surface the one-time bind code through the
-                // structured log where `zeroclaw service logs` / the gateway
+                // structured log where `voltd service logs` / the gateway
                 // can find it. Tag it `Channel` so the web Logs page shows it
                 // by default (an untagged event defaults to `Internal` and is
                 // hidden behind the filter).

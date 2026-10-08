@@ -1,4 +1,4 @@
-//! `zeroclaw browse [path]` — CLI adapter over
+//! `voltd browse [path]` — CLI adapter over
 //! `zeroclaw_runtime::browse::list_directory`. Thin print formatter; the
 //! walking + containment rule lives in the runtime crate so the gateway
 //! and the CLI share one implementation.

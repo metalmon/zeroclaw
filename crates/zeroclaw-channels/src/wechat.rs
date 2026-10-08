@@ -1015,7 +1015,7 @@ impl WeChatChannel {
             if let Some(code) = guard.pairing_code() {
                 // Mirror Telegram: a backgrounded daemon discards stdout, so
                 // also record the one-time bind code through the structured
-                // log where `zeroclaw service logs` / the gateway can find it.
+                // log where `voltd service logs` / the gateway can find it.
                 // Tag it `Channel` so the web Logs page shows it by default
                 // (an untagged event defaults to `Internal` and is hidden).
                 ::zeroclaw_log::record!(

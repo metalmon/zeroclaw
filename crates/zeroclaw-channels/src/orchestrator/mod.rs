@@ -4358,7 +4358,7 @@ fn load_cached_model_preview(
         format!("{provider_name}.default")
     };
 
-    // Check the shared cache location first (written by `zeroclaw models refresh`),
+    // Check the shared cache location first (written by `voltd models refresh`),
     // then fall back to the agent workspace for backward compatibility.
     let shared_path = data_dir.join("state").join(MODEL_CACHE_FILE);
     let agent_path = agent_workspace_dir.join("state").join(MODEL_CACHE_FILE);
@@ -19667,7 +19667,7 @@ pub(crate) mod tests {
         // Joins the two production halves of the refresh-to-preview contract
         // directly, rather than exercising each in isolation: the actual
         // `zeroclaw-runtime::doctor::persist_model_cache` writer (what
-        // `zeroclaw models refresh` calls), then this crate's actual
+        // `voltd models refresh` calls), then this crate's actual
         // `load_cached_model_preview` reader (what `/model` calls) — for an
         // undotted provider ref (canonicalized to `openrouter.default` on both
         // sides) and a custom, non-default agent workspace.
@@ -19704,7 +19704,7 @@ pub(crate) mod tests {
     #[test]
     fn no_real_time_channels_message_points_at_quickstart_not_onboard() {
         // The "no channels configured" message must point operators at the
-        // current command (zeroclaw quickstart), not the deleted `zeroclaw onboard`.
+        // current command (voltd quickstart), not the deleted `voltd onboard`.
         // Source of truth: the string at orchestrator/mod.rs:~7376.
         let msg = super::no_real_time_channels_message();
         assert!(
@@ -20665,7 +20665,7 @@ pub(crate) mod tests {
     #[test]
     fn channel_doctor_surfaces_dangling_peer_group_channel_warning() {
         // The dangling `peer_groups.<name>.channel` diagnostic belongs on the
-        // `zeroclaw channel doctor` path, not only the general doctor.
+        // `voltd channel doctor` path, not only the general doctor.
         // `doctor_channels()` reaches the user through
         // `peer_group_dangling_warning_lines`, which is derived from the shared
         // `Config::collect_warnings()` source of truth (no second validator).

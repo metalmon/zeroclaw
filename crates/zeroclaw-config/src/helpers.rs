@@ -1,4 +1,4 @@
-//! Property helpers used by the `Configurable` derive macro and the `zeroclaw config` CLI.
+//! Property helpers used by the `Configurable` derive macro and the `voltd config` CLI.
 
 use crate::traits::{ConfigTab, CredentialSurfaceClass, PropFieldInfo, PropKind};
 

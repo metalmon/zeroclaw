@@ -53,7 +53,7 @@ pub trait ApprovalIdentityResolver: Send + Sync {
 /// WS paths both produce the paired-token hash (a stable per-device subject); they
 /// share it, so for quorum they collapse to ONE canonical `gateway` voter (see
 /// [`super::principal::ApprovalPrincipal::voter_key`]). The agent tool produces the
-/// agent alias. The loopback CLI (`zeroclaw sop approve`) is currently ANONYMOUS -
+/// agent alias. The loopback CLI (`voltd sop approve`) is currently ANONYMOUS -
 /// the admin path builds `ApprovalPrincipal::cli(None)` - so a `cli:<user>` group
 /// member is NOT satisfiable yet; it is reserved for a future CLI that forwards a
 /// trusted local identity, so do not gate a policy on `cli:<user>` expecting the

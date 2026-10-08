@@ -2808,7 +2808,7 @@ impl ModelProvider for AnthropicModelProvider {
                 "anthropic: no credentials configured"
             );
             anyhow::Error::msg(
-                "Anthropic credentials not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure.",
+                "Anthropic credentials not set. Run `voltd quickstart` or `voltd config set` to configure.",
             )
         })?;
 
@@ -2899,7 +2899,7 @@ impl ModelProvider for AnthropicModelProvider {
                 "anthropic: no credentials configured"
             );
             anyhow::Error::msg(
-                "Anthropic credentials not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure.",
+                "Anthropic credentials not set. Run `voltd quickstart` or `voltd config set` to configure.",
             )
         })?;
 
@@ -3117,7 +3117,7 @@ impl ModelProvider for AnthropicModelProvider {
             None => {
                 return stream::once(async {
                     Err(StreamError::ModelProvider(
-                        "Anthropic credentials not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure."
+                        "Anthropic credentials not set. Run `voltd quickstart` or `voltd config set` to configure."
                             .to_string(),
                     ))
                 })
@@ -4144,7 +4144,7 @@ data: {\"type\":\"message_stop\"}\n\n";
         let err = result.unwrap_err().to_string();
         assert_eq!(
             err,
-            "Anthropic credentials not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure."
+            "Anthropic credentials not set. Run `voltd quickstart` or `voltd config set` to configure."
         );
     }
 
@@ -4161,7 +4161,7 @@ data: {\"type\":\"message_stop\"}\n\n";
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "Anthropic credentials not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure."
+            "Anthropic credentials not set. Run `voltd quickstart` or `voltd config set` to configure."
         );
     }
 
@@ -4187,7 +4187,7 @@ data: {\"type\":\"message_stop\"}\n\n";
         assert!(first.is_err(), "expected error without credential");
         assert_eq!(
             first.unwrap_err().to_string(),
-            "ModelProvider error: Anthropic credentials not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure."
+            "ModelProvider error: Anthropic credentials not set. Run `voltd quickstart` or `voltd config set` to configure."
         );
     }
 

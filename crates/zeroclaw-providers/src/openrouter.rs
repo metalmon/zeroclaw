@@ -658,7 +658,7 @@ impl ModelProvider for OpenRouterModelProvider {
                 "openrouter: API key not configured"
             );
             anyhow::Error::msg(
-                "OpenRouter API key not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure.",
+                "OpenRouter API key not set. Run `voltd quickstart` or `voltd config set` to configure.",
             )
         })?;
 
@@ -724,7 +724,7 @@ impl ModelProvider for OpenRouterModelProvider {
                 "openrouter: API key not configured"
             );
             anyhow::Error::msg(
-                "OpenRouter API key not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure.",
+                "OpenRouter API key not set. Run `voltd quickstart` or `voltd config set` to configure.",
             )
         })?;
 
@@ -797,7 +797,7 @@ impl ModelProvider for OpenRouterModelProvider {
                 "openrouter: API key not configured"
             );
             anyhow::Error::msg(
-                "OpenRouter API key not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure.",
+                "OpenRouter API key not set. Run `voltd quickstart` or `voltd config set` to configure.",
             )
         })?;
 
@@ -893,7 +893,7 @@ impl ModelProvider for OpenRouterModelProvider {
             None => {
                 return stream::once(async {
                     Err(StreamError::ModelProvider(
-                        "OpenRouter API key not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure."
+                        "OpenRouter API key not set. Run `voltd quickstart` or `voltd config set` to configure."
                             .to_string(),
                     ))
                 })
@@ -1002,7 +1002,7 @@ impl ModelProvider for OpenRouterModelProvider {
                 "openrouter: API key not configured"
             );
             anyhow::Error::msg(
-                "OpenRouter API key not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure.",
+                "OpenRouter API key not set. Run `voltd quickstart` or `voltd config set` to configure.",
             )
         })?;
 
@@ -1194,7 +1194,7 @@ mod tests {
         let msg = err.to_string();
         assert_eq!(
             msg,
-            "ModelProvider error: OpenRouter API key not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure."
+            "ModelProvider error: OpenRouter API key not set. Run `voltd quickstart` or `voltd config set` to configure."
         );
     }
 
@@ -1493,7 +1493,7 @@ data: [DONE]
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "OpenRouter API key not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure."
+            "OpenRouter API key not set. Run `voltd quickstart` or `voltd config set` to configure."
         );
     }
 
@@ -1514,7 +1514,7 @@ data: [DONE]
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "OpenRouter API key not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure."
+            "OpenRouter API key not set. Run `voltd quickstart` or `voltd config set` to configure."
         );
     }
 
@@ -1541,7 +1541,7 @@ data: [DONE]
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "OpenRouter API key not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure."
+            "OpenRouter API key not set. Run `voltd quickstart` or `voltd config set` to configure."
         );
     }
 
@@ -1683,7 +1683,7 @@ data: [DONE]
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "OpenRouter API key not set. Run `zeroclaw quickstart` or `zeroclaw config set` to configure."
+            "OpenRouter API key not set. Run `voltd quickstart` or `voltd config set` to configure."
         );
     }
 

@@ -263,7 +263,7 @@ pub struct Config {
     #[group = "Agent"]
     pub scheduler: SchedulerConfig,
 
-    /// Agent evaluation harness (`[eval]`) — surfaced via `zeroclaw eval`.
+    /// Agent evaluation harness (`[eval]`) — surfaced via `voltd eval`.
     /// Distinct from `[agent.eval]`, which is the in-loop response-quality scorer.
     #[serde(default)]
     #[nested]
@@ -972,7 +972,7 @@ pub struct ModelProviderConfig {
     #[tab(Advanced)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wire_api: Option<WireApi>,
-    /// When true, the client pulls credentials from Volt's stored `openai-codex` auth profile instead of the `api_key` field above. Import an existing Codex CLI login with `zeroclaw auth login --model-provider openai-codex --import ~/.codex/auth.json`, or run `zeroclaw auth login --model-provider openai-codex`. Turn on only for the OpenAI Codex model_provider; leave off for standard API-key model_providers.
+    /// When true, the client pulls credentials from Volt's stored `openai-codex` auth profile instead of the `api_key` field above. Import an existing Codex CLI login with `voltd auth login --model-provider openai-codex --import ~/.codex/auth.json`, or run `voltd auth login --model-provider openai-codex`. Turn on only for the OpenAI Codex model_provider; leave off for standard API-key model_providers.
     #[tab(Connection)]
     #[serde(default, skip_serializing_if = "is_false")]
     #[credential_class = "external_auth_store"]
@@ -2983,7 +2983,7 @@ pub struct GeminiModelProviderConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_mode: Option<AuthMode>,
     /// Google OAuth app `client_id`, used when this alias drives Volt's
-    /// own browser/device-code login flow (`zeroclaw auth login
+    /// own browser/device-code login flow (`voltd auth login
     /// --model-provider gemini --profile <alias>`). Operators relying on
     /// the upstream `gemini login` tool don't need this; that tool writes
     /// its own client_id / client_secret into `~/.gemini/oauth_creds.json`.
@@ -5957,7 +5957,7 @@ impl Default for McpConfig {
 ///
 /// Enabling the section reports that gap two ways. The runtime traces it at
 /// each config application, which needs log persistence to be on to reach a
-/// sink. `zeroclaw doctor` and the config API also report it as the
+/// sink. `voltd doctor` and the config API also report it as the
 /// `verifiable_intent_tool_withheld` validation warning, which stays available
 /// when persistence is off.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
@@ -7962,7 +7962,7 @@ pub struct GatewayConfig {
     #[serde(default = "default_true")]
     pub check_updates: bool,
 
-    /// Allow triggering a self-upgrade (binary swap via `zeroclaw update`) from
+    /// Allow triggering a self-upgrade (binary swap via `voltd update`) from
     /// the dashboard. This is a remote-code-execution-adjacent surface: any
     /// authenticated dashboard user could replace the running binary. Keep off
     /// unless you trust every paired client. (default: false)
@@ -8114,7 +8114,7 @@ impl Default for GatewayPublicConfig {
 /// Code length and character family are **not** configured here. The
 /// dashboard pairing flow issues its codes through the same
 /// [`PairingGuard`](crate::pairing::PairingGuard) as startup pairing and
-/// `zeroclaw gateway get-paircode`, so it consumes
+/// `voltd gateway get-paircode`, so it consumes
 /// [`gateway.pairing_code`](crate::pairing::PairingCodePolicy) rather than
 /// carrying a second, dashboard-only setting.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
@@ -12751,13 +12751,13 @@ pub struct MemoryConfig {
     /// Source of embedding vectors for semantic search. `none` = keyword-only retrieval (no API calls, no vector cost); `openai` = OpenAI's embedding API; `custom:URL` = any OpenAI-compatible embedding endpoint (LiteLLM, local gateway, etc.).
     #[serde(default = "default_embedding_provider")]
     pub embedding_provider: String,
-    /// Embedding model identifier — must match a model your chosen embedding model_provider serves (e.g. `text-embedding-3-small` for OpenAI). Changing this invalidates existing embeddings: the change is detected at startup and stale vectors are cleared automatically; run `zeroclaw memory reindex` to re-embed (or set `auto_reindex_on_identity_change`).
+    /// Embedding model identifier — must match a model your chosen embedding model_provider serves (e.g. `text-embedding-3-small` for OpenAI). Changing this invalidates existing embeddings: the change is detected at startup and stale vectors are cleared automatically; run `voltd memory reindex` to re-embed (or set `auto_reindex_on_identity_change`).
     #[serde(default = "default_embedding_model")]
     pub embedding_model: String,
     /// Vector width produced by the embedding model — must match the model's native dimension or vectors won't store correctly. Look up the number on the model_provider's model page.
     #[serde(default = "default_embedding_dims")]
     pub embedding_dimensions: usize,
-    /// Automatically re-embed all memories in the background when a change of embedding provider/model/dimensions is detected at startup (after the stale vectors have been cleared). Costs one embedding API call per memory, so it's off by default — leave it off for large stores and run `zeroclaw memory reindex` explicitly instead.
+    /// Automatically re-embed all memories in the background when a change of embedding provider/model/dimensions is detected at startup (after the stale vectors have been cleared). Costs one embedding API call per memory, so it's off by default — leave it off for large stores and run `voltd memory reindex` explicitly instead.
     #[serde(default)]
     pub auto_reindex_on_identity_change: bool,
     /// Optional API key for the embedding endpoint. When set, embedding calls use this key instead of inheriting one from the seed model provider — decoupling embeddings from the chat model. Use it when the chat model runs on a provider that carries no usable embedding credential (e.g. an OAuth-only provider) while embeddings keep hitting an `openai`/`custom:` endpoint with their own key. Leave unset to inherit the seed provider's key (backward-compatible default).
@@ -15350,7 +15350,7 @@ pub struct ModelRouteConfig {
 
 // ── Model cache (shared between CLI refresh and channel reader) ──
 
-/// Canonical on-disk model cache schema. Written by `zeroclaw models refresh`
+/// Canonical on-disk model cache schema. Written by `voltd models refresh`
 /// and read by the channel `/model` command. Both sides MUST use this type
 /// to prevent schema drift (single-source-of-truth rule).
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -21358,7 +21358,7 @@ fn default_config_dir() -> Result<PathBuf> {
 }
 
 /// Canonical on-disk directory for a locale's runtime/zerocode FTL catalogues:
-/// `<config_dir>/data/ftl/<locale>/`. This is where `zeroclaw locales fetch`
+/// `<config_dir>/data/ftl/<locale>/`. This is where `voltd locales fetch`
 /// writes downloaded translations and where the runtime i18n loader reads them.
 /// `<config_dir>` honors `ZEROCLAW_CONFIG_DIR` and otherwise defaults to
 /// `~/.zeroclaw`. The zerocode binary mirrors this path inline (it carries no
@@ -21369,7 +21369,7 @@ pub fn ftl_locale_dir(locale: &str) -> Result<PathBuf> {
         .join(locale))
 }
 
-/// The FTL catalogues that `zeroclaw locales fetch` / the daemon's
+/// The FTL catalogues that `voltd locales fetch` / the daemon's
 /// `locales/fetch` RPC can download, as `(name, upstream-path-template,
 /// output-filename)`. `{locale}` is substituted per request. This is the single
 /// source of truth — a caller supplies only a catalog *name* matched against
@@ -22940,7 +22940,7 @@ impl Config {
             // Detect the on-disk version up-front so we can emit one WARN
             // line when the daemon auto-migrates an older config in memory:
             // the disk file is left untouched and the user is advised to lock
-            // the migration in with `zeroclaw config migrate`.
+            // the migration in with `voltd config migrate`.
             let stale_version = toml::from_str::<toml::Value>(&contents)
                 .ok()
                 .as_ref()
@@ -22950,7 +22950,7 @@ impl Config {
             // operator needs the process up to repair it. The resilient path
             // degrades (dropping invalid blocks to defaults); security-critical
             // drops are recorded on `degraded_security` for exposure gating.
-            // Strict validation lives in `zeroclaw config migrate`.
+            // Strict validation lives in `voltd config migrate`.
             let salvage = crate::migration::migrate_to_current_salvaged(&contents);
             let mut config: Config = salvage.config;
             config.degraded_security = salvage.dropped_security;
@@ -22964,7 +22964,7 @@ impl Config {
                         .with_outcome(::zeroclaw_log::EventOutcome::Unknown),
                     &format!(
                         "Config at {} is schema_version {from_version}; auto-migrated to {} in memory. \
-                     Run `zeroclaw config migrate` to commit the migration to disk. \
+                     Run `voltd config migrate` to commit the migration to disk. \
                      V0.8.0 also replaced the env-var override grammar; see \
                      https://github.com/zeroclaw-labs/zeroclaw/blob/master/docs/book/src/reference/env-vars.md \
                      for the migration recipes.",
@@ -23017,7 +23017,7 @@ impl Config {
                 let (kind, family) = entry.split_once('.').unwrap_or(("models", entry.as_str()));
                 let reference = if kind == "models" {
                     "any agents.*.model_provider referencing them will fail to resolve; \
-                     run `zeroclaw providers` for valid family names"
+                     run `voltd providers` for valid family names"
                 } else {
                     "references to its aliases will fail to resolve"
                 };
@@ -23114,7 +23114,7 @@ impl Config {
                         .with_outcome(::zeroclaw_log::EventOutcome::Unknown)
                         .with_attrs(::serde_json::json!({"error": format!("{e:#}")})),
                     "[system] config has validation errors — booting anyway so you \
-                     can fix them via /config or `zeroclaw config set`"
+                     can fix them via /config or `voltd config set`"
                 );
             }
             // Publish the effective post-decryption, post-env-override proxy
@@ -23171,7 +23171,7 @@ impl Config {
     /// The runtime already traces this at config load. That trace reaches a
     /// sink only when log persistence is on, so under
     /// `observability.log_persistence = "none"` it is delivered nowhere. This
-    /// warning is the channel that survives: `zeroclaw doctor` prints the
+    /// warning is the channel that survives: `voltd doctor` prints the
     /// structured list to stdout and the config API returns it in its
     /// response, neither of which depends on the log writer.
     ///
@@ -24755,7 +24755,7 @@ impl Config {
                 .is_some_and(|v| !v.trim().is_empty());
             if !has_uri && !has_api_key && !has_model {
                 ::zeroclaw_log::record!(WARN, ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note).with_outcome(::zeroclaw_log::EventOutcome::Unknown).with_attrs(::serde_json::json!({"model_provider": profile_name, "profile_name": profile_name})), "providers.models. is empty (no uri / api_key / model). \
-                     Skipping at runtime; run `zeroclaw quickstart` (or use the dashboard) \
+                     Skipping at runtime; run `voltd quickstart` (or use the dashboard) \
                      to make this model_provider usable.");
                 continue;
             }
@@ -24817,7 +24817,7 @@ impl Config {
             // of a notice an operator is supposed to read. Every command that
             // loads config a second time inside a live process writes that pair.
             //
-            // `collect_warnings` still returns it, so `zeroclaw doctor` and the
+            // `collect_warnings` still returns it, so `voltd doctor` and the
             // config API report it exactly as before; only this tracing copy is
             // dropped. The change that re-registers the tool retires this skip
             // together with the runtime record it defers to.
@@ -25365,7 +25365,7 @@ impl Config {
                         validation_bail!(
                             DanglingReference,
                             format!("agents.{alias}.model_provider"),
-                            "agents.{alias}.model_provider = {mp:?} but {ty:?} is not a known provider family; check [providers.models.<family>.<alias>] in config.toml (valid families: `zeroclaw providers`)",
+                            "agents.{alias}.model_provider = {mp:?} but {ty:?} is not a known provider family; check [providers.models.<family>.<alias>] in config.toml (valid families: `voltd providers`)",
                         );
                     }
                     let exists = self
@@ -25987,7 +25987,7 @@ impl Config {
     /// keyed list section (`plugins.entries`, `mcp.servers`, `model_routes`,
     /// `embedding_routes`), addressed by its natural key.
     ///
-    /// Only the local `zeroclaw config patch` command uses this. The operator
+    /// Only the local `voltd config patch` command uses this. The operator
     /// running it can already edit the config file directly, so creating a
     /// row there adds no authority; a plugin with no config row otherwise has
     /// no command that can create one, and `plugin list` needs a repair it can
@@ -28138,7 +28138,7 @@ impl HasPropKind for serde_json::Value {
     // the form renders a text input where the user pastes raw JSON.
     // Round-trip via `set_prop` stays correct: serde deserializes the TOML
     // string back into `Value::String(...)`. Power users editing complex
-    // objects still use `zeroclaw config set --json` or hand-edit the
+    // objects still use `voltd config set --json` or hand-edit the
     // `config.toml`.
     const PROP_KIND: PropKind = PropKind::String;
 }
@@ -40626,7 +40626,7 @@ enabled = false
 
     /// Opting in produces the structured warning. This is the delivery path
     /// that survives `observability.log_persistence = "none"`, since
-    /// `zeroclaw doctor` prints this list to stdout and the config API returns
+    /// `voltd doctor` prints this list to stdout and the config API returns
     /// it, neither of which goes through the log writer.
     #[test]
     async fn verifiable_intent_enabled_warns_that_the_tool_is_withheld() {
@@ -45197,7 +45197,7 @@ allowed_users = []
         );
     }
 
-    /// Regression: a bare `zeroclaw config init` (no
+    /// Regression: a bare `voltd config init` (no
     /// section — `init_defaults(None)`) must produce a config.toml that
     /// strictly reloads. Before the fix, `init_defaults` unconditionally
     /// scaffolded every `#[nested] Option<T>` field from
@@ -45208,7 +45208,7 @@ allowed_users = []
     /// on save, leaving a partial sub-table (kept alive by a non-empty
     /// sibling like `enabled`/`max_audio_bytes`/`connect_timeout_secs`)
     /// that fails strict deserialization with `missing field ...` — the
-    /// exact failure `zeroclaw config migrate` hits and exits 1 on.
+    /// exact failure `voltd config migrate` hits and exits 1 on.
     ///
     /// Mirrors the production boundary of
     /// `local_whisper_config_init_preserves_transcription_section`
@@ -45285,7 +45285,7 @@ allowed_users = []
     }
 
     /// The gate's other side: explicitly targeting a required-field
-    /// section (as `zeroclaw config init <section>` and the dashboard
+    /// section (as `voltd config init <section>` and the dashboard
     /// section picker both do) must still scaffold it so the operator can
     /// fill in the required fields. `transcription.local_whisper` already
     /// has this coverage via the channels-crate test
@@ -45444,7 +45444,7 @@ allowed_users = []
     }
 
     /// Audit gate: every path emitted by `prop_fields()` must round-trip
-    /// through `get_prop`. The CLI (`zeroclaw config get/set`), the TUI
+    /// through `get_prop`. The CLI (`voltd config get/set`), the TUI
     /// Quickstart prompts (`prompt_field`), the gateway list endpoint
     /// (`/api/config/list`), and the dashboard form all derive from
     /// `prop_fields()`; if a path appears here but `get_prop` rejects
@@ -45848,7 +45848,7 @@ allowed_users = []
     }
 
     /// Audit gate: every non-secret scalar prop round-trips through
-    /// `set_prop(get_prop(p))`. The CLI's `zeroclaw config set` and the
+    /// `set_prop(get_prop(p))`. The CLI's `voltd config set` and the
     /// dashboard's PATCH op both rely on this being true so an operator
     /// can read a value, edit it locally, and write it back. Vec /
     /// object-array fields are skipped — they pass through serde-JSON

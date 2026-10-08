@@ -214,7 +214,7 @@ fn current_broadcast_hook() -> Option<Arc<dyn Observer>> {
 
 /// Guard that flushes its observer on drop — the telemetry analogue of
 /// [`AgentTurnGuard`]. Held for the lifetime of a short-lived agent
-/// invocation (today: the CLI one-shot, `zeroclaw agent -m ...`), whose
+/// invocation (today: the CLI one-shot, `voltd agent -m ...`), whose
 /// process exits before the OTLP batch exporter / metric
 /// `PeriodicReader`'s background interval fires. Without this flush all
 /// buffered telemetry — including the never-ended `gen_ai.agent.invoke`

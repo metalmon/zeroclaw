@@ -2535,7 +2535,7 @@ impl TelegramChannel {
                 // GUI-spawned) discards stdout, so the println! alone leaves
                 // the operator with no way to retrieve the code. The log
                 // lands in runtime-trace.jsonl, the gateway log stream, and
-                // `zeroclaw service logs`. Tag it `Channel` (not the default
+                // `voltd service logs`. Tag it `Channel` (not the default
                 // `Internal`) so it survives the web Logs page's default
                 // hide-internal filter and is visible without unticking it.
                 ::zeroclaw_log::record!(
@@ -3664,7 +3664,7 @@ impl TelegramChannel {
         crate::allowlist::grants_anyone(&(self.peer_resolver)())
     }
 
-    /// Build the operator-facing `zeroclaw channel bind-telegram` command for
+    /// Build the operator-facing `voltd channel bind-telegram` command for
     /// this channel's alias. The CLI defaults to the `default` alias, so only
     /// non-default aliases need the explicit `--alias` flag — emitting it for
     /// the default case would just be noise.
