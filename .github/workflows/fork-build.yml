@@ -55,6 +55,24 @@ jobs:
       # + `npm run build` (tsc + vite) into web/dist.
       - name: Build web dashboard
         run: cargo web build
+      # The fork ships a Russian panel. Twice a merge silently reverted t()
+      # wrappings and the pilot got a half-English dashboard, because the only
+      # gate was "does it compile". These checks exist in the repo; run them.
+      - name: i18n gates (catalogs, no bare English)
+        working-directory: web
+        run: |
+          npm run check:i18n
+          npm run check:no-literal-english
+      # End-to-end: whatever the catalogs say, the bundle that ships must carry
+      # Russian. Counts files with Cyrillic in the built dist.
+      - name: Built bundle carries Russian
+        run: |
+          n=$(grep -rlP '[\x{0400}-\x{04FF}]' web/dist | wc -l)
+          echo "files with Cyrillic in web/dist: $n"
+          if [ "$n" -lt 3 ]; then
+            echo "::error::the built dashboard carries no Russian - the ru catalog is not reaching the bundle"
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
