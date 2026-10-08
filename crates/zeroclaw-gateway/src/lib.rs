@@ -2960,6 +2960,7 @@ pub async fn run_gateway_with_plugin_webhooks(
                 "ZeroClaw Gateway shutting down"
             );
         });
+        let server = std::future::IntoFuture::into_future(server);
         tokio::pin!(server);
         tokio::select! {
             result = &mut server => result?,
