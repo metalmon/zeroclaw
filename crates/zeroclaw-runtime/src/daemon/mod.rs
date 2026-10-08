@@ -1457,9 +1457,16 @@ pub async fn run_with_authority(
             // still "running". Leave instead, so the supervisor - docker's
             // restart policy in the pilot, the service manager on a host -
             // brings the daemon back clean.
-            return Err(anyhow::anyhow!(
+            ::zeroclaw_log::record!(
+                ERROR,
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Stop)
+                    .with_category(::zeroclaw_log::EventCategory::Agent)
+                    .with_outcome(::zeroclaw_log::EventOutcome::Failure),
+                "reload drain gave up with agent work still admitted; leaving so the supervisor restarts the daemon"
+            );
+            anyhow::bail!(
                 "reload drain gave up with agent work still admitted; exiting so the supervisor restarts the daemon"
-            ));
+            );
         }
     } else {
         let _ = live_config_authority.drain_agent_lifecycle().await;
