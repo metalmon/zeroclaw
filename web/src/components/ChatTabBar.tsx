@@ -122,7 +122,7 @@ export function ChatTabBar({
   for (const tb of tabs) openCounts.set(tb.alias, (openCounts.get(tb.alias) ?? 0) + 1);
 
   return (
-    <div className="relative z-20 flex items-stretch border-b border-pc-border bg-pc-surface">
+    <div className="relative z-20 flex items-stretch border-b border-border bg-card">
       <div
         role="tablist"
         aria-label={t('workspace.tablist_label')}
@@ -146,10 +146,10 @@ export function ChatTabBar({
               className={[
                 'group flex items-center gap-2 h-8 pl-2.5 pr-1.5 rounded-[var(--radius-md)]',
                 'text-xs font-medium whitespace-nowrap transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]',
+                'focus-visible:outline-none ',
                 active
-                  ? 'bg-pc-accent/10 text-pc-accent border border-pc-accent/30'
-                  : 'border border-transparent text-pc-text-secondary hover:bg-[var(--pc-hover)] hover:text-pc-text',
+                  ? 'bg-primary/10 text-primary border border-primary/30'
+                  : 'border border-transparent text-text-secondary hover:bg-[var(--color-hover)] hover:text-foreground',
               ].join(' ')}
             >
               <StatusDot streaming={ind?.streaming} unread={ind?.unread} active={active} />
@@ -167,7 +167,7 @@ export function ChatTabBar({
                 }}
                 className={[
                   'inline-flex items-center justify-center h-5 w-5 rounded-[var(--radius-sm)] shrink-0',
-                  'text-pc-text-muted transition-colors',
+                  'text-muted-foreground transition-colors',
                   closableLast
                     ? 'opacity-30 cursor-not-allowed'
                     : 'hover:bg-status-error/15 hover:text-status-error cursor-pointer',
@@ -191,7 +191,7 @@ export function ChatTabBar({
             aria-expanded={pickerOpen}
             aria-label={t('workspace.open_chat')}
             title={t('workspace.open_chat')}
-            className="inline-flex items-center justify-center h-8 w-8 rounded-[var(--radius-md)] text-pc-text-secondary border border-transparent transition-colors hover:bg-[var(--pc-hover)] hover:text-pc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-[var(--radius-md)] text-text-secondary border border-transparent transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none "
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -200,10 +200,10 @@ export function ChatTabBar({
             <div
               role="menu"
               aria-label={t('workspace.open_chat')}
-              className="absolute right-0 top-full mt-1.5 z-50 min-w-[200px] max-h-72 overflow-y-auto rounded-[var(--radius-md)] border border-pc-border bg-pc-elevated py-1 shadow-[var(--pc-shadow-md)]"
+              className="absolute right-0 top-full mt-1.5 z-50 min-w-[200px] max-h-72 overflow-y-auto rounded-[var(--radius-md)] border border-border bg-secondary py-1 shadow-[var(--color-shadow-md)]"
             >
               {pickerLoading && (
-                <div className="flex items-center gap-2 px-3 py-2 text-xs text-pc-text-muted">
+                <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   {t('common.loading')}
                 </div>
@@ -212,7 +212,7 @@ export function ChatTabBar({
                 <div className="px-3 py-2 text-xs text-status-error">{t('workspace.picker_error')}</div>
               )}
               {!pickerLoading && !pickerError && allAgents.length === 0 && (
-                <div className="px-3 py-2 text-xs text-pc-text-muted">{t('workspace.no_agents')}</div>
+                <div className="px-3 py-2 text-xs text-muted-foreground">{t('workspace.no_agents')}</div>
               )}
               {!pickerLoading && !pickerError && allAgents.map((alias) => {
                 const openCount = openCounts.get(alias) ?? 0;
@@ -222,14 +222,14 @@ export function ChatTabBar({
                     type="button"
                     role="menuitem"
                     onClick={() => { onOpen(alias); setPickerOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-pc-text transition-colors hover:bg-[var(--pc-hover)] focus-visible:outline-none focus-visible:bg-[var(--pc-hover)]"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-[var(--color-hover)] focus-visible:outline-none focus-visible:bg-[var(--color-hover)]"
                   >
-                    <Bot className="h-3.5 w-3.5 text-pc-accent shrink-0" aria-hidden />
+                    <Bot className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden />
                     <span className="truncate">{alias}</span>
                     {/* Say what picking this will do, so choosing an agent that
                         is already open does not look like a no-op. */}
                     {openCount > 0 && (
-                      <span className="ml-auto shrink-0 text-[11px] text-pc-text-muted">
+                      <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
                         {t('workspace.open_another')}
                       </span>
                     )}
@@ -240,7 +240,7 @@ export function ChatTabBar({
           )}
         </div>
       {/* Layout toggle */}
-      <div className="flex items-center px-2 border-l border-pc-border">
+      <div className="flex items-center px-2 border-l border-border">
         <Button
           variant="ghost"
           size="sm"
@@ -270,17 +270,17 @@ function StatusDot({ streaming, unread, active }: { streaming?: boolean; unread?
   if (streaming) {
     return (
       <span className="relative inline-flex h-2 w-2 shrink-0" aria-hidden>
-        <span className="absolute inline-flex h-full w-full rounded-full bg-pc-accent opacity-60 animate-ping" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-pc-accent" />
+        <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-60 animate-ping" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
       </span>
     );
   }
   if (unread) {
-    return <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-pc-accent" aria-hidden />;
+    return <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-primary" aria-hidden />;
   }
   return (
     <span
-      className={['inline-flex h-2 w-2 shrink-0 rounded-full', active ? 'bg-pc-accent/40' : 'bg-pc-text-faint/40'].join(' ')}
+      className={['inline-flex h-2 w-2 shrink-0 rounded-full', active ? 'bg-primary/40' : 'bg-text-faint/40'].join(' ')}
       aria-hidden
     />
   );

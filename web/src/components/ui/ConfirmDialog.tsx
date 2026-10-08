@@ -101,31 +101,31 @@ export function ConfirmDialog({
       className="fixed inset-0 z-50 flex items-center justify-center"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-pc-base/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
       <div
         ref={panelRef}
-        className="relative w-full max-w-sm mx-4 rounded-[var(--radius-xl)] border border-pc-border bg-pc-base shadow-[var(--pc-shadow-md)] animate-fade-in"
+        className="relative w-full max-w-sm mx-4 rounded-[var(--radius-xl)] border border-border bg-background shadow-[var(--color-shadow-md)] animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Body */}
         <div className="px-6 pt-5 pb-4 flex flex-col gap-2">
-          <h2 id={titleId} className="text-sm font-semibold text-pc-text">
+          <h2 id={titleId} className="text-sm font-semibold text-foreground">
             {title}
           </h2>
           {message != null && (
-            <div id={descId} className="text-xs leading-relaxed text-pc-text-muted">
+            <div id={descId} className="text-xs leading-relaxed text-muted-foreground">
               {message}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-pc-border">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
           <Button variant="ghost" onClick={onClose}>
             {cancelLabel}
           </Button>
           <Button
-            variant={danger ? 'danger' : 'primary'}
+            variant={danger ? 'destructive' : 'default'}
             onClick={onConfirm}
           >
             {confirmLabel}

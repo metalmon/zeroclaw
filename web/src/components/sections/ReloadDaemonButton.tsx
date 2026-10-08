@@ -156,9 +156,9 @@ export default function ReloadDaemonButton({ onReloaded, timeoutMs = 30_000, com
             <div className="flex items-center justify-between mb-4">
               <h3
                 className="text-lg font-semibold flex items-center gap-2"
-                style={{ color: 'var(--pc-text-primary)' }}
+                style={{ color: 'var(--color-foreground)' }}
               >
-                <RotateCw className="h-5 w-5" style={{ color: 'var(--pc-accent)' }} />
+                <RotateCw className="h-5 w-5" style={{ color: 'var(--color-primary)' }} />
                 {t('reload_btn.modal_title')}
               </h3>
               <button
@@ -170,7 +170,7 @@ export default function ReloadDaemonButton({ onReloaded, timeoutMs = 30_000, com
               </button>
             </div>
 
-            <div className="space-y-3 text-sm" style={{ color: 'var(--pc-text-secondary)' }}>
+            <div className="space-y-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
               <p>
                 {t('reload_btn.body_intro')}
               </p>
@@ -180,7 +180,7 @@ export default function ReloadDaemonButton({ onReloaded, timeoutMs = 30_000, com
                 <li>{t('reload_btn.effect_mcp')}</li>
                 <li>{t('reload_btn.effect_providers')}</li>
               </ul>
-              <p style={{ color: 'var(--pc-text-muted)' }}>
+              <p style={{ color: 'var(--color-muted-foreground)' }}>
                 {t('reload_btn.body_when')}
               </p>
               <p>

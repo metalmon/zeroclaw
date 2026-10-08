@@ -271,9 +271,9 @@ export default function PersonalityEditor({ agent }: Props) {
       <div
         className="rounded-xl border p-6 text-sm"
         style={{
-          borderColor: 'var(--pc-border)',
-          background: 'var(--pc-bg-surface)',
-          color: 'var(--pc-text-muted)',
+          borderColor: 'var(--color-border)',
+          background: 'var(--color-card)',
+          color: 'var(--color-muted-foreground)',
         }}
       >
         {error ? `${t('personality.load_failed_prefix')}${error}` : t('common.loading')}
@@ -284,7 +284,7 @@ export default function PersonalityEditor({ agent }: Props) {
   if (pick === null) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="text-sm" style={{ color: 'var(--pc-text-muted)' }}>
+        <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
           {t('personality.picker_intro')}
         </p>
         <div className="grid gap-3 md:grid-cols-2">
@@ -292,32 +292,32 @@ export default function PersonalityEditor({ agent }: Props) {
             type="button"
             disabled={seeding}
             onClick={() => void seedDefaultTemplates()}
-            className="text-left rounded-xl border p-4 transition-colors hover:border-[var(--pc-accent)]"
+            className="text-left rounded-xl border p-4 transition-colors hover:border-[var(--color-primary)]"
             style={{
-              borderColor: 'var(--pc-border)',
-              background: 'var(--pc-bg-surface)',
+              borderColor: 'var(--color-border)',
+              background: 'var(--color-card)',
             }}
           >
-            <div className="font-semibold mb-1" style={{ color: 'var(--pc-text-primary)' }}>
+            <div className="font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>
               {seeding ? t('personality.loading_templates') : t('personality.use_default_templates')}
             </div>
-            <div className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
+            <div className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
               {t('personality.use_default_templates_desc')}
             </div>
           </button>
           <button
             type="button"
             onClick={() => setPick('blank')}
-            className="text-left rounded-xl border p-4 transition-colors hover:border-[var(--pc-accent)]"
+            className="text-left rounded-xl border p-4 transition-colors hover:border-[var(--color-primary)]"
             style={{
-              borderColor: 'var(--pc-border)',
-              background: 'var(--pc-bg-surface)',
+              borderColor: 'var(--color-border)',
+              background: 'var(--color-card)',
             }}
           >
-            <div className="font-semibold mb-1" style={{ color: 'var(--pc-text-primary)' }}>
+            <div className="font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>
               {t('personality.start_blank')}
             </div>
-            <div className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
+            <div className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
               {t('personality.start_blank_desc')}
             </div>
           </button>
@@ -340,14 +340,14 @@ export default function PersonalityEditor({ agent }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm" style={{ color: 'var(--pc-text-muted)' }}>
+      <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
         {t('personality.editor_intro')}
       </p>
 
       {/* Tab strip */}
       <div
         className="flex flex-wrap gap-1 border-b"
-        style={{ borderColor: 'var(--pc-border)' }}
+        style={{ borderColor: 'var(--color-border)' }}
       >
         {index.files.map((f) => (
           <PersonalityTab
@@ -369,15 +369,15 @@ export default function PersonalityEditor({ agent }: Props) {
           {/* Edit ↔ Preview segmented toggle */}
           <div
             className="inline-flex self-end rounded-lg border overflow-hidden"
-            style={{ borderColor: 'var(--pc-border)' }}
+            style={{ borderColor: 'var(--color-border)' }}
           >
             <button
               type="button"
               onClick={() => setPreview(false)}
               className="text-xs px-3 py-1 transition-colors"
               style={{
-                background: !preview ? 'var(--pc-accent-glow)' : 'transparent',
-                color: !preview ? 'var(--pc-accent)' : 'var(--pc-text-secondary)',
+                background: !preview ? 'var(--color-accent-glow)' : 'transparent',
+                color: !preview ? 'var(--color-primary)' : 'var(--color-text-secondary)',
                 fontWeight: !preview ? 600 : 400,
               }}
             >
@@ -388,8 +388,8 @@ export default function PersonalityEditor({ agent }: Props) {
               onClick={() => setPreview(true)}
               className="text-xs px-3 py-1 transition-colors"
               style={{
-                background: preview ? 'var(--pc-accent-glow)' : 'transparent',
-                color: preview ? 'var(--pc-accent)' : 'var(--pc-text-secondary)',
+                background: preview ? 'var(--color-accent-glow)' : 'transparent',
+                color: preview ? 'var(--color-primary)' : 'var(--color-text-secondary)',
                 fontWeight: preview ? 600 : 400,
               }}
             >
@@ -401,8 +401,8 @@ export default function PersonalityEditor({ agent }: Props) {
             <div
               className={`prose ${resolvedTheme === 'dark' ? 'prose-invert' : ''} max-w-none rounded-md border px-4 py-3 text-sm overflow-y-auto`}
               style={{
-                borderColor: 'var(--pc-border)',
-                background: 'var(--pc-bg-base)',
+                borderColor: 'var(--color-border)',
+                background: 'var(--color-background)',
                 minHeight: '20rem',
               }}
             >
@@ -414,7 +414,7 @@ export default function PersonalityEditor({ agent }: Props) {
                   {activeBuf?.draft ?? ''}
                 </ReactMarkdown>
               ) : (
-                <p style={{ color: 'var(--pc-text-muted)' }}>
+                <p style={{ color: 'var(--color-muted-foreground)' }}>
                   {t('personality.nothing_to_preview')}
                 </p>
               )}
@@ -440,7 +440,7 @@ export default function PersonalityEditor({ agent }: Props) {
           )}
           <div
             className="flex items-center justify-between text-xs"
-            style={{ color: 'var(--pc-text-muted)' }}
+            style={{ color: 'var(--color-muted-foreground)' }}
           >
             <span>
               {fmtNumber(charCount)} / {fmtNumber(maxChars)} {t('personality.chars')}
@@ -512,7 +512,7 @@ export default function PersonalityEditor({ agent }: Props) {
             borderColor: 'rgba(245, 158, 11, 0.3)',
           }}
         >
-          <div style={{ color: 'var(--pc-text-primary)' }}>
+          <div style={{ color: 'var(--color-foreground)' }}>
             <strong>{conflict.filename}</strong> {t('personality.conflict_message')}
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -536,15 +536,15 @@ export default function PersonalityEditor({ agent }: Props) {
           <details>
             <summary
               className="cursor-pointer text-xs"
-              style={{ color: 'var(--pc-text-muted)' }}
+              style={{ color: 'var(--color-muted-foreground)' }}
             >
               {t('personality.show_on_disk')}
             </summary>
             <pre
               className="mt-2 p-2 text-xs rounded font-mono whitespace-pre-wrap break-all"
               style={{
-                background: 'var(--pc-bg-base)',
-                color: 'var(--pc-text-secondary)',
+                background: 'var(--color-background)',
+                color: 'var(--color-text-secondary)',
                 maxHeight: 200,
                 overflow: 'auto',
               }}
@@ -572,11 +572,11 @@ function PersonalityTab({ entry, active, dirty, onSelect }: TabProps) {
       onClick={onSelect}
       className="text-sm px-3 py-2 inline-flex items-center gap-2 transition-colors"
       style={{
-        background: active ? 'var(--pc-accent-glow)' : 'transparent',
-        color: active ? 'var(--pc-accent)' : 'var(--pc-text-primary)',
+        background: active ? 'var(--color-accent-glow)' : 'transparent',
+        color: active ? 'var(--color-primary)' : 'var(--color-foreground)',
         fontWeight: active ? 600 : 400,
         borderBottom: active
-          ? '2px solid var(--pc-accent)'
+          ? '2px solid var(--color-primary)'
           : '2px solid transparent',
         marginBottom: -1,
       }}
@@ -586,7 +586,7 @@ function PersonalityTab({ entry, active, dirty, onSelect }: TabProps) {
         style={{
           background: entry.exists
             ? 'var(--color-status-success)'
-            : 'var(--pc-border)',
+            : 'var(--color-border)',
         }}
         title={entry.exists ? t('personality.tab_saved') : t('personality.tab_not_created')}
       />

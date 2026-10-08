@@ -72,7 +72,7 @@ export default function Plugins() {
           <button
             type="button"
             onClick={() => setReload((value) => value + 1)}
-            className="rounded-[var(--radius-sm)] border border-current px-3 py-1.5 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]"
+            className="rounded-[var(--radius-sm)] border border-current px-3 py-1.5 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
           >
             {t("common.retry")}
           </button>
@@ -86,12 +86,12 @@ export default function Plugins() {
       <div
         role="status"
         aria-live="polite"
-        className="flex h-64 items-center justify-center gap-3 text-sm text-pc-text-muted"
+        className="flex h-64 items-center justify-center gap-3 text-sm text-muted-foreground"
       >
         <span
           aria-hidden="true"
-          className="h-8 w-8 animate-spin rounded-full border-2 border-pc-border"
-          style={{ borderTopColor: "var(--pc-accent)" }}
+          className="h-8 w-8 animate-spin rounded-full border-2 border-border"
+          style={{ borderTopColor: "var(--color-primary)" }}
         />
         <span>{t("plugins.loading")}</span>
       </div>
@@ -128,7 +128,7 @@ export default function Plugins() {
       {!response.wasm_plugins_available && (
         <div
           role="status"
-          className="rounded-[var(--radius-md)] border border-pc-border bg-pc-surface p-4 text-sm text-pc-text-muted"
+          className="rounded-[var(--radius-md)] border border-border bg-card p-4 text-sm text-muted-foreground"
         >
           {t("plugins.wasm_unavailable_hint")}
         </div>
@@ -137,7 +137,7 @@ export default function Plugins() {
       {response.issues.length > 0 && (
         <div
           role="alert"
-          className="rounded-[var(--radius-md)] border border-status-warning/25 bg-status-warning/10 p-4 text-sm text-pc-text"
+          className="rounded-[var(--radius-md)] border border-status-warning/25 bg-status-warning/10 p-4 text-sm text-foreground"
         >
           <div className="mb-2 flex items-center gap-2 font-medium">
             <TriangleAlert
@@ -146,7 +146,7 @@ export default function Plugins() {
             />
             {t("plugins.partial_title")}
           </div>
-          <ul className="list-disc space-y-1 pl-5 text-pc-text-muted">
+          <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
             {response.issues.map((issue) => (
               <li key={`${issue.source}:${issue.code}`}>{issueLabel(issue)}</li>
             ))}
@@ -169,10 +169,10 @@ export default function Plugins() {
               onClick={() => setFilter(option)}
               className={[
                 "inline-flex h-7 cursor-pointer items-center rounded-[var(--radius-md)] border px-3 text-[13px] font-medium transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]",
                 active
-                  ? "border-transparent bg-pc-accent text-[#0b1220]"
-                  : "border-pc-border bg-transparent text-pc-text-secondary hover:border-pc-border-strong hover:bg-[var(--pc-hover)] hover:text-pc-text",
+                  ? "border-transparent bg-primary text-[#0b1220]"
+                  : "border-border bg-transparent text-text-secondary hover:border-border-strong hover:bg-[var(--color-hover)] hover:text-foreground",
               ].join(" ")}
             >
               {t(`plugins.filter.${option}`)}
@@ -185,9 +185,9 @@ export default function Plugins() {
         <Card className="p-10 text-center">
           <Puzzle
             aria-hidden="true"
-            className="mx-auto mb-3 h-10 w-10 text-pc-text-faint"
+            className="mx-auto mb-3 h-10 w-10 text-text-faint"
           />
-          <p className="text-sm text-pc-text-muted">{t("plugins.empty")}</p>
+          <p className="text-sm text-muted-foreground">{t("plugins.empty")}</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -196,11 +196,11 @@ export default function Plugins() {
             return (
               <article
                 key={entry.name}
-                className="flex min-w-0 flex-col gap-4 rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface p-5"
+                className="flex min-w-0 flex-col gap-4 rounded-[var(--radius-lg)] border border-border bg-card p-5"
               >
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-3">
-                    <h2 className="min-w-0 truncate text-sm font-medium text-pc-text">
+                    <h2 className="min-w-0 truncate text-sm font-medium text-foreground">
                       {entry.name}
                     </h2>
                     <div className="flex flex-shrink-0 flex-wrap justify-end gap-1.5">
@@ -212,16 +212,16 @@ export default function Plugins() {
                       )}
                     </div>
                   </div>
-                  <p className="line-clamp-2 text-sm text-pc-text-muted">
+                  <p className="line-clamp-2 text-sm text-muted-foreground">
                     {description ?? t("plugins.no_description")}
                   </p>
                 </div>
 
-                <dl className="space-y-1 text-xs text-pc-text-muted">
+                <dl className="space-y-1 text-xs text-muted-foreground">
                   {entry.installed && (
                     <div className="flex justify-between gap-3">
                       <dt>{t("plugins.installed_version")}</dt>
-                      <dd className="font-mono text-pc-text-secondary">
+                      <dd className="font-mono text-text-secondary">
                         {entry.installed.version}
                       </dd>
                     </div>
@@ -229,7 +229,7 @@ export default function Plugins() {
                   {entry.available && (
                     <div className="flex justify-between gap-3">
                       <dt>{t("plugins.registry_version")}</dt>
-                      <dd className="font-mono text-pc-text-secondary">
+                      <dd className="font-mono text-text-secondary">
                         {entry.available.version}
                       </dd>
                     </div>
@@ -238,7 +238,7 @@ export default function Plugins() {
 
                 {entry.installed && entry.installed.capabilities.length > 0 && (
                   <div className="space-y-1.5">
-                    <h3 className="text-[11px] font-medium uppercase tracking-wider text-pc-text-faint">
+                    <h3 className="text-[11px] font-medium uppercase tracking-wider text-text-faint">
                       {t("plugins.installed_capabilities")} · {entry.installed.version}
                     </h3>
                     <div className="flex flex-wrap gap-1.5">
@@ -253,7 +253,7 @@ export default function Plugins() {
 
                 {entry.available && entry.available.capabilities.length > 0 && (
                   <div className="space-y-1.5">
-                    <h3 className="text-[11px] font-medium uppercase tracking-wider text-pc-text-faint">
+                    <h3 className="text-[11px] font-medium uppercase tracking-wider text-text-faint">
                       {t("plugins.registry_capabilities")} · {entry.available.version}
                     </h3>
                     <div className="flex flex-wrap gap-1.5">
@@ -268,19 +268,19 @@ export default function Plugins() {
 
                 {entry.installed && entry.installed.permissions.length > 0 && (
                   <div className="space-y-1.5">
-                    <h3 className="text-[11px] font-medium uppercase tracking-wider text-pc-text-faint">
+                    <h3 className="text-[11px] font-medium uppercase tracking-wider text-text-faint">
                       {t("plugins.permissions")}
                     </h3>
-                    <p className="text-xs text-pc-text-muted">
+                    <p className="text-xs text-muted-foreground">
                       {entry.installed.permissions.map(displayToken).join(", ")}
                     </p>
                   </div>
                 )}
 
                 {entry.available && (
-                  <div className="mt-auto border-t border-pc-border pt-3 text-xs text-pc-text-muted">
+                  <div className="mt-auto border-t border-border pt-3 text-xs text-muted-foreground">
                     {t("plugins.install_source")}: {" "}
-                    <code className="break-all text-pc-text-secondary">
+                    <code className="break-all text-text-secondary">
                       {entry.available.install_source}
                     </code>
                   </div>

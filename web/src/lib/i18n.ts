@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getStatus } from './api';
 import { ru } from '@/locales/ru';
+// RU field-description overrides, keyed by the exact EN Rust doc (see
+// fieldDesc). Kept as a standalone data file (not inlined in ru.ts) because
+// the descriptions are long prose shared across many field paths.
+import ruFieldDesc from '@/locales/fieldDescRu.json';
 
 // ---------------------------------------------------------------------------
 // Translation dictionaries
@@ -334,7 +338,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': '警告',
     'doctor.all_clear': '一切正常',
     'doctor.system_diagnostics': '系统诊断',
-    'doctor.empty_hint': '点击"运行诊断"检查您的 ZeroClaw 安装。',
+    'doctor.empty_hint': '点击"运行诊断"检查您的 Volt Agent 安装。',
 
     // Auth / Pairing
     'auth.pair': '配对设备',
@@ -493,8 +497,9 @@ const translations: Record<Locale, Record<string, string>> = {
     'plugins.registry_capabilities': "Registry capabilities",
     'plugins.permissions': "Requested permissions",
     'plugins.install_source': "Package identity",
-    // Product identity — one key so the name lives in a single place. A proper
-    // noun, so every locale carries the same value, not translated prose.
+    // Product identity — single-source key for the product name so a future
+    // rebrand changes exactly one value (stays "ZeroClaw" in every locale
+    // until then; it's a proper noun, not translated prose).
     'product.name': "Volt Agent",
     // ── i18n sweep: keys added by the conversion workflow ──
     // Self-review follow-ups: singular forms for Doctor severity pills + the
@@ -572,6 +577,21 @@ const translations: Record<Locale, Record<string, string>> = {
     'canvas.unknown_error': "unknown error",
     'canvas.waiting_hint': "The agent can push content here using the canvas tool",
     'canvas.waiting_prefix': "Waiting for content on canvas",
+    'channelbind.already_authorized': "{id} was already authorized on {scope}.",
+    'channelbind.authorized': "Authorized {id} on {scope}. They can message the bot now — no /bind needed.",
+    'channelbind.bind': "Bind",
+    'channelbind.bind_failed': "Bind failed.",
+    'channelbind.binding': "Binding…",
+    'channelbind.channel_label': "Channel",
+    'channelbind.cli_label': "Equivalent CLI command",
+    'channelbind.copied': "Copied",
+    'channelbind.copy': "Copy",
+    'channelbind.description': "Add someone's id to a Telegram, WeChat, or LINE channel's allowlist. They can message the bot immediately — no pairing code, no /bind.",
+    'channelbind.done': "Done",
+    'channelbind.empty_state': "No Telegram, WeChat, or LINE channels are configured.",
+    'channelbind.error': "Error",
+    'channelbind.heading': "Authorize a user (no /bind message)",
+    'channelbind.identity_label': "Identity (e.g. Telegram numeric user id, or @username)",
     'combobox.close_list': "Close list",
     'combobox.no_matches': "No matches",
     'combobox.open_list': "Open list",
@@ -830,6 +850,11 @@ const translations: Record<Locale, Record<string, string>> = {
     'fieldform.alias_pick_or_type': "Pick from list or type a value",
     'fieldform.remove_entry': "Remove this entry",
     'fieldform.reset_to_default': "Reset to default / unset",
+    'fieldform.field_modified': "modified",
+    'fieldform.increment': "Increase",
+    'fieldform.decrement': "Decrease",
+    'fieldform.filter_all': "All",
+    'fieldform.filter_modified': "Modified",
     'fieldform.save_failed_prefix': "Save failed: ",
     'fieldform.saved_count_one': "{n} field saved.",
     'fieldform.saved_count_other': "{n} fields saved.",
@@ -854,6 +879,12 @@ const translations: Record<Locale, Record<string, string>> = {
     'fieldform.value_combo_placeholder': "pick from list or type a value",
     'fieldform.value_placeholder': "value",
     'header.open_menu': "Open menu",
+    'header.back': "Back",
+    'header.forward': "Forward",
+    'header.account': "Account",
+    'header.session': "Session",
+    'detail.close': "Close",
+    'common.more': "More actions",
     'logs.add_filter': "Add filter",
     'logs.any_category': "Any category",
     'logs.any_outcome': "Any outcome",
@@ -881,7 +912,9 @@ const translations: Record<Locale, Record<string, string>> = {
     'pairing.unnamed': "Unnamed",
     'pairing.unpaired_hint': "Pairing is required, so the device list can't be read from here. Pair this browser with a code (above) — then your paired devices will appear.",
     'pairing.unpaired_title': "This browser isn't paired yet",
-    'pairing.code_input_placeholder': "pairing code",
+    'pairing.code_input_placeholder': "Pairing code",
+    'pairing.copy_code': "Copy code",
+    'pairing.copied': "Copied",
     'personality.chars': "chars",
     'personality.conflict_message': "changed on disk while you were editing. Pick how to resolve:",
     'personality.editor_intro': "These markdown files shape your agent's voice and context. The runtime reads them at every request, so changes take effect on the next message — no daemon reload needed.",
@@ -1007,12 +1040,12 @@ const translations: Record<Locale, Record<string, string>> = {
     'reload_btn.timeout_suffix': "s. Check the gateway logs (it may still be starting, or it may have crashed).",
     'reload_btn.waiting': "Waiting for daemon…",
     'section_nav.add_to_prefix': "Add to ",
-    'section_nav.collapse': "Collapse",
     'section_nav.empty': "Nothing configured yet",
-    'section_nav.expand': "Expand",
     'section_nav.no_matches': "No matches.",
     'section_nav.search_placeholder': "Search settings…",
     'section_nav.tree_label': "Settings sections",
+    'section_nav.collapse': "Collapse sections",
+    'section_nav.expand': "Expand sections",
     'section_picker.filter_placeholder': "Filter — fuzzy match. Enter to pick, Esc to skip.",
     'section_picker.load_failed_prefix': "Couldn't load picker for ",
     'section_picker.no_matches': "No matches. Try a different filter.",
@@ -1076,6 +1109,9 @@ const translations: Record<Locale, Record<string, string>> = {
     'skills.skipped_count_one': "{n} skill skipped (failed security audit)",
     'skills.skipped_count_other': "{n} skills skipped (failed security audit)",
     'skills.title': "Skills",
+    'skills.about': "About",
+    'skills.origin': "Origin",
+    'skills.location': "Location",
     'skills_bundle.archive_skill': "Archive skill",
     'skills_bundle.author_label': "Author",
     'skills_bundle.category_label': "Category",
@@ -1120,6 +1156,30 @@ const translations: Record<Locale, Record<string, string>> = {
     'skills_bundle.aria_choice_label': 'Choice {n} label',
     'skills_bundle.aria_choice_value': 'Choice {n} value',
     'skills_bundle.aria_remove_choice': 'Remove choice {n}',
+    'skills_bundle.slash_command': 'Slash command',
+    'skills_bundle.slash_command_hint_prefix': '— expose this skill as a ',
+    'skills_bundle.slash_command_hint_mid': ' in Discord (adds the ',
+    'skills_bundle.slash_command_hint_suffix': ' tag)',
+    'skills_bundle.tags_label': 'Tags',
+    'skills_bundle.slash_options_title': 'Slash command options',
+    'skills_bundle.slash_options_hint_prefix': 'Typed parameters this ',
+    'skills_bundle.slash_options_hint_suffix': ' accepts. With none, the skill runs with a single free-text argument.',
+    'skills_bundle.add_option': '+ Add option',
+    'skills_bundle.no_options': 'No options yet.',
+    'skills_bundle.option_name_label': 'Name',
+    'skills_bundle.option_type_label': 'Type',
+    'skills_bundle.option_required_label': 'Required',
+    'skills_bundle.option_description_label': 'Description',
+    'skills_bundle.option_min': 'Min',
+    'skills_bundle.option_max': 'Max',
+    'skills_bundle.option_min_length': 'Min length',
+    'skills_bundle.option_max_length': 'Max length',
+    'skills_bundle.choices_label': 'Choices',
+    'skills_bundle.choices_hint': '(optional, a fixed dropdown)',
+    'skills_bundle.add_choice': '+ Choice',
+    'error_boundary.title': 'Something went wrong',
+    'error_boundary.body': 'A render error occurred. Check the browser console for details.',
+    'error_boundary.retry': 'Try again',
     'tool_call.args': "args",
     'tool_call.done': "done",
     'tool_call.running': "running",
@@ -1347,12 +1407,38 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.wire_kind_data': 'Data wire: pipes an output pin into an input pin',
     'sops.legend_title': 'Legend',
     'sops.legend_data': 'Data binding',
+    'sops.legend_sequence': 'Implicit fallthrough or explicit routing.next.',
+    'sops.legend_dependency':
+      'routing.depends_on fan-in: source must complete before target runs.',
+    'sops.legend_failure': 'on_failure: goto recovery edge.',
+    'sops.legend_switch': 'Named conditional port from routing.switch.',
+    'sops.legend_trigger': "Derived from the SOP's triggers; read-only, never hand-wired.",
+    'sops.role_label_sequence': 'next step',
+    'sops.role_label_dependency': 'waits for',
+    'sops.role_label_failure': 'on failure',
+    'sops.role_label_switch': 'branch',
+    'sops.role_label_trigger': 'trigger',
+    'sops.run_state_desc_pending': 'Not reached yet (or the run ended before reaching it).',
+    'sops.run_state_desc_active': "The run's current step while the run is live.",
+    'sops.run_state_desc_completed': 'The step finished successfully.',
+    'sops.run_state_desc_failed': 'The step errored and did not complete.',
+    'sops.run_state_desc_skipped': 'The step was routed around and never ran.',
+    'sops.priority_low': 'Low',
+    'sops.priority_normal': 'Normal',
+    'sops.priority_high': 'High',
+    'sops.priority_critical': 'Critical',
+    'sops.exec_auto': 'Auto',
+    'sops.exec_supervised': 'Supervised',
+    'sops.exec_step_by_step': 'Step by step',
+    'sops.exec_priority_based': 'Priority based',
+    'sops.exec_deterministic': 'Deterministic',
     'sops.legend_handles_hint':
       'Right edge dots: drag out a wire. Left edge dots: where wires land. Hover any dot or wire for details.',
     'sops.menu_wire_dependency': 'Wire: dependency →',
     'sops.wire_delete_hint': 'Click wire to remove this connection',
     'sops.data_wire_delete_hint': 'Click data wire to remove this binding',
     'sops.pin_any': 'any',
+    'sops.pin_flow': 'flow',
     'sops.pin_required': 'required',
     'sops.switch': 'switch',
     'sops.switch_ports': 'Switch ports (if-this-then-that)',
@@ -1406,7 +1492,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.trigger_expression_hint': 'Boolean expression evaluated against the event payload.',
     'sops.trigger_expression_placeholder': '$.status == active',
     'sops.trigger_path_hint': 'Absolute path or glob to watch.',
-    'sops.trigger_path_placeholder': '~/.zeroclaw/config.toml',
+    'sops.trigger_path_placeholder': '~/.voltd/config.toml',
     'sops.trigger_topic_hint': 'MQTT topic filter. Supports + and # wildcards.',
     'sops.trigger_topic_placeholder': 'sensors/+/temperature',
     'sops.step_kind': 'Step kind',
@@ -1436,7 +1522,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.condition_field_placeholder': 'path.to.field',
     'sops.condition_operator': 'Operator',
     'sops.condition_value': 'Value',
-    'sops.condition_any': 'Any (fires always)',
+    'sops.condition_any': 'Any',
     'sops.condition_pick_field': 'Pick a field',
     'sops.condition_pick_value': 'Pick a value',
     'sops.condition_value_placeholder': 'value',
@@ -1488,6 +1574,43 @@ const translations: Record<Locale, Record<string, string>> = {
     'sops.call_output_data': 'Structured output',
     'sops.captured_calls': 'Captured calls',
     'sops.calls_chip': 'planned calls',
+    'sops.section_instructions': 'Instructions',
+    'sops.section_tools': 'Tools',
+    'sops.section_routing': 'Routing',
+    'sops.section_approval': 'Approval & HITL',
+    'sops.section_capability': 'Capability',
+    'sops.section_schema': 'Data contract',
+    'sops.section_scheduling': 'Scheduling & concurrency',
+    'sops.scope_precise_toggle': 'Precise scope',
+    'sops.scope_allow': 'Allow',
+    'sops.scope_deny': 'Deny',
+    'sops.scope_overrides_hint':
+      'Allow overrides the legacy suggested-tools hint list.',
+    'sops.step_policy_label': 'Approval policy',
+    'sops.step_policy_placeholder': 'policy name',
+    'sops.step_gate_prompt_label': 'Gate prompt',
+    'sops.step_gate_prompt_placeholder':
+      'Notice shown to the approver. {{path.to.field}} resolves against the piped input.',
+    'sops.step_edit_label': 'Editable field',
+    'sops.step_edit_placeholder': 'e.g. body',
+    'sops.step_capability_label': 'Capability',
+    'sops.step_capability_placeholder': 'capability id',
+    'sops.step_capability_required_hint': 'Required for a capability step.',
+    'sops.step_with_label': 'Capability arguments (with)',
+    'sops.step_schema_input': 'Input schema',
+    'sops.step_schema_output': 'Output schema',
+    'sops.json_invalid': 'Invalid JSON',
+    'sops.field_cooldown_secs': 'Cooldown (seconds)',
+    'sops.field_cooldown_secs_hint': 'sec',
+    'sops.field_max_concurrent': 'Max concurrent runs',
+    'sops.field_admission_policy': 'Admission policy',
+    'sops.field_max_pending_approvals': 'Max pending approvals',
+    'sops.unlimited_hint': '0 = unlimited',
+    'sops.field_deterministic': 'Deterministic',
+    'sops.admission_parallel': 'Parallel',
+    'sops.admission_hold': 'Hold',
+    'sops.admission_coalesce': 'Coalesce',
+    'sops.admission_drop': 'Drop',
     'nav.cron': 'Automations',
     'nav.integrations': 'Integrations',
     'nav.skills': 'Skills',
@@ -1506,6 +1629,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'nav.aria.primary': 'Primary navigation',
     'nav.pairing': 'Pairing',
     'nav.roles': 'Roles',
+    'nav.users': 'Users',
     'nav.cmdk.placeholder': 'Search…',
     'nav.cmdk.title': 'Command palette',
     'nav.cmdk.empty': 'No results',
@@ -2034,10 +2158,35 @@ const translations: Record<Locale, Record<string, string>> = {
     'pairing.load_error': 'Failed to load devices',
     'pairing.generate_error': 'Failed to generate pairing code',
     'pairing.revoke_error': 'Failed to revoke device',
+    'pairing.checking_status': 'Checking pairing status…',
+    'pairing.your_code_hint': 'Your pairing code — click Pair to connect',
+    'pairing.already_paired_hint': 'This gateway is already paired — generate a code to add this device',
+    'pairing.no_code_hint': 'No pairing code was generated because a device is already paired.',
+    'pairing.generating': 'Generating…',
+    'pairing.generate_code': 'Generate pairing code',
+    'pairing.cli_fallback_localhost': "Couldn't generate a code from the browser. On the machine running the gateway, run:",
+    'pairing.cli_fallback_remote': 'Pairing codes can only be generated on the machine running the gateway. Run:',
+    'pairing.enter_code_hint': 'Enter this code below or on another device',
+    'pairing.pairing_progress': 'Pairing…',
+    'pairing.pair_action': 'Pair',
+    'pairing.failed': 'Pairing failed',
+    'pairing.error_invalid_code': 'Invalid or expired pairing code. Generate a new one and try again.',
+    'pairing.role_label': 'User',
+    'pairing.role_none': '— no user —',
+    'pairing.role_admin_marker': '· admin',
+    'pairing.tagged_for': 'Code bound to user: {value}',
 
-    // Roles (permission profiles + principal binding)
+    // Roles (permission profiles)
     'roles.title': 'Roles',
-    'roles.description': 'Define permission profiles and bind principals to them to control which agents they can reach.',
+    'roles.description': 'Roles define which agents can be reached and who is an admin. Users are bound to roles on the Users page.',
+    'roles.user_count_one': '{n} user',
+    'roles.user_count_other': '{n} users',
+    'roles.local_count_one': '{n} local',
+    'roles.local_count_other': '{n} local',
+    'roles.external_count_one': '{n} external',
+    'roles.external_count_other': '{n} external',
+    'roles.users_with_role': 'Users with this role',
+    'roles.nobody_bound': 'Nobody bound',
     'roles.new_profile': 'New Profile',
     'roles.profiles_heading': 'Permission Profiles',
     'roles.no_profiles': 'No permission profiles configured yet.',
@@ -2055,30 +2204,62 @@ const translations: Record<Locale, Record<string, string>> = {
     'roles.new_profile_title': 'New Profile',
     'roles.edit_profile_title': 'Edit Profile',
     'roles.delete_profile_title': 'Delete profile?',
-    'roles.delete_profile_message': 'This will delete the permission profile {value}. Principals still bound to it will keep a dangling reference that grants nothing until rebound.',
-    'roles.delete_profile_affected_one': '{n} principal now has a dangling reference to this profile and needs to be rebound:',
-    'roles.delete_profile_affected_other': '{n} principals now have a dangling reference to this profile and need to be rebound:',
-    'roles.principals_heading': 'Principals',
-    'roles.no_principals': 'No principals configured yet. Principals are created by pairing or the operator bootstrap — once one exists, bind it to a profile here.',
-    'roles.pending_badge': 'PENDING — no role assigned',
+    'roles.delete_profile_message': 'This will delete the permission profile {value}. Users still bound to it will keep a dangling reference that grants nothing until rebound.',
+    'roles.delete_profile_affected_one': '{n} user now has a dangling reference to this profile and needs to be rebound:',
+    'roles.delete_profile_affected_other': '{n} users now have a dangling reference to this profile and need to be rebound:',
     'roles.admin_badge': 'Admin',
-    'roles.bind_profile': 'Bind profile',
-    'roles.unbind': 'Unbind',
-    'roles.select_profile_placeholder': 'Select a profile…',
     'roles.load_error': 'Failed to load roles',
     'roles.save_error': 'Failed to save profile',
     'roles.delete_error': 'Failed to delete profile',
-    'roles.bind_error': 'Failed to bind profile',
-    'roles.unbind_error': 'Failed to unbind profile',
-    'roles.forbidden_error': 'This action requires a principal bound to an admin profile.',
-    'roles.token_count_one': '{n} token',
-    'roles.token_count_other': '{n} tokens',
-    'roles.device_count_one': '{n} device',
-    'roles.device_count_other': '{n} devices',
-    'roles.legacy_agents_hint': 'Legacy inline agents (pre-migration):',
+    'roles.forbidden_error': 'This action requires a user bound to an admin role.',
     'roles.id_required': 'A profile ID is required.',
     'roles.id_taken': 'A profile with this ID already exists.',
     'roles.dismiss': 'Dismiss',
+
+    // Users (local pairing-code users + external SSO users)
+    'users.title': 'Users',
+    'users.description': 'Who can sign in and which roles they hold. Local users sign in with a pairing code; SSO users come from the identity provider.',
+    'users.local_heading': 'Local',
+    'users.external_heading': 'External (SSO)',
+    'users.new_local': 'New user',
+    'users.new_local_title': 'New user',
+    'users.no_local': 'No users yet. Users come from Keycloak (by group) or are created here by hand for pairing-code login.',
+    'users.no_external': 'No SSO users have signed in yet.',
+    'users.external_hint': 'Permissions of external users are set by the identity provider groups; they cannot be changed here.',
+    'users.idp_warning': 'A local user signs in with a pairing code. Identity-provider (SSO) users are created automatically by group; there is no need to add them here.',
+    'users.id': 'Identifier',
+    'users.id_placeholder': 'e.g. ivanov',
+    'users.id_hint': 'Latin letters, digits and . _ @ - (e.g. ivanov).',
+    'users.roles': 'Roles',
+    'users.no_roles_bound': 'No roles bound.',
+    'users.id_required': 'An identifier is required.',
+    'users.id_invalid': 'Only Latin letters, digits and . _ @ - are allowed.',
+    'users.id_taken': 'A user with this identifier already exists.',
+    'users.create_error': 'Failed to create user',
+    'users.delete_title': 'Delete user?',
+    'users.delete_message': 'The user {value} will be deleted; its pairing codes and role bindings stop working.',
+    'users.delete_error': 'Failed to delete user',
+    'users.delete_bound_title': 'Devices are still paired',
+    'users.delete_bound_message': 'Devices or tokens are still paired to {value}. Delete it together with them?',
+    'users.delete_force': 'Delete with devices',
+    'users.pending_badge': 'PENDING — no role assigned',
+    'users.bind_profile': 'Bind profile',
+    'users.unbind': 'Unbind',
+    'users.select_profile_placeholder': 'Select a role…',
+    'users.bind_error': 'Failed to bind role',
+    'users.unbind_error': 'Failed to unbind role',
+    'users.legacy_agents_hint': 'Legacy inline agents (pre-migration):',
+    'users.token_count_one': '{n} token',
+    'users.token_count_other': '{n} tokens',
+    'users.device_count_one': '{n} device',
+    'users.device_count_other': '{n} devices',
+    'users.last_login': 'last sign-in {value}',
+    'users.never_logged_in': 'never signed in',
+    'users.forget': 'Forget',
+    'users.forget_title': 'Forget user?',
+    'users.forget_message': 'The SSO user {value} will be removed from the local roster; a fresh record is created on the next sign-in.',
+    'users.forget_error': 'Failed to forget user',
+    'users.load_error': 'Failed to load users',
 
     // Common
     'common.loading': 'Loading...',
@@ -2184,7 +2365,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'dashboard.load_channels_error': 'Failed to load channels',
     'dashboard.never': 'Never',
     'dashboard.connected_tuis': 'Connected TUIs',
-    'dashboard.ram.resident': 'resident (zeroclaw)',
+    'dashboard.ram.resident': 'resident (voltd)',
     'dashboard.ram.unsupported': 'not supported on this platform',
     'dashboard.ram.of': 'of',
     'dashboard.cpu.cores_one': "core",
@@ -2659,7 +2840,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Uyarılar',
     'doctor.all_clear': 'Her Şey Yolunda',
     'doctor.system_diagnostics': 'Sistem Tanıları',
-    'doctor.empty_hint': 'ZeroClaw kurulumunuzu kontrol etmek için "Tanı Çalıştır" düğmesine tıklayın.',
+    'doctor.empty_hint': 'Volt Agent kurulumunuzu kontrol etmek için "Tanı Çalıştır" düğmesine tıklayın.',
 
     // Auth / Pairing
     'auth.pair': 'Cihaz Eşleştir',
@@ -3039,7 +3220,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'تحذيرات',
     'doctor.all_clear': 'كل شيء على ما يرام',
     'doctor.system_diagnostics': 'تشخيصات النظام',
-    'doctor.empty_hint': 'انقر على "تشغيل التشخيصات" للتحقق من تثبيت ZeroClaw.',
+    'doctor.empty_hint': 'انقر على "تشغيل التشخيصات" للتحقق من تثبيت Volt Agent.',
 
     // Auth / Pairing
     'auth.pair': 'إقران الجهاز',
@@ -3452,7 +3633,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'সতর্কতা',
     'doctor.all_clear': 'সব ঠিক আছে',
     'doctor.system_diagnostics': 'সিস্টেম ডায়াগনস্টিকস',
-    'doctor.empty_hint': 'আপনার ZeroClaw ইনস্টলেশন পরীক্ষা করতে "ডায়াগনস্টিকস চালান" ক্লিক করুন।',
+    'doctor.empty_hint': 'আপনার Volt Agent ইনস্টলেশন পরীক্ষা করতে "ডায়াগনস্টিকস চালান" ক্লিক করুন।',
 
     // Auth / Pairing
     'auth.pair': 'ডিভাইস পেয়ার করুন',
@@ -3865,7 +4046,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Varování',
     'doctor.all_clear': 'Vše v pořádku',
     'doctor.system_diagnostics': 'Diagnostika systému',
-    'doctor.empty_hint': 'Klikněte na "Spustit diagnostiku" pro kontrolu instalace ZeroClaw.',
+    'doctor.empty_hint': 'Klikněte na "Spustit diagnostiku" pro kontrolu instalace Volt Agent.',
 
     // Auth / Pairing
     'auth.pair': 'Spárovat zařízení',
@@ -4278,7 +4459,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Advarsler',
     'doctor.all_clear': 'Alt i orden',
     'doctor.system_diagnostics': 'Systemdiagnostik',
-    'doctor.empty_hint': 'Klik på "Kør diagnostik" for at kontrollere din ZeroClaw-installation.',
+    'doctor.empty_hint': 'Klik på "Kør diagnostik" for at kontrollere din Volt Agent-installation.',
 
     // Auth / Pairing
     'auth.pair': 'Par enhed',
@@ -4691,7 +4872,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Warnungen',
     'doctor.all_clear': 'Alles in Ordnung',
     'doctor.system_diagnostics': 'Systemdiagnose',
-    'doctor.empty_hint': 'Klicken Sie auf "Diagnose ausführen", um Ihre ZeroClaw-Installation zu überprüfen.',
+    'doctor.empty_hint': 'Klicken Sie auf "Diagnose ausführen", um Ihre Volt Agent-Installation zu überprüfen.',
 
     // Auth / Pairing
     'auth.pair': 'Gerät koppeln',
@@ -5104,7 +5285,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Προειδοποιήσεις',
     'doctor.all_clear': 'Όλα εντάξει',
     'doctor.system_diagnostics': 'Διαγνωστικά συστήματος',
-    'doctor.empty_hint': 'Κάντε κλικ στο "Εκτέλεση διαγνωστικών" για να ελέγξετε την εγκατάσταση του ZeroClaw.',
+    'doctor.empty_hint': 'Κάντε κλικ στο "Εκτέλεση διαγνωστικών" για να ελέγξετε την εγκατάσταση του Volt Agent.',
 
     // Auth / Pairing
     'auth.pair': 'Σύζευξη συσκευής',
@@ -5517,7 +5698,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Advertencias',
     'doctor.all_clear': 'Todo en orden',
     'doctor.system_diagnostics': 'Diagnóstico del sistema',
-    'doctor.empty_hint': 'Haga clic en "Ejecutar diagnósticos" para verificar su instalación de ZeroClaw.',
+    'doctor.empty_hint': 'Haga clic en "Ejecutar diagnósticos" para verificar su instalación de Volt Agent.',
 
     // Auth / Pairing
     'auth.pair': 'Emparejar dispositivo',
@@ -5930,7 +6111,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Varoitukset',
     'doctor.all_clear': 'Kaikki kunnossa',
     'doctor.system_diagnostics': 'Järjestelmädiagnostiikka',
-    'doctor.empty_hint': 'Napsauta "Suorita diagnostiikka" tarkistaaksesi ZeroClaw-asennuksen.',
+    'doctor.empty_hint': 'Napsauta "Suorita diagnostiikka" tarkistaaksesi Volt Agent-asennuksen.',
 
     // Auth / Pairing
     'auth.pair': 'Yhdistä laite',
@@ -6343,7 +6524,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Avertissements',
     'doctor.all_clear': 'Tout est en ordre',
     'doctor.system_diagnostics': 'Diagnostics système',
-    'doctor.empty_hint': 'Cliquez sur "Exécuter les diagnostics" pour vérifier votre installation ZeroClaw.',
+    'doctor.empty_hint': 'Cliquez sur "Exécuter les diagnostics" pour vérifier votre installation Volt Agent.',
 
     // Auth / Pairing
     'auth.pair': 'Appairer l\'appareil',
@@ -6770,7 +6951,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'אזהרות',
     'doctor.all_clear': 'הכל תקין',
     'doctor.system_diagnostics': 'אבחון מערכת',
-    'doctor.empty_hint': 'לחץ על "הפעל אבחון" כדי לבדוק את התקנת ZeroClaw שלך.',
+    'doctor.empty_hint': 'לחץ על "הפעל אבחון" כדי לבדוק את התקנת Volt Agent שלך.',
 
     // Auth / Pairing
     'auth.pair': 'צמד מכשיר',
@@ -7183,7 +7364,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'चेतावनियाँ',
     'doctor.all_clear': 'सब ठीक है',
     'doctor.system_diagnostics': 'सिस्टम डायग्नोस्टिक्स',
-    'doctor.empty_hint': 'अपनी ZeroClaw स्थापना की जाँच करने के लिए "डायग्नोस्टिक्स चलाएँ" पर क्लिक करें।',
+    'doctor.empty_hint': 'अपनी Volt Agent स्थापना की जाँच करने के लिए "डायग्नोस्टिक्स चलाएँ" पर क्लिक करें।',
 
     // Auth / Pairing
     'auth.pair': 'डिवाइस पेयर करें',
@@ -7596,7 +7777,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Figyelmeztetések',
     'doctor.all_clear': 'Minden rendben',
     'doctor.system_diagnostics': 'Rendszer diagnosztika',
-    'doctor.empty_hint': 'Kattintson a "Diagnosztika futtatása" gombra a ZeroClaw telepítés ellenőrzéséhez.',
+    'doctor.empty_hint': 'Kattintson a "Diagnosztika futtatása" gombra a Volt Agent telepítés ellenőrzéséhez.',
 
     // Auth / Pairing
     'auth.pair': 'Eszköz párosítása',
@@ -8009,7 +8190,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Peringatan',
     'doctor.all_clear': 'Semua Baik',
     'doctor.system_diagnostics': 'Diagnostik Sistem',
-    'doctor.empty_hint': 'Klik "Jalankan Diagnostik" untuk memeriksa instalasi ZeroClaw Anda.',
+    'doctor.empty_hint': 'Klik "Jalankan Diagnostik" untuk memeriksa instalasi Volt Agent Anda.',
 
     // Auth / Pairing
     'auth.pair': 'Pasangkan Perangkat',
@@ -8422,7 +8603,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Avvisi',
     'doctor.all_clear': 'Tutto a posto',
     'doctor.system_diagnostics': 'Diagnostica di sistema',
-    'doctor.empty_hint': 'Clicca su "Esegui diagnostica" per verificare l\'installazione di ZeroClaw.',
+    'doctor.empty_hint': 'Clicca su "Esegui diagnostica" per verificare l\'installazione di Volt Agent.',
 
     // Auth / Pairing
     'auth.pair': 'Associa dispositivo',
@@ -8835,7 +9016,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': '警告',
     'doctor.all_clear': '問題なし',
     'doctor.system_diagnostics': 'システム診断',
-    'doctor.empty_hint': '「診断を実行」をクリックして ZeroClaw のインストールを確認してください。',
+    'doctor.empty_hint': '「診断を実行」をクリックして Volt Agent のインストールを確認してください。',
 
     // Auth / Pairing
     'auth.pair': 'デバイスをペアリング',
@@ -9262,7 +9443,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': '경고',
     'doctor.all_clear': '문제 없음',
     'doctor.system_diagnostics': '시스템 진단',
-    'doctor.empty_hint': '"진단 실행"을 클릭하여 ZeroClaw 설치를 확인하세요.',
+    'doctor.empty_hint': '"진단 실행"을 클릭하여 Volt Agent 설치를 확인하세요.',
 
     // Auth / Pairing
     'auth.pair': '장치 페어링',
@@ -9675,7 +9856,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Advarsler',
     'doctor.all_clear': 'Alt i orden',
     'doctor.system_diagnostics': 'Systemdiagnostikk',
-    'doctor.empty_hint': 'Klikk "Kjør diagnostikk" for å sjekke ZeroClaw-installasjonen din.',
+    'doctor.empty_hint': 'Klikk "Kjør diagnostikk" for å sjekke Volt Agent-installasjonen din.',
 
     // Auth / Pairing
     'auth.pair': 'Par enhet',
@@ -10088,7 +10269,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Waarschuwingen',
     'doctor.all_clear': 'Alles in orde',
     'doctor.system_diagnostics': 'Systeemdiagnostiek',
-    'doctor.empty_hint': 'Klik op "Diagnostiek uitvoeren" om uw ZeroClaw-installatie te controleren.',
+    'doctor.empty_hint': 'Klik op "Diagnostiek uitvoeren" om uw Volt Agent-installatie te controleren.',
 
     // Auth / Pairing
     'auth.pair': 'Apparaat koppelen',
@@ -10501,7 +10682,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Ostrzeżenia',
     'doctor.all_clear': 'Wszystko w porządku',
     'doctor.system_diagnostics': 'Diagnostyka systemu',
-    'doctor.empty_hint': 'Kliknij "Uruchom diagnostykę", aby sprawdzić instalację ZeroClaw.',
+    'doctor.empty_hint': 'Kliknij "Uruchom diagnostykę", aby sprawdzić instalację Volt Agent.',
 
     // Auth / Pairing
     'auth.pair': 'Sparuj urządzenie',
@@ -10914,7 +11095,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Avisos',
     'doctor.all_clear': 'Tudo certo',
     'doctor.system_diagnostics': 'Diagnóstico do Sistema',
-    'doctor.empty_hint': 'Clique em "Executar Diagnóstico" para verificar sua instalação do ZeroClaw.',
+    'doctor.empty_hint': 'Clique em "Executar Diagnóstico" para verificar sua instalação do Volt Agent.',
 
     // Auth / Pairing
     'auth.pair': 'Parear Dispositivo',
@@ -11327,7 +11508,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Avertismente',
     'doctor.all_clear': 'Totul în regulă',
     'doctor.system_diagnostics': 'Diagnosticarea sistemului',
-    'doctor.empty_hint': 'Faceți clic pe "Rulează diagnosticarea" pentru a verifica instalarea ZeroClaw.',
+    'doctor.empty_hint': 'Faceți clic pe "Rulează diagnosticarea" pentru a verifica instalarea Volt Agent.',
 
     // Auth / Pairing
     'auth.pair': 'Împerechere dispozitiv',
@@ -11742,7 +11923,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Varningar',
     'doctor.all_clear': 'Allt klart',
     'doctor.system_diagnostics': 'Systemdiagnostik',
-    'doctor.empty_hint': 'Klicka på "Kör diagnostik" för att kontrollera din ZeroClaw-installation.',
+    'doctor.empty_hint': 'Klicka på "Kör diagnostik" för att kontrollera din Volt Agent-installation.',
 
     // Auth / Pairing
     'auth.pair': 'Parkoppla enhet',
@@ -12155,7 +12336,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'คำเตือน',
     'doctor.all_clear': 'ทุกอย่างปกติ',
     'doctor.system_diagnostics': 'การวินิจฉัยระบบ',
-    'doctor.empty_hint': 'คลิก "เรียกใช้การวินิจฉัย" เพื่อตรวจสอบการติดตั้ง ZeroClaw ของคุณ',
+    'doctor.empty_hint': 'คลิก "เรียกใช้การวินิจฉัย" เพื่อตรวจสอบการติดตั้ง Volt Agent ของคุณ',
 
     // Auth / Pairing
     'auth.pair': 'จับคู่อุปกรณ์',
@@ -12568,7 +12749,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Mga Babala',
     'doctor.all_clear': 'Walang Problema',
     'doctor.system_diagnostics': 'Diagnostiko ng Sistema',
-    'doctor.empty_hint': 'I-click ang "Patakbuhin ang Diagnostiko" upang suriin ang iyong ZeroClaw installation.',
+    'doctor.empty_hint': 'I-click ang "Patakbuhin ang Diagnostiko" upang suriin ang iyong Volt Agent installation.',
 
     // Auth / Pairing
     'auth.pair': 'Ipares ang Device',
@@ -12981,7 +13162,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Попередження',
     'doctor.all_clear': 'Все гаразд',
     'doctor.system_diagnostics': 'Діагностика системи',
-    'doctor.empty_hint': 'Натисніть «Запустити діагностику», щоб перевірити встановлення ZeroClaw.',
+    'doctor.empty_hint': 'Натисніть «Запустити діагностику», щоб перевірити встановлення Volt Agent.',
 
     // Auth / Pairing
     'auth.pair': 'З\'єднати пристрій',
@@ -13394,7 +13575,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'انتباہات',
     'doctor.all_clear': 'سب ٹھیک ہے',
     'doctor.system_diagnostics': 'سسٹم تشخیص',
-    'doctor.empty_hint': 'اپنی ZeroClaw تنصیب کی جانچ کے لیے "تشخیص چلائیں" پر کلک کریں۔',
+    'doctor.empty_hint': 'اپنی Volt Agent تنصیب کی جانچ کے لیے "تشخیص چلائیں" پر کلک کریں۔',
 
     // Auth / Pairing
     'auth.pair': 'ڈیوائس جوڑیں',
@@ -13807,7 +13988,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'doctor.warnings_summary': 'Cảnh báo',
     'doctor.all_clear': 'Mọi thứ bình thường',
     'doctor.system_diagnostics': 'Chẩn đoán hệ thống',
-    'doctor.empty_hint': 'Nhấn "Chạy chẩn đoán" để kiểm tra cài đặt ZeroClaw của bạn.',
+    'doctor.empty_hint': 'Nhấn "Chạy chẩn đoán" để kiểm tra cài đặt Volt Agent của bạn.',
 
     // Auth / Pairing
     'auth.pair': 'Ghép nối thiết bị',
@@ -14042,7 +14223,16 @@ export function normalizeConfigFieldPath(path: string): string {
  */
 export function fieldLabel(path: string, fallback: string): string {
   const key = `config.field.${normalizeConfigFieldPath(path)}.label`;
-  return translations[currentLocale]?.[key] ?? fallback;
+  const byPath = translations[currentLocale]?.[key];
+  if (byPath !== undefined) return byPath;
+  // No hand-authored per-path label. Fall back to a label keyed by the
+  // computed humanized string itself (`config.fieldlabel.<humanized>`): the
+  // title is a pure function of the leaf segment, so one entry covers every
+  // field that humanizes the same way. Path-independent and future-proof —
+  // unlike the per-path catalog it needs no `normalizeConfigFieldPath`
+  // dynamic-section entry for each map. `fallback` is the humanized label the
+  // caller already computed (see `humanizeFieldLabel`).
+  return translations[currentLocale]?.[`config.fieldlabel.${fallback}`] ?? fallback;
 }
 
 /**
@@ -14051,9 +14241,41 @@ export function fieldLabel(path: string, fallback: string): string {
  * Falls back to `fallback` (today: the Rust `///` doc comment resolved via
  * `descriptionForPath`) when no catalog entry exists.
  */
+// Stable FNV-1a hash (base36) of a field description. Descriptions are long
+// prose with newlines, so the humanized-label trick used for titles doesn't
+// apply and a full-text catalog key would be unwieldy — instead the fallback
+// desc catalog (`config.fielddesc.<hash>`) is keyed by this hash of the EN text
+// the caller already has. MUST match scripts/i18n-untranslated.mjs.
+function descHash(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+// EN-doc-hash -> RU description, built once from the fieldDescRu.json overrides
+// (keyed there by the exact EN text). Path-independent: one entry localizes
+// every field that shares the same Rust doc (pricing/enabled/… repeat across
+// dozens of paths).
+const ruFieldDescByHash: Record<string, string> = {};
+for (const [en, ruText] of Object.entries(ruFieldDesc as Record<string, string>)) {
+  ruFieldDescByHash[descHash(en)] = ruText;
+}
+
 export function fieldDesc(path: string, fallback: string | null): string | null {
   const key = `config.field.${normalizeConfigFieldPath(path)}.desc`;
-  return translations[currentLocale]?.[key] ?? fallback;
+  const byPath = translations[currentLocale]?.[key];
+  if (byPath !== undefined) return byPath;
+  // No per-path desc. For RU, fall back to a description keyed by a hash of the
+  // EN text itself — `fallback` is exactly `descriptionForPath(schema, path)`,
+  // the schema's own description, so the hash matches what the generator saw.
+  if (fallback && currentLocale === 'ru') {
+    const byText = ruFieldDescByHash[descHash(fallback)];
+    if (byText !== undefined) return byText;
+  }
+  return fallback;
 }
 
 // ---------------------------------------------------------------------------
@@ -14263,37 +14485,8 @@ export function detectBrowserLocale(): Locale {
 }
 
 export const SUPPORTED_LOCALES: { code: Locale; name: string }[] = [
-  { code: 'ar', name: 'العربية' },
-  { code: 'bn', name: 'বাংলা' },
-  { code: 'cs', name: 'Čeština' },
-  { code: 'da', name: 'Dansk' },
-  { code: 'de', name: 'Deutsch' },
-  { code: 'el', name: 'Ελληνικά' },
-  { code: 'en', name: 'English' },
-  { code: 'es', name: 'Español' },
-  { code: 'fi', name: 'Suomi' },
-  { code: 'fr', name: 'Français' },
-  { code: 'he', name: 'עברית' },
-  { code: 'hi', name: 'हिन्दी' },
-  { code: 'hu', name: 'Magyar' },
-  { code: 'id', name: 'Bahasa Indonesia' },
-  { code: 'it', name: 'Italiano' },
-  { code: 'ja', name: '日本語' },
-  { code: 'ko', name: '한국어' },
-  { code: 'nb', name: 'Norsk' },
-  { code: 'nl', name: 'Nederlands' },
-  { code: 'pl', name: 'Polski' },
-  { code: 'pt', name: 'Português' },
-  { code: 'ro', name: 'Română' },
   { code: 'ru', name: 'Русский' },
-  { code: 'sv', name: 'Svenska' },
-  { code: 'th', name: 'ไทย' },
-  { code: 'tl', name: 'Filipino' },
-  { code: 'tr', name: 'Türkçe' },
-  { code: 'uk', name: 'Українська' },
-  { code: 'ur', name: 'اردو' },
-  { code: 'vi', name: 'Tiếng Việt' },
-  { code: 'zh', name: '中文' },
+  { code: 'en', name: 'English' },
 ];
 
 // ---------------------------------------------------------------------------

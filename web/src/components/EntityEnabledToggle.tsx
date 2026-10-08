@@ -71,14 +71,14 @@ export default function EntityEnabledToggle({
           style={{
             background: enabled
               ? 'var(--color-status-success-alpha-08)'
-              : 'var(--pc-bg-elevated)',
+              : 'var(--color-secondary)',
             color: enabled
               ? 'var(--color-status-success)'
-              : 'var(--pc-text-muted)',
+              : 'var(--color-muted-foreground)',
             border: '1px solid',
             borderColor: enabled
               ? 'var(--color-status-success-alpha-20)'
-              : 'var(--pc-border)',
+              : 'var(--color-border)',
           }}
         >
           <Power className="h-3.5 w-3.5" />
@@ -105,7 +105,7 @@ export default function EntityEnabledToggle({
             onClick={() => void apply(!enabled, true)}
             disabled={busy}
             className="underline disabled:opacity-50"
-            style={{ color: 'var(--pc-text-link)' }}
+            style={{ color: 'var(--color-text-link)' }}
           >
             {t('entity_toggle.overwrite')}
           </button>

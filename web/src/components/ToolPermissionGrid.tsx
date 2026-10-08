@@ -1,10 +1,10 @@
 // Reusable two-axis tool-permission grid. Each row is one tool; the operator
 // sets two independent states per tool instead of picking through four
 // separate lists:
-//  - Authorization (deny / inherit / allow) — can the agent call this tool
-//    at all. Bridges `allowed_tools` + `excluded_tools`.
-//  - Approval gating (ask every time / inherit / auto-approve) — does a
-//    human confirm before it runs. Bridges `auto_approve` + `always_ask`.
+// - Authorization (deny / inherit / allow) — can the agent call this tool
+// at all. Bridges `allowed_tools` + `excluded_tools`.
+// - Approval gating (ask every time / inherit / auto-approve) — does a
+// human confirm before it runs. Bridges `auto_approve` + `always_ask`.
 //
 // The two axes aren't symmetric. An omitted `allowed_tools` (`null` here)
 // means *unrestricted* — and so does an explicit `[]`, which keeps its legacy
@@ -60,8 +60,8 @@ export type { ToolPermissionGridValue } from './ToolPermissionGrid.logic';
 export interface ToolPermissionGridProps {
   value: ToolPermissionGridValue;
   /** Fired with the full updated bundle — the component always resolves a
-   *  single row edit into every affected list at once, so callers never
-   *  have to reconcile four independent partial updates. */
+   * single row edit into every affected list at once, so callers never
+   * have to reconcile four independent partial updates. */
   onChange: (next: ToolPermissionGridValue) => void;
   /** When true, every control is inert. */
   disabled?: boolean;
@@ -70,9 +70,9 @@ export interface ToolPermissionGridProps {
   /** Scope the tool catalog to this agent, same as ToolPicker. */
   agent?: string;
   /** The profile's autonomy level. Under `full` / `readonly` the runtime
-   *  decides approval before consulting the per-tool lists, so the approval
-   *  column is shown locked with an explanatory tooltip instead of a state the
-   *  runtime would not honor. Defaults to `supervised` (lists are live). */
+   * decides approval before consulting the per-tool lists, so the approval
+   * column is shown locked with an explanatory tooltip instead of a state the
+   * runtime would not honor. Defaults to `supervised` (lists are live). */
   level?: AutonomyLevel;
 }
 
@@ -288,7 +288,7 @@ export default function ToolPermissionGrid({
       {levelCaveat && (
         <div
           role="note"
-          className="flex items-start gap-2 rounded-md border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-xs text-pc-text-secondary"
+          className="flex items-start gap-2 rounded-md border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-xs text-text-secondary"
         >
           <AlertCircle
             className="h-4 w-4 flex-shrink-0 text-status-warning mt-0.5"
@@ -312,35 +312,35 @@ export default function ToolPermissionGrid({
             onClick={() => setStrict(!strict)}
             className={[
               'relative inline-flex h-[22px] w-[38px] flex-shrink-0 items-center rounded-full border transition-colors',
-              strict ? 'bg-pc-accent border-pc-accent' : 'bg-pc-input border-pc-border-strong',
+              strict ? 'bg-primary border-primary' : 'bg-input border-border-strong',
               disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]/40',
+              'focus:outline-none ',
             ].join(' ')}
           >
             <span
               className={[
-                'inline-block h-4 w-4 transform rounded-full bg-pc-text transition-transform',
+                'inline-block h-4 w-4 transform rounded-full bg-foreground transition-transform',
                 strict ? 'translate-x-[18px]' : 'translate-x-0.5',
               ].join(' ')}
             />
           </button>
-          <label htmlFor={strictId} className="font-medium text-pc-text-secondary cursor-pointer">
+          <label htmlFor={strictId} className="font-medium text-text-secondary cursor-pointer">
             {t('tool_permission_grid.strict_allowlist')}
           </label>
-          <span className="text-xs text-pc-text-faint">
+          <span className="text-xs text-text-faint">
             {strict
               ? t('tool_permission_grid.strict_on_hint')
               : t('tool_permission_grid.strict_off_hint')}
           </span>
         </div>
-        <span className="font-mono text-xs text-pc-text-secondary [font-variant-numeric:tabular-nums]">
+        <span className="font-mono text-xs text-text-secondary [font-variant-numeric:tabular-nums]">
           {allowedCount}/{authorizationRows.length}
           {t('tool_permission_grid.summary_suffix')}
         </span>
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-pc-text-faint pointer-events-none" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-faint pointer-events-none" />
         <input
           id={searchId}
           type="text"
@@ -349,11 +349,11 @@ export default function ToolPermissionGrid({
           disabled={disabled || loading}
           placeholder={t('tool_picker.search_placeholder')}
           aria-label={t('tool_picker.search_placeholder')}
-          className="w-full h-9 pl-9 pr-3 text-sm rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-9 pl-9 pr-3 text-sm rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </div>
 
-      <div className="rounded-[var(--radius-md)] border border-pc-border bg-pc-input/60 p-2">
+      <div className="rounded-[var(--radius-md)] border border-border bg-input/60 p-2">
         <label htmlFor={customInputId} className="sr-only">
           {t('tool_permission_grid.add_label')}
         </label>
@@ -368,7 +368,7 @@ export default function ToolPermissionGrid({
             }}
             disabled={disabled}
             placeholder={t('tool_permission_grid.add_placeholder')}
-            className="min-w-0 flex-1 h-9 px-3 text-sm rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-w-0 flex-1 h-9 px-3 text-sm rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <div className="flex flex-wrap gap-1.5">
             <button
@@ -377,7 +377,7 @@ export default function ToolPermissionGrid({
               disabled={!canAddCustom || customNameIsApprovalOnlyWildcard}
               title={t('tool_permission_grid.add_deny_title')}
               aria-label={t('tool_permission_grid.add_deny_title')}
-              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-error/30 text-status-error transition-colors hover:bg-status-error/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-error/30 text-status-error transition-colors hover:bg-status-error/10 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -387,7 +387,7 @@ export default function ToolPermissionGrid({
               disabled={!canAddCustom || customNameIsApprovalOnlyWildcard}
               title={t('tool_permission_grid.add_allow_title')}
               aria-label={t('tool_permission_grid.add_allow_title')}
-              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-success/30 text-status-success transition-colors hover:bg-status-success/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-success/30 text-status-success transition-colors hover:bg-status-success/10 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Check className="h-3.5 w-3.5" />
             </button>
@@ -397,7 +397,7 @@ export default function ToolPermissionGrid({
               disabled={!canAddCustom}
               title={t('tool_permission_grid.add_ask_title')}
               aria-label={t('tool_permission_grid.add_ask_title')}
-              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-warning/30 text-status-warning transition-colors hover:bg-status-warning/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-status-warning/30 text-status-warning transition-colors hover:bg-status-warning/10 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <AlertCircle className="h-3.5 w-3.5" />
             </button>
@@ -407,7 +407,7 @@ export default function ToolPermissionGrid({
               disabled={!canAddCustom}
               title={t('tool_permission_grid.add_auto_title')}
               aria-label={t('tool_permission_grid.add_auto_title')}
-              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-pc-accent/30 text-pc-accent transition-colors hover:bg-pc-accent/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]/40 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-primary/30 text-primary transition-colors hover:bg-primary/10 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Zap className="h-3.5 w-3.5" />
             </button>
@@ -420,12 +420,12 @@ export default function ToolPermissionGrid({
 
       {!loading && filtered.length > 0 && (
         <div className="hidden sm:grid grid-cols-[1fr_120px_120px] gap-3 px-3">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-pc-text-faint">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-text-faint">
             {t('tool_permission_grid.col_tool')}
           </span>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-pc-text-faint">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-text-faint">
             {t('tool_permission_grid.col_authorization')}
-            <small className="block font-normal normal-case tracking-normal text-pc-text-faint">
+            <small className="block font-normal normal-case tracking-normal text-text-faint">
               {value.denyAllTools
                 ? t('tool_permission_grid.col_authorization_hint_deny_all')
                 : strict
@@ -433,9 +433,9 @@ export default function ToolPermissionGrid({
                   : t('tool_permission_grid.col_authorization_hint_open')}
             </small>
           </span>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-pc-text-faint">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-text-faint">
             {t('tool_permission_grid.col_approval')}
-            <small className="block font-normal normal-case tracking-normal text-pc-text-faint">
+            <small className="block font-normal normal-case tracking-normal text-text-faint">
               {t('tool_permission_grid.col_approval_hint')}
             </small>
           </span>
@@ -458,17 +458,17 @@ export default function ToolPermissionGrid({
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 px-3 py-4 text-xs text-pc-text-muted">
+        <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
           <div
-            className="h-4 w-4 border-2 rounded-full animate-spin border-pc-border"
-            style={{ borderTopColor: 'var(--pc-accent)' }}
+            className="h-4 w-4 border-2 rounded-full animate-spin border-border"
+            style={{ borderTopColor: 'var(--color-primary)' }}
           />
           {t('tool_picker.loading')}
         </div>
       ) : (
         <div
           id={listId}
-          className="max-h-96 overflow-y-auto rounded-[var(--radius-md)] border border-pc-border bg-pc-surface divide-y divide-pc-border/60"
+          className="max-h-96 overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card divide-y divide-border/60"
         >
           {unknownFiltered.length > 0 && (
             <RowGroup label={t('tool_picker.group_unknown')} count={unknownFiltered.length}>
@@ -531,7 +531,7 @@ export default function ToolPermissionGrid({
             </RowGroup>
           )}
           {filtered.length === 0 && (
-            <p className="px-3 py-4 text-xs text-center text-pc-text-muted">
+            <p className="px-3 py-4 text-xs text-center text-muted-foreground">
               {search.trim()
                 ? `${t('tool_picker.no_match_prefix')}"${search.trim()}"${t('tool_picker.no_match_suffix')}`
                 : t('tool_picker.no_tools_available')}
@@ -540,7 +540,7 @@ export default function ToolPermissionGrid({
         </div>
       )}
 
-      <p className="text-[11px] leading-relaxed text-pc-text-faint">
+      <p className="text-[11px] leading-relaxed text-text-faint">
         {t('tool_permission_grid.legend')}
       </p>
     </div>
@@ -558,13 +558,13 @@ function RowGroup({
 }) {
   return (
     <div>
-      <div className="sticky top-0 z-10 px-3 py-1.5 bg-pc-elevated border-b border-pc-border/60">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-pc-text-faint">
+      <div className="sticky top-0 z-10 px-3 py-1.5 bg-secondary border-b border-border/60">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-text-faint">
           {label}
         </span>
-        <span className="text-[10px] text-pc-text-faint ml-1">({count})</span>
+        <span className="text-[10px] text-text-faint ml-1">({count})</span>
       </div>
-      <div className="divide-y divide-pc-border/40">{children}</div>
+      <div className="divide-y divide-border/40">{children}</div>
     </div>
   );
 }
@@ -581,8 +581,8 @@ const TONE_CLASSES: Record<SegmentedOption<string>['tone'], string> = {
   error: 'bg-status-error/15 text-status-error',
   success: 'bg-status-success/15 text-status-success',
   warning: 'bg-status-warning/15 text-status-warning',
-  accent: 'bg-pc-accent/15 text-pc-accent',
-  neutral: 'bg-pc-elevated text-pc-text-secondary',
+  accent: 'bg-primary/15 text-primary',
+  neutral: 'bg-secondary text-text-secondary',
 };
 
 function Segmented<T extends string>({
@@ -603,7 +603,7 @@ function Segmented<T extends string>({
       role="group"
       aria-label={ariaLabel}
       className={[
-        'inline-flex rounded-full border border-pc-border-strong bg-pc-input overflow-hidden w-fit',
+        'inline-flex rounded-full border border-border-strong bg-input overflow-hidden w-fit',
         disabled ? 'opacity-50' : '',
       ].join(' ')}
     >
@@ -622,12 +622,12 @@ function Segmented<T extends string>({
             onClick={() => onChange(opt.value)}
             className={[
               'flex items-center justify-center w-[34px] h-7 transition-colors',
-              i > 0 ? 'border-l border-pc-border' : '',
+              i > 0 ? 'border-l border-border' : '',
               isDisabled
                 ? 'cursor-not-allowed opacity-40'
-                : 'cursor-pointer hover:bg-pc-elevated',
-              active ? TONE_CLASSES[opt.tone] : 'text-pc-text-faint',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--pc-focus)]/40',
+                : 'cursor-pointer hover:bg-secondary',
+              active ? TONE_CLASSES[opt.tone] : 'text-text-faint',
+              'focus:outline-none ',
             ].join(' ')}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -675,10 +675,10 @@ function PermissionRow({
     <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px_120px] items-center gap-2 sm:gap-3 px-3 py-2.5">
       <div className={denied ? 'min-w-0 opacity-55' : 'min-w-0'}>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[13px] text-pc-text truncate">{row.name}</span>
+          <span className="font-mono text-[13px] text-foreground truncate">{row.name}</span>
           {mcpAutoAdmitted && (
             <span
-              className="text-[10px] uppercase tracking-wide text-pc-accent flex-shrink-0"
+              className="text-[10px] uppercase tracking-wide text-primary flex-shrink-0"
               title={t('tool_permission_grid.mcp_auto_badge_title')}
             >
               {t('tool_permission_grid.mcp_auto_badge')}
@@ -690,15 +690,15 @@ function PermissionRow({
             </span>
           )}
         </div>
-        <p className="text-xs text-pc-text-muted mt-0.5 truncate">{row.description}</p>
+        <p className="text-xs text-muted-foreground mt-0.5 truncate">{row.description}</p>
       </div>
 
       <div className="flex items-center justify-between gap-2 sm:block">
         <div className="sm:hidden min-w-0">
-          <span className="block text-[10px] font-semibold uppercase tracking-wider text-pc-text-faint">
+          <span className="block text-[10px] font-semibold uppercase tracking-wider text-text-faint">
             {t('tool_permission_grid.col_authorization')}
           </span>
-          <small className="block text-[10px] leading-tight text-pc-text-faint">
+          <small className="block text-[10px] leading-tight text-text-faint">
             {authCopyState === 'deny-all'
               ? t('tool_permission_grid.col_authorization_hint_deny_all')
               : authCopyState === 'mcp-auto'
@@ -710,7 +710,7 @@ function PermissionRow({
         </div>
         {approvalOnlyWildcard ? (
           <span
-            className="inline-flex h-7 items-center text-xs text-pc-text-faint"
+            className="inline-flex h-7 items-center text-xs text-text-faint"
             aria-label={t('tool_permission_grid.auth_approval_only')}
           >
             {t('tool_permission_grid.auth_approval_only')}
@@ -754,7 +754,7 @@ function PermissionRow({
       </div>
 
       <div className="flex items-center justify-between gap-2 sm:block">
-        <span className="sm:hidden text-[10px] font-semibold uppercase tracking-wider text-pc-text-faint">
+        <span className="sm:hidden text-[10px] font-semibold uppercase tracking-wider text-text-faint">
           {t('tool_permission_grid.col_approval')}
         </span>
         <Segmented<ApprState>

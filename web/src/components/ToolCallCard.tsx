@@ -63,10 +63,10 @@ export default function ToolCallCard({ toolCall }: ToolCallCardProps) {
   const isInline = output.length <= INLINE_THRESHOLD;
 
   return (
-    <Card padded={false} className="bg-pc-elevated p-3 text-xs">
+    <Card padded={false} className="bg-secondary p-3 text-xs">
       <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 flex-shrink-0 text-pc-accent" />
-        <span className="font-mono text-pc-text truncate">{toolCall.name}</span>
+        <Icon className="h-4 w-4 flex-shrink-0 text-primary" />
+        <span className="font-mono text-foreground truncate">{toolCall.name}</span>
         <span className="ml-auto flex-shrink-0">
           {resolved ? (
             <Badge tone="ok">
@@ -84,10 +84,10 @@ export default function ToolCallCard({ toolCall }: ToolCallCardProps) {
 
       {argsStr && (
         <details className="mt-2 group">
-          <summary className="cursor-pointer select-none text-pc-text-muted hover:text-pc-text-secondary">
+          <summary className="cursor-pointer select-none text-muted-foreground hover:text-text-secondary">
             {t('tool_call.args')}
           </summary>
-          <pre className="mt-1.5 overflow-auto rounded-[var(--radius-sm)] bg-pc-code p-2 font-mono text-[11px] leading-relaxed text-pc-text-secondary">
+          <pre className="mt-1.5 overflow-auto rounded-[var(--radius-sm)] bg-code p-2 font-mono text-[11px] leading-relaxed text-text-secondary">
             {argsStr}
           </pre>
         </details>
@@ -96,16 +96,16 @@ export default function ToolCallCard({ toolCall }: ToolCallCardProps) {
       {resolved && (
         isInline ? (
           output && (
-            <div className="mt-2 overflow-auto rounded-[var(--radius-sm)] bg-pc-code p-2 font-mono text-[11px] leading-relaxed text-pc-text-secondary">
+            <div className="mt-2 overflow-auto rounded-[var(--radius-sm)] bg-code p-2 font-mono text-[11px] leading-relaxed text-text-secondary">
               {output}
             </div>
           )
         ) : (
           <details className="mt-2">
-            <summary className="cursor-pointer select-none truncate text-pc-text-muted hover:text-pc-text-secondary">
+            <summary className="cursor-pointer select-none truncate text-muted-foreground hover:text-text-secondary">
               {truncate(output, PREVIEW_MAX_CHARS)}
             </summary>
-            <pre className="mt-1.5 overflow-auto rounded-[var(--radius-sm)] bg-pc-code p-2 font-mono text-[11px] leading-relaxed text-pc-text-secondary">
+            <pre className="mt-1.5 overflow-auto rounded-[var(--radius-sm)] bg-code p-2 font-mono text-[11px] leading-relaxed text-text-secondary">
               {output}
             </pre>
           </details>

@@ -18,14 +18,14 @@ export interface StatCardProps {
 }
 
 const valueTone: Record<StatTone, string> = {
-  neutral: 'text-pc-text',
+  neutral: 'text-foreground',
   ok: 'text-status-success',
   warn: 'text-status-warning',
   error: 'text-status-error',
 };
 
 const iconTone: Record<StatTone, string> = {
-  neutral: 'text-pc-accent',
+  neutral: 'text-primary',
   ok: 'text-status-success',
   warn: 'text-status-warning',
   error: 'text-status-error',
@@ -47,14 +47,14 @@ export function StatCard({
     <Card className={className}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-medium uppercase tracking-wide text-pc-text-faint">
+          <div className="text-[11px] font-medium uppercase tracking-wide text-text-faint">
             {label}
           </div>
           <div className={`mt-1.5 text-2xl font-semibold leading-tight ${valueTone[tone]}`}>
             {value}
           </div>
           {sublabel != null && (
-            <div className="mt-1 text-xs text-pc-text-muted">{sublabel}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{sublabel}</div>
           )}
         </div>
         {icon != null && (

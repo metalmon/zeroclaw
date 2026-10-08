@@ -14,8 +14,8 @@ import { Badge } from '@/components/ui';
 import { CapturedCallList } from '@/components/SopCalls';
 
 function pinTypeLabel(pin: GraphPin): string {
-  if (pin.class === 'flow') return 'flow';
-  return pin.data_type ?? 'any';
+  if (pin.class === 'flow') return t('sops.pin_flow');
+  return pin.data_type ?? t('sops.pin_any');
 }
 
 export default function SopStepList({
@@ -30,7 +30,7 @@ export default function SopStepList({
   const stateByStep = overlayStateByStep(overlay);
   const callsByStep = overlayCallsByStep(overlay);
   return (
-    <div className="divide-y divide-pc-border rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface text-sm">
+    <div className="divide-y divide-border rounded-[var(--radius-lg)] border border-border bg-card text-sm">
       {graph.nodes
         .filter((node) => node.kind === 'step')
         .map((node) => {
@@ -38,12 +38,12 @@ export default function SopStepList({
           const calls = callsByStep.get(node.step);
           return (
             <div key={node.step} className="flex items-start gap-3 px-3 py-2">
-              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded bg-pc-accent text-xs font-semibold text-[#0b1220]">
+              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary text-xs font-semibold text-primary-foreground">
                 {node.step}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-pc-text">{node.title}</span>
+                  <span className="font-medium text-foreground">{node.title}</span>
                   {state ? (
                     <Badge tone={runStateBadge(state)}>
                       {t(`sops.run_state.${state}`)}
@@ -51,7 +51,7 @@ export default function SopStepList({
                   ) : null}
                 </div>
                 {showPins ? (
-                  <div className="mt-0.5 text-xs text-pc-text-muted">
+                  <div className="mt-0.5 text-xs text-muted-foreground">
                     {t('sops.inputs')}:{' '}
                     {node.inputs.length === 0
                       ? '-'
@@ -65,7 +65,7 @@ export default function SopStepList({
                 ) : null}
                 {calls ? (
                   <div className="mt-2">
-                    <div className="mb-1 text-xs font-medium text-pc-text">
+                    <div className="mb-1 text-xs font-medium text-foreground">
                       {t('sops.captured_calls')}
                     </div>
                     <CapturedCallList calls={calls} />

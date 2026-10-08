@@ -39,8 +39,8 @@ const WIRE_STROKE: Record<WireTone, string> = {
   data: 'var(--color-status-info)',
   error: 'var(--color-status-error)',
   warning: 'var(--color-status-warning)',
-  switch: 'var(--pc-accent-light)',
-  accent: 'var(--pc-accent)',
+  switch: 'var(--color-accent-light)',
+  accent: 'var(--color-primary)',
   success: 'var(--color-status-success)',
 };
 
@@ -49,11 +49,11 @@ function wireStroke(kind: FlowRole): string {
 }
 
 const NODE_STROKE: Record<RunStateTone, string> = {
-  accent: 'var(--pc-accent)',
+  accent: 'var(--color-primary)',
   success: 'var(--color-status-success)',
   error: 'var(--color-status-error)',
   warning: 'var(--color-status-warning)',
-  neutral: 'var(--pc-border-strong)',
+  neutral: 'var(--color-border-strong)',
 };
 
 function nodeStateStroke(state: NodeRunState | undefined): string {
@@ -245,50 +245,85 @@ const LEGEND_WIRE_DASH: Partial<Record<FlowRole, string>> = {
   trigger: '4 3',
 };
 
+// The graph legend (flow-role/pin-class descriptions and labels, run-state
+// descriptions) is served by the daemon in English only — it is a static
+// Rust-side registry, not locale-aware. These tables translate the known
+// stable `key`s to catalog strings; an unrecognized key (future backend
+// addition not yet localized here) falls back to the raw backend text rather
+// than rendering blank.
+const FLOW_ROLE_LEGEND_KEY: Partial<Record<string, string>> = {
+  sequence: 'sops.legend_sequence',
+  dependency: 'sops.legend_dependency',
+  failure: 'sops.legend_failure',
+  switch: 'sops.legend_switch',
+  trigger: 'sops.legend_trigger',
+};
+const FLOW_ROLE_LABEL_KEY: Partial<Record<string, string>> = {
+  sequence: 'sops.role_label_sequence',
+  dependency: 'sops.role_label_dependency',
+  failure: 'sops.role_label_failure',
+  switch: 'sops.role_label_switch',
+  trigger: 'sops.role_label_trigger',
+};
+const RUN_STATE_DESC_KEY: Partial<Record<string, string>> = {
+  pending: 'sops.run_state_desc_pending',
+  active: 'sops.run_state_desc_active',
+  completed: 'sops.run_state_desc_completed',
+  failed: 'sops.run_state_desc_failed',
+  skipped: 'sops.run_state_desc_skipped',
+};
+
+function localize(table: Partial<Record<string, string>>, key: string, fallback: string): string {
+  const tk = table[key];
+  return tk ? t(tk) : fallback;
+}
+
 function CanvasLegend({ legend }: { legend: GraphLegend | null }) {
   const [open, setOpen] = useState(false);
   const flowRoles = legend?.flow_roles ?? [];
-  const dataDesc =
-    legend?.pin_classes.find((p) => p.key === 'data')?.description ?? t('sops.legend_data');
+  const dataDesc = t('sops.legend_data');
   return (
     <div className="absolute bottom-2 left-2 z-10">
       {open ? (
-        <div className="rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface p-2 text-xs shadow-lg">
+        <div className="rounded-[var(--radius-lg)] border border-border bg-card p-2 text-xs shadow-lg">
           <div className="mb-1 flex items-center justify-between gap-4">
-            <span className="font-medium text-pc-text">{t('sops.legend_title')}</span>
+            <span className="font-medium text-foreground">{t('sops.legend_title')}</span>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="text-pc-text-muted hover:text-pc-text"
+              className="text-muted-foreground hover:text-foreground"
               aria-label={t('sops.cancel')}
             >
               ×
             </button>
           </div>
           <div className="space-y-1">
-            {flowRoles.map((row) => (
-              <div key={row.key} className="flex items-center gap-2" title={row.description}>
-                <svg width="28" height="8" aria-hidden>
-                  <line
-                    x1="0"
-                    y1="4"
-                    x2="28"
-                    y2="4"
-                    stroke={wireStroke(row.key as FlowRole)}
-                    strokeWidth="2"
-                    strokeDasharray={LEGEND_WIRE_DASH[row.key as FlowRole]}
-                  />
-                </svg>
-                <span className="text-pc-text-secondary">{row.description}</span>
-              </div>
-            ))}
+            {flowRoles.map((row) => {
+              const desc = localize(FLOW_ROLE_LEGEND_KEY, row.key, row.description);
+              return (
+                <div key={row.key} className="flex items-center gap-2" title={desc}>
+                  <svg width="28" height="8" aria-hidden>
+                    <line
+                      x1="0"
+                      y1="4"
+                      x2="28"
+                      y2="4"
+                      stroke={wireStroke(row.key as FlowRole)}
+                      strokeWidth="2"
+                      strokeDasharray={LEGEND_WIRE_DASH[row.key as FlowRole]}
+                    />
+                  </svg>
+                  <span className="text-text-secondary">{desc}</span>
+                </div>
+              );
+            })}
             <div className="flex items-center gap-2" title={dataDesc}>
               <svg width="28" height="10" aria-hidden>
                 <line x1="0" y1="5" x2="28" y2="5" stroke={WIRE_STROKE.data} strokeWidth="2" strokeDasharray="2 3" />
               </svg>
-              <span className="text-pc-text-secondary">{dataDesc}</span>
+              <span className="text-text-secondary">{dataDesc}</span>
             </div>
-            <div className="mt-1 border-t border-pc-border pt-1 text-pc-text-muted">
+            <div className="mt-1 border-t border-border pt-1 text-muted-foreground">
               {t('sops.legend_handles_hint')}
             </div>
           </div>
@@ -297,7 +332,7 @@ function CanvasLegend({ legend }: { legend: GraphLegend | null }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="rounded border border-pc-border bg-pc-surface px-2 py-1 text-xs text-pc-text-muted hover:text-pc-text"
+          className="rounded border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
         >
           {t('sops.legend_title')}
         </button>
@@ -319,8 +354,8 @@ function MenuItem({
     <button
       type="button"
       onClick={onClick}
-      className={`block w-full px-3 py-1.5 text-left hover:bg-pc-elevated ${
-        tone === 'danger' ? 'text-status-error' : 'text-pc-text'
+      className={`block w-full px-3 py-1.5 text-left hover:bg-secondary ${
+        tone === 'danger' ? 'text-status-error' : 'text-foreground'
       }`}
     >
       {label}
@@ -378,11 +413,22 @@ export default function SopCanvas({
     };
   }, []);
 
-  const flowRoleDesc = useMemo(() => indexLegend(legend?.flow_roles), [legend]);
-  const flowRoleLabel = useMemo(() => indexLegendLabels(legend?.flow_roles), [legend]);
-  const pinClassDesc = useMemo(() => indexLegend(legend?.pin_classes), [legend]);
-  const runStateDesc = useMemo(() => indexLegend(legend?.run_states), [legend]);
-  const dataWireTitle = pinClassDesc.get('data') ?? t('sops.wire_kind_data');
+  const flowRoleDesc = useMemo(() => {
+    const raw = indexLegend(legend?.flow_roles);
+    for (const [k, v] of raw) raw.set(k, localize(FLOW_ROLE_LEGEND_KEY, k, v));
+    return raw;
+  }, [legend]);
+  const flowRoleLabel = useMemo(() => {
+    const raw = indexLegendLabels(legend?.flow_roles);
+    for (const [k, v] of raw) raw.set(k, localize(FLOW_ROLE_LABEL_KEY, k, v));
+    return raw;
+  }, [legend]);
+  const runStateDesc = useMemo(() => {
+    const raw = indexLegend(legend?.run_states);
+    for (const [k, v] of raw) raw.set(k, localize(RUN_STATE_DESC_KEY, k, v));
+    return raw;
+  }, [legend]);
+  const dataWireTitle = t('sops.wire_kind_data');
 
   // Abandon an in-progress wire draw (flow or data) and clear the ghost line.
   const cancelLink = useCallback(() => {
@@ -565,7 +611,7 @@ export default function SopCanvas({
   }, [pos]);
 
   return (
-    <div ref={scrollRef} className="relative overflow-auto rounded-[var(--radius-lg)] border border-pc-border bg-pc-bg-base">
+    <div ref={scrollRef} className="relative overflow-auto rounded-[var(--radius-lg)] border border-border bg-background">
       {readOnly ? null : (
         <div className="absolute right-2 top-2 z-10 flex gap-1">
           {onUndo ? (
@@ -574,7 +620,7 @@ export default function SopCanvas({
               onClick={onUndo}
               disabled={!canUndo}
               title={t('sops.undo_hint')}
-              className="inline-flex items-center gap-1 rounded border border-pc-border bg-pc-surface px-2 py-1 text-xs text-pc-text-muted hover:text-pc-text disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Undo2 className="h-3.5 w-3.5" aria-hidden /> {t('sops.undo')}
             </button>
@@ -582,7 +628,7 @@ export default function SopCanvas({
           <button
             type="button"
             onClick={onAddStep}
-            className="inline-flex items-center gap-1 rounded bg-pc-accent px-2 py-1 text-xs text-[#0b1220] hover:bg-pc-accent-light"
+            className="inline-flex items-center gap-1 rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-accent-light"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden /> {t('sops.add_step')}
           </button>
@@ -590,13 +636,13 @@ export default function SopCanvas({
       )}
       <CanvasLegend legend={legend} />
       {linkFrom !== null || dataLink !== null ? (
-        <div className="absolute left-2 top-2 z-10 rounded bg-pc-elevated px-2 py-1 text-xs text-pc-text">
+        <div className="absolute left-2 top-2 z-10 rounded bg-secondary px-2 py-1 text-xs text-foreground">
           {t('sops.linking')}: {dataLink !== null ? dataWireTitle : roleLabel(linkKind)}.{' '}
           {t('sops.link_hint')}
           <button
             type="button"
             onClick={cancelLink}
-            className="ml-2 text-pc-text-muted underline"
+            className="ml-2 text-muted-foreground underline"
           >
             {t('sops.cancel')}
           </button>
@@ -604,7 +650,7 @@ export default function SopCanvas({
       ) : null}
       {menu ? (
         <div
-          className="absolute z-20 w-44 rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface py-1 text-sm shadow-lg"
+          className="absolute z-20 w-44 rounded-[var(--radius-lg)] border border-border bg-card py-1 text-sm shadow-lg"
           style={{ left: menu.x, top: menu.y }}
           onContextMenu={(e) => e.preventDefault()}
         >
@@ -799,7 +845,7 @@ export default function SopCanvas({
                           width={chipW}
                           height={15}
                           rx={4}
-                          fill="var(--pc-bg-base)"
+                          fill="var(--color-background)"
                           stroke={wireStroke(kind)}
                           strokeOpacity={0.4}
                         />
@@ -951,21 +997,21 @@ export default function SopCanvas({
           width={NODE_W}
           height={NODE_H}
           rx={12}
-          fill="var(--pc-bg-surface)"
+          fill="var(--color-card)"
           stroke={wireStroke('trigger')}
           strokeWidth={1.5}
           strokeDasharray="4 3"
         />
-        <rect width={NODE_W} height={26} rx={12} fill="var(--pc-bg-elevated)" />
-        <rect y={16} width={NODE_W} height={10} fill="var(--pc-bg-elevated)" />
+        <rect width={NODE_W} height={26} rx={12} fill="var(--color-secondary)" />
+        <rect y={16} width={NODE_W} height={10} fill="var(--color-secondary)" />
         <circle cx={16} cy={13} r={9} fill={wireStroke('trigger')} opacity={0.3} />
         <text x={16} y={17} fontSize="11" textAnchor="middle" fill={wireStroke('trigger')}>
           ⚡
         </text>
-        <text x={32} y={17} fontSize="12" fill="var(--pc-text-primary)">
+        <text x={32} y={17} fontSize="12" fill="var(--color-foreground)">
           {node.title}
         </text>
-        <text x={12} y={46} fontSize="10" fill="var(--pc-text-muted)">
+        <text x={12} y={46} fontSize="10" fill="var(--color-muted-foreground)">
           {(node.subtitle ?? '').slice(0, 30)}
         </text>
         <circle cx={NODE_W} cy={NODE_H / 2} r={6} fill={wireStroke('trigger')} />
@@ -1015,17 +1061,17 @@ export default function SopCanvas({
           width={NODE_W}
           height={nodeHeight(node, ruleCount, expandedRows)}
           rx={10}
-          fill="var(--pc-bg-surface)"
-          stroke={selected ? 'var(--pc-accent)' : nodeStateStroke(state)}
+          fill="var(--color-card)"
+          stroke={selected ? 'var(--color-primary)' : nodeStateStroke(state)}
           strokeWidth={selected ? 2.5 : 1.5}
         />
-        <rect width={NODE_W} height={26} rx={10} fill="var(--pc-bg-elevated)" />
-        <rect y={16} width={NODE_W} height={10} fill="var(--pc-bg-elevated)" />
-        <circle cx={16} cy={13} r={9} fill="var(--pc-accent)" />
+        <rect width={NODE_W} height={26} rx={10} fill="var(--color-secondary)" />
+        <rect y={16} width={NODE_W} height={10} fill="var(--color-secondary)" />
+        <circle cx={16} cy={13} r={9} fill="var(--color-primary)" />
         <text x={16} y={17} fontSize="11" textAnchor="middle" fill="#0b1220" fontWeight="600">
           {node.step}
         </text>
-        <text x={32} y={17} fontSize="12" fill="var(--pc-text-primary)">
+        <text x={32} y={17} fontSize="12" fill="var(--color-foreground)">
           {(node.title || t('sops.untitled')).slice(0, 22)}
         </text>
         {isCheckpoint ? (
@@ -1033,11 +1079,11 @@ export default function SopCanvas({
             ⏸ {t('sops.checkpoint')}
           </text>
         ) : switchRules.length > 0 ? (
-          <text x={NODE_W - 10} y={17} fontSize="10" textAnchor="end" fill="var(--pc-accent-light)">
+          <text x={NODE_W - 10} y={17} fontSize="10" textAnchor="end" fill="var(--color-accent-light)">
             ⋔ {t('sops.switch')}
           </text>
         ) : step?.decide || step?.unless_decided ? (
-          <text x={NODE_W - 10} y={17} fontSize="10" textAnchor="end" fill="var(--pc-accent-light)">
+          <text x={NODE_W - 10} y={17} fontSize="10" textAnchor="end" fill="var(--color-accent-light)">
             ◇ {step.decide ? t('sops.part_if_yes') : `${t('sops.part_unless')} ${step.unless_decided}`}
             <title>{step.decide ?? `${t('sops.part_unless')} ${step.unless_decided}`}</title>
           </text>
@@ -1089,7 +1135,7 @@ export default function SopCanvas({
                   y={switchPortTop() + ri * SWITCH_PORT_GAP + 3}
                   fontSize="9"
                   textAnchor="end"
-                  fill="var(--pc-accent-light)"
+                  fill="var(--color-accent-light)"
                 >
                   {(rule.name || `port ${ri + 1}`).slice(0, 16)}
                 </text>
@@ -1163,19 +1209,19 @@ export default function SopCanvas({
             </text>
           </g>
         )}
-        <circle cx={0} cy={flowLaneY(0, 'sequence')} r={5} fill={wireStroke('sequence')} stroke="var(--pc-bg-surface)" strokeWidth={1}>
+        <circle cx={0} cy={flowLaneY(0, 'sequence')} r={5} fill={wireStroke('sequence')} stroke="var(--color-card)" strokeWidth={1}>
           <title>{handleTitle('in', 'sequence')}</title>
         </circle>
         <text x={-9} y={flowLaneY(0, 'sequence') + 3} fontSize="8" textAnchor="end" fill={wireStroke('sequence')}>
           {roleLabel('sequence')}
         </text>
-        <circle cx={0} cy={flowLaneY(0, 'failure')} r={4} fill={wireStroke('failure')} stroke="var(--pc-bg-surface)" strokeWidth={1}>
+        <circle cx={0} cy={flowLaneY(0, 'failure')} r={4} fill={wireStroke('failure')} stroke="var(--color-card)" strokeWidth={1}>
           <title>{handleTitle('in', 'failure')}</title>
         </circle>
         <text x={-9} y={flowLaneY(0, 'failure') + 3} fontSize="8" textAnchor="end" fill={wireStroke('failure')}>
           {roleLabel('failure')}
         </text>
-        <circle cx={0} cy={flowLaneY(0, 'dependency')} r={4} fill={wireStroke('dependency')} stroke="var(--pc-bg-surface)" strokeWidth={1}>
+        <circle cx={0} cy={flowLaneY(0, 'dependency')} r={4} fill={wireStroke('dependency')} stroke="var(--color-card)" strokeWidth={1}>
           <title>{handleTitle('in', 'dependency')}</title>
         </circle>
         <text x={-9} y={flowLaneY(0, 'dependency') + 3} fontSize="8" textAnchor="end" fill={wireStroke('dependency')}>
@@ -1189,7 +1235,7 @@ export default function SopCanvas({
                 cx={0}
                 cy={dataPinY(0, 'inputs', di, ruleCount)}
                 r={5}
-                fill={active ? WIRE_STROKE.data : 'var(--pc-bg-surface)'}
+                fill={active ? WIRE_STROKE.data : 'var(--color-card)'}
                 stroke={WIRE_STROKE.data}
                 strokeWidth={1.5}
                 onPointerDown={(e) => {
@@ -1210,7 +1256,7 @@ export default function SopCanvas({
                   {pin.required ? ` (${t('sops.pin_required')})` : ''}
                 </title>
               </circle>
-              <text x={10} y={dataPinY(0, 'inputs', di, ruleCount) + 3} fontSize="9" fill="var(--pc-text-muted)">
+              <text x={10} y={dataPinY(0, 'inputs', di, ruleCount) + 3} fontSize="9" fill="var(--color-muted-foreground)">
                 {pin.name.slice(0, 18)}
               </text>
             </g>
@@ -1233,7 +1279,7 @@ export default function SopCanvas({
                 {pin.name}: {pin.data_type ?? t('sops.pin_any')}
               </title>
             </circle>
-            <text x={NODE_W - 10} y={dataPinY(0, 'outputs', di, ruleCount) + 3} fontSize="9" textAnchor="end" fill="var(--pc-text-muted)">
+            <text x={NODE_W - 10} y={dataPinY(0, 'outputs', di, ruleCount) + 3} fontSize="9" textAnchor="end" fill="var(--color-muted-foreground)">
               {pin.name.slice(0, 18)}
             </text>
           </g>
@@ -1244,7 +1290,7 @@ export default function SopCanvas({
           width={NODE_W - 12}
           height={nodeHeight(node, ruleCount, expandedRows) - toolsBarTop(node, ruleCount) - 4}
         >
-          <div className="text-[10px] leading-tight text-pc-text-muted">
+          <div className="text-[10px] leading-tight text-muted-foreground">
             <button
               type="button"
               onPointerDown={(e) => e.stopPropagation()}
@@ -1257,10 +1303,10 @@ export default function SopCanvas({
                   return next;
                 });
               }}
-              className="flex w-full items-center gap-1 truncate text-left hover:text-pc-text"
+              className="flex w-full items-center gap-1 truncate text-left hover:text-foreground"
               title={t('sops.tools_accordion_hint')}
             >
-              <span className="text-pc-text-muted">{expanded ? '▾' : '▸'}</span>
+              <span className="text-muted-foreground">{expanded ? '▾' : '▸'}</span>
               {toolRows === 0 ? (
                 <span>{t('sops.no_tools')}</span>
               ) : (
@@ -1273,9 +1319,9 @@ export default function SopCanvas({
               <ul className="mt-1 space-y-0.5">
                 {allowedTools.map((name) => (
                   <li key={`allow-${name}`} className="flex items-center gap-1 truncate">
-                    <span className="text-pc-accent-light">•</span>
-                    <span className="text-pc-text-secondary">{name}</span>
-                    <span className="text-pc-text-muted">— {t('sops.tool_allowed')}</span>
+                    <span className="text-accent-light">•</span>
+                    <span className="text-text-secondary">{name}</span>
+                    <span className="text-muted-foreground">— {t('sops.tool_allowed')}</span>
                   </li>
                 ))}
                 {plannedCalls.map((call, ci) => {
@@ -1283,15 +1329,15 @@ export default function SopCanvas({
                   return (
                     <li key={`call-${ci}`}>
                       <div className="flex items-center gap-1 truncate">
-                        <span className="text-pc-accent">⚙</span>
-                        <span className="text-pc-text-secondary">{call.tool}</span>
+                        <span className="text-primary">⚙</span>
+                        <span className="text-text-secondary">{call.tool}</span>
                       </div>
                       {argRows.length > 0 ? (
                         <ul className="ml-3 space-y-0.5">
                           {argRows.map(([k, v], ai) => (
                             <li key={`arg-${ci}-${ai}`} className="flex items-center gap-1 truncate">
-                              {k ? <span className="text-pc-text-muted">{k}:</span> : null}
-                              <span className="truncate text-pc-text-secondary">{v}</span>
+                              {k ? <span className="text-muted-foreground">{k}:</span> : null}
+                              <span className="truncate text-text-secondary">{v}</span>
                             </li>
                           ))}
                         </ul>

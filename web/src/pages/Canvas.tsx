@@ -118,9 +118,9 @@ export default function Canvas() {
   }, 5000);
 
   // Build srcdoc HTML for the iframe — avoids needing allow-same-origin to
-  // access contentDocument.  Content types that don't need scripts get a
+  // access contentDocument. Content types that don't need scripts get a
   // restrictive CSP meta tag; only the explicit `html` content type can
-  // execute scripts inside the opaque-origin sandbox.  Every other content
+  // execute scripts inside the opaque-origin sandbox. Every other content
   // type — including `eval` and any unrecognised type — renders an inert
   // no-script document, so a previous frame's srcdoc can never remain
   // visible or active across a content_type transition.
@@ -128,21 +128,21 @@ export default function Canvas() {
     if (!currentFrame) return undefined;
 
     const cs = getComputedStyle(document.documentElement);
-    const bgBase = cs.getPropertyValue('--pc-bg-base').trim() || '#1e1e24';
-    const textPrimary = cs.getPropertyValue('--pc-text-primary').trim() || '#d4d4d8';
-    const textSecondary = cs.getPropertyValue('--pc-text-secondary').trim() || '#a1a1aa';
-    const fontMono = cs.getPropertyValue('--pc-font-mono').trim() || 'monospace';
-    const fontUi = cs.getPropertyValue('--pc-font-ui').trim() || 'system-ui,sans-serif';
+    const bgBase = cs.getPropertyValue('--color-background').trim() || '#1e1e24';
+    const textPrimary = cs.getPropertyValue('--color-foreground').trim() || '#d4d4d8';
+    const textSecondary = cs.getPropertyValue('--color-text-secondary').trim() || '#a1a1aa';
+    const fontMono = cs.getPropertyValue('--font-mono').trim() || 'monospace';
+    const fontUi = cs.getPropertyValue('--font-sans').trim() || 'system-ui,sans-serif';
 
     // CSP that blocks all scripts — used for non-interactive content types
-    // and for the inert placeholder.  object-src 'none' is required
+    // and for the inert placeholder. object-src 'none' is required
     // separately because in the absence of a default-src directive,
     // object-src would otherwise fall back to * and allow <object>,
     // <embed>, and <applet> to load external content from these frames.
     const noScriptCsp =
       '<meta http-equiv="Content-Security-Policy" content="script-src \'none\'; object-src \'none\'">';
 
-    // Inert placeholder document.  Used for `eval` (where iframe rendering
+    // Inert placeholder document. Used for `eval` (where iframe rendering
     // is intentionally a no-op and execution happens out of band) and as
     // the deny-by-default fallback for any unrecognised content_type.
     // Replacing the previous srcdoc with this guarantees that stale frame
@@ -190,7 +190,7 @@ export default function Canvas() {
     }
 
     // Unrecognised content_type — render inert rather than defaulting to
-    // scriptable HTML.  Future content types must be added explicitly above.
+    // scriptable HTML. Future content types must be added explicitly above.
     return inertDoc;
   }, [currentFrame]);
 
@@ -254,7 +254,7 @@ export default function Canvas() {
       <PageHeader
         title={
           <span className="inline-flex items-center gap-2.5">
-            <Monitor className="h-5 w-5 text-pc-accent" />
+            <Monitor className="h-5 w-5 text-primary" />
             {t('canvas.title')}
             <Badge tone={connected ? 'ok' : 'error'}>
               {connected ? t('canvas.connected') : t('canvas.disconnected')}
@@ -273,7 +273,7 @@ export default function Canvas() {
               <History className="h-4 w-4" />
             </Button>
             <Button
-              variant={clearArmed ? 'danger' : 'ghost'}
+              variant={clearArmed ? 'destructive' : 'ghost'}
               size="sm"
               onClick={handleClear}
               onBlur={disarmClear}
@@ -313,14 +313,14 @@ export default function Canvas() {
           onChange={(e) => setCanvasIdInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSwitchCanvas()}
           placeholder={t('canvas.canvas_id_placeholder')}
-          className="h-9 px-3 rounded-[var(--radius-md)] text-sm border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pc-accent/40 focus-visible:border-pc-accent/40"
+          className="h-9 px-3 rounded-[var(--radius-md)] text-sm border border-border bg-input text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-primary/40"
         />
-        <Button size="md" onClick={handleSwitchCanvas}>
+        <Button size="default" onClick={handleSwitchCanvas}>
           {t('canvas.switch')}
         </Button>
         {canvasList.length > 0 && (
           <div className="flex items-center gap-1.5 ml-2 flex-wrap">
-            <span className="text-xs text-pc-text-muted">{t('canvas.active')}</span>
+            <span className="text-xs text-muted-foreground">{t('canvas.active')}</span>
             {canvasList.map((id) => {
               const active = id === canvasId;
               return (
@@ -335,8 +335,8 @@ export default function Canvas() {
                   className={[
                     'px-2 py-1 rounded-[var(--radius-sm)] text-xs font-mono border transition-colors',
                     active
-                      ? 'bg-pc-accent/10 text-pc-accent border-pc-accent/30'
-                      : 'bg-pc-elevated text-pc-text-muted border-pc-border hover:text-pc-text hover:border-pc-border-strong',
+                      ? 'bg-primary/10 text-primary border-primary/30'
+                      : 'bg-secondary text-muted-foreground border-border hover:text-foreground hover:border-border-strong',
                   ].join(' ')}
                 >
                   {id}
@@ -350,23 +350,23 @@ export default function Canvas() {
       {/* Main content area */}
       <div className="flex-1 flex gap-4 min-h-0">
         {/* Canvas viewer */}
-        <div className="flex-1 rounded-[var(--radius-lg)] border border-pc-border bg-pc-base overflow-hidden shadow-[var(--pc-shadow-sm)]">
+        <div className="flex-1 rounded-[var(--radius-lg)] border border-border bg-background overflow-hidden shadow-[var(--color-shadow-sm)]">
           {currentFrame ? (
             <iframe
               sandbox="allow-scripts"
               srcDoc={srcdoc}
               className="w-full h-full border-0"
               title={`${t('canvas.iframe_title_prefix')}${canvasId}`}
-              style={{ background: 'var(--pc-bg-base)' }}
+              style={{ background: 'var(--color-background)' }}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <Monitor className="h-12 w-12 mx-auto mb-3 text-pc-text-faint" />
-                <p className="text-sm text-pc-text-muted">
-                  {t('canvas.waiting_prefix')} <span className="font-mono text-pc-text-secondary">"{canvasId}"</span>
+                <Monitor className="h-12 w-12 mx-auto mb-3 text-text-faint" />
+                <p className="text-sm text-muted-foreground">
+                  {t('canvas.waiting_prefix')} <span className="font-mono text-text-secondary">"{canvasId}"</span>
                 </p>
-                <p className="text-xs mt-1 text-pc-text-faint">
+                <p className="text-xs mt-1 text-text-faint">
                   {t('canvas.waiting_hint')}
                 </p>
               </div>
@@ -377,11 +377,11 @@ export default function Canvas() {
         {/* History panel */}
         {showHistory && (
           <Card padded={false} className="w-64 overflow-y-auto">
-            <div className="px-3 py-2 border-b border-pc-border text-[11px] font-medium uppercase tracking-wide text-pc-text-faint sticky top-0 bg-pc-surface">
+            <div className="px-3 py-2 border-b border-border text-[11px] font-medium uppercase tracking-wide text-text-faint sticky top-0 bg-card">
               {t('canvas.frame_history')} ({history.length})
             </div>
             {history.length === 0 ? (
-              <p className="p-3 text-xs text-pc-text-muted">{t('canvas.no_frames')}</p>
+              <p className="p-3 text-xs text-muted-foreground">{t('canvas.no_frames')}</p>
             ) : (
               <div className="space-y-1 p-2">
                 {[...history].reverse().map((frame) => {
@@ -393,19 +393,19 @@ export default function Canvas() {
                       className={[
                         'w-full text-left px-2 py-1.5 rounded-[var(--radius-sm)] text-xs transition-colors border',
                         active
-                          ? 'bg-pc-accent/10 border-pc-accent/30'
-                          : 'border-transparent hover:bg-[var(--pc-hover)]',
+                          ? 'bg-primary/10 border-primary/30'
+                          : 'border-transparent hover:bg-[var(--color-hover)]',
                       ].join(' ')}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-mono truncate text-pc-accent">
+                        <span className="font-mono truncate text-primary">
                           {frame.content_type}
                         </span>
-                        <span className="text-pc-text-muted">
+                        <span className="text-muted-foreground">
                           {fmtTime(frame.timestamp)}
                         </span>
                       </div>
-                      <div className="truncate mt-0.5 text-[0.65rem] text-pc-text-muted">
+                      <div className="truncate mt-0.5 text-[0.65rem] text-muted-foreground">
                         {frame.content.substring(0, 60)}
                         {frame.content.length > 60 ? '...' : ''}
                       </div>
@@ -420,11 +420,11 @@ export default function Canvas() {
 
       {/* Frame info bar */}
       {currentFrame && (
-        <div className="flex items-center justify-between px-3 py-2 rounded-[var(--radius-md)] text-xs bg-pc-elevated border border-pc-border text-pc-text-muted">
+        <div className="flex items-center justify-between px-3 py-2 rounded-[var(--radius-md)] text-xs bg-secondary border border-border text-muted-foreground">
           <span>
-            {t('canvas.type_label')} <span className="font-mono text-pc-text-secondary">{currentFrame.content_type}</span>
-            <span className="mx-2 text-pc-text-faint">|</span>
-            {t('canvas.frame_label')} <span className="font-mono text-pc-text-secondary">{currentFrame.frame_id.substring(0, 8)}</span>
+            {t('canvas.type_label')} <span className="font-mono text-text-secondary">{currentFrame.content_type}</span>
+            <span className="mx-2 text-text-faint">|</span>
+            {t('canvas.frame_label')} <span className="font-mono text-text-secondary">{currentFrame.frame_id.substring(0, 8)}</span>
           </span>
           <span>{fmtDate(currentFrame.timestamp, { dateStyle: 'medium', timeStyle: 'medium' })}</span>
         </div>

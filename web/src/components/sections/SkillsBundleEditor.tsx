@@ -226,7 +226,7 @@ export default function SkillsBundleEditor({ bundle }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm" style={{ color: 'var(--pc-text-muted)' }}>
+      <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
         {t('skills_bundle.intro_before_skill_md')}
         <code>SKILL.md</code> {t('skills_bundle.intro_after_skill_md')}{' '}
         <code> scripts/</code>, <code>references/</code>{' '}
@@ -244,9 +244,9 @@ export default function SkillsBundleEditor({ bundle }: Props) {
             onClick={() => setActive(s.name)}
             className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
             style={{
-              borderColor: 'var(--pc-border)',
-              background: s.name === active ? 'var(--pc-accent-glow)' : 'transparent',
-              color: s.name === active ? 'var(--pc-accent)' : 'var(--pc-text-secondary)',
+              borderColor: 'var(--color-border)',
+              background: s.name === active ? 'var(--color-accent-glow)' : 'transparent',
+              color: s.name === active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
               fontWeight: s.name === active ? 600 : 400,
             }}
           >
@@ -261,13 +261,13 @@ export default function SkillsBundleEditor({ bundle }: Props) {
               setError(null);
             }}
             className="text-xs px-3 py-1.5 rounded-lg border-dashed border"
-            style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-muted)' }}
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}
           >
             {t('skills_bundle.new_skill')}
           </button>
         )}
         {skills.length === 0 && !creating && (
-          <span className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
+          <span className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
             {t('skills_bundle.no_skills_installed')}
           </span>
         )}
@@ -290,10 +290,10 @@ export default function SkillsBundleEditor({ bundle }: Props) {
       {creating && (
         <div
           className="rounded-xl border p-4 flex flex-col gap-3"
-          style={{ borderColor: 'var(--pc-border)', background: 'var(--pc-bg-surface)' }}
+          style={{ borderColor: 'var(--color-border)', background: 'var(--color-card)' }}
         >
           <div className="flex flex-col gap-1">
-            <label className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
+            <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
               {t('skills_bundle.name_label_create')}
             </label>
             <input
@@ -302,11 +302,11 @@ export default function SkillsBundleEditor({ bundle }: Props) {
               onChange={(e) => setNewName(e.target.value)}
               placeholder={t('skills_bundle.name_placeholder')}
               className="rounded-md border bg-transparent px-3 py-1.5 text-sm"
-              style={{ borderColor: 'var(--pc-border)' }}
+              style={{ borderColor: 'var(--color-border)' }}
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
+            <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
               {t('skills_bundle.description_label_create')}
             </label>
             <textarea
@@ -315,7 +315,7 @@ export default function SkillsBundleEditor({ bundle }: Props) {
               rows={3}
               placeholder={t('skills_bundle.description_placeholder')}
               className="rounded-md border bg-transparent px-3 py-1.5 text-sm font-mono"
-              style={{ borderColor: 'var(--pc-border)' }}
+              style={{ borderColor: 'var(--color-border)' }}
             />
           </div>
           <div className="flex gap-2">
@@ -365,7 +365,7 @@ export default function SkillsBundleEditor({ bundle }: Props) {
           )}
           <div
             className="rounded-xl border overflow-hidden"
-            style={{ borderColor: 'var(--pc-border)' }}
+            style={{ borderColor: 'var(--color-border)' }}
           >
             <CodeMirror
               value={buffer.draft.body}
@@ -412,7 +412,7 @@ export default function SkillsBundleEditor({ bundle }: Props) {
               </button>
             ) : (
               <>
-                <span className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
+                <span className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
                   {t('skills_bundle.move_to_prefix')}{' '}
                   <code>shared/skills/_deleted/</code>{t('skills_bundle.move_to_suffix')}
                 </span>
@@ -451,7 +451,7 @@ function FrontmatterForm({ value, onChange, onTagsChange }: FrontmatterFormProps
   return (
     <div
       className="rounded-xl border p-4 grid gap-3 md:grid-cols-2"
-      style={{ borderColor: 'var(--pc-border)', background: 'var(--pc-bg-surface)' }}
+      style={{ borderColor: 'var(--color-border)', background: 'var(--color-card)' }}
     >
       <Field
         label={t('skills_bundle.name_label_required')}
@@ -465,7 +465,7 @@ function FrontmatterForm({ value, onChange, onTagsChange }: FrontmatterFormProps
         placeholder="0.1.0"
       />
       <div className="md:col-span-2 flex flex-col gap-1">
-        <label className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
+        <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
           {t('skills_bundle.description_label_required')}
         </label>
         <textarea
@@ -473,7 +473,7 @@ function FrontmatterForm({ value, onChange, onTagsChange }: FrontmatterFormProps
           onChange={(e) => onChange('description', e.target.value)}
           rows={2}
           className="rounded-md border bg-transparent px-3 py-1.5 text-sm font-mono"
-          style={{ borderColor: 'var(--pc-border)' }}
+          style={{ borderColor: 'var(--color-border)' }}
         />
       </div>
       <Field
@@ -529,7 +529,7 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
   return (
     <div
       className="md:col-span-2 flex flex-col gap-2 border-t pt-3"
-      style={{ borderColor: 'var(--pc-border)' }}
+      style={{ borderColor: 'var(--color-border)' }}
     >
       <label className="flex items-center gap-2 cursor-pointer select-none">
         <input
@@ -537,24 +537,25 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
           checked={slashOn}
           onChange={(e) => setSlash(e.target.checked)}
         />
-        <span className="text-sm" style={{ color: 'var(--pc-text-secondary)' }}>
-          Slash command
+        <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          {t('skills_bundle.slash_command')}
         </span>
-        <span className="text-xs" style={{ color: 'var(--pc-text-faint)' }}>
-          — expose this skill as a <code>/command</code> in Discord (adds the{' '}
-          <code>slash</code> tag)
+        <span className="text-xs" style={{ color: 'var(--color-text-faint)' }}>
+          {t('skills_bundle.slash_command_hint_prefix')}<code>/command</code>
+          {t('skills_bundle.slash_command_hint_mid')}<code>slash</code>
+          {t('skills_bundle.slash_command_hint_suffix')}
         </span>
       </label>
       <div className="flex flex-col gap-1">
-        <label className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
-          Tags
+        <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+          {t('skills_bundle.tags_label')}
         </label>
         <div className="flex flex-wrap items-center gap-1.5">
           {editableTags.map((tag) => (
             <span
               key={tag}
               className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border"
-              style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-secondary)' }}
+              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
             >
               {tag}
               <button
@@ -562,7 +563,7 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
                 onClick={() => removeTag(tag)}
                 aria-label={t('skills_bundle.aria_remove_tag', { tag })}
                 className="leading-none"
-                style={{ color: 'var(--pc-text-muted)' }}
+                style={{ color: 'var(--color-muted-foreground)' }}
               >
                 ×
               </button>
@@ -572,7 +573,7 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
             <span
               className="inline-flex items-center text-xs px-2 py-0.5 rounded-md border opacity-60"
               title={t('skills_bundle.open_skills_badge_title')}
-              style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-faint)' }}
+              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-faint)' }}
             >
               open-skills
             </span>
@@ -590,7 +591,7 @@ function TagsField({ tags, onTagsChange }: TagsFieldProps) {
             placeholder={t('skills_bundle.tag_input_placeholder')}
             aria-label={t('skills_bundle.tag_input_aria_label')}
             className="text-xs bg-transparent border rounded-md px-2 py-0.5 w-24"
-            style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text)' }}
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
           />
         </div>
       </div>
@@ -608,7 +609,7 @@ interface FieldProps {
 function Field({ label, value, onChange, placeholder }: FieldProps) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
+      <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
         {label}
       </label>
       <input
@@ -617,7 +618,7 @@ function Field({ label, value, onChange, placeholder }: FieldProps) {
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="rounded-md border bg-transparent px-3 py-1.5 text-sm"
-        style={{ borderColor: 'var(--pc-border)' }}
+        style={{ borderColor: 'var(--color-border)' }}
       />
     </div>
   );
@@ -685,16 +686,16 @@ function SlashOptionsEditor({ options, onChange }: SlashOptionsEditorProps) {
   return (
     <div
       className="rounded-xl border p-4 flex flex-col gap-3"
-      style={{ borderColor: 'var(--pc-border)', background: 'var(--pc-bg-surface)' }}
+      style={{ borderColor: 'var(--color-border)', background: 'var(--color-card)' }}
     >
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <span className="text-sm" style={{ color: 'var(--pc-text-secondary)' }}>
-            Slash command options
+          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            {t('skills_bundle.slash_options_title')}
           </span>
-          <span className="text-xs" style={{ color: 'var(--pc-text-faint)' }}>
-            Typed parameters this <code>/command</code> accepts. With none, the
-            skill runs with a single free-text argument.
+          <span className="text-xs" style={{ color: 'var(--color-text-faint)' }}>
+            {t('skills_bundle.slash_options_hint_prefix')}<code>/command</code>
+            {t('skills_bundle.slash_options_hint_suffix')}
           </span>
         </div>
         <button
@@ -703,13 +704,13 @@ function SlashOptionsEditor({ options, onChange }: SlashOptionsEditorProps) {
           disabled={kinds.length === 0}
           className="btn-secondary text-xs whitespace-nowrap disabled:opacity-40"
         >
-          + Add option
+          {t('skills_bundle.add_option')}
         </button>
       </div>
 
       {options.length === 0 ? (
-        <p className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
-          No options yet.
+        <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+          {t('skills_bundle.no_options')}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -776,12 +777,12 @@ function SlashOptionCard({
   return (
     <div
       className="rounded-lg border p-3 flex flex-col gap-2"
-      style={{ borderColor: 'var(--pc-border)' }}
+      style={{ borderColor: 'var(--color-border)' }}
     >
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1 flex-1 min-w-[8rem]">
-          <label className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
-            Name
+          <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+            {t('skills_bundle.option_name_label')}
           </label>
           <input
             type="text"
@@ -790,19 +791,19 @@ function SlashOptionCard({
             placeholder={t('skills_bundle.option_name_placeholder')}
             aria-label={t('skills_bundle.aria_option_name', { n: index + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-sm"
-            style={{ borderColor: 'var(--pc-border)' }}
+            style={{ borderColor: 'var(--color-border)' }}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
-            Type
+          <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+            {t('skills_bundle.option_type_label')}
           </label>
           <select
             value={option.type}
             onChange={(e) => onType(e.target.value)}
             aria-label={t('skills_bundle.aria_option_type', { n: index + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-sm"
-            style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text)' }}
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
           >
             {kinds.map((k) => (
               <option
@@ -821,8 +822,8 @@ function SlashOptionCard({
             checked={option.required ?? false}
             onChange={(e) => onChange({ required: e.target.checked })}
           />
-          <span className="text-xs" style={{ color: 'var(--pc-text-secondary)' }}>
-            Required
+          <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            {t('skills_bundle.option_required_label')}
           </span>
         </label>
         <div className="flex-1" />
@@ -833,7 +834,7 @@ function SlashOptionCard({
             disabled={index === 0}
             aria-label={t('skills_bundle.aria_option_move_up', { n: index + 1 })}
             className="text-xs px-1.5 py-0.5 rounded border disabled:opacity-30"
-            style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-muted)' }}
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}
           >
             ↑
           </button>
@@ -843,7 +844,7 @@ function SlashOptionCard({
             disabled={index === count - 1}
             aria-label={t('skills_bundle.aria_option_move_down', { n: index + 1 })}
             className="text-xs px-1.5 py-0.5 rounded border disabled:opacity-30"
-            style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-muted)' }}
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}
           >
             ↓
           </button>
@@ -852,7 +853,7 @@ function SlashOptionCard({
             onClick={onRemove}
             aria-label={t('skills_bundle.remove_option_aria_label')}
             className="text-xs px-1.5 py-0.5 rounded border"
-            style={{ borderColor: 'var(--pc-border)', color: '#f87171' }}
+            style={{ borderColor: 'var(--color-border)', color: '#f87171' }}
           >
             ×
           </button>
@@ -860,8 +861,8 @@ function SlashOptionCard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
-          Description
+        <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+          {t('skills_bundle.option_description_label')}
         </label>
         <input
           type="text"
@@ -870,19 +871,19 @@ function SlashOptionCard({
           placeholder={t('skills_bundle.option_description_placeholder')}
           aria-label={t('skills_bundle.aria_option_description', { n: index + 1 })}
           className="rounded-md border bg-transparent px-2 py-1 text-sm"
-          style={{ borderColor: 'var(--pc-border)' }}
+          style={{ borderColor: 'var(--color-border)' }}
         />
       </div>
 
       {isNumeric && (
         <div className="flex flex-wrap gap-2">
           <NumField
-            label="Min"
+            label={t('skills_bundle.option_min')}
             value={option.min}
             onChange={(v) => onChange({ min: v })}
           />
           <NumField
-            label="Max"
+            label={t('skills_bundle.option_max')}
             value={option.max}
             onChange={(v) => onChange({ max: v })}
           />
@@ -892,13 +893,13 @@ function SlashOptionCard({
       {isString && (
         <div className="flex flex-wrap gap-2">
           <NumField
-            label="Min length"
+            label={t('skills_bundle.option_min_length')}
             value={option.min_length}
             onChange={(v) => onChange({ min_length: clampLen(v) })}
             integer
           />
           <NumField
-            label="Max length"
+            label={t('skills_bundle.option_max_length')}
             value={option.max_length}
             onChange={(v) => onChange({ max_length: clampLen(v) })}
             integer
@@ -938,19 +939,20 @@ function ChoicesEditor({ choices, onChange }: ChoicesEditorProps) {
   return (
     <div
       className="flex flex-col gap-1.5 border-t pt-2"
-      style={{ borderColor: 'var(--pc-border)' }}
+      style={{ borderColor: 'var(--color-border)' }}
     >
       <div className="flex items-center justify-between">
-        <label className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
-          Choices <span style={{ color: 'var(--pc-text-faint)' }}>(optional, a fixed dropdown)</span>
+        <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+          {t('skills_bundle.choices_label')}{' '}
+          <span style={{ color: 'var(--color-text-faint)' }}>{t('skills_bundle.choices_hint')}</span>
         </label>
         <button
           type="button"
           onClick={add}
           className="text-xs px-2 py-0.5 rounded border"
-          style={{ borderColor: 'var(--pc-border)', color: 'var(--pc-text-muted)' }}
+          style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}
         >
-          + Choice
+          {t('skills_bundle.add_choice')}
         </button>
       </div>
       {choices.map((c, i) => (
@@ -962,9 +964,9 @@ function ChoicesEditor({ choices, onChange }: ChoicesEditorProps) {
             placeholder={t('skills_bundle.choice_label_placeholder')}
             aria-label={t('skills_bundle.aria_choice_label', { n: i + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-xs flex-1"
-            style={{ borderColor: 'var(--pc-border)' }}
+            style={{ borderColor: 'var(--color-border)' }}
           />
-          <span className="text-xs" style={{ color: 'var(--pc-text-faint)' }}>
+          <span className="text-xs" style={{ color: 'var(--color-text-faint)' }}>
             →
           </span>
           <input
@@ -974,14 +976,14 @@ function ChoicesEditor({ choices, onChange }: ChoicesEditorProps) {
             placeholder={t('skills_bundle.choice_value_placeholder')}
             aria-label={t('skills_bundle.aria_choice_value', { n: i + 1 })}
             className="rounded-md border bg-transparent px-2 py-1 text-xs flex-1 font-mono"
-            style={{ borderColor: 'var(--pc-border)' }}
+            style={{ borderColor: 'var(--color-border)' }}
           />
           <button
             type="button"
             onClick={() => remove(i)}
             aria-label={t('skills_bundle.aria_remove_choice', { n: i + 1 })}
             className="text-xs leading-none"
-            style={{ color: 'var(--pc-text-muted)' }}
+            style={{ color: 'var(--color-muted-foreground)' }}
           >
             ×
           </button>
@@ -1003,7 +1005,7 @@ interface NumFieldProps {
 function NumField({ label, value, onChange, integer }: NumFieldProps) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs" style={{ color: 'var(--pc-text-muted)' }}>
+      <label className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
         {label}
       </label>
       <input
@@ -1021,7 +1023,7 @@ function NumField({ label, value, onChange, integer }: NumFieldProps) {
           onChange(Number.isFinite(n) ? n : null);
         }}
         className="rounded-md border bg-transparent px-2 py-1 text-sm w-24"
-        style={{ borderColor: 'var(--pc-border)' }}
+        style={{ borderColor: 'var(--color-border)' }}
       />
     </div>
   );

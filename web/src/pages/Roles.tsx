@@ -1,8 +1,19 @@
-import { useMemo, useState } from 'react';
-import { Plus, Shield, ShieldCheck, Trash2, X } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, Plus, Shield, ShieldCheck, Trash2, User, UserRound, X } from 'lucide-react';
 import { useRoles } from '@/hooks/useRoles';
-import { HttpError, type AuthzProfile, type AuthzPrincipalSummary } from '@/lib/api';
-import { Badge, Button, Card, ConfirmDialog, PageHeader, Select } from '@/components/ui';
+import { HttpError, type AuthzPrincipalSummary, type AuthzProfile, type ExternalSubject } from '@/lib/api';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, PageHeader } from '@/components/ui';
+import {
+  SettingsPageShell,
+  SettingsListBody,
+  SettingsSectionLabel,
+  SettingsSelectableRow,
+} from '@/components/ui/settings-list';
+import { DetailPanel, DetailPanelSurface, DetailSectionTitle } from '@/components/ui/detail-panel';
+import { IconTile } from '@/components/ui/icon-tile';
+import { ActionMenu } from '@/components/ui/action-menu';
+import { SpinnerScreen } from '@/components/ui/spinner';
 import { plural, t } from '@/lib/i18n';
 
 // Sentinel written into `allowed_agents` for "every agent" — matches the
@@ -10,17 +21,12 @@ import { plural, t } from '@/lib/i18n';
 // treats a literal `"*"` entry as a wildcard grant rather than a real alias.
 const ALL_AGENTS = '*';
 
-function friendlyError(err: unknown, fallbackKey: string): string {
+export function friendlyError(err: unknown, fallbackKey: string): string {
   if (err instanceof HttpError && err.status === 403) {
     return t('roles.forbidden_error');
   }
   if (err instanceof Error && err.message) return err.message;
   return t(fallbackKey);
-}
-
-/** True when a principal is granted admin via ANY of its bound profiles. */
-function isPrincipalAdmin(principal: AuthzPrincipalSummary, profiles: AuthzProfile[]): boolean {
-  return principal.profiles.some((pid) => profiles.find((p) => p.id === pid)?.admin === true);
 }
 
 // ── Profile create/edit form ─────────────────────────────────────────────
@@ -59,6 +65,8 @@ interface ProfileFormProps {
   onCancel: () => void;
 }
 
+// Fields only — the framing (title, close) is provided by the DetailPanel that
+// hosts this form in the right drawer.
 function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCancel }: ProfileFormProps) {
   const toggleAgent = (agent: string) => {
     const next = new Set(form.allowedAgents);
@@ -68,11 +76,7 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
   };
 
   return (
-    <Card className="space-y-4">
-      <h3 className="text-sm font-semibold text-pc-text">
-        {form.editingId ? t('roles.edit_profile_title') : t('roles.new_profile_title')}
-      </h3>
-
+    <div className="flex flex-col gap-5">
       {formError && (
         <p className="text-xs text-status-error" role="alert">
           {formError}
@@ -80,7 +84,7 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
       )}
 
       <div className="space-y-1">
-        <label htmlFor="roles-profile-id" className="text-xs font-medium text-pc-text-secondary">
+        <label htmlFor="roles-profile-id" className="text-xs font-medium text-text-secondary">
           {t('roles.profile_id')}
         </label>
         <input
@@ -90,16 +94,16 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
           disabled={form.editingId !== null}
           placeholder={t('roles.profile_id_placeholder')}
           onChange={(e) => onChange({ ...form, id: e.target.value })}
-          className="w-full max-w-sm rounded-[var(--radius-md)] border border-pc-border bg-pc-base px-3 py-1.5 text-sm text-pc-text disabled:opacity-50"
+          className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground disabled:opacity-50 focus:border-border-strong focus:outline-none"
         />
         {form.editingId !== null && (
-          <p className="text-[11px] text-pc-text-muted">{t('roles.profile_id_immutable_hint')}</p>
+          <p className="text-[11px] text-muted-foreground">{t('roles.profile_id_immutable_hint')}</p>
         )}
       </div>
 
       <div className="space-y-1.5">
-        <span className="text-xs font-medium text-pc-text-secondary">{t('roles.allowed_agents')}</span>
-        <label className="flex items-center gap-2 text-sm text-pc-text">
+        <span className="text-xs font-medium text-text-secondary">{t('roles.allowed_agents')}</span>
+        <label className="flex items-center gap-2 text-sm text-foreground">
           <input
             type="checkbox"
             checked={form.allAgents}
@@ -107,13 +111,13 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
           />
           {t('roles.all_agents')}
         </label>
-        {!form.allAgents && (
-          agents.length === 0 ? (
-            <p className="text-xs text-pc-text-muted">{t('roles.no_agents_configured')}</p>
+        {!form.allAgents &&
+          (agents.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{t('roles.no_agents_configured')}</p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-40 overflow-y-auto rounded-[var(--radius-md)] border border-pc-border p-2">
+            <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto rounded-lg border border-border p-2">
               {agents.map((agent) => (
-                <label key={agent} className="flex items-center gap-2 text-sm text-pc-text-secondary">
+                <label key={agent} className="flex items-center gap-2 text-sm text-text-secondary">
                   <input
                     type="checkbox"
                     checked={form.allowedAgents.has(agent)}
@@ -123,11 +127,10 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
                 </label>
               ))}
             </div>
-          )
-        )}
+          ))}
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-pc-text">
+      <label className="flex items-center gap-2 text-sm text-foreground">
         <input
           type="checkbox"
           checked={form.admin}
@@ -136,33 +139,88 @@ function ProfileForm({ form, agents, saving, formError, onChange, onSave, onCanc
         {t('roles.admin_toggle')}
       </label>
 
-      <div className="flex items-center gap-2 pt-1">
-        <Button onClick={onSave} disabled={saving}>
-          {t('roles.save')}
-        </Button>
+      <div className="flex items-center justify-end gap-2 pt-2">
         <Button variant="ghost" onClick={onCancel} disabled={saving}>
           {t('roles.cancel')}
         </Button>
+        <Button onClick={onSave} disabled={saving}>
+          {t('roles.save')}
+        </Button>
       </div>
-    </Card>
+    </div>
+  );
+}
+
+// ── Users holding a role (read-only; binding lives on the Users page) ──────
+
+/** Deep link into the Users page: `/users?user=<id>` opens the local user's
+ *  detail, or scrolls to and highlights the external (SSO) user's row. */
+export function userPageLink(id: string): string {
+  return `/users?user=${encodeURIComponent(id)}`;
+}
+
+function RoleUsers({
+  profile,
+  principals,
+  external,
+}: {
+  profile: AuthzProfile;
+  principals: AuthzPrincipalSummary[];
+  external: ExternalSubject[] | null;
+}) {
+  const navigate = useNavigate();
+  const locals = principals.filter((p) => p.profiles.includes(profile.id));
+  const externals = (external ?? []).filter((s) => s.profiles.includes(profile.id));
+  const rowClass =
+    'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50';
+  const group = (title: string, rows: ReactNode[]) => (
+    <div>
+      <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">{title}</p>
+      {rows.length === 0 ? (
+        <p className="px-2 text-xs text-muted-foreground">{t('roles.nobody_bound')}</p>
+      ) : (
+        <div className="flex flex-col">{rows}</div>
+      )}
+    </div>
+  );
+  return (
+    <div className="flex flex-col gap-3 border-t border-border pt-4">
+      <DetailSectionTitle>{t('roles.users_with_role')}</DetailSectionTitle>
+      {group(
+        t('users.local_heading'),
+        locals.map((p) => (
+          <button key={p.id} type="button" className={rowClass} onClick={() => navigate(userPageLink(p.id))}>
+            <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate font-mono">{p.id}</span>
+            {p.profiles.some((pid) => pid === profile.id && profile.admin) && (
+              <Badge tone="ok">{t('roles.admin_badge')}</Badge>
+            )}
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </button>
+        )),
+      )}
+      {external !== null &&
+        group(
+          t('users.external_heading'),
+          externals.map((s) => (
+            <button key={s.id} type="button" className={rowClass} onClick={() => navigate(userPageLink(s.id))}>
+              <UserRound className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{s.display_name || s.email || s.subject}</span>
+              <Badge tone="neutral">{s.provider}</Badge>
+              {s.admin && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </button>
+          )),
+        )}
+    </div>
   );
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function Roles() {
-  const {
-    profiles,
-    principals,
-    agents,
-    loading,
-    error,
-    createProfile,
-    updateProfile,
-    deleteProfile,
-    bindProfile,
-    unbindProfile,
-  } = useRoles();
+  const { profiles, principals, external, agents, loading, error, createProfile, updateProfile, deleteProfile } =
+    useRoles();
 
   const [form, setForm] = useState<ProfileFormState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -170,19 +228,26 @@ export default function Roles() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<AuthzProfile | null>(null);
   const [deleteAffected, setDeleteAffected] = useState<{ profileId: string; principals: string[] } | null>(null);
-  const [bindSelection, setBindSelection] = useState<Record<string, string>>({});
 
-  // PENDING first (they need attention), then everyone else, both
-  // alphabetical within their bucket — keeps the unassigned-role rows from
-  // getting lost at the bottom of a long principal list.
-  const sortedPrincipals = useMemo(() => {
-    return [...principals].sort((a, b) => {
-      const aPending = a.profiles.length === 0;
-      const bPending = b.profiles.length === 0;
-      if (aPending !== bPending) return aPending ? -1 : 1;
-      return a.id.localeCompare(b.id);
-    });
-  }, [principals]);
+  // How many users hold each role, local and external (SSO) separately — a
+  // count, not a management surface (users are bound/unbound on the Users page).
+  const userCounts = useMemo(() => {
+    const counts = new Map<string, { local: number; external: number }>();
+    const bump = (pid: string, kind: 'local' | 'external') => {
+      const c = counts.get(pid) ?? { local: 0, external: 0 };
+      c[kind] += 1;
+      counts.set(pid, c);
+    };
+    for (const principal of principals) for (const pid of principal.profiles) bump(pid, 'local');
+    for (const subject of external ?? []) for (const pid of subject.profiles) bump(pid, 'external');
+    return counts;
+  }, [principals, external]);
+
+  const userCountLabel = (profileId: string): string => {
+    const c = userCounts.get(profileId);
+    if (!c || (c.local === 0 && c.external === 0)) return plural(0, 'roles.user_count');
+    return `${plural(c.local, 'roles.local_count')} · ${plural(c.external, 'roles.external_count')}`;
+  };
 
   const openCreate = () => {
     setFormError(null);
@@ -232,6 +297,7 @@ export default function Roles() {
     setActionError(null);
     try {
       const result = await deleteProfile(target.id);
+      if (form?.editingId === target.id) closeForm();
       if (result.affected_principals.length > 0) {
         setDeleteAffected({ profileId: target.id, principals: result.affected_principals });
       }
@@ -240,204 +306,155 @@ export default function Roles() {
     }
   };
 
-  const handleBind = async (principalId: string) => {
-    const profileId = bindSelection[principalId];
-    if (!profileId) return;
-    setActionError(null);
-    try {
-      await bindProfile(principalId, profileId);
-      setBindSelection((prev) => ({ ...prev, [principalId]: '' }));
-    } catch (err) {
-      setActionError(friendlyError(err, 'roles.bind_error'));
-    }
-  };
-
-  const handleUnbind = async (principalId: string, profileId: string) => {
-    setActionError(null);
-    try {
-      await unbindProfile(principalId, profileId);
-    } catch (err) {
-      setActionError(friendlyError(err, 'roles.unbind_error'));
-    }
-  };
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 border-2 rounded-full animate-spin border-pc-border border-t-pc-accent" />
-      </div>
-    );
+    return <SpinnerScreen />;
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title={t('roles.title')}
-        description={t('roles.description')}
-        actions={
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            {t('roles.new_profile')}
-          </Button>
-        }
-      />
+    <div className="flex h-full min-h-0">
+      <div className="no-scrollbar min-w-0 flex-1 overflow-y-auto">
+        <SettingsPageShell>
+          <PageHeader
+            title={t('roles.title')}
+            description={t('roles.description')}
+            actions={
+              <Button onClick={openCreate}>
+                <Plus className="h-4 w-4" />
+                {t('roles.new_profile')}
+              </Button>
+            }
+          />
 
-      {(error || actionError) && (
-        <Card className="flex items-start gap-2 text-sm border-status-error/25 bg-status-error/10 text-status-error">
-          <span className="flex-1">{error ? t('roles.load_error') : actionError}</span>
-          <button
-            type="button"
-            onClick={() => setActionError(null)}
-            className="flex-shrink-0 text-status-error/70 hover:text-status-error transition-colors"
-            aria-label={t('roles.dismiss')}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </Card>
-      )}
-
-      {deleteAffected && (
-        <Card className="text-sm border-status-warning/25 bg-status-warning/10 text-status-warning space-y-1">
-          <div className="flex items-start justify-between gap-2">
-            <span>
-              {plural(deleteAffected.principals.length, 'roles.delete_profile_affected')}
-            </span>
-            <button
-              type="button"
-              onClick={() => setDeleteAffected(null)}
-              className="flex-shrink-0 text-status-warning/70 hover:text-status-warning transition-colors"
-              aria-label={t('roles.dismiss')}
+          {(error || actionError) && (
+            <Card
+              padded={false}
+              className="flex items-start gap-2 p-4 text-sm border-status-error/25 bg-status-error/10 text-status-error"
             >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <p className="font-mono text-xs">{deleteAffected.principals.join(', ')}</p>
-        </Card>
-      )}
+              <span className="flex-1">{error ? t('roles.load_error') : actionError}</span>
+              <button
+                type="button"
+                onClick={() => setActionError(null)}
+                className="flex-shrink-0 text-status-error/70 hover:text-status-error transition-colors"
+                aria-label={t('roles.dismiss')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Card>
+          )}
 
-      {form && (
-        <ProfileForm
-          form={form}
-          agents={agents}
-          saving={saving}
-          formError={formError}
-          onChange={setForm}
-          onSave={() => void handleSave()}
-          onCancel={closeForm}
-        />
-      )}
+          {deleteAffected && (
+            <Card
+              padded={false}
+              className="space-y-1 p-4 text-sm border-status-warning/25 bg-status-warning/10 text-status-warning"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span>{plural(deleteAffected.principals.length, 'roles.delete_profile_affected')}</span>
+                <button
+                  type="button"
+                  onClick={() => setDeleteAffected(null)}
+                  className="flex-shrink-0 text-status-warning/70 hover:text-status-warning transition-colors"
+                  aria-label={t('roles.dismiss')}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="font-mono text-xs">{deleteAffected.principals.join(', ')}</p>
+            </Card>
+          )}
 
-      {/* Permission profiles */}
-      <Card padded={false} className="overflow-hidden">
-        <div className="px-5 py-4 border-b border-pc-border">
-          <h3 className="text-sm font-semibold text-pc-text">
-            {t('roles.profiles_heading')} ({profiles.length})
-          </h3>
-        </div>
-        {profiles.length === 0 ? (
-          <div className="p-8 text-center text-sm text-pc-text-muted">{t('roles.no_profiles')}</div>
-        ) : (
-          <ul className="divide-y divide-pc-border">
-            {profiles.map((profile) => (
-              <li key={profile.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                <div className="min-w-0 flex items-center gap-2 flex-wrap">
-                  {profile.admin ? (
-                    <ShieldCheck className="h-4 w-4 shrink-0 text-pc-accent" aria-hidden="true" />
-                  ) : (
-                    <Shield className="h-4 w-4 shrink-0 text-pc-text-muted" aria-hidden="true" />
-                  )}
-                  <span className="font-mono text-sm text-pc-text truncate">{profile.id}</span>
-                  {profile.admin && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
-                  <Badge tone="neutral">
-                    {profile.allowed_agents.includes(ALL_AGENTS)
-                      ? t('roles.all_agents')
-                      : `${profile.allowed_agents.length}`}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(profile)}>
-                    {t('roles.edit')}
-                  </Button>
-                  <Button variant="danger" size="sm" onClick={() => setPendingDelete(profile)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      {/* Principal binding */}
-      <Card padded={false} className="overflow-hidden">
-        <div className="px-5 py-4 border-b border-pc-border">
-          <h3 className="text-sm font-semibold text-pc-text">
-            {t('roles.principals_heading')} ({principals.length})
-          </h3>
-        </div>
-        {principals.length === 0 ? (
-          <div className="p-8 text-center text-sm text-pc-text-muted">{t('roles.no_principals')}</div>
-        ) : (
-          <ul className="divide-y divide-pc-border">
-            {sortedPrincipals.map((principal) => {
-              const pending = principal.profiles.length === 0;
-              const unbound = profiles.filter((p) => !principal.profiles.includes(p.id));
-              return (
-                <li key={principal.id} className="px-5 py-3 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-sm text-pc-text">{principal.id}</span>
-                    {isPrincipalAdmin(principal, profiles) && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
-                    {pending && <Badge tone="warn">{t('roles.pending_badge')}</Badge>}
-                    <span className="text-[11px] text-pc-text-muted">
-                      {plural(principal.tokenHashCount, 'roles.token_count')} · {plural(principal.deviceIdCount, 'roles.device_count')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {principal.profiles.map((pid) => (
-                      <Badge key={pid} tone="neutral">
-                        {pid}
-                        <button
-                          type="button"
-                          onClick={() => void handleUnbind(principal.id, pid)}
-                          aria-label={`${t('roles.unbind')} ${pid}`}
-                          className="hover:text-status-error"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
+          <SettingsSectionLabel>
+            {t('roles.profiles_heading')} · {profiles.length}
+          </SettingsSectionLabel>
+          {profiles.length === 0 ? (
+            <EmptyState icon={<Shield className="h-6 w-6" />} title={t('roles.no_profiles')} />
+          ) : (
+            <SettingsListBody>
+              {profiles.map((profile) => (
+                <SettingsSelectableRow
+                  key={profile.id}
+                  ariaLabel={profile.id}
+                  isSelected={form?.editingId === profile.id}
+                  onSelect={() => openEdit(profile)}
+                  leading={
+                    <IconTile className={profile.admin ? 'bg-status-success/10 text-status-success' : undefined}>
+                      {profile.admin ? (
+                        <ShieldCheck className="h-[18px] w-[18px]" />
+                      ) : (
+                        <Shield className="h-[18px] w-[18px]" />
+                      )}
+                    </IconTile>
+                  }
+                  title={
+                    <span className="flex items-center gap-2">
+                      <span className="font-mono">{profile.id}</span>
+                      {profile.admin && <Badge tone="ok">{t('roles.admin_badge')}</Badge>}
+                      <Badge tone="neutral">
+                        {profile.allowed_agents.includes(ALL_AGENTS)
+                          ? t('roles.all_agents')
+                          : `${profile.allowed_agents.length}`}
                       </Badge>
-                    ))}
-                    {unbound.length > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <Select
-                          value={bindSelection[principal.id] ?? ''}
-                          onChange={(v) => setBindSelection((prev) => ({ ...prev, [principal.id]: v }))}
-                          options={unbound.map((p) => ({ value: p.id, label: p.id }))}
-                          placeholder={t('roles.select_profile_placeholder')}
-                          aria-label={t('roles.bind_profile')}
-                          className="w-44"
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={!bindSelection[principal.id]}
-                          onClick={() => void handleBind(principal.id)}
-                        >
-                          {t('roles.bind_profile')}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  {principal.legacyAllowedAgents.length > 0 && (
-                    <p className="text-[11px] text-pc-text-muted">
-                      {t('roles.legacy_agents_hint')} {principal.legacyAllowedAgents.join(', ')}
-                    </p>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                    </span>
+                  }
+                  subtitle={userCountLabel(profile.id)}
+                  trailingIcon={<ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                />
+              ))}
+            </SettingsListBody>
+          )}
+        </SettingsPageShell>
+      </div>
+
+      {/* Right detail column — create / edit a role. */}
+      <DetailPanelSurface open={form !== null}>
+        {form && (
+          <DetailPanel
+            icon={
+              <IconTile className="text-brand-foreground [background-image:var(--gradient-brand)]">
+                <ShieldCheck className="h-[18px] w-[18px]" />
+              </IconTile>
+            }
+            title={<span className="font-mono">{form.editingId ?? t('roles.new_profile_title')}</span>}
+            subtitle={form.editingId ? t('nav.roles') : undefined}
+            onClose={closeForm}
+            actions={
+              form.editingId ? (
+                <ActionMenu
+                  items={[
+                    {
+                      label: t('roles.delete'),
+                      icon: <Trash2 />,
+                      danger: true,
+                      onClick: () => {
+                        const p = profiles.find((pr) => pr.id === form.editingId);
+                        if (p) setPendingDelete(p);
+                      },
+                    },
+                  ]}
+                />
+              ) : undefined
+            }
+          >
+            <div className="flex flex-col gap-5">
+              <ProfileForm
+                form={form}
+                agents={agents}
+                saving={saving}
+                formError={formError}
+                onChange={setForm}
+                onSave={() => void handleSave()}
+                onCancel={closeForm}
+              />
+              {form.editingId !== null && (
+                <RoleUsers
+                  profile={profiles.find((p) => p.id === form.editingId) ?? { id: form.editingId, allowed_agents: [], admin: form.admin }}
+                  principals={principals}
+                  external={external}
+                />
+              )}
+            </div>
+          </DetailPanel>
         )}
-      </Card>
+      </DetailPanelSurface>
 
       <ConfirmDialog
         open={pendingDelete !== null}

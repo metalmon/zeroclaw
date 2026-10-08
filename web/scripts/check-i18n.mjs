@@ -340,9 +340,18 @@ export function looksLikeEnglishLeak(value) {
   return asciiLetters.length / letters.length >= LEAK_ASCII_RATIO;
 }
 
+// Config field TITLES keyed by humanized label (config.fieldlabel.*) are short
+// UI labels, not prose — and many are legitimately acronym-only technical terms
+// with no Cyrillic form ("URL API", "OAuth Client ID", "SMTP TLS", "URL WS").
+// The english-leak heuristic targets untranslated PROSE, so it produces false
+// positives here; skip this namespace (coverage is tracked by the schema audit
+// in scripts/i18n-untranslated.mjs instead).
+const ENGLISH_LEAK_SKIP_PREFIXES = ["config.fieldlabel."];
+
 export function checkEnglishLeak(ru, prefixes) {
   const failures = [];
   for (const key of Object.keys(ru)) {
+    if (ENGLISH_LEAK_SKIP_PREFIXES.some((p) => key.startsWith(p))) continue;
     if (!isAllowlisted(key, prefixes)) continue;
     if (looksLikeEnglishLeak(ru[key])) {
       failures.push(`english-leak: "${key}" = ${JSON.stringify(ru[key])} looks untranslated`);

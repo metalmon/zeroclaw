@@ -22,7 +22,7 @@ function severityTone(severity: number): string {
   if (severity >= 17) return 'bg-status-error';
   if (severity >= 13) return 'bg-status-warning';
   if (severity >= 9) return 'bg-status-info';
-  return 'bg-pc-text-faint';
+  return 'bg-text-faint';
 }
 
 function formatTime(timestamp: string): string {
@@ -39,11 +39,11 @@ function mergeEvents(current: LogEvent[], incoming: LogEvent[]): LogEvent[] {
 }
 
 const kindTone: Record<RunLogKind, string> = {
-  model: 'border-pc-accent/40 bg-pc-accent/10 text-pc-accent',
+  model: 'border-primary/40 bg-primary/10 text-primary',
   tool: 'border-status-info/40 bg-status-info/10 text-status-info',
   step: 'border-status-success/40 bg-status-success/10 text-status-success',
-  run: 'border-pc-border bg-pc-surface text-pc-text-secondary',
-  event: 'border-pc-border bg-pc-input text-pc-text-muted',
+  run: 'border-border bg-card text-text-secondary',
+  event: 'border-border bg-input text-muted-foreground',
 };
 
 function KindIcon({ kind }: { kind: RunLogKind }) {
@@ -65,11 +65,11 @@ function EventRow({ event }: { event: LogEvent }) {
 
   return (
     <li className="relative grid grid-cols-[5rem_minmax(0,1fr)] gap-3 pb-4 last:pb-0">
-      <div className="font-mono text-[11px] tabular-nums text-pc-text-faint">
+      <div className="font-mono text-[11px] tabular-nums text-text-faint">
         {formatTime(event['@timestamp'])}
       </div>
       <span
-        className={`absolute left-[5.31rem] top-1.5 h-2 w-2 -translate-x-1/2 rounded-full ring-2 ring-pc-surface ${severityTone(event.severity_number)}`}
+        className={`absolute left-[5.31rem] top-1.5 h-2 w-2 -translate-x-1/2 rounded-full ring-2 ring-card ${severityTone(event.severity_number)}`}
         aria-hidden
       />
       <div className="min-w-0 pl-3">
@@ -83,9 +83,9 @@ function EventRow({ event }: { event: LogEvent }) {
               : undefined
           }
           onClick={() => setExpanded((value) => !value)}
-          className={`group -mx-2 flex w-[calc(100%+1rem)] items-start gap-2 rounded-md border border-transparent px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pc-accent ${
+          className={`group -mx-2 flex w-[calc(100%+1rem)] items-start gap-2 rounded-md border border-transparent px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary ${
             hasDetails
-              ? 'cursor-pointer hover:border-pc-border hover:bg-pc-elevated'
+              ? 'cursor-pointer hover:border-border hover:bg-secondary'
               : 'cursor-default'
           }`}
         >
@@ -100,25 +100,25 @@ function EventRow({ event }: { event: LogEvent }) {
               <span className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] ${kindTone[presentation.kind]}`}>
                 {presentation.eyebrow}
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-wide text-pc-text-faint">
+              <span className="font-mono text-[10px] uppercase tracking-wide text-text-faint">
                 {event.severity_text} · {event.event.category}.{event.event.action}
               </span>
             </span>
-            <span className="mt-1 block break-words text-sm font-medium leading-5 text-pc-text">
+            <span className="mt-1 block break-words text-sm font-medium leading-5 text-foreground">
               {presentation.title || t('run_detail.logs_no_message')}
             </span>
             {presentation.meta.length > 0 ? (
-              <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] text-pc-text-muted">
+              <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground">
                 {presentation.meta.map((item) => (
                   <span key={`${item.label}:${item.value}`}>
-                    <span className="text-pc-text-faint">{item.label}</span>{' '}
-                    <span className="text-pc-text-secondary">{item.value}</span>
+                    <span className="text-text-faint">{item.label}</span>{' '}
+                    <span className="text-text-secondary">{item.value}</span>
                   </span>
                 ))}
               </span>
             ) : null}
             {presentation.output ? (
-              <span className="mt-2 block max-w-3xl truncate rounded border-l-2 border-pc-accent/50 bg-pc-input px-2 py-1 font-mono text-[11px] text-pc-text-secondary">
+              <span className="mt-2 block max-w-3xl truncate rounded border-l-2 border-primary/50 bg-input px-2 py-1 font-mono text-[11px] text-text-secondary">
                 {presentation.output}
               </span>
             ) : null}
@@ -126,8 +126,8 @@ function EventRow({ event }: { event: LogEvent }) {
           <span
             className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded border transition-colors ${
               hasDetails
-                ? 'border-pc-border bg-pc-surface text-pc-text-muted group-hover:border-pc-accent group-hover:text-pc-accent'
-                : 'border-transparent text-pc-text-faint'
+                ? 'border-border bg-card text-muted-foreground group-hover:border-primary group-hover:text-primary'
+                : 'border-transparent text-text-faint'
             }`}
             aria-hidden
           >
@@ -137,7 +137,7 @@ function EventRow({ event }: { event: LogEvent }) {
           </span>
         </button>
         {expanded ? (
-          <pre className="mt-2 max-h-72 overflow-auto rounded border border-pc-border bg-pc-input p-3 text-[11px] leading-5 text-pc-text-secondary">
+          <pre className="mt-2 max-h-72 overflow-auto rounded border border-border bg-input p-3 text-[11px] leading-5 text-text-secondary">
             {JSON.stringify(
               {
                 trace_id: event.trace_id ?? undefined,
@@ -240,20 +240,20 @@ export default function RunLogsPanel({ runId, active }: RunLogsPanelProps) {
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="flex flex-wrap items-center gap-3 border-b border-pc-border px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold text-pc-text">{t('run_detail.logs_title')}</h2>
-          <p className="mt-0.5 text-xs text-pc-text-muted">{t('run_detail.logs_subtitle')}</p>
+          <h2 className="text-sm font-semibold text-foreground">{t('run_detail.logs_title')}</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('run_detail.logs_subtitle')}</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <span className="font-mono text-xs tabular-nums text-pc-text-muted">
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
             {events.length} {t('logs.events')}
           </span>
           <button
             type="button"
             onClick={() => void loadLatest(true)}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded border border-pc-border px-2 py-1 text-xs text-pc-text-secondary hover:bg-pc-elevated disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded border border-border px-2 py-1 text-xs text-text-secondary hover:bg-secondary disabled:opacity-40"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />
             {t('run_detail.logs_refresh')}
@@ -261,34 +261,34 @@ export default function RunLogsPanel({ runId, active }: RunLogsPanelProps) {
         </div>
       </div>
 
-      {error ? <div className="border-b border-pc-border px-4 py-3 text-sm text-status-error">{error}</div> : null}
+      {error ? <div className="border-b border-border px-4 py-3 text-sm text-status-error">{error}</div> : null}
       {!persistenceEnabled ? (
-        <div className="px-4 py-8 text-center text-sm text-pc-text-muted">
+        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
           {t('run_detail.logs_disabled')}
         </div>
       ) : loading && events.length === 0 ? (
-        <div className="px-4 py-8 text-center text-sm text-pc-text-muted">
+        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
           {t('run_detail.logs_loading')}
         </div>
       ) : chronological.length === 0 ? (
-        <div className="px-4 py-8 text-center text-sm text-pc-text-muted">
+        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
           {t('run_detail.logs_empty')}
         </div>
       ) : (
         <div className="max-h-[34rem] overflow-auto px-4 py-4">
-          <ol className="relative before:absolute before:bottom-1 before:left-[5.31rem] before:top-2 before:w-px before:bg-pc-border">
+          <ol className="relative before:absolute before:bottom-1 before:left-[5.31rem] before:top-2 before:w-px before:bg-border">
             {chronological.map((event) => <EventRow key={event.id} event={event} />)}
           </ol>
         </div>
       )}
 
       {!atEnd && persistenceEnabled ? (
-        <div className="border-t border-pc-border px-4 py-2 text-center">
+        <div className="border-t border-border px-4 py-2 text-center">
           <button
             type="button"
             onClick={() => void loadOlder()}
             disabled={loadingOlder}
-            className="text-xs text-pc-accent hover:underline disabled:opacity-40"
+            className="text-xs text-primary hover:underline disabled:opacity-40"
           >
             {loadingOlder ? t('run_detail.logs_loading') : t('logs.load_older')}
           </button>

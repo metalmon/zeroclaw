@@ -48,6 +48,8 @@ import ToolPermissionGrid, {
 import { profileLevelFromDraft, parseOptionalAllowedTools, parseDenyAllToolsDraft, serializeAllowedTools } from "@/components/ToolPermissionGrid.logic";
 import { Badge, Button, ComboBox, Select } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
+import { Spinner } from "@/components/ui/spinner";
+import { isInlineControl } from "./fieldForm.layout.ts";
 import { fieldDesc, fieldLabel, plural, t, enumLabel, sectionLabel } from "@/lib/i18n";
 import {
   ApiError,
@@ -103,11 +105,11 @@ function BoolSwitch({
       style={{
         background: value
           ? "var(--color-status-success-alpha-08)"
-          : "var(--pc-bg-elevated)",
+          : "var(--color-secondary)",
         border: "1px solid",
         borderColor: value
           ? "var(--color-status-success-alpha-20)"
-          : "var(--pc-border)",
+          : "var(--color-border)",
       }}
     >
       <span
@@ -115,23 +117,70 @@ function BoolSwitch({
         style={{
           background: value
             ? "var(--color-status-success)"
-            : "var(--pc-border)",
+            : "var(--color-border-strong)",
         }}
       >
         <span
-          className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all"
+          className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all shadow-[0_1px_2px_rgb(0_0_0/0.35)]"
           style={{ left: value ? "calc(100% - 14px)" : "2px" }}
         />
       </span>
       <span
         className="text-xs font-medium pr-2"
         style={{
-          color: value ? "var(--color-status-success)" : "var(--pc-text-muted)",
+          color: value ? "var(--color-status-success)" : "var(--color-muted-foreground)",
         }}
       >
         {value ? "true" : "false"}
       </span>
     </button>
+  );
+}
+
+/**
+ * Compact number stepper: −/+ buttons flanking an editable field. The field
+ * stays free-text (arbitrary/large/float values still typeable); the buttons
+ * nudge by 1 from the current numeric value (0 when empty/non-numeric).
+ */
+function NumberStepper({
+  id,
+  value,
+  onChange,
+}: {
+  id?: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const step = (delta: number) => {
+    const n = Number.parseFloat(value);
+    onChange(String((Number.isFinite(n) ? n : 0) + delta));
+  };
+  return (
+    <div className="inline-flex items-center overflow-hidden rounded-[var(--radius-md)] border border-border bg-input">
+      <button
+        type="button"
+        onClick={() => step(-1)}
+        aria-label={t("fieldform.decrement")}
+        className="flex h-9 w-8 items-center justify-center text-base text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      >
+        −
+      </button>
+      <input
+        id={id}
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-16 border-x border-border bg-transparent py-2 text-center text-sm tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+      <button
+        type="button"
+        onClick={() => step(1)}
+        aria-label={t("fieldform.increment")}
+        className="flex h-9 w-8 items-center justify-center text-base text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      >
+        +
+      </button>
+    </div>
   );
 }
 
@@ -381,6 +430,12 @@ function defaultInputValue(entry: ListResponseEntry): string {
   if (typeof v === "boolean") return v ? "true" : "false";
   if (Array.isArray(v)) return v.join("\n");
   return "";
+}
+
+/** Draft value differs from the saved value (same secret-empty exclusion as the
+ *  unsaved-changes counter). Drives the "modified" dot + the count/filter. */
+function isEntryValueModified(entry: ListResponseEntry, raw: string): boolean {
+  return !(entry.is_secret && raw.length === 0) && raw !== defaultInputValue(entry);
 }
 
 function parseInput(entry: ListResponseEntry, raw: string): unknown {
@@ -801,16 +856,16 @@ function AgentEmptyAliasFallback({
     <div
       className="text-xs px-3 py-2 rounded border"
       style={{
-        color: "var(--pc-text-muted)",
-        borderColor: "var(--pc-border)",
-        background: "var(--pc-bg-surface-subtle)",
+        color: "var(--color-muted-foreground)",
+        borderColor: "var(--color-border)",
+        background: "var(--color-surface-subtle)",
       }}
     >
       {t("fieldform.no_alias_configured_prefix")}{label}{t("fieldform.no_alias_configured_suffix")}{" "}
       <Link
         to={path}
         className="inline-flex items-center gap-1 underline"
-        style={{ color: "var(--pc-text-link)" }}
+        style={{ color: "var(--color-text-link)" }}
       >
         {t("fieldform.configure_prefix")}{label} <ExternalLink className="h-3 w-3" />
       </Link>
@@ -978,6 +1033,8 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
       undefined,
     );
     const [filter, setFilter] = useState("");
+    // "All" vs "Modified only" segmented filter (matches the modified dots).
+    const [showOnlyModified, setShowOnlyModified] = useState(false);
 
     // When this form edits a channel block (`channels.<type>.<alias>`), its
     // `excluded_tools` ToolPicker should list the OWNING agent's scoped tools
@@ -1329,16 +1386,39 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
           ? sortedEntries.filter((e) => e.path !== enabledEntry.path)
           : sortedEntries
       ).filter((e) => !groupedPaths.has(e.path));
-      const filtered = includePath
+      let filtered = includePath
         ? base.filter((e) => includePath(e.path))
         : base;
+      if (showOnlyModified) {
+        filtered = filtered.filter((e) =>
+          isEntryValueModified(e, draft[e.path] ?? ""),
+        );
+      }
       if (!filter.trim()) return filtered;
       return fuzzyFilter(
         filtered,
         filter,
         (e) => `${fieldShortLabel(e)} ${e.path}`,
       );
-    }, [sortedEntries, filter, includePath, enabledEntry, groupedPaths]);
+    }, [
+      sortedEntries,
+      filter,
+      includePath,
+      enabledEntry,
+      groupedPaths,
+      showOnlyModified,
+      draft,
+    ]);
+
+    // Count of fields whose draft value differs from the saved value — drives
+    // the header chip and the "Modified" filter tab.
+    const modifiedCount = useMemo(() => {
+      let n = 0;
+      for (const e of actionableEntries) {
+        if (isEntryValueModified(e, draft[e.path] ?? "")) n += 1;
+      }
+      return n;
+    }, [actionableEntries, draft]);
 
     // Count of fields whose draft value differs from the saved display value.
     // Drives the unsaved-changes counter in the sticky save bar. Must be
@@ -1375,13 +1455,7 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
     if (loading) {
       return (
         <div className="flex items-center justify-center py-12">
-          <div
-            className="h-8 w-8 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--pc-border)",
-              borderTopColor: "var(--pc-accent)",
-            }}
-          />
+          <Spinner size={32} />
         </div>
       );
     }
@@ -1419,12 +1493,32 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
         {(title || enabledEntry) && (
           <div className="flex items-center justify-between gap-3 flex-wrap">
             {title ? (
-              <h2
-                className="text-lg font-semibold"
-                style={{ color: "var(--pc-text-primary)" }}
-              >
-                {title}
-              </h2>
+              <div className="flex min-w-0 items-center gap-2">
+                <h2
+                  className="text-lg font-semibold"
+                  style={{ color: "var(--color-foreground)" }}
+                >
+                  {title}
+                </h2>
+                {modifiedCount > 0 && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px]"
+                    style={{
+                      color: "var(--color-brand-2)",
+                      borderColor:
+                        "color-mix(in srgb, var(--color-brand-2) 30%, transparent)",
+                      background:
+                        "color-mix(in srgb, var(--color-brand-2) 12%, transparent)",
+                    }}
+                  >
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: "var(--color-brand-2)" }}
+                    />
+                    {modifiedCount} {t("fieldform.field_modified")}
+                  </span>
+                )}
+              </div>
             ) : (
               <span />
             )}
@@ -1446,29 +1540,55 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
           </div>
         )}
 
-        {visibleEntries.length > 1 && (
-          <input
-            type="text"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder={plural(visibleEntries.length, "fieldform.filter_count")}
-            className="input-electric w-full px-3 py-2 text-sm"
-            aria-label={t("fieldform.filter_aria")}
-          />
+        {entries.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder={plural(actionableEntries.length, "fieldform.filter_count")}
+              className="input-electric min-w-0 flex-1 px-3 py-2 text-sm"
+              aria-label={t("fieldform.filter_aria")}
+            />
+            <div className="inline-flex shrink-0 items-center rounded-[var(--radius-md)] border border-border bg-input p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setShowOnlyModified(false)}
+                className={
+                  showOnlyModified
+                    ? "px-3 py-1.5 text-muted-foreground"
+                    : "rounded-[var(--radius-md)] bg-secondary px-3 py-1.5 text-foreground"
+                }
+              >
+                {t("fieldform.filter_all")} · {actionableEntries.length}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowOnlyModified(true)}
+                className={
+                  showOnlyModified
+                    ? "rounded-[var(--radius-md)] bg-secondary px-3 py-1.5 text-foreground"
+                    : "px-3 py-1.5 text-muted-foreground"
+                }
+              >
+                {t("fieldform.filter_modified")} · {modifiedCount}
+              </button>
+            </div>
+          </div>
         )}
 
         {entries.length === 0 ? (
           <div
             className="surface-panel p-6 text-center text-sm"
-            style={{ color: "var(--pc-text-muted)" }}
+            style={{ color: "var(--color-muted-foreground)" }}
           >
             {t("fieldform.no_fields_under")}{" "}
-            <code style={{ color: "var(--pc-text-faint)" }}>{prefix}</code>.
+            <code style={{ color: "var(--color-text-faint)" }}>{prefix}</code>.
           </div>
         ) : (
           <form
-            className="surface-panel divide-y"
-            style={{ borderColor: "var(--pc-border)" }}
+            className="@container surface-panel divide-y"
+            style={{ borderColor: "var(--color-border)" }}
             onSubmit={(e) => {
               e.preventDefault();
               void handleSave().catch(() => undefined);
@@ -1477,14 +1597,14 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
             {visibleEntries.length === 0 ? (
               <div
                 className="px-4 py-6 text-sm text-center"
-                style={{ color: "var(--pc-text-muted)" }}
+                style={{ color: "var(--color-muted-foreground)" }}
               >
                 {filter.trim().length === 0 ? (
                   <>{t("fieldform.no_configurable_settings")}</>
                 ) : (
                   <>
                     {t("fieldform.no_fields_match")}{" "}
-                    <code style={{ color: "var(--pc-text-faint)" }}>
+                    <code style={{ color: "var(--color-text-faint)" }}>
                       {filter}
                     </code>
                     .
@@ -1543,11 +1663,11 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
           <div
             key={g.parent}
             className="surface-panel p-4"
-            style={{ borderColor: "var(--pc-border)" }}
+            style={{ borderColor: "var(--color-border)" }}
           >
             <h3
               className="text-sm font-semibold mb-3"
-              style={{ color: "var(--pc-text-primary)" }}
+              style={{ color: "var(--color-foreground)" }}
             >
               {t("fieldform.tool_permissions_title")}
             </h3>
@@ -1591,10 +1711,10 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
                 : "sticky bottom-0 left-0 right-0 -mx-6 px-6 py-3 border-t backdrop-blur z-10"
             }
             style={{
-              borderColor: "var(--pc-border)",
+              borderColor: "var(--color-border)",
               background: inlineSaveBar
-                ? "var(--pc-bg-elevated)"
-                : "color-mix(in srgb, var(--pc-bg-base) 88%, transparent)",
+                ? "var(--color-secondary)"
+                : "color-mix(in srgb, var(--color-background) 88%, transparent)",
             }}
           >
             <div className="flex items-center justify-between gap-3">
@@ -1608,21 +1728,21 @@ const FieldForm = forwardRef<FieldFormHandle, FieldFormProps>(
                     ✓ {savedAt}
                   </span>
                 ) : unsavedCount > 0 ? (
-                  <span style={{ color: "var(--pc-text-secondary)" }}>
+                  <span style={{ color: "var(--color-text-secondary)" }}>
                     {unsavedCount}{" "}
                     {unsavedCount === 1
                       ? t("fieldform.unsaved_change")
                       : t("fieldform.unsaved_changes")}
                   </span>
                 ) : (
-                  <span style={{ color: "var(--pc-text-faint)" }}>
+                  <span style={{ color: "var(--color-text-faint)" }}>
                     {t("fieldform.no_unsaved_changes")}
                   </span>
                 )}
               </div>
               <Button
-                variant="primary"
-                size="md"
+                variant="default"
+                size="default"
                 onClick={() => void handleSave()}
                 disabled={saving || unsavedCount === 0}
                 className="flex-shrink-0"
@@ -1895,13 +2015,13 @@ function FieldRow({
         <div className="min-w-0 flex-1">
           <code
             className="text-xs font-mono line-through break-all"
-            style={{ color: "var(--pc-text-muted)" }}
+            style={{ color: "var(--color-muted-foreground)" }}
           >
             {entry.path}
           </code>
           <p
             className="text-xs mt-0.5"
-            style={{ color: "var(--pc-text-muted)" }}
+            style={{ color: "var(--color-muted-foreground)" }}
           >
             {t("fieldform.staged_for_removal")}
           </p>
@@ -1919,16 +2039,33 @@ function FieldRow({
     );
   }
 
+  // Compact scalar controls (bool / number / enum) sit in the row's right
+  // column; everything else — and any field showing a validation error — keeps
+  // its control full-width below the label. `flex-wrap` + `order` place them
+  // without duplicating the control ladder.
+  const renderInline = isInlineControl(renderer) && !showValidation && !error;
+  // Draft differs from the saved value (same secret-empty exclusion as the
+  // unsaved-changes counter) → show a "modified" dot next to the label.
+  const isDirty = isEntryValueModified(entry, value);
+
   return (
-    <div className="px-4 py-3">
-      <div className="flex items-start justify-between gap-3">
+    <div className="group flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-3">
+      <div className="order-1 flex min-w-0 flex-1 items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <label
             className="block text-sm font-medium font-sans break-words"
-            style={{ color: "var(--pc-text-primary)" }}
+            style={{ color: "var(--color-foreground)" }}
             htmlFor={entry.path}
             title={`${entry.path}${entry.type_hint ? ` — ${entry.type_hint}` : ""}`}
           >
+            {isDirty && (
+              <span
+                className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle"
+                style={{ background: "var(--color-brand-2)" }}
+                title={t("fieldform.field_modified")}
+                aria-hidden
+              />
+            )}
             {fieldLabel(entry.path, humanizeFieldLabel(entry.path))}
             {requirement && (
               <Badge
@@ -1939,7 +2076,7 @@ function FieldRow({
               </Badge>
             )}
             {entry.is_secret && (
-              <span className="ml-2 text-xs font-sans text-pc-text-muted">
+              <span className="ml-2 text-xs font-sans text-muted-foreground">
                 🔒 {entry.populated ? t("fieldform.secret_set") : t("fieldform.secret_unset")}
               </span>
             )}
@@ -1949,37 +2086,32 @@ function FieldRow({
               leaf above is now the primary label. */}
           <code
             className="block text-[11px] font-mono break-all mt-0.5"
-            style={{ color: "var(--pc-text-faint)" }}
+            style={{ color: "var(--color-text-faint)" }}
           >
             {entry.path}
           </code>
           {description && (
             <p
               className="text-xs mt-0.5"
-              style={{ color: "var(--pc-text-secondary)" }}
+              style={{ color: "var(--color-text-secondary)" }}
             >
               {description}
             </p>
           )}
           {drift && <DriftDiff drift={drift} />}
         </div>
-        {onDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            title={t("fieldform.reset_to_default")}
-            className="btn-icon flex-shrink-0"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
       </div>
 
       <div
         className={
-          showValidation
-            ? "mt-2 space-y-1.5 rounded-[var(--radius-md)] ring-1 ring-status-error p-1.5 -m-1.5"
-            : "mt-2 space-y-1.5"
+          renderInline
+            ? // Narrow container: control stacks full-width below the label.
+              // Wide enough (>=30rem): moves to a compact right column so a
+              // single number/toggle isn't a full-width input.
+              "order-3 w-full @[30rem]:order-2 @[30rem]:flex @[30rem]:w-52 @[30rem]:max-w-[55%] @[30rem]:shrink-0 @[30rem]:justify-end"
+            : showValidation
+              ? "order-3 w-full rounded-[var(--radius-md)] ring-1 ring-status-error p-1.5"
+              : "order-3 w-full"
         }
         aria-invalid={showValidation || undefined}
       >
@@ -2061,7 +2193,7 @@ function FieldRow({
               className="input-electric w-full px-3 py-2 text-sm"
               placeholder={t("fieldform.model_input_unreachable_placeholder")}
             />
-            <p className="text-xs" style={{ color: "var(--pc-text-muted)" }}>
+            <p className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
               {t("fieldform.model_catalog_unreachable_help")}{" "}
               <code>{modelFallbackExample(entry.path)}</code>).
             </p>
@@ -2077,7 +2209,7 @@ function FieldRow({
               placeholder={t("fieldform.fetching_models_placeholder")}
               disabled
             />
-            <p className="text-xs" style={{ color: "var(--pc-text-muted)" }}>
+            <p className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
               {t("fieldform.fetching_models_help")}
             </p>
           </>
@@ -2095,19 +2227,19 @@ function FieldRow({
             <AgentEmptyAliasFallback fieldKind={agentSingleAliasKind} />
           ) : (
             <div className="flex items-center gap-2">
-              <select
+              <Select
                 id={entry.path}
                 value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="input-electric flex-1 px-3 py-2 text-sm appearance-none cursor-pointer"
-              >
-                <option value="">{t("fieldform.option_none")}</option>
-                {(agentOptions[agentSingleAliasKind] ?? []).map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => onChange(v)}
+                className="flex-1"
+                options={[
+                  { value: "", label: t("fieldform.option_none") },
+                  ...(agentOptions[agentSingleAliasKind] ?? []).map((a) => ({
+                    value: a,
+                    label: a,
+                  })),
+                ]}
+              />
               {value && (
                 <Link
                   to={agentAliasJumpPath(agentSingleAliasKind, value)}
@@ -2170,13 +2302,7 @@ function FieldRow({
             elementProps={elementProps ?? null}
           />
         ) : renderer === "number" ? (
-          <input
-            id={entry.path}
-            type="number"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="input-electric w-full px-3 py-2 text-sm"
-          />
+          <NumberStepper id={entry.path} value={value} onChange={onChange} />
         ) : showPicker ? (
           <div className="relative">
             <div className="flex items-center gap-2">
@@ -2235,6 +2361,21 @@ function FieldRow({
           />
         )}
 
+      </div>
+
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          title={t("fieldform.reset_to_default")}
+          aria-label={t("fieldform.reset_to_default")}
+          className="btn-icon order-2 shrink-0 self-start text-text-faint hover:text-status-error"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+
+      <div className="order-3 w-full space-y-1.5">
         {showValidation && (
           <p className="text-xs text-status-error" role="alert">
             {validationMessage}
@@ -2249,7 +2390,7 @@ function FieldRow({
               autoFocus={comment.length === 0}
               onChange={(e) => onCommentChange(e.target.value)}
               placeholder={t("cfg.field.commentPlaceholder")}
-              className="input-electric flex-1 px-3 py-1.5 text-xs text-pc-text-secondary"
+              className="input-electric flex-1 px-3 py-1.5 text-xs text-text-secondary"
             />
             <button
               type="button"
@@ -2268,7 +2409,7 @@ function FieldRow({
           <button
             type="button"
             onClick={() => setShowComment(true)}
-            className="ml-3 inline-flex items-center gap-1 text-xs text-pc-text-faint hover:text-pc-text-secondary transition-colors"
+            className="ml-3 inline-flex items-center gap-1 text-xs text-text-faint hover:text-text-secondary transition-colors"
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
             {t("cfg.field.commentAdd")}
@@ -2334,7 +2475,7 @@ function ArrayFieldEditor({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
+        <span className="text-xs" style={{ color: "var(--color-text-faint)" }}>
           {plural(rows.length, "fieldform.entries_count")}
           {isOptional && rows.length === 0
             ? t("fieldform.saves_as_null")
@@ -2342,7 +2483,7 @@ function ArrayFieldEditor({
         </span>
         <div
           className="inline-flex rounded-md overflow-hidden border text-xs"
-          style={{ borderColor: "var(--pc-border)" }}
+          style={{ borderColor: "var(--color-border)" }}
         >
           <button
             type="button"
@@ -2351,12 +2492,12 @@ function ArrayFieldEditor({
             style={{
               background:
                 mode === "rows"
-                  ? "var(--pc-bg-surface-elevated)"
+                  ? "var(--color-surface-elevated)"
                   : "transparent",
               color:
                 mode === "rows"
-                  ? "var(--pc-text-primary)"
-                  : "var(--pc-text-muted)",
+                  ? "var(--color-foreground)"
+                  : "var(--color-muted-foreground)",
             }}
             aria-pressed={mode === "rows"}
           >
@@ -2369,12 +2510,12 @@ function ArrayFieldEditor({
             style={{
               background:
                 mode === "text"
-                  ? "var(--pc-bg-surface-elevated)"
+                  ? "var(--color-surface-elevated)"
                   : "transparent",
               color:
                 mode === "text"
-                  ? "var(--pc-text-primary)"
-                  : "var(--pc-text-muted)",
+                  ? "var(--color-foreground)"
+                  : "var(--color-muted-foreground)",
             }}
             aria-pressed={mode === "text"}
           >
@@ -2388,7 +2529,7 @@ function ArrayFieldEditor({
           {rows.length === 0 ? (
             <p
               className="text-xs italic px-1 py-2"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             >
               {t("fieldform.no_entries_add_one")}
             </p>
@@ -2520,7 +2661,7 @@ function ObjectArrayEditor({
   if (!elementProps || elementProps.length === 0) {
     return (
       <div className="space-y-1.5">
-        <p className="text-xs" style={{ color: "var(--pc-text-muted)" }}>
+        <p className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
           {t("fieldform.element_shape_unavailable")}
         </p>
         <textarea
@@ -2538,7 +2679,7 @@ function ObjectArrayEditor({
   return (
     <div className="space-y-2" id={inputId}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
+        <span className="text-xs" style={{ color: "var(--color-text-faint)" }}>
           {plural(rows.length, "fieldform.entries_count")}
         </span>
         <button
@@ -2552,7 +2693,7 @@ function ObjectArrayEditor({
       {rows.length === 0 ? (
         <p
           className="text-xs italic px-1 py-2"
-          style={{ color: "var(--pc-text-faint)" }}
+          style={{ color: "var(--color-text-faint)" }}
         >
           {t("fieldform.no_entries_create_one")}
         </p>
@@ -2563,20 +2704,20 @@ function ObjectArrayEditor({
               key={rowIdx}
               className="rounded-md border p-3 space-y-2"
               style={{
-                borderColor: "var(--pc-border)",
-                background: "var(--pc-bg-base)",
+                borderColor: "var(--color-border)",
+                background: "var(--color-background)",
               }}
             >
               <div className="flex items-center justify-between">
                 <span
                   className="text-xs font-mono"
-                  style={{ color: "var(--pc-text-faint)" }}
+                  style={{ color: "var(--color-text-faint)" }}
                 >
                   [{rowIdx}]
                   {typeof row.name === "string" && row.name.length > 0 && (
                     <span
                       className="ml-2"
-                      style={{ color: "var(--pc-text-secondary)" }}
+                      style={{ color: "var(--color-text-secondary)" }}
                     >
                       {row.name}
                     </span>
@@ -2627,13 +2768,13 @@ function ObjectArrayField({
     <div>
       <label
         className="block text-xs font-mono"
-        style={{ color: "var(--pc-text-secondary)" }}
+        style={{ color: "var(--color-text-secondary)" }}
       >
         {meta.key}
         {meta.optional && (
           <span
             className="ml-1.5 text-[10px]"
-            style={{ color: "var(--pc-text-faint)" }}
+            style={{ color: "var(--color-text-faint)" }}
           >
             {t("fieldform.optional_label")}
           </span>
@@ -2642,7 +2783,7 @@ function ObjectArrayField({
       {meta.description && (
         <p
           className="text-[11px] mt-0.5"
-          style={{ color: "var(--pc-text-muted)" }}
+          style={{ color: "var(--color-muted-foreground)" }}
         >
           {meta.description}
         </p>
@@ -2655,18 +2796,15 @@ function ObjectArrayField({
           />
         </div>
       ) : meta.kind === "enum" && meta.enumVariants ? (
-        <select
+        <Select
           value={display}
-          onChange={(e) => onChange(e.target.value)}
-          className="input-electric w-full px-2 py-1 mt-1 text-sm appearance-none cursor-pointer"
-        >
-          <option value="">—</option>
-          {meta.enumVariants.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => onChange(v)}
+          className="w-full mt-1"
+          options={[
+            { value: "", label: "—" },
+            ...meta.enumVariants.map((v) => ({ value: v, label: v })),
+          ]}
+        />
       ) : meta.kind === "integer" || meta.kind === "float" ? (
         <input
           type="number"
@@ -2777,12 +2915,12 @@ function KeyValueChipEditor({
   return (
     <div className="space-y-1.5 mt-1">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs" style={{ color: "var(--pc-text-faint)" }}>
+        <span className="text-xs" style={{ color: "var(--color-text-faint)" }}>
           {plural(pairs.length, "fieldform.entries_count")}
         </span>
         <div
           className="inline-flex rounded-md overflow-hidden border text-xs"
-          style={{ borderColor: "var(--pc-border)" }}
+          style={{ borderColor: "var(--color-border)" }}
         >
           <button
             type="button"
@@ -2791,12 +2929,12 @@ function KeyValueChipEditor({
             style={{
               background:
                 mode === "rows"
-                  ? "var(--pc-bg-surface-elevated)"
+                  ? "var(--color-surface-elevated)"
                   : "transparent",
               color:
                 mode === "rows"
-                  ? "var(--pc-text-primary)"
-                  : "var(--pc-text-muted)",
+                  ? "var(--color-foreground)"
+                  : "var(--color-muted-foreground)",
             }}
             aria-pressed={mode === "rows"}
           >
@@ -2809,12 +2947,12 @@ function KeyValueChipEditor({
             style={{
               background:
                 mode === "text"
-                  ? "var(--pc-bg-surface-elevated)"
+                  ? "var(--color-surface-elevated)"
                   : "transparent",
               color:
                 mode === "text"
-                  ? "var(--pc-text-primary)"
-                  : "var(--pc-text-muted)",
+                  ? "var(--color-foreground)"
+                  : "var(--color-muted-foreground)",
             }}
             aria-pressed={mode === "text"}
           >
@@ -2861,7 +2999,7 @@ function KeyValueChipEditor({
           {pairs.length === 0 ? (
             <p
               className="text-[11px] italic"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             >
               {t("fieldform.no_entries")}
             </p>
@@ -2876,7 +3014,7 @@ function KeyValueChipEditor({
                     className="input-electric flex-1 px-2 py-1 text-sm font-mono"
                     placeholder={t("fieldform.key_placeholder")}
                   />
-                  <span style={{ color: "var(--pc-text-faint)" }}>=</span>
+                  <span style={{ color: "var(--color-text-faint)" }}>=</span>
                   <input
                     type="text"
                     value={v}
@@ -2933,11 +3071,11 @@ function DriftDiff({ drift }: { drift: DriftEntry }) {
     >
       <span>
         {t("fieldform.drift_in_memory")}{" "}
-        <code style={{ color: "var(--pc-text-secondary)" }}>{inMem}</code>
+        <code style={{ color: "var(--color-text-secondary)" }}>{inMem}</code>
       </span>
       <span>
         {t("fieldform.drift_on_disk")}{" "}
-        <code style={{ color: "var(--pc-text-secondary)" }}>{onDisk}</code>
+        <code style={{ color: "var(--color-text-secondary)" }}>{onDisk}</code>
       </span>
     </div>
   );

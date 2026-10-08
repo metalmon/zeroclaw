@@ -27,6 +27,7 @@ import {
   quickstartFields,
 } from "@/lib/api";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
+import { Select } from "@/components/ui/Select";
 import { plural, t } from "@/lib/i18n";
 import {
   requiredQuickstartSelectionsComplete,
@@ -41,18 +42,18 @@ import { LabeledInput } from "./quickstart-form-controls";
 // Shared tokenized field control classes. Calm input surface with an accent
 // focus ring — replaces the legacy `input-electric` utility.
 const INPUT_CLASS =
-  "w-full h-9 px-3 rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-sm text-pc-text placeholder:text-pc-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pc-accent/40 focus-visible:border-pc-accent/40";
+  "w-full h-9 px-3 rounded-[var(--radius-md)] border border-border bg-input text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-primary/40";
 const TEXTAREA_CLASS =
-  "w-full px-3 py-2 rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-sm text-pc-text placeholder:text-pc-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pc-accent/40 focus-visible:border-pc-accent/40";
+  "w-full px-3 py-2 rounded-[var(--radius-md)] border border-border bg-input text-sm text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-primary/40";
 
 interface StagedProvider {
   provider_type: string;
   alias: string;
   model: string;
   /** Round-trip of `FieldDescriptor.key` -> user-typed value.
-   *  The web surface knows nothing about which keys exist; the
-   *  daemon authors them via `/api/quickstart/fields` and consumes
-   *  them on the way back. */
+   * The web surface knows nothing about which keys exist; the
+   * daemon authors them via `/api/quickstart/fields` and consumes
+   * them on the way back. */
   fields: Record<string, string>;
 }
 
@@ -95,8 +96,8 @@ const DEFAULT_FORM: FormState = {
   personalityFiles: [],
 };
 
-const MUTED = { color: "var(--pc-text-muted)" } as const;
-const FAINT = { color: "var(--pc-text-faint)" } as const;
+const MUTED = { color: "var(--color-muted-foreground)" } as const;
+const FAINT = { color: "var(--color-text-faint)" } as const;
 
 export default function Quickstart() {
   const navigate = useNavigate();
@@ -465,7 +466,7 @@ export default function Quickstart() {
 
       <div className="flex justify-end pt-2">
         <Button
-          size="md"
+          size="default"
           className="px-6"
           disabled={busy || !allDone}
           onClick={() => void submit()}
@@ -486,10 +487,10 @@ function Stepper({ steps }: { steps: { label: string; done: boolean }[] }) {
       {steps.map((step, i) => {
         const active = i === activeIdx;
         const state = step.done
-          ? "bg-pc-accent/10 border-pc-accent/30 text-pc-accent"
+          ? "bg-primary/10 border-primary/30 text-primary"
           : active
-            ? "bg-pc-elevated border-pc-border-strong text-pc-text"
-            : "bg-pc-surface border-pc-border text-pc-text-muted";
+            ? "bg-secondary border-border-strong text-foreground"
+            : "bg-card border-border text-muted-foreground";
         return (
           <li key={step.label} className="flex items-center gap-2 flex-1 min-w-0">
             <div
@@ -498,10 +499,10 @@ function Stepper({ steps }: { steps: { label: string; done: boolean }[] }) {
               <span
                 className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] ${
                   step.done
-                    ? "bg-pc-accent/20 text-pc-accent"
+                    ? "bg-primary/20 text-primary"
                     : active
-                      ? "bg-pc-accent text-[#0b1220]"
-                      : "bg-pc-elevated text-pc-text-muted"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground"
                 }`}
               >
                 {step.done ? <Check className="h-3 w-3" /> : i + 1}
@@ -510,7 +511,7 @@ function Stepper({ steps }: { steps: { label: string; done: boolean }[] }) {
             </div>
             {i < steps.length - 1 && (
               <span
-                className={`h-px flex-1 ${step.done ? "bg-pc-accent/30" : "bg-pc-border"}`}
+                className={`h-px flex-1 ${step.done ? "bg-primary/30" : "bg-border"}`}
                 aria-hidden="true"
               />
             )}
@@ -541,12 +542,12 @@ function Section({
           className={`flex h-7 w-7 items-center justify-center rounded-[var(--radius-md)] ${
             done
               ? "bg-status-success/10 text-status-success"
-              : "bg-pc-elevated text-pc-text-muted"
+              : "bg-secondary text-muted-foreground"
           }`}
         >
           {icon}
         </span>
-        <h2 className="font-semibold flex-1 flex items-center gap-2 text-pc-text">
+        <h2 className="font-semibold flex-1 flex items-center gap-2 text-foreground">
           {done && <Check className="h-4 w-4 text-status-success" />}
           {title}
         </h2>
@@ -586,7 +587,7 @@ function PresetSection({
           {t("common.loading")}
         </div>
       ) : (
-        <div className="rounded-[var(--radius-md)] border border-pc-border bg-pc-base divide-y divide-pc-border overflow-hidden">
+        <div className="rounded-[var(--radius-md)] border border-border bg-background divide-y divide-border overflow-hidden">
           {rows.map((r) => {
             const selected = r.value === value;
             return (
@@ -596,8 +597,8 @@ function PresetSection({
                 onClick={() => onChange(r.value)}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors ${
                   selected
-                    ? "bg-pc-accent/[0.08] text-pc-text"
-                    : "text-pc-text hover:bg-[var(--pc-hover)]"
+                    ? "bg-primary/[0.08] text-foreground"
+                    : "text-foreground hover:bg-[var(--color-hover)]"
                 }`}
               >
                 <div className="flex-1 min-w-0">
@@ -609,7 +610,7 @@ function PresetSection({
                   )}
                 </div>
                 {selected && (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-pc-accent" />
+                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-primary" />
                 )}
               </button>
             );
@@ -630,9 +631,9 @@ function StagedRow({
   onRemove: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-[var(--radius-md)] bg-pc-elevated">
+    <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-[var(--radius-md)] bg-secondary">
       <div className="min-w-0">
-        <div className="font-medium text-pc-text">{label}</div>
+        <div className="font-medium text-foreground">{label}</div>
         {sub && (
           <code className="block text-xs mt-0.5" style={FAINT}>
             {sub}
@@ -669,17 +670,12 @@ function LabeledSelect({
           {help}
         </div>
       ) : null}
-      <select
-        className={INPUT_CLASS}
+      <Select
+        className="w-full"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
+        onChange={onChange}
+        options={options.map((option) => ({ value: option, label: option }))}
+      />
     </label>
   );
 }
@@ -779,25 +775,21 @@ function ProviderForm({
         <div className="text-xs uppercase tracking-wider mb-1" style={MUTED}>
           {t("quickstart.provider_type")}
         </div>
-        <select
-          className={INPUT_CLASS}
+        <Select
+          className="w-full"
           value={type}
-          onChange={(e) => {
-            const next = e.target.value;
-            setType(next);
+          onChange={(v) => {
+            setType(v);
             setModel("");
           }}
-        >
-          <option value="" disabled>
-            {t("quickstart.pick_provider")}
-          </option>
-          {state?.model_provider_types.map((opt) => (
-            <option key={opt.kind} value={opt.kind}>
-              {opt.display_name}
-              {opt.local ? ` ${t("quickstart.local_suffix")}` : ""}
-            </option>
-          ))}
-        </select>
+          placeholder={t("quickstart.pick_provider")}
+          options={(state?.model_provider_types ?? []).map((opt) => ({
+            value: opt.kind,
+            label: `${opt.display_name}${
+              opt.local ? ` ${t("quickstart.local_suffix")}` : ""
+            }`,
+          }))}
+        />
       </label>
 
       <LabeledInput label={t("quickstart.alias")} value={alias} onChange={setAlias} />
@@ -914,14 +906,14 @@ function ChannelsList({
   return (
     <>
       {staged.length > 0 && (
-        <div className="rounded-[var(--radius-md)] border border-pc-border bg-pc-base divide-y divide-pc-border overflow-hidden">
+        <div className="rounded-[var(--radius-md)] border border-border bg-background divide-y divide-border overflow-hidden">
           {staged.map((c, i) => (
             <div
               key={`${c.channel_type}.${c.alias}.${i}`}
               className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
             >
               <div className="min-w-0">
-                <span className="font-medium text-pc-text">
+                <span className="font-medium text-foreground">
                   {c.channel_type}.{c.alias}
                 </span>
                 <span className="ml-2 text-xs" style={MUTED}>
@@ -949,7 +941,7 @@ function ChannelsList({
           onCancel={() => setAdding(false)}
         />
       ) : (
-        <Button variant="ghost" size="md" onClick={() => setAdding(true)}>
+        <Button variant="ghost" size="default" onClick={() => setAdding(true)}>
           <Plus className="h-3.5 w-3.5" />
           {t("quickstart.add_channel")}
         </Button>
@@ -994,14 +986,14 @@ function PeerGroupsList({
   return (
     <>
       {stagedPeerGroups.length > 0 && (
-        <div className="rounded-[var(--radius-md)] border border-pc-border bg-pc-base divide-y divide-pc-border overflow-hidden">
+        <div className="rounded-[var(--radius-md)] border border-border bg-background divide-y divide-border overflow-hidden">
           {stagedPeerGroups.map((pg, i) => (
             <div
               key={`${pg.name}.${i}`}
               className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
             >
               <div className="min-w-0">
-                <div className="font-medium text-pc-text">{pg.name}</div>
+                <div className="font-medium text-foreground">{pg.name}</div>
                 <code className="block text-xs mt-0.5" style={FAINT}>
                   {t("quickstart.channel_prefix")}
                   {pg.channel}
@@ -1034,7 +1026,7 @@ function PeerGroupsList({
           onCancel={() => setAdding(false)}
         />
       ) : (
-        <Button variant="ghost" size="md" onClick={() => setAdding(true)}>
+        <Button variant="ghost" size="default" onClick={() => setAdding(true)}>
           <Plus className="h-3.5 w-3.5" />
           {t("quickstart.add_peer_group")}
         </Button>
@@ -1075,22 +1067,17 @@ function PeerGroupAddForm({
   const canAdd = channel !== "" && name !== "";
 
   return (
-    <Card className="p-4 space-y-3 bg-pc-elevated">
+    <Card className="p-4 space-y-3 bg-secondary">
       <label className="block">
         <div className="text-xs uppercase tracking-wider mb-1" style={MUTED}>
           {t("quickstart.channel_label")}
         </div>
-        <select
-          className={INPUT_CLASS}
+        <Select
+          className="w-full"
           value={channel}
-          onChange={(e) => setChannel(e.target.value)}
-        >
-          {availableChannels.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setChannel(v)}
+          options={availableChannels.map((r) => ({ value: r, label: r }))}
+        />
       </label>
 
       <LabeledInput
@@ -1172,7 +1159,7 @@ function PersonalityFilesList({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-[var(--radius-md)] border border-pc-border bg-pc-base divide-y divide-pc-border overflow-hidden">
+      <div className="rounded-[var(--radius-md)] border border-border bg-background divide-y divide-border overflow-hidden">
         {filenames.map((fn) => {
           const isStaged = stagedByFilename.has(fn);
           const isEditing = editing === fn;
@@ -1180,7 +1167,7 @@ function PersonalityFilesList({
             <div key={fn} className="px-4 py-3 text-sm space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <span className="font-medium text-pc-text">{fn}</span>
+                  <span className="font-medium text-foreground">{fn}</span>
                   {isStaged && (
                     <span className="ml-2 text-xs" style={MUTED}>
                       {t("quickstart.staged_badge")}

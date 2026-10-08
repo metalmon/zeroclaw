@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Settings, Sun, Moon, Laptop, BookOpen, Check, Type, CaseSensitive } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
-import { t } from '@/lib/i18n';
+import { t, SUPPORTED_LOCALES } from '@/lib/i18n';
+import { useLocaleContext } from '@/App';
 import type { UiFont, MonoFont, ThemeMode } from '@/contexts/ThemeContext';
 import { uiFontStacks, monoFontStacks } from '@/contexts/ThemeContext';
 
@@ -40,17 +41,17 @@ const uiSizes = [14, 15, 16, 17, 18];
 const monoSizes = [13, 14, 15, 16, 17];
 
 // Shared selectable-chip classes. Hover is pure CSS (no JS handlers): the
-// inactive state lifts to `--pc-hover` on hover; the active state is an
+// inactive state lifts to `--color-hover` on hover; the active state is an
 // accent-tinted token surface. Both carry a strong focus-visible ring.
 const chipBase =
   'border transition-colors duration-150 focus-visible:outline-none ' +
-  'focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] ' +
-  'focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base cursor-pointer';
+  ' ' +
+  ' cursor-pointer';
 const chipInactive =
-  'border-pc-border text-pc-text-muted bg-transparent ' +
-  'hover:bg-[var(--pc-hover)] hover:text-pc-text';
+  'border-border text-muted-foreground bg-transparent ' +
+  'hover:bg-[var(--color-hover)] hover:text-foreground';
 const chipActive =
-  'border-pc-accent-dim bg-pc-accent/10 text-pc-accent-light';
+  'border-accent-dim bg-primary/10 text-accent-light';
 
 function chip(active: boolean, extra = '') {
   return [chipBase, active ? chipActive : chipInactive, extra].filter(Boolean).join(' ');
@@ -58,7 +59,7 @@ function chip(active: boolean, extra = '') {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10px] uppercase tracking-wider font-semibold mb-2 mt-5 first:mt-0 text-pc-text-faint">
+    <div className="text-[10px] uppercase tracking-wider font-semibold mb-2 mt-5 first:mt-0 text-text-faint">
       {children}
     </div>
   );
@@ -74,6 +75,7 @@ export function SettingsModal({ open, onClose }: Props) {
     theme, uiFont, monoFont, uiFontSize, monoFontSize,
     setTheme, setUiFont, setMonoFont, setUiFontSize, setMonoFontSize,
   } = useTheme();
+  const { locale, setAppLocale } = useLocaleContext();
 
   type TabId = 'appearance' | 'typography';
   const [tab, setTab] = useState<TabId>('appearance');
@@ -140,23 +142,23 @@ export function SettingsModal({ open, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-pc-base/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
       <div
         ref={panelRef}
-        className="relative flex flex-col w-full max-w-2xl mx-4 max-h-[90vh] rounded-[var(--radius-xl)] border border-pc-border bg-pc-base shadow-[var(--pc-shadow-md)] animate-fade-in"
+        className="relative flex flex-col w-full max-w-2xl mx-4 max-h-[90vh] rounded-[var(--radius-xl)] border border-border bg-background shadow-[var(--color-shadow-md)] animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-pc-border">
+        <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
-            <Settings size={18} className="text-pc-accent-light" />
-            <h2 className="text-sm font-semibold text-pc-text">{t('settings.title')}</h2>
+            <Settings size={18} className="text-accent-light" />
+            <h2 className="text-sm font-semibold text-foreground">{t('settings.title')}</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label={t('common.close')}
-            className="h-11 w-11 -mr-2 rounded-[var(--radius-md)] flex items-center justify-center text-pc-text-muted transition-colors hover:bg-[var(--pc-hover)] hover:text-pc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base"
+            className="h-11 w-11 -mr-2 rounded-[var(--radius-md)] flex items-center justify-center text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground focus-visible:outline-none "
           >
             <X size={16} />
           </button>
@@ -187,7 +189,7 @@ export function SettingsModal({ open, onClose }: Props) {
           {tab === 'appearance' && (
             <>
               <SectionTitle>{t('settings.appearance')}</SectionTitle>
-              <div className="text-xs mb-2 text-pc-text-secondary">{t('theme.mode')}</div>
+              <div className="text-xs mb-2 text-text-secondary">{t('theme.mode')}</div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {themeOptions.map(opt => {
                   const Icon = opt.icon;
@@ -201,11 +203,11 @@ export function SettingsModal({ open, onClose }: Props) {
                       className={[
                         'flex flex-col gap-2 p-2 rounded-[var(--radius-lg)] border text-left',
                         'transition-colors duration-150 cursor-pointer',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]',
-                        'focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base',
+                        'focus-visible:outline-none ',
+                        ' ',
                         active
-                          ? 'border-pc-accent bg-pc-accent/10'
-                          : 'border-pc-border hover:bg-[var(--pc-hover)] hover:border-pc-border-strong',
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:bg-[var(--color-hover)] hover:border-border-strong',
                       ].join(' ')}
                     >
                       {/* Mini preview — the theme's literal page colors. */}
@@ -222,14 +224,32 @@ export function SettingsModal({ open, onClose }: Props) {
                         <span className="absolute bottom-2 left-4 h-[3px] w-6 rounded-full" style={{ background: opt.fg, opacity: 0.35 }} />
                       </div>
                       <div className="flex items-center gap-1 px-0.5">
-                        {active && <Check size={11} className="text-pc-accent" />}
-                        <span className={['text-xs font-medium', active ? 'text-pc-accent-light' : 'text-pc-text-secondary'].join(' ')}>
+                        {active && <Check size={11} className="text-primary" />}
+                        <span className={['text-xs font-medium', active ? 'text-accent-light' : 'text-text-secondary'].join(' ')}>
                           {t(opt.labelKey)}
                         </span>
                       </div>
                     </button>
                   );
                 })}
+              </div>
+
+              <SectionTitle>{t('settings.language')}</SectionTitle>
+              <div className="flex flex-wrap gap-1.5">
+                {SUPPORTED_LOCALES.map(opt => (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => setAppLocale(opt.code)}
+                    className={chip(
+                      locale === opt.code,
+                      'flex items-center gap-2 px-3 py-2 rounded-[var(--radius-md)] text-xs',
+                    )}
+                    aria-pressed={locale === opt.code}
+                  >
+                    {opt.name}
+                  </button>
+                ))}
               </div>
             </>
           )}
@@ -241,7 +261,7 @@ export function SettingsModal({ open, onClose }: Props) {
 
               {/* UI Font */}
               <div className="mb-4">
-                <div className="flex items-center gap-2 text-xs mb-2 text-pc-text-secondary">
+                <div className="flex items-center gap-2 text-xs mb-2 text-text-secondary">
                   <Type size={14} />
                   {t('settings.fontUi')}
                 </div>
@@ -258,7 +278,7 @@ export function SettingsModal({ open, onClose }: Props) {
                       aria-pressed={uiFont === opt.value}
                     >
                       <span style={{ fontSize: '14px', fontFamily: uiFontStacks[opt.value] }}>{opt.sample}</span>
-                      <span className="text-pc-text-faint" style={{ fontSize: '11px' }}>{opt.label}</span>
+                      <span className="text-text-faint" style={{ fontSize: '11px' }}>{opt.label}</span>
                     </button>
                   ))}
                 </div>
@@ -266,7 +286,7 @@ export function SettingsModal({ open, onClose }: Props) {
 
               {/* Mono Font */}
               <div className="mb-4">
-                <div className="flex items-center gap-2 text-xs mb-2 text-pc-text-secondary">
+                <div className="flex items-center gap-2 text-xs mb-2 text-text-secondary">
                   <CaseSensitive size={14} />
                   {t('settings.fontMono')}
                 </div>
@@ -283,7 +303,7 @@ export function SettingsModal({ open, onClose }: Props) {
                       aria-pressed={monoFont === opt.value}
                     >
                       <span style={{ fontSize: '14px', fontFamily: monoFontStacks[opt.value] }}>{opt.sample}</span>
-                      <span className="text-pc-text-faint" style={{ fontSize: '11px' }}>{opt.label}</span>
+                      <span className="text-text-faint" style={{ fontSize: '11px' }}>{opt.label}</span>
                     </button>
                   ))}
                 </div>
@@ -291,7 +311,7 @@ export function SettingsModal({ open, onClose }: Props) {
 
               {/* UI Font Size */}
               <div className="mb-4">
-                <div className="text-xs mb-2 text-pc-text-secondary">{t('settings.fontSize')}</div>
+                <div className="text-xs mb-2 text-text-secondary">{t('settings.fontSize')}</div>
                 <div className="flex gap-1.5 flex-wrap">
                   {uiSizes.map(size => (
                     <button
@@ -312,7 +332,7 @@ export function SettingsModal({ open, onClose }: Props) {
 
               {/* Mono Font Size */}
               <div className="mb-4">
-                <div className="text-xs mb-2 text-pc-text-secondary">{t('settings.fontMonoSize')}</div>
+                <div className="text-xs mb-2 text-text-secondary">{t('settings.fontMonoSize')}</div>
                 <div className="flex gap-1.5 flex-wrap">
                   {monoSizes.map(size => (
                     <button
@@ -332,19 +352,19 @@ export function SettingsModal({ open, onClose }: Props) {
               </div>
 
               {/* Preview */}
-              <div className="rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface p-3">
-                <div className="text-[11px] uppercase tracking-wide mb-2 text-pc-text-faint">
+              <div className="rounded-[var(--radius-lg)] border border-border bg-card p-3">
+                <div className="text-[11px] uppercase tracking-wide mb-2 text-text-faint">
                   {t('settings.preview')}
                 </div>
                 <div
-                  className="text-sm mb-2 text-pc-text"
-                  style={{ fontFamily: 'var(--pc-font-ui)', fontSize: 'var(--pc-font-size)' }}
+                  className="text-sm mb-2 text-foreground"
+                  style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--font-size)' }}
                 >
                   {t('settings.previewText')}
                 </div>
                 <div
-                  className="rounded-[var(--radius-md)] border border-pc-border bg-pc-code p-2 text-[13px] text-pc-text"
-                  style={{ fontFamily: 'var(--pc-font-mono)', fontSize: 'var(--pc-font-size-mono)' }}
+                  className="rounded-[var(--radius-md)] border border-border bg-code p-2 text-[13px] text-foreground"
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-size-mono)' }}
                 >
                   const hello = 'Volt Agent'; // typography preview
                 </div>

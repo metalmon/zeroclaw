@@ -17,6 +17,7 @@ const navPaths = [
   "/logs",
   "/pairing",
   "/roles",
+  "/users",
   "/doctor",
   "/canvas",
   "/acp-console",

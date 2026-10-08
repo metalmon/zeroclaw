@@ -20,6 +20,6 @@ export const railLinkClassName =
   "group relative flex h-10 w-full max-w-10 mx-auto items-center justify-center";
 
 export const railAsideStyle = {
-  background: "var(--pc-bg-sidebar)",
-  borderColor: "var(--pc-border)",
+  background: "var(--color-sidebar)",
+  borderColor: "var(--color-border)",
 } as const;

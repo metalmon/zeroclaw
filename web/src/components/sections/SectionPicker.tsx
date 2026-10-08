@@ -1,5 +1,5 @@
 // Picker view used by /config to mirror the TUI's
-//   Volt Sections › Providers › [filter:_____] › <pickable list>
+// Volt Sections › Providers › [filter:_____] › <pickable list>
 // flow. Items come from /api/config/sections/<section> (gateway derives
 // them from list_providers / selectable_memory_backends / schema-walk).
 //
@@ -14,8 +14,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check } from "lucide-react";
 import { fuzzyFilter } from "../../lib/fuzzy";
 import { ApiError, getSectionPicker, type PickerItem } from "../../lib/api";
+import { filterChannelItems } from "../../lib/channelAllowlist";
 import { Badge, Button } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
+import { Spinner } from "@/components/ui/spinner";
 import { t, badgeLabel } from "@/lib/i18n";
 
 interface SectionPickerProps {
@@ -26,10 +28,13 @@ interface SectionPickerProps {
   /** Called when the user picks an item. */
   onPick: (item: PickerItem) => void;
   /** Esc key handler — typically the parent's "advance / next section"
-   *  action, so keyboard-only users can skip the picker without picking. */
+   * action, so keyboard-only users can skip the picker without picking. */
   onSkip?: () => void;
   /** Optional Back button (wizard: previous section; config: hide). */
   onBack?: () => void;
+  /** Bump to force a re-fetch of items/badges (e.g. after a pick writes the
+   * config server-side and the "active" badge needs to move). */
+  reloadKey?: number;
 }
 
 export default function SectionPicker({
@@ -38,6 +43,7 @@ export default function SectionPicker({
   onPick,
   onSkip,
   onBack,
+  reloadKey,
 }: SectionPickerProps) {
   const [items, setItems] = useState<PickerItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +61,11 @@ export default function SectionPicker({
     getSectionPicker(sectionKey)
       .then((resp) => {
         if (cancelled) return;
-        setItems(resp.items);
+        // Channel picker only: hide non-allowlisted channel types (pilot/RU
+        // build). Passthrough for every other section and when unset.
+        setItems(
+          sectionKey === "channels" ? filterChannelItems(resp.items) : resp.items,
+        );
       })
       .catch((e) => {
         if (cancelled) return;
@@ -71,7 +81,7 @@ export default function SectionPicker({
     return () => {
       cancelled = true;
     };
-  }, [sectionKey]);
+  }, [sectionKey, reloadKey]);
 
   // Refocus the filter input on section change so keyboard-only users can
   // start typing immediately (matches the TUI's auto-focus behavior).
@@ -103,20 +113,14 @@ export default function SectionPicker({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div
-          className="h-8 w-8 border-2 rounded-full animate-spin"
-          style={{
-            borderColor: "var(--pc-border)",
-            borderTopColor: "var(--pc-accent)",
-          }}
-        />
+        <Spinner size={32} />
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
-      {help && <p className="text-sm text-pc-text-secondary">{help}</p>}
+      {help && <p className="text-sm text-text-secondary">{help}</p>}
 
       {error && (
         <div className="rounded-[var(--radius-md)] border border-status-error/25 bg-status-error/10 p-3 text-sm text-status-error animate-fade-in">
@@ -134,15 +138,15 @@ export default function SectionPicker({
         }}
         onKeyDown={handleKey}
         placeholder={t("section_picker.filter_placeholder")}
-        className="w-full px-3 py-2.5 text-sm rounded-[var(--radius-md)] bg-pc-input border border-pc-border text-pc-text placeholder:text-pc-text-faint focus-visible:outline-none focus-visible:border-pc-border-strong focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)]"
+        className="w-full px-3 py-2.5 text-sm rounded-[var(--radius-md)] bg-input border border-border text-foreground placeholder:text-text-faint focus-visible:outline-none focus-visible:border-border-strong "
       />
 
       <div
-        className="rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface divide-y divide-pc-border overflow-y-auto"
+        className="rounded-[var(--radius-lg)] border border-border bg-card divide-y divide-border overflow-y-auto"
         style={{ maxHeight: "60vh" }}
       >
         {filtered.length === 0 ? (
-          <div className="px-4 py-6 text-sm text-center text-pc-text-muted">
+          <div className="px-4 py-6 text-sm text-center text-muted-foreground">
             {t("section_picker.no_matches")}
           </div>
         ) : (
@@ -154,20 +158,20 @@ export default function SectionPicker({
               onMouseEnter={() => setHighlightIdx(idx)}
               className={[
                 "w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors",
-                idx === highlightIdx ? "bg-pc-accent/10" : "bg-transparent",
+                idx === highlightIdx ? "bg-primary/10" : "bg-transparent",
               ].join(" ")}
             >
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-pc-text">
+                <div className="text-sm font-medium text-foreground">
                   {item.label}
                   {item.label !== item.key && (
-                    <code className="ml-2 text-xs text-pc-text-faint">
+                    <code className="ml-2 text-xs text-text-faint">
                       {item.key}
                     </code>
                   )}
                 </div>
                 {item.description && (
-                  <div className="text-xs mt-0.5 text-pc-text-muted">
+                  <div className="text-xs mt-0.5 text-muted-foreground">
                     {item.description}
                   </div>
                 )}
@@ -185,7 +189,7 @@ export default function SectionPicker({
 
       {onBack && (
         <div>
-          <Button variant="ghost" size="md" onClick={onBack}>
+          <Button variant="ghost" size="default" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" />
             {t("common.back")}
           </Button>
