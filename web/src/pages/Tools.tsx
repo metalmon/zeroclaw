@@ -24,6 +24,7 @@ import {
 import { loadAgentPickerSummaries, type AgentPickerSummary } from '@/lib/agents';
 import { t } from '@/lib/i18n';
 import { Badge, Card, PageHeader } from '@/components/ui';
+import { SpinnerScreen } from '@/components/ui/spinner';
 import {
   applyToolAccessPatch,
   buildToolAccessPatch,
