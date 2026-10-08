@@ -1039,6 +1039,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'reload_btn.timeout_prefix': "Daemon did not respond within ",
     'reload_btn.timeout_suffix': "s. Check the gateway logs (it may still be starting, or it may have crashed).",
     'reload_btn.waiting': "Waiting for daemon…",
+    'reload_btn.waiting_slow': "Daemon is still starting…",
     'section_nav.add_to_prefix': "Add to ",
     'section_nav.empty': "Nothing configured yet",
     'section_nav.no_matches': "No matches.",
