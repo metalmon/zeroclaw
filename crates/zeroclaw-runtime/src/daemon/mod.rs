@@ -1459,7 +1459,7 @@ pub async fn run_with_authority(
             // brings the daemon back clean.
             ::zeroclaw_log::record!(
                 ERROR,
-                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Stop)
+                ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
                     .with_category(::zeroclaw_log::EventCategory::Agent)
                     .with_outcome(::zeroclaw_log::EventOutcome::Failure),
                 "reload drain gave up with agent work still admitted; leaving so the supervisor restarts the daemon"

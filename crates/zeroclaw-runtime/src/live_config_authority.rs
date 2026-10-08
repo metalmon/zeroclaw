@@ -589,6 +589,19 @@ impl AliasLifecycleState {
             && self.active_turns == 0
             && !self.deleting
     }
+
+    /// What a closing generation actually has to wait for: work in flight.
+    ///
+    /// A live session is an open client attachment, not work: the operator
+    /// keeps the client open all shift, and its lease is released only when
+    /// that client disconnects. Waiting for it meant a reload never finished
+    /// while anyone was connected - the gateway listener stayed bound, every
+    /// component was already down, and the daemon served nothing until it was
+    /// restarted by hand. The listener is torn down before the drain begins,
+    /// so those sessions are already severed at the socket.
+    fn is_quiescent_for_drain(&self) -> bool {
+        self.reservations == 0 && self.active_turns == 0 && !self.deleting
+    }
 }
 
 #[derive(Default)]
@@ -910,7 +923,7 @@ impl AgentLifecycleCoordinator {
             .lock()
             .aliases
             .iter()
-            .filter(|(_, lifecycle)| !lifecycle.is_idle())
+            .filter(|(_, lifecycle)| !lifecycle.is_quiescent_for_drain())
             .map(|(alias, _)| alias.clone())
             .collect();
         aliases.sort();
@@ -954,7 +967,10 @@ impl AgentLifecycleCoordinator {
                 let mut state = self.state.lock();
                 if state.closing
                     && state.active_config_writes == 0
-                    && state.aliases.values().all(AliasLifecycleState::is_idle)
+                    && state
+                        .aliases
+                        .values()
+                        .all(AliasLifecycleState::is_quiescent_for_drain)
                 {
                     drop(state.ownership.take());
                     return;
@@ -976,7 +992,10 @@ impl AgentLifecycleCoordinator {
                 let state = self.state.lock();
                 if state.closing
                     && state.active_config_writes == 0
-                    && state.aliases.values().all(AliasLifecycleState::is_idle)
+                    && state
+                        .aliases
+                        .values()
+                        .all(AliasLifecycleState::is_quiescent_for_drain)
                 {
                     return;
                 }
@@ -1350,6 +1369,26 @@ mod tests {
         assert_eq!(
             lifecycle.pending_work_aliases(),
             ["alpha".to_string(), "beta".to_string(), "zeta".to_string()]
+        );
+    }
+
+    /// An open client session must not hold a reload. The lease lives as long
+    /// as the client stays connected, which in the pilot is the whole shift.
+    #[tokio::test(start_paused = true)]
+    async fn an_open_session_does_not_hold_the_drain() {
+        let authority = LiveConfigAuthority::new(Config::default());
+        let lifecycle = authority.agent_lifecycle();
+        let _session = lifecycle
+            .reserve_admission("operator")
+            .unwrap()
+            .publish()
+            .unwrap();
+
+        let drained = authority.drain_agent_lifecycle().await;
+
+        assert!(
+            drained,
+            "a connected client is an attachment, not work in flight"
         );
     }
 
