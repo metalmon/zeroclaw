@@ -3382,6 +3382,11 @@ impl Agent {
             turn_id: &turn_id,
             agent_alias: agent_alias.as_deref(),
             parent_agent_alias: None,
+            context_limits: self.context_limits(),
+            // Канвас выполняет один инструмент без обращения к модели:
+            // подменять провайдера и модель здесь нечему.
+            serving_provider_name: None,
+            serving_model: None,
         };
         crate::agent::turn::tool_only::run_tool_only_turn(
             &ctx,
@@ -3462,6 +3467,11 @@ impl Agent {
             turn_id: &turn_id,
             agent_alias: agent_alias.as_deref(),
             parent_agent_alias: None,
+            context_limits: self.context_limits(),
+            // Канвас выполняет один инструмент без обращения к модели:
+            // подменять провайдера и модель здесь нечему.
+            serving_provider_name: None,
+            serving_model: None,
         };
 
         // The call is consumed by `run_tool_only_turn`; keep the tool name
