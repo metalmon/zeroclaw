@@ -100,7 +100,7 @@ pub enum CronJobClaim<'a> {
     Contested(Vec<&'a str>),
 }
 
-/// Top-level ZeroClaw configuration, loaded from `config.toml`.
+/// Top-level Volt configuration, loaded from `config.toml`.
 ///
 /// Resolution order: `ZEROCLAW_CONFIG_DIR` env → `ZEROCLAW_WORKSPACE` env → `~/.zeroclaw/config.toml`.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
@@ -961,7 +961,7 @@ pub struct ModelProviderConfig {
     #[tab(Advanced)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wire_api: Option<WireApi>,
-    /// When true, the client pulls credentials from ZeroClaw's stored `openai-codex` auth profile instead of the `api_key` field above. Import an existing Codex CLI login with `zeroclaw auth login --model-provider openai-codex --import ~/.codex/auth.json`, or run `zeroclaw auth login --model-provider openai-codex`. Turn on only for the OpenAI Codex model_provider; leave off for standard API-key model_providers.
+    /// When true, the client pulls credentials from Volt's stored `openai-codex` auth profile instead of the `api_key` field above. Import an existing Codex CLI login with `zeroclaw auth login --model-provider openai-codex --import ~/.codex/auth.json`, or run `zeroclaw auth login --model-provider openai-codex`. Turn on only for the OpenAI Codex model_provider; leave off for standard API-key model_providers.
     #[tab(Connection)]
     #[serde(default, skip_serializing_if = "is_false")]
     #[credential_class = "external_auth_store"]
@@ -1322,7 +1322,7 @@ pub struct AnthropicModelProviderConfig {
     /// targets for it (e.g. `claude-fable-5` → `["claude-opus-4-8"]`; a
     /// non-permitted entry is rejected by the API). Applies to non-streaming
     /// requests only. Distinct from the generic `fallback_models`, which
-    /// ZeroClaw itself retries client-side after an error. Empty (the default)
+    /// Volt itself retries client-side after an error. Empty (the default)
     /// sends no fallback parameter and no beta value.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub server_fallback_models: Vec<String>,
@@ -2968,7 +2968,7 @@ pub struct GeminiModelProviderConfig {
     /// OAuth-cache integration instead of the `api_key` field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_mode: Option<AuthMode>,
-    /// Google OAuth app `client_id`, used when this alias drives ZeroClaw's
+    /// Google OAuth app `client_id`, used when this alias drives Volt's
     /// own browser/device-code login flow (`zeroclaw auth login
     /// --model-provider gemini --profile <alias>`). Operators relying on
     /// the upstream `gemini login` tool don't need this; that tool writes
@@ -3034,7 +3034,7 @@ pub struct GrokCliModelProviderConfig {
     /// Project-scoped Grok config is resolved relative to this path.
     pub working_directory: String,
     /// Extra environment variable names inherited by the `grok`
-    /// subprocess. Values are resolved from the ZeroClaw process environment
+    /// subprocess. Values are resolved from the Volt process environment
     /// at spawn time. The default is empty so unrelated daemon secrets remain
     /// blocked. `XAI_API_KEY` is the sole supported provider-owned name and
     /// enables API-key authentication when explicitly listed and non-empty;
@@ -3045,7 +3045,7 @@ pub struct GrokCliModelProviderConfig {
     /// Extra global Grok long flags inserted before `agent stdio`. Known
     /// options may put their value in the next token; other value-taking
     /// options use `--flag=value`. Positional and short arguments are rejected.
-    /// ZeroClaw defaults to `--sandbox strict`, `--permission-mode dontAsk`,
+    /// Volt defaults to `--sandbox strict`, `--permission-mode dontAsk`,
     /// and an empty built-in tool set. Providing the corresponding flags here
     /// is an explicit per-alias opt-in to relax those defaults. ACP transport,
     /// prompt/model/session, cwd, debug-file, and update-policy flags are
@@ -3053,7 +3053,7 @@ pub struct GrokCliModelProviderConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_args: Vec<String>,
     /// Maximum cumulative stdout bytes accepted from `grok agent stdio` for
-    /// one ACP request. When unset, ZeroClaw uses 4 MiB. Values must be
+    /// one ACP request. When unset, Volt uses 4 MiB. Values must be
     /// between 1 MiB and 64 MiB; the provider rejects invalid values when it
     /// is constructed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5534,7 +5534,7 @@ pub struct HardwareConfig {
     /// Opt in to direct physical-hardware control — GPIO pins, USB-tethered microcontrollers (Arduino, ESP32, Nucleo), or SWD/JTAG debug probes. Leave off for software-only use; turning it on without the right transport configured does nothing.
     #[serde(default)]
     pub enabled: bool,
-    /// How ZeroClaw reaches the hardware: `native` = Linux SBC with direct GPIO access (Raspberry Pi, Orange Pi); `serial` = USB-tethered microcontroller speaking over a TTY; `probe` = SWD/JTAG debug probe driving a target chip via probe-rs; `none` = disabled.
+    /// How Volt reaches the hardware: `native` = Linux SBC with direct GPIO access (Raspberry Pi, Orange Pi); `serial` = USB-tethered microcontroller speaking over a TTY; `probe` = SWD/JTAG debug probe driving a target chip via probe-rs; `none` = disabled.
     #[serde(default)]
     pub transport: HardwareTransport,
     /// TTY path for the `serial` transport — e.g. `/dev/ttyACM0` on Linux, `/dev/tty.usbmodem1` on macOS, `COM3` on Windows. Ignored for other transports.
@@ -5915,7 +5915,7 @@ impl Default for McpConfig {
 /// Verifiable Intent (VI) credential issuance and constraint checking
 /// (`[verifiable_intent]` section).
 ///
-/// ZeroClaw implements issuance, crypto, types and constraint checking, but not
+/// Volt implements issuance, crypto, types and constraint checking, but not
 /// a credential chain verifier. Until one exists the `vi_verify` tool is
 /// withheld from the model-visible registry, so neither key below enables
 /// verification of a credential. The library paths are unaffected.
@@ -6872,7 +6872,7 @@ pub enum SkillsPromptInjectionMode {
     Compact,
 }
 
-/// An external, user-configured skill registry ZeroClaw can install from.
+/// An external, user-configured skill registry Volt can install from.
 ///
 /// Reuses the same git-clone mechanism as the default `zeroclaw-skills`
 /// registry. Install a skill from it with `registry:<name>/<skill>`.
@@ -10555,7 +10555,7 @@ impl Default for ClaudeCodeConfig {
 /// Claude Code task runner configuration (`[claude_code_runner]` section).
 ///
 /// Spawns Claude Code in a tmux session with HTTP hooks that POST tool
-/// execution events back to ZeroClaw's gateway, updating a Slack message
+/// execution events back to Volt's gateway, updating a Slack message
 /// in-place with progress plus an SSH handoff link.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
@@ -10637,7 +10637,7 @@ pub struct CodexCliConfig {
 }
 
 impl CodexCliConfig {
-    /// Returns the configured arguments exactly as ZeroClaw forwards them to
+    /// Returns the configured arguments exactly as Volt forwards them to
     /// `codex exec`, paired with their original config indices.
     ///
     /// Trimming and empty-entry removal live here so subprocess construction
@@ -10727,13 +10727,13 @@ const RISKY_CODEX_CLI_FLAGS: &[RiskyCodexCliFlag] = &[
         value: RiskyCodexCliArgValue::AnyValue,
         effect: "add writable directories alongside the selected workspace",
     },
-    // ZeroClaw validates the tool's working_directory before spawning Codex;
+    // Volt validates the tool's working_directory before spawning Codex;
     // this flag can replace that validated root inside the child process.
     RiskyCodexCliFlag {
         spellings: &["--cd", "-C"],
         display: "--cd / -C",
         value: RiskyCodexCliArgValue::AnyValue,
-        effect: "replace the ZeroClaw-validated Codex working root",
+        effect: "replace the Volt-validated Codex working root",
     },
     // A named profile is layered over the base user config and can replace its
     // approval, sandbox, permission, and workspace boundary settings.
@@ -11025,7 +11025,7 @@ impl Default for OpenCodeCliConfig {
 pub enum ProxyScope {
     /// Use system environment proxy variables only.
     Environment,
-    /// Apply proxy to all ZeroClaw-managed HTTP traffic (default).
+    /// Apply proxy to all Volt-managed HTTP traffic (default).
     #[default]
     Zeroclaw,
     /// Apply proxy only to explicitly listed service selectors.
@@ -12669,7 +12669,7 @@ pub struct MemoryConfig {
     /// disable persistence entirely.
     #[serde(default = "default_memory_backend")]
     pub backend: String,
-    /// Auto-save what *you* tell ZeroClaw into memory as conversation history — the agent's own replies are not saved. Turn off if you want memory to only hold things you explicitly record via the memory tool.
+    /// Auto-save what *you* tell Volt into memory as conversation history — the agent's own replies are not saved. Turn off if you want memory to only hold things you explicitly record via the memory tool.
     #[serde(default = "default_auto_save")]
     pub auto_save: bool,
     /// Run the periodic hygiene pass that archives stale daily/session files and enforces retention windows. Leave on unless you want to manage cleanup yourself.
@@ -13079,7 +13079,7 @@ pub fn validate_memory_semantics(
 ///
 /// `self_chat_mode` is read only by the Web transport inside its
 /// `mode == Personal` block, so under `mode = "business"` it validates cleanly
-/// and has no effect. `mode` selects ZeroClaw's policy posture, not a WhatsApp
+/// and has no effect. `mode` selects Volt's policy posture, not a WhatsApp
 /// account type: both modes drive the same linked-device session, and the
 /// self-chat affordance is scoped to the personal branch by design.
 ///
@@ -13364,7 +13364,7 @@ pub enum LogPersistence {
     #[default]
     Rolling,
     Full,
-    /// Persist all events, but with ZeroClaw-managed archive rotation: the
+    /// Persist all events, but with Volt-managed archive rotation: the
     /// active file is rotated to a timestamped archive on a size and/or daily
     /// boundary, and old archives are pruned by count and/or age. Unlike
     /// `rolling` (entry-count trim of the active file), rotated events are
@@ -16628,7 +16628,7 @@ pub enum StreamReasoningMode {
 pub enum StreamToolArgumentBase {
     /// Do not display any arguments unless a per-tool rule includes them.
     None,
-    /// Use ZeroClaw's conservative per-tool recommendations.
+    /// Use Volt's conservative per-tool recommendations.
     #[default]
     Safe,
     /// Display every argument except runtime-internal fields, after leak scrubbing.
@@ -17452,7 +17452,7 @@ pub struct MattermostConfig {
     /// default permission schemes is every channel member, and the text reaches
     /// the system prompt. Those editors can therefore steer the agent in that
     /// room, including with text that reads as an instruction, and they need
-    /// not be authorized ZeroClaw peers.
+    /// not be authorized Volt peers.
     ///
     /// What that steering cannot do is exceed the agent's existing permissions:
     /// prompt text grants no tool, widens no peer group, and changes no
@@ -17739,7 +17739,7 @@ pub struct MatrixConfig {
     #[serde(default)]
     pub mention_only: bool,
     /// Optional Matrix recovery key for automatic E2EE key backup restore.
-    /// When set, ZeroClaw recovers room keys and cross-signing secrets on startup.
+    /// When set, Volt recovers room keys and cross-signing secrets on startup.
     #[secret]
     #[credential_class = "encrypted_secret"]
     #[tab(Connection)]
@@ -18251,14 +18251,14 @@ pub struct WhatsAppConfig {
     /// Regex patterns for DM mention gating (case-insensitive).
     /// When non-empty, only direct messages matching at least one pattern are
     /// processed; matched fragments are stripped from the forwarded content.
-    /// Example: `["@?ZeroClaw", "\\+?15555550123"]`
+    /// Example: `["@?Volt", "\\+?15555550123"]`
     #[tab(Advanced)]
     #[serde(default)]
     pub dm_mention_patterns: Vec<String>,
     /// Regex patterns for group-chat mention gating (case-insensitive).
     /// When non-empty, only group messages matching at least one pattern are
     /// processed; matched fragments are stripped from the forwarded content.
-    /// Example: `["@?ZeroClaw", "\\+?15555550123"]`
+    /// Example: `["@?Volt", "\\+?15555550123"]`
     #[tab(Advanced)]
     #[serde(default)]
     pub group_mention_patterns: Vec<String>,
@@ -19166,7 +19166,7 @@ fn default_irc_port() -> u16 {
     6697
 }
 
-/// How ZeroClaw receives events from Feishu / Lark.
+/// How Volt receives events from Feishu / Lark.
 ///
 /// - `websocket` (default) — persistent WSS long-connection; no public URL required.
 /// - `webhook` — HTTP callback server; requires a public HTTPS endpoint.
@@ -19323,7 +19323,7 @@ pub enum LineDmPolicy {
     /// Respond to every DM regardless of who sent it.
     Open,
     /// Require a one-time `/bind <code>` handshake before responding (default).
-    /// ZeroClaw prints the bind code on startup; send it once to unlock access.
+    /// Volt prints the bind code on startup; send it once to unlock access.
     #[default]
     Pairing,
     /// Respond only to LINE user IDs listed in `allowed_users`.
@@ -21516,7 +21516,7 @@ fn dir_has_plugin(dir: &Path) -> bool {
 /// Detect if an executable path lives under a macOS Homebrew prefix and return
 /// the Homebrew-managed config directory.
 ///
-/// Homebrew can execute ZeroClaw from `<prefix>/Cellar/zeroclaw/<version>/bin/`,
+/// Homebrew can execute Volt from `<prefix>/Cellar/zeroclaw/<version>/bin/`,
 /// `<prefix>/bin/`, or `<prefix>/opt/zeroclaw/bin/`.
 async fn try_resolve_macos_homebrew_config_dir(exe: &Path) -> Option<PathBuf> {
     let parts = exe.iter().collect::<Vec<_>>();
@@ -21795,7 +21795,7 @@ pub async fn ensure_bootstrap_files(workspace_dir: &Path) -> Result<()> {
         (
             "IDENTITY.md",
             "# IDENTITY.md — Who Am I?\n\n\
-             I am ZeroClaw, an autonomous AI agent.\n\n\
+             I am Volt, an autonomous AI agent.\n\n\
              ## Traits\n\
              - Helpful, precise, and safety-conscious\n\
              - I prioritize clarity and correctness\n",
@@ -21803,7 +21803,7 @@ pub async fn ensure_bootstrap_files(workspace_dir: &Path) -> Result<()> {
         (
             "SOUL.md",
             "# SOUL.md — Who You Are\n\n\
-             You are ZeroClaw, an autonomous AI agent.\n\n\
+             You are Volt, an autonomous AI agent.\n\n\
              ## Core Principles\n\
              - Be helpful and accurate\n\
              - Respect user intent and boundaries\n\
@@ -23182,7 +23182,7 @@ impl Config {
                  audit record. Command execution is not audited either way, because no \
                  production path records tool commands. Leave the section enabled to keep \
                  the certificate trail, and use an external supervisor or logging wrapper \
-                 that observes the ZeroClaw process, or OS-level process accounting, if you \
+                 that observes the Volt process, or OS-level process accounting, if you \
                  need a record of what ran."
                     .to_string(),
                 "security.audit.enabled",
@@ -23262,7 +23262,7 @@ impl Config {
             warnings.push(crate::validation_warnings::ValidationWarning::new(
                 CODEX_CLI_EXTRA_ARGS_SECURITY_BOUNDARY_WARNING,
                 format!(
-                    "Codex CLI argument `{}` can {}. ZeroClaw allows this operator-controlled \
+                    "Codex CLI argument `{}` can {}. Volt allows this operator-controlled \
                      argument without blocking; verify that the resulting trust boundary is \
                      intentional.",
                     risky_match.flag.display, risky_match.flag.effect
@@ -27374,7 +27374,7 @@ fn lookup_path_in_table<'a>(root: &'a toml::Table, segs: &[&str]) -> Option<&'a 
 /// Read-only walk to the table-like node at `segs`, or `None` if any
 /// segment is missing or not table-shaped on disk. Used to read a map-key
 /// section's live on-disk keys without mutating the doc. `TableLike`
-/// rather than `Table` because ZeroClaw loads (though never writes)
+/// rather than `Table` because Volt loads (though never writes)
 /// hand-edited inline tables — `openai = { "gpt-4.1" = { ... } }` parses
 /// as `Item::Value(Value::InlineTable)`, which `as_table()` rejects; a
 /// key living only in such a section must still resolve here or the
@@ -27847,7 +27847,7 @@ pub enum ApprovalTimeoutAction {
 pub struct SopApprovalConfig {
     /// Named approver groups: `group name -> members`. A member is matched against
     /// the transport-derived (channel-authenticated) `ApprovalPrincipal` identity.
-    /// A member may be source-qualified (`<source>:<identity>`, e.g. `http:ZeroClawOperator`,
+    /// A member may be source-qualified (`<source>:<identity>`, e.g. `http:VoltOperator`,
     /// `ws:<subject>`, `agent:<alias>`) to grant rights on one transport only, or a
     /// bare identity (`alice`) to grant from any non-channel source. Channel members
     /// must include the channel namespace (`channel:<channel-key>:<sender>`) so sender
@@ -35462,7 +35462,7 @@ bot_token = "xoxb-tok"
     #[test]
     async fn whatsapp_config_push_name_is_not_a_web_selector() {
         let wc = WhatsAppConfig {
-            push_name: Some("ZeroClawAgent".into()),
+            push_name: Some("VoltAgent".into()),
             ..Default::default()
         };
         assert!(!wc.has_web_selector());
@@ -39452,7 +39452,7 @@ group_policy = "disabled"
         );
     }
 
-    /// ZeroClaw never writes inline tables but loads hand-edited ones
+    /// Volt never writes inline tables but loads hand-edited ones
     /// fine, so a map-key section shaped `openai = { "gpt-4.1" = { ... } }`
     /// parses as `Item::Value(Value::InlineTable)` — invisible to a
     /// `Table`-only doc walk. Both halves must go through `TableLike`:
