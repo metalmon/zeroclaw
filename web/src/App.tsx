@@ -331,7 +331,7 @@ function PairingDialog({
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="pairing code"
+            placeholder={t('pairing.code_input_placeholder')}
             className="input-electric w-full px-4 py-4 text-center text-xl tracking-widest font-medium mb-4"
             maxLength={128}
             autoCapitalize="none"
