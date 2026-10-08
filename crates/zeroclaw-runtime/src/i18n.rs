@@ -374,9 +374,28 @@ fn load_ftl_with_reader(
 
 /// Detect locale: config.toml → system locale (via `sys-locale`) → "en".
 pub fn detect_locale() -> String {
-    locale_from_config()
+    let raw = locale_from_config()
         .or_else(locale_from_system)
-        .unwrap_or_else(|| "en".to_string())
+        .unwrap_or_else(|| "en".to_string());
+    resolve_supported_locale(&raw)
+}
+
+/// Pure: pick the catalog this build actually carries for a locale tag. The
+/// catalogs are looked up by exact match, so a regional tag finds nothing and
+/// silently falls back to English - and a regional tag is exactly what an OS
+/// hands over ("ru-RU" on a Russian Windows), or an operator writes by hand.
+/// Try the tag first, then its base language, then leave it alone so an unknown
+/// locale still reaches the English fallback.
+pub fn resolve_supported_locale(raw: &str) -> String {
+    let tag = normalize_locale(raw);
+    let known = |c: &str| available_locales().iter().any(|o| o.code == c);
+    if known(&tag) {
+        return tag;
+    }
+    match tag.split_once('-') {
+        Some((base, _)) if known(base) => base.to_string(),
+        _ => tag,
+    }
 }
 
 /// Auto-detect locale from the OS when config sets none. `sys-locale` is
@@ -2193,6 +2212,19 @@ mod tests {
         assert!(port_occupied.contains("127.0.0.1:9090"));
         assert!(port_occupied.contains("already in use by another process"));
         assert!(port_occupied.contains("gateway.port"));
+    }
+
+    #[test]
+    fn regional_tags_resolve_to_a_catalog_this_build_carries() {
+        // A Russian Windows hands over "ru-RU" and a POSIX box "ru_RU.UTF-8";
+        // both must reach the ru catalog instead of silently serving English.
+        assert_eq!(resolve_supported_locale("ru-RU"), "ru");
+        assert_eq!(resolve_supported_locale("ru_RU.UTF-8"), "ru");
+        // An exact match is kept, region and all.
+        assert_eq!(resolve_supported_locale("zh-CN"), "zh-CN");
+        assert_eq!(resolve_supported_locale("ru"), "ru");
+        // An unknown language is left alone and falls back to English later.
+        assert_eq!(resolve_supported_locale("xx-YY"), "xx-YY");
     }
 
     #[test]
