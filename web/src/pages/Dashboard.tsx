@@ -165,6 +165,10 @@ import { useSSE } from "@/hooks/useSSE";
 import { usePolling } from "@/hooks/usePolling";
 import { t, fmtDate, fmtNumber, fmtRelative, plural } from "@/lib/i18n";
 import { StatCard, PageHeader, ConfirmDialog } from "@/components/ui";
+import { Select } from "@/components/ui/Select";
+import { Spinner } from "@/components/ui/spinner";
+import { DetailPanel, DetailPanelSurface } from "@/components/ui/detail-panel";
+import { IconTile } from "@/components/ui/icon-tile";
 
 type TabId =
   | "overview"
@@ -217,7 +221,7 @@ function ProcessRamCard({ process }: { process?: ProcessStats }) {
         <div
           className="p-2 rounded-2xl"
           style={{
-            background: "rgba(var(--pc-accent-rgb), 0.08)",
+            background: "rgba(var(--color-accent-rgb), 0.08)",
             color: "#fbbf24",
           }}
         >
@@ -225,18 +229,18 @@ function ProcessRamCard({ process }: { process?: ProcessStats }) {
         </div>
         <span
           className="text-xs uppercase tracking-wider font-medium"
-          style={{ color: "var(--pc-text-muted)" }}
+          style={{ color: "var(--color-muted-foreground)" }}
         >
           {t("dashboard.ram.label")}
         </span>
       </div>
       <p
         className="text-lg font-semibold truncate"
-        style={{ color: "var(--pc-text-primary)" }}
+        style={{ color: "var(--color-foreground)" }}
       >
         {supported ? formatBytes(process!.rss_bytes) : "—"}
       </p>
-      <p className="text-sm truncate" style={{ color: "var(--pc-text-muted)" }}>
+      <p className="text-sm truncate" style={{ color: "var(--color-muted-foreground)" }}>
         {pct !== null
           ? `${pct.toFixed(pct < 1 ? 2 : 1)}% ${t("dashboard.ram.of")} ${formatBytes(process!.system_ram_total_bytes)}`
           : supported
@@ -257,7 +261,7 @@ function ProcessCpuCard({ process }: { process?: ProcessStats }) {
         <div
           className="p-2 rounded-2xl"
           style={{
-            background: "rgba(var(--pc-accent-rgb), 0.08)",
+            background: "rgba(var(--color-accent-rgb), 0.08)",
             color: "#a78bfa",
           }}
         >
@@ -265,18 +269,18 @@ function ProcessCpuCard({ process }: { process?: ProcessStats }) {
         </div>
         <span
           className="text-xs uppercase tracking-wider font-medium"
-          style={{ color: "var(--pc-text-muted)" }}
+          style={{ color: "var(--color-muted-foreground)" }}
         >
           {t("dashboard.cpu.label")}
         </span>
       </div>
       <p
         className="text-lg font-semibold truncate"
-        style={{ color: "var(--pc-text-primary)" }}
+        style={{ color: "var(--color-foreground)" }}
       >
         {supported ? `${pct.toFixed(1)}%` : "—"}
       </p>
-      <p className="text-sm truncate" style={{ color: "var(--pc-text-muted)" }}>
+      <p className="text-sm truncate" style={{ color: "var(--color-muted-foreground)" }}>
         {supported
           ? ncpu > 0
             ? `${ncpu} ${plural(ncpu, "dashboard.cpu.cores")} · ${(pct / ncpu).toFixed(1)}% ${t("dashboard.cpu.normalized")}`
@@ -383,7 +387,7 @@ function readinessColor(state: ChannelReadinessState): string {
     case 'missing':
       return 'var(--color-status-error)';
     case 'unknown':
-      return 'var(--pc-text-muted)';
+      return 'var(--color-muted-foreground)';
   }
 }
 
@@ -507,7 +511,7 @@ function OverviewTab({
                 <div
                   className="p-2 rounded-2xl"
                   style={{
-                    background: `rgba(var(--pc-accent-rgb), 0.08)`,
+                    background: `rgba(var(--color-accent-rgb), 0.08)`,
                     color: accent,
                   }}
                 >
@@ -515,20 +519,20 @@ function OverviewTab({
                 </div>
                 <span
                   className="text-xs uppercase tracking-wider font-medium"
-                  style={{ color: "var(--pc-text-muted)" }}
+                  style={{ color: "var(--color-muted-foreground)" }}
                 >
                   {t(labelKey)}
                 </span>
               </div>
               <p
                 className="text-lg font-semibold truncate"
-                style={{ color: "var(--pc-text-primary)" }}
+                style={{ color: "var(--color-foreground)" }}
               >
                 {getValue(status)}
               </p>
               <p
                 className="text-sm truncate"
-                style={{ color: "var(--pc-text-muted)" }}
+                style={{ color: "var(--color-muted-foreground)" }}
               >
                 {getSub(status)}
               </p>
@@ -545,11 +549,11 @@ function OverviewTab({
           <div className="flex items-center gap-2 mb-5">
             <DollarSign
               className="h-5 w-5"
-              style={{ color: "var(--pc-accent)" }}
+              style={{ color: "var(--color-primary)" }}
             />
             <h2
               className="text-sm font-semibold uppercase tracking-wider"
-              style={{ color: "var(--pc-text-primary)" }}
+              style={{ color: "var(--color-foreground)" }}
             >
               {t("dashboard.cost_overview")}
             </h2>
@@ -559,7 +563,7 @@ function OverviewTab({
               {
                 label: t("dashboard.session_label"),
                 value: cost.session_cost_usd,
-                color: "var(--pc-accent)",
+                color: "var(--color-primary)",
               },
               {
                 label: t("dashboard.daily_label"),
@@ -574,17 +578,17 @@ function OverviewTab({
             ].map(({ label, value, color }) => (
               <div key={label}>
                 <div className="flex justify-between text-sm mb-1.5">
-                  <span style={{ color: "var(--pc-text-muted)" }}>{label}</span>
+                  <span style={{ color: "var(--color-muted-foreground)" }}>{label}</span>
                   <span
                     className="font-medium font-mono"
-                    style={{ color: "var(--pc-text-primary)" }}
+                    style={{ color: "var(--color-foreground)" }}
                   >
                     {formatUSD(value)}
                   </span>
                 </div>
                 <div
                   className="w-full h-1.5 rounded-full overflow-hidden"
-                  style={{ background: "var(--pc-hover)" }}
+                  style={{ background: "var(--color-hover)" }}
                 >
                   <div
                     className="h-full rounded-full progress-bar-animated transition-all duration-700 ease-out"
@@ -599,25 +603,25 @@ function OverviewTab({
           </div>
           <div
             className="mt-5 pt-4 border-t flex justify-between text-sm"
-            style={{ borderColor: "var(--pc-border)" }}
+            style={{ borderColor: "var(--color-border)" }}
           >
-            <span style={{ color: "var(--pc-text-muted)" }}>
+            <span style={{ color: "var(--color-muted-foreground)" }}>
               {t("dashboard.total_tokens_label")}
             </span>
             <span
               className="font-mono"
-              style={{ color: "var(--pc-text-primary)" }}
+              style={{ color: "var(--color-foreground)" }}
             >
               {fmtNumber(cost.total_tokens)}
             </span>
           </div>
           <div className="flex justify-between text-sm mt-1">
-            <span style={{ color: "var(--pc-text-muted)" }}>
+            <span style={{ color: "var(--color-muted-foreground)" }}>
               {t("dashboard.requests_label")}
             </span>
             <span
               className="font-mono"
-              style={{ color: "var(--pc-text-primary)" }}
+              style={{ color: "var(--color-foreground)" }}
             >
               {fmtNumber(cost.request_count)}
             </span>
@@ -627,10 +631,10 @@ function OverviewTab({
         {/* Active Channels */}
         <div className="card p-5 animate-slide-in-up">
           <div className="flex items-center gap-2 mb-5">
-            <Radio className="h-5 w-5" style={{ color: "var(--pc-accent)" }} />
+            <Radio className="h-5 w-5" style={{ color: "var(--color-primary)" }} />
             <h2
               className="text-sm font-semibold uppercase tracking-wider"
-              style={{ color: "var(--pc-text-primary)" }}
+              style={{ color: "var(--color-foreground)" }}
             >
               {t("dashboard.channels")}
             </h2>
@@ -640,9 +644,9 @@ function OverviewTab({
               style={
                 showAllChannels
                   ? {
-                      background: "rgba(var(--pc-accent-rgb), 0.1)",
-                      borderColor: "rgba(var(--pc-accent-rgb), 0.3)",
-                      color: "var(--pc-accent-light)",
+                      background: "rgba(var(--color-accent-rgb), 0.1)",
+                      borderColor: "rgba(var(--color-accent-rgb), 0.3)",
+                      color: "var(--color-accent-light)",
                     }
                   : {
                       background: "rgba(0, 230, 138, 0.08)",
@@ -663,7 +667,7 @@ function OverviewTab({
           </div>
           <div className="space-y-2 overflow-y-auto max-h-48 pr-1">
             {Object.entries(status.channels).length === 0 ? (
-              <p className="text-sm" style={{ color: "var(--pc-text-faint)" }}>
+              <p className="text-sm" style={{ color: "var(--color-text-faint)" }}>
                 {t("dashboard.no_channels")}
               </p>
             ) : (
@@ -675,7 +679,7 @@ function OverviewTab({
                   return (
                     <p
                       className="text-sm"
-                      style={{ color: "var(--pc-text-faint)" }}
+                      style={{ color: "var(--color-text-faint)" }}
                     >
                       {t("dashboard.no_active_channels")}
                     </p>
@@ -687,12 +691,12 @@ function OverviewTab({
                     kind="channel"
                     id={name}
                     className="flex items-center justify-between py-2.5 px-3 rounded-xl transition-all hover:opacity-90"
-                    style={{ background: "var(--pc-bg-elevated)" }}
+                    style={{ background: "var(--color-secondary)" }}
                     title={t("dashboard.open_config_title", { path: `channels.${name}` })}
                   >
                     <span
                       className="text-sm font-mono font-medium"
-                      style={{ color: "var(--pc-text-primary)" }}
+                      style={{ color: "var(--color-foreground)" }}
                     >
                       {name}
                     </span>
@@ -706,12 +710,12 @@ function OverviewTab({
                                 boxShadow:
                                   "0 0 6px var(--color-status-success)",
                               }
-                            : { background: "var(--pc-text-faint)" }
+                            : { background: "var(--color-text-faint)" }
                         }
                       />
                       <span
                         className="text-xs"
-                        style={{ color: "var(--pc-text-muted)" }}
+                        style={{ color: "var(--color-muted-foreground)" }}
                       >
                         {active
                           ? t("dashboard.active")
@@ -729,11 +733,11 @@ function OverviewTab({
           <div className="flex items-center gap-2 mb-5">
             <Activity
               className="h-5 w-5"
-              style={{ color: "var(--pc-accent)" }}
+              style={{ color: "var(--color-primary)" }}
             />
             <h2
               className="text-sm font-semibold uppercase tracking-wider"
-              style={{ color: "var(--pc-text-primary)" }}
+              style={{ color: "var(--color-foreground)" }}
             >
               {t("dashboard.component_health")}
             </h2>
@@ -751,7 +755,7 @@ function OverviewTab({
               return (
                 <p
                   className="text-sm"
-                  style={{ color: "var(--pc-text-faint)" }}
+                  style={{ color: "var(--color-text-faint)" }}
                 >
                   {t("dashboard.no_components")}
                 </p>
@@ -785,7 +789,7 @@ function OverviewTab({
                         />
                         <span
                           className="text-sm font-medium break-all"
-                          style={{ color: "var(--pc-text-primary)" }}
+                          style={{ color: "var(--color-foreground)" }}
                         >
                           {display}
                         </span>
@@ -821,7 +825,7 @@ function OverviewTab({
                                 <button
                                   type="button"
                                   onClick={() => setHealthFix(fix)}
-                                  className="inline-flex h-6 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-pc-border bg-transparent px-2 text-[11px] font-medium text-pc-text-secondary transition-colors duration-150 hover:bg-[var(--pc-hover)] hover:text-pc-text hover:border-pc-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base cursor-pointer"
+                                  className="inline-flex h-6 flex-shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-border bg-transparent px-2 text-[11px] font-medium text-text-secondary transition-colors duration-150 hover:bg-[var(--color-hover)] hover:text-foreground hover:border-border-strong focus-visible:outline-none cursor-pointer"
                                 >
                                   {t("dashboard.fix")}
                                   <ArrowRight className="h-3 w-3" />
@@ -833,7 +837,7 @@ function OverviewTab({
                       ) : null}
                       <div
                         className="flex items-center gap-3 text-[11px] mt-0.5"
-                        style={{ color: "var(--pc-text-muted)" }}
+                        style={{ color: "var(--color-muted-foreground)" }}
                       >
                         {lastOk && (
                           <span title={`${t("dashboard.last_ok_title")} ${lastOk}`}>
@@ -863,19 +867,19 @@ function OverviewTab({
           <div className="flex items-center gap-2 mb-5">
             <Monitor
               className="h-5 w-5"
-              style={{ color: "var(--pc-accent)" }}
+              style={{ color: "var(--color-primary)" }}
             />
             <h2
               className="text-sm font-semibold uppercase tracking-wider"
-              style={{ color: "var(--pc-text-primary)" }}
+              style={{ color: "var(--color-foreground)" }}
             >
               {t("dashboard.connected_tuis")}
             </h2>
             <span
               className="text-xs font-mono px-2 py-0.5 rounded-full"
               style={{
-                background: "rgba(var(--pc-accent-rgb), 0.1)",
-                color: "var(--pc-accent)",
+                background: "rgba(var(--color-accent-rgb), 0.1)",
+                color: "var(--color-primary)",
               }}
             >
               {tuis.length}
@@ -886,7 +890,7 @@ function OverviewTab({
               <div
                 key={tui.tui_id}
                 className="flex items-center justify-between py-2.5 px-3 rounded-xl"
-                style={{ background: "var(--pc-bg-elevated)" }}
+                style={{ background: "var(--color-secondary)" }}
               >
                 <div className="flex items-center gap-2">
                   <span
@@ -898,15 +902,15 @@ function OverviewTab({
                   />
                   <span
                     className="text-sm font-mono font-medium"
-                    style={{ color: "var(--pc-text-primary)" }}
+                    style={{ color: "var(--color-foreground)" }}
                   >
                     {tui.tui_id}
                   </span>
                   <span
                     className="text-xs font-mono px-1.5 py-0.5 rounded"
                     style={{
-                      background: "rgba(var(--pc-accent-rgb), 0.08)",
-                      color: "var(--pc-text-muted)",
+                      background: "rgba(var(--color-accent-rgb), 0.08)",
+                      color: "var(--color-muted-foreground)",
                     }}
                   >
                     {tui.peer_label || tui.transport || t("dashboard.unknown")}
@@ -914,7 +918,7 @@ function OverviewTab({
                 </div>
                 <span
                   className="text-xs"
-                  style={{ color: "var(--pc-text-muted)" }}
+                  style={{ color: "var(--color-muted-foreground)" }}
                   title={tui.connected_at}
                 >
                   {formatRelative(tui.connected_at)}
@@ -1121,14 +1125,8 @@ function SessionsTab() {
     return (
       <div className="flex items-center justify-center h-48">
         <div className="flex items-center gap-3">
-          <div
-            className="h-6 w-6 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--pc-border)",
-              borderTopColor: "var(--pc-accent)",
-            }}
-          />
-          <span className="text-sm" style={{ color: "var(--pc-text-muted)" }}>
+          <Spinner size={22} />
+          <span className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
             {t("dashboard.loading_sessions")}
           </span>
         </div>
@@ -1154,18 +1152,18 @@ function SessionsTab() {
   return (
     <div className="card p-5 animate-slide-in-up space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <Users className="h-5 w-5" style={{ color: "var(--pc-accent)" }} />
+        <Users className="h-5 w-5" style={{ color: "var(--color-primary)" }} />
         <h2
           className="text-sm font-semibold uppercase tracking-wider"
-          style={{ color: "var(--pc-text-primary)" }}
+          style={{ color: "var(--color-foreground)" }}
         >
           {t("dashboard.sessions_title")}
         </h2>
         <span
           className="text-xs font-mono px-2 py-0.5 rounded-full"
           style={{
-            background: "rgba(var(--pc-accent-rgb), 0.1)",
-            color: "var(--pc-accent)",
+            background: "rgba(var(--color-accent-rgb), 0.1)",
+            color: "var(--color-primary)",
           }}
         >
           {visible.length}
@@ -1176,7 +1174,7 @@ function SessionsTab() {
           <div className="relative">
             <Search
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             />
             <input
               type="search"
@@ -1191,59 +1189,51 @@ function SessionsTab() {
           <div className="relative">
             <ArrowUpDown
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SessionSort)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setSortBy(v as SessionSort)}
+              options={SESSION_SORT_OPTIONS.map((o) => ({
+                value: o.value,
+                label: t(o.labelKey),
+              }))}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.session_sort_title")}
               aria-label={t("dashboard.session_sort_title")}
-            >
-              {SESSION_SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {t(o.labelKey)}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="relative">
             <Bot
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={agentFilter}
-              onChange={(e) => setAgentFilter(e.target.value)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setAgentFilter(v)}
+              options={[
+                { value: "", label: t("dashboard.all_agents") },
+                ...knownAgents.map((a) => ({ value: a, label: a })),
+              ]}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.filter_agent_title")}
-            >
-              <option value="">{t("dashboard.all_agents")}</option>
-              {knownAgents.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="relative">
             <Filter
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={channelFilter}
-              onChange={(e) => setChannelFilter(e.target.value)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setChannelFilter(v)}
+              options={[
+                { value: "", label: t("dashboard.all_channels") },
+                ...knownChannels.map((c) => ({ value: c, label: c })),
+              ]}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.filter_channel_title")}
-            >
-              <option value="">{t("dashboard.all_channels")}</option>
-              {knownChannels.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
       </div>
@@ -1251,7 +1241,7 @@ function SessionsTab() {
       {visible.length === 0 ? (
         <p
           className="text-sm py-8 text-center"
-          style={{ color: "var(--pc-text-faint)" }}
+          style={{ color: "var(--color-text-faint)" }}
         >
           {sessions.length === 0
             ? t("dashboard.no_sessions")
@@ -1264,7 +1254,7 @@ function SessionsTab() {
               key={session.session_key}
               className="flex items-center justify-between py-3 px-4 rounded-xl"
               style={{
-                background: "var(--pc-bg-elevated)",
+                background: "var(--color-secondary)",
                 border: "1px solid transparent",
               }}
             >
@@ -1272,7 +1262,7 @@ function SessionsTab() {
                 <div className="flex items-start gap-2 mb-1 flex-wrap">
                   <span
                     className="text-sm font-medium font-mono break-all"
-                    style={{ color: "var(--pc-text-primary)" }}
+                    style={{ color: "var(--color-foreground)" }}
                   >
                     {session.session_id}
                   </span>
@@ -1282,8 +1272,8 @@ function SessionsTab() {
                       id={session.agent_alias}
                       className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 hover:underline"
                       style={{
-                        background: "rgba(var(--pc-accent-rgb), 0.10)",
-                        color: "var(--pc-accent-light)",
+                        background: "rgba(var(--color-accent-rgb), 0.10)",
+                        color: "var(--color-accent-light)",
                       }}
                       title={t("dashboard.open_config_title", { path: `agents.${session.agent_alias}` })}
                     >
@@ -1307,7 +1297,7 @@ function SessionsTab() {
                 </div>
                 <div
                   className="flex items-center gap-3 text-xs"
-                  style={{ color: "var(--pc-text-muted)" }}
+                  style={{ color: "var(--color-muted-foreground)" }}
                 >
                   <span className="flex items-center gap-1">
                     <MessageSquare className="h-3 w-3" />
@@ -1320,9 +1310,9 @@ function SessionsTab() {
                 <button
                   type="button"
                   onClick={() => openInspect(session)}
-                  className="p-1.5 rounded-lg hover:bg-[var(--pc-hover)]"
+                  className="p-1.5 rounded-lg hover:bg-[var(--color-hover)]"
                   title={t("dashboard.view_messages")}
-                  style={{ color: "var(--pc-text-muted)" }}
+                  style={{ color: "var(--color-muted-foreground)" }}
                 >
                   <Eye className="h-4 w-4" />
                 </button>
@@ -1330,7 +1320,7 @@ function SessionsTab() {
                   type="button"
                   onClick={() => setPendingDelete(session)}
                   disabled={deleting === session.session_key}
-                  className="p-1.5 rounded-lg hover:bg-[var(--pc-hover)] disabled:opacity-50"
+                  className="p-1.5 rounded-lg hover:bg-[var(--color-hover)] disabled:opacity-50"
                   title={t("dashboard.delete_session")}
                   style={{ color: "var(--color-status-error)" }}
                 >
@@ -1356,13 +1346,13 @@ function SessionsTab() {
               <div className="min-w-0">
                 <p
                   className="text-xs uppercase tracking-wider mb-1"
-                  style={{ color: "var(--pc-text-faint)" }}
+                  style={{ color: "var(--color-text-faint)" }}
                 >
                   {t("dashboard.session_label")}
                 </p>
                 <p
                   className="text-sm font-mono break-all"
-                  style={{ color: "var(--pc-text-primary)" }}
+                  style={{ color: "var(--color-foreground)" }}
                 >
                   {inspect.session.session_id}
                 </p>
@@ -1373,8 +1363,8 @@ function SessionsTab() {
                       id={inspect.session.agent_alias}
                       className="text-[10px] font-medium px-2 py-0.5 rounded-full hover:underline"
                       style={{
-                        background: "rgba(var(--pc-accent-rgb), 0.10)",
-                        color: "var(--pc-accent-light)",
+                        background: "rgba(var(--color-accent-rgb), 0.10)",
+                        color: "var(--color-accent-light)",
                       }}
                     >
                       {inspect.session.agent_alias}
@@ -1400,10 +1390,10 @@ function SessionsTab() {
                   <button
                     type="button"
                     onClick={() => setInspectNewestFirst((v) => !v)}
-                    className="text-[10px] font-medium px-2 py-1 rounded-lg hover:bg-[var(--pc-hover)] border"
+                    className="text-[10px] font-medium px-2 py-1 rounded-lg hover:bg-[var(--color-hover)] border"
                     style={{
-                      color: "var(--pc-text-muted)",
-                      borderColor: "var(--pc-border)",
+                      color: "var(--color-muted-foreground)",
+                      borderColor: "var(--color-border)",
                     }}
                     title={t("dashboard.flip_transcript")}
                   >
@@ -1415,8 +1405,8 @@ function SessionsTab() {
                 <button
                   type="button"
                   onClick={() => setInspect(null)}
-                  className="p-1 rounded-lg hover:bg-[var(--pc-hover)]"
-                  style={{ color: "var(--pc-text-muted)" }}
+                  className="p-1 rounded-lg hover:bg-[var(--color-hover)]"
+                  style={{ color: "var(--color-muted-foreground)" }}
                   title={t("common.close")}
                 >
                   <X className="h-4 w-4" />
@@ -1434,14 +1424,14 @@ function SessionsTab() {
               ) : inspect.messages === null ? (
                 <p
                   className="text-sm"
-                  style={{ color: "var(--pc-text-muted)" }}
+                  style={{ color: "var(--color-muted-foreground)" }}
                 >
                   {t("dashboard.loading_transcript")}
                 </p>
               ) : inspect.messages.length === 0 ? (
                 <p
                   className="text-sm"
-                  style={{ color: "var(--pc-text-faint)" }}
+                  style={{ color: "var(--color-text-faint)" }}
                 >
                   {t("dashboard.no_persisted_messages")}
                 </p>
@@ -1453,19 +1443,19 @@ function SessionsTab() {
                   <div
                     key={i}
                     className="rounded-xl px-3 py-2"
-                    style={{ background: "var(--pc-bg-elevated)" }}
+                    style={{ background: "var(--color-secondary)" }}
                   >
                     <div className="flex items-baseline justify-between gap-3 mb-1">
                       <p
                         className="text-[10px] uppercase tracking-wider font-mono"
-                        style={{ color: "var(--pc-text-faint)" }}
+                        style={{ color: "var(--color-text-faint)" }}
                       >
                         {m.role}
                       </p>
                       {m.created_at && (
                         <p
                           className="text-[10px] font-mono whitespace-nowrap"
-                          style={{ color: "var(--pc-text-faint)" }}
+                          style={{ color: "var(--color-text-faint)" }}
                           title={m.created_at}
                         >
                           {formatLocalDateTime(m.created_at)}
@@ -1474,7 +1464,7 @@ function SessionsTab() {
                     </div>
                     <p
                       className="text-sm whitespace-pre-wrap break-words"
-                      style={{ color: "var(--pc-text-primary)" }}
+                      style={{ color: "var(--color-foreground)" }}
                     >
                       {m.content}
                     </p>
@@ -1547,14 +1537,8 @@ function ChannelsTab() {
     return (
       <div className="flex items-center justify-center h-48">
         <div className="flex items-center gap-3">
-          <div
-            className="h-6 w-6 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--pc-border)",
-              borderTopColor: "var(--pc-accent)",
-            }}
-          />
-          <span className="text-sm" style={{ color: "var(--pc-text-muted)" }}>
+          <Spinner size={22} />
+          <span className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
             {t("dashboard.loading_channels")}
           </span>
         </div>
@@ -1582,7 +1566,7 @@ function ChannelsTab() {
       <div className="card p-5 animate-slide-in-up">
         <p
           className="text-sm py-8 text-center"
-          style={{ color: "var(--pc-text-faint)" }}
+          style={{ color: "var(--color-text-faint)" }}
         >
           {t("dashboard.no_channels_detail")}
         </p>
@@ -1615,8 +1599,8 @@ function ChannelsTab() {
               <div
                 className="p-2 rounded-2xl flex-shrink-0"
                 style={{
-                  background: `rgba(var(--pc-accent-rgb), 0.08)`,
-                  color: "var(--pc-accent)",
+                  background: `rgba(var(--color-accent-rgb), 0.08)`,
+                  color: "var(--color-primary)",
                 }}
               >
                 <Radio className="h-5 w-5" />
@@ -1628,13 +1612,13 @@ function ChannelsTab() {
                   className="text-sm font-semibold font-mono break-all hover:underline"
                   title={t("dashboard.open_config_title", { path: `channels.${channel.name}` })}
                 >
-                  <span style={{ color: "var(--pc-text-primary)" }}>
+                  <span style={{ color: "var(--color-foreground)" }}>
                     {channel.name}
                   </span>
                 </EntityLink>
                 <span
                   className="text-xs block"
-                  style={{ color: "var(--pc-text-muted)" }}
+                  style={{ color: "var(--color-muted-foreground)" }}
                 >
                   {channel.owning_agent ? (
                     <>
@@ -1677,7 +1661,7 @@ function ChannelsTab() {
               listener supervisor's state. */}
           <div
             className="pt-3 border-t space-y-2"
-            style={{ borderColor: "var(--pc-border)" }}
+            style={{ borderColor: "var(--color-border)" }}
           >
             {channel.readiness ? (
               <>
@@ -1685,7 +1669,7 @@ function ChannelsTab() {
                   const value = channel.readiness?.[key];
                   return value ? (
                     <div key={key} className="flex justify-between gap-3 text-xs">
-                      <span style={{ color: "var(--pc-text-muted)" }}>{t(labelKey)}</span>
+                      <span style={{ color: "var(--color-muted-foreground)" }}>{t(labelKey)}</span>
                       <span style={{ color: readinessColor(value) }}>
                         {readinessLabel(value)}
                       </span>
@@ -1695,7 +1679,7 @@ function ChannelsTab() {
               </>
             ) : null}
             <div className="flex justify-between text-xs">
-              <span style={{ color: "var(--pc-text-muted)" }}>
+              <span style={{ color: "var(--color-muted-foreground)" }}>
                 {t("dashboard.health")}
               </span>
               <span style={{ color: healthColor(channel.health) }}>
@@ -1721,7 +1705,7 @@ function ChannelsTab() {
                   <p
                     key={note}
                     className="text-xs leading-snug"
-                    style={{ color: "var(--pc-text-muted)" }}
+                    style={{ color: "var(--color-muted-foreground)" }}
                   >
                     {note}
                   </p>
@@ -1826,13 +1810,7 @@ export default function Dashboard() {
   if (!status || !cost) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div
-          className="h-8 w-8 border-2 rounded-full animate-spin"
-          style={{
-            borderColor: "var(--pc-border)",
-            borderTopColor: "var(--pc-accent)",
-          }}
-        />
+        <Spinner size={32} />
       </div>
     );
   }
@@ -1846,7 +1824,7 @@ export default function Dashboard() {
           button keeps its size (flex-shrink-0) so labels never get clipped. */}
       <div
         className="flex items-center gap-1 p-1 rounded-2xl overflow-x-auto"
-        style={{ background: "var(--pc-bg-elevated)" }}
+        style={{ background: "var(--color-secondary)" }}
         role="tablist"
         aria-label={t("nav.dashboard")}
       >
@@ -1860,23 +1838,23 @@ export default function Dashboard() {
             style={
               activeTab === id
                 ? {
-                    background: "var(--pc-bg-primary)",
-                    color: "var(--pc-accent)",
+                    background: "var(--color-background)",
+                    color: "var(--color-primary)",
                     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
                   }
                 : {
                     background: "transparent",
-                    color: "var(--pc-text-muted)",
+                    color: "var(--color-muted-foreground)",
                   }
             }
             onMouseEnter={(e) => {
               if (activeTab !== id) {
-                e.currentTarget.style.color = "var(--pc-text-primary)";
+                e.currentTarget.style.color = "var(--color-foreground)";
               }
             }}
             onMouseLeave={(e) => {
               if (activeTab !== id) {
-                e.currentTarget.style.color = "var(--pc-text-muted)";
+                e.currentTarget.style.color = "var(--color-muted-foreground)";
               }
             }}
           >
@@ -1923,7 +1901,7 @@ function HealthTab({ status }: { status: StatusResponse }) {
   if (entries.length === 0) {
     return (
       <div className="card p-5 animate-slide-in-up">
-        <p className="text-sm" style={{ color: "var(--pc-text-faint)" }}>
+        <p className="text-sm" style={{ color: "var(--color-text-faint)" }}>
           {t("dashboard.no_components")}
         </p>
       </div>
@@ -1933,10 +1911,10 @@ function HealthTab({ status }: { status: StatusResponse }) {
   return (
     <div className="card p-5 animate-slide-in-up">
       <div className="flex items-center gap-2 mb-5">
-        <Activity className="h-5 w-5" style={{ color: "var(--pc-accent)" }} />
+        <Activity className="h-5 w-5" style={{ color: "var(--color-primary)" }} />
         <h2
           className="text-sm font-semibold uppercase tracking-wider"
-          style={{ color: "var(--pc-text-primary)" }}
+          style={{ color: "var(--color-foreground)" }}
         >
           {t("dashboard.component_health")}
         </h2>
@@ -1964,7 +1942,7 @@ function HealthTab({ status }: { status: StatusResponse }) {
                 />
                 <span
                   className="text-sm font-medium font-mono break-all"
-                  style={{ color: "var(--pc-text-primary)" }}
+                  style={{ color: "var(--color-foreground)" }}
                 >
                   {name}
                 </span>
@@ -1990,7 +1968,7 @@ function HealthTab({ status }: { status: StatusResponse }) {
               )}
               <div
                 className="flex items-center gap-3 text-[11px] mt-0.5"
-                style={{ color: "var(--pc-text-muted)" }}
+                style={{ color: "var(--color-muted-foreground)" }}
               >
                 {lastOk && (
                   <span title={`${t("dashboard.last_ok_title")} ${lastOk}`}>
@@ -2056,35 +2034,33 @@ function CostTab({
       <div className="flex items-center gap-2">
         <label
           className="text-xs uppercase tracking-wider"
-          style={{ color: "var(--pc-text-secondary)" }}
+          style={{ color: "var(--color-text-secondary)" }}
         >
           {t("dashboard.cost.window")}
         </label>
-        <select
+        <Select
           value={costWindow}
-          onChange={(e) => onWindowChange(e.target.value as CostWindow)}
-          className="input-electric text-sm px-2 py-1 appearance-none cursor-pointer"
-        >
-          {COST_WINDOW_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {t(opt.labelKey)}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => onWindowChange(v as CostWindow)}
+          options={COST_WINDOW_OPTIONS.map((opt) => ({
+            value: opt.value,
+            label: t(opt.labelKey),
+          }))}
+          triggerClassName="px-2 py-1"
+        />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-5 animate-slide-in-up">
           <div className="flex items-center gap-2 mb-5">
-            <Bot className="h-5 w-5" style={{ color: "var(--pc-accent)" }} />
+            <Bot className="h-5 w-5" style={{ color: "var(--color-primary)" }} />
             <h2
               className="text-sm font-semibold uppercase tracking-wider"
-              style={{ color: "var(--pc-text-primary)" }}
+              style={{ color: "var(--color-foreground)" }}
             >
               {t("dashboard.cost.spend_by_agent")} · {windowLabel}
             </h2>
           </div>
           {byAgent.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--pc-text-faint)" }}>
+            <p className="text-sm" style={{ color: "var(--color-text-faint)" }}>
               {t("dashboard.cost.no_per_agent_pre")}{" "}
               <code>[cost].track_per_agent</code>
               {t("dashboard.cost.no_per_agent_post")}
@@ -2098,7 +2074,7 @@ function CostTab({
                   <li
                     key={row.agent_alias}
                     className="flex flex-col gap-1 rounded-xl px-3 py-2"
-                    style={{ background: "var(--pc-bg-elevated)" }}
+                    style={{ background: "var(--color-secondary)" }}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <EntityLink
@@ -2111,14 +2087,14 @@ function CostTab({
                       </EntityLink>
                       <span
                         className="font-mono"
-                        style={{ color: "var(--pc-text-primary)" }}
+                        style={{ color: "var(--color-foreground)" }}
                       >
                         {formatUSD(row.cost_usd)}
                       </span>
                     </div>
                     <div
                       className="flex items-center gap-3 text-xs flex-wrap"
-                      style={{ color: "var(--pc-text-muted)" }}
+                      style={{ color: "var(--color-muted-foreground)" }}
                     >
                       <span>{row.request_count} {plural(row.request_count, "dashboard.cost.exchanges")}</span>
                       <span>
@@ -2143,17 +2119,17 @@ function CostTab({
           <div className="flex items-center gap-2 mb-5">
             <DollarSign
               className="h-5 w-5"
-              style={{ color: "var(--pc-accent)" }}
+              style={{ color: "var(--color-primary)" }}
             />
             <h2
               className="text-sm font-semibold uppercase tracking-wider"
-              style={{ color: "var(--pc-text-primary)" }}
+              style={{ color: "var(--color-foreground)" }}
             >
               {t("dashboard.cost.spend_by_model")} · {windowLabel}
             </h2>
           </div>
           {byModel.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--pc-text-faint)" }}>
+            <p className="text-sm" style={{ color: "var(--color-text-faint)" }}>
               {t("dashboard.cost.no_model_usage")}
             </p>
           ) : (
@@ -2165,7 +2141,7 @@ function CostTab({
                   <li
                     key={row.model}
                     className="flex flex-col gap-1 rounded-xl px-3 py-2"
-                    style={{ background: "var(--pc-bg-elevated)" }}
+                    style={{ background: "var(--color-secondary)" }}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <button
@@ -2173,7 +2149,7 @@ function CostTab({
                         onClick={() => void openModelRates(row.model)}
                         className="font-mono break-all hover:underline text-left"
                         style={{
-                          color: "var(--pc-text-primary)",
+                          color: "var(--color-foreground)",
                           background: "transparent",
                         }}
                         title={`${t("dashboard.cost.open_rate_sheet_title")} ${row.model}`}
@@ -2182,14 +2158,14 @@ function CostTab({
                       </button>
                       <span
                         className="font-mono"
-                        style={{ color: "var(--pc-text-primary)" }}
+                        style={{ color: "var(--color-foreground)" }}
                       >
                         {formatUSD(row.cost_usd)}
                       </span>
                     </div>
                     <div
                       className="flex items-center gap-3 text-xs flex-wrap"
-                      style={{ color: "var(--pc-text-muted)" }}
+                      style={{ color: "var(--color-muted-foreground)" }}
                     >
                       <span>{row.request_count} {plural(row.request_count, "dashboard.cost.exchanges")}</span>
                       <span>
@@ -2391,14 +2367,8 @@ function MemoriesTab() {
     return (
       <div className="flex items-center justify-center h-48">
         <div className="flex items-center gap-3">
-          <div
-            className="h-6 w-6 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--pc-border)",
-              borderTopColor: "var(--pc-accent)",
-            }}
-          />
-          <span className="text-sm" style={{ color: "var(--pc-text-muted)" }}>
+          <Spinner size={22} />
+          <span className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
             {t("dashboard.mem.loading")}
           </span>
         </div>
@@ -2424,18 +2394,18 @@ function MemoriesTab() {
   return (
     <div className="card p-5 animate-slide-in-up space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <Brain className="h-5 w-5" style={{ color: "var(--pc-accent)" }} />
+        <Brain className="h-5 w-5" style={{ color: "var(--color-primary)" }} />
         <h2
           className="text-sm font-semibold uppercase tracking-wider"
-          style={{ color: "var(--pc-text-primary)" }}
+          style={{ color: "var(--color-foreground)" }}
         >
           {t("dashboard.mem.heading")}
         </h2>
         <span
           className="text-xs font-mono px-2 py-0.5 rounded-full"
           style={{
-            background: "rgba(var(--pc-accent-rgb), 0.1)",
-            color: "var(--pc-accent)",
+            background: "rgba(var(--color-accent-rgb), 0.1)",
+            color: "var(--color-primary)",
           }}
         >
           {visibleEntries.length}
@@ -2466,7 +2436,7 @@ function MemoriesTab() {
           <div className="relative">
             <Search
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             />
             <input
               type="search"
@@ -2481,59 +2451,51 @@ function MemoriesTab() {
           <div className="relative">
             <ArrowUpDown
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as MemorySort)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setSortBy(v as MemorySort)}
+              options={MEMORY_SORT_OPTIONS.map((o) => ({
+                value: o.value,
+                label: t(o.labelKey),
+              }))}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.mem.sort_title")}
               aria-label={t("dashboard.mem.sort_aria")}
-            >
-              {MEMORY_SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {t(o.labelKey)}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="relative">
             <Bot
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={agentFilter}
-              onChange={(e) => setFilter("agent", e.target.value)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setFilter("agent", v)}
+              options={[
+                { value: "", label: t("dashboard.all_agents") },
+                ...knownAgents.map((a) => ({ value: a, label: a })),
+              ]}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.filter_agent_title")}
-            >
-              <option value="">{t("dashboard.all_agents")}</option>
-              {knownAgents.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="relative">
             <Filter
               className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
-              style={{ color: "var(--pc-text-faint)" }}
+              style={{ color: "var(--color-text-faint)" }}
             />
-            <select
+            <Select
               value={categoryFilter}
-              onChange={(e) => setFilter("category", e.target.value)}
-              className="input-electric pl-7 pr-6 py-1 text-xs appearance-none cursor-pointer"
+              onChange={(v) => setFilter("category", v)}
+              options={[
+                { value: "", label: t("dashboard.mem.all_categories") },
+                ...knownCategories.map((c) => ({ value: c, label: c })),
+              ]}
+              triggerClassName="pl-7 pr-6 py-1 text-xs"
               title={t("dashboard.mem.filter_category_title")}
-            >
-              <option value="">{t("dashboard.mem.all_categories")}</option>
-              {knownCategories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
       </div>
@@ -2541,7 +2503,7 @@ function MemoriesTab() {
       {visibleEntries.length === 0 ? (
         <p
           className="text-sm py-8 text-center"
-          style={{ color: "var(--pc-text-faint)" }}
+          style={{ color: "var(--color-text-faint)" }}
         >
           {t("dashboard.mem.no_match")}
         </p>
@@ -2551,13 +2513,13 @@ function MemoriesTab() {
             <div
               key={entry.id}
               className="flex items-center justify-between gap-3 py-3 px-4 rounded-xl"
-              style={{ background: "var(--pc-bg-elevated)" }}
+              style={{ background: "var(--color-secondary)" }}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-start gap-2 mb-1 flex-wrap">
                   <span
                     className="text-sm font-medium font-mono break-all"
-                    style={{ color: "var(--pc-text-primary)" }}
+                    style={{ color: "var(--color-foreground)" }}
                   >
                     {entry.key}
                   </span>
@@ -2567,8 +2529,8 @@ function MemoriesTab() {
                       id={entry.agent_alias}
                       className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 hover:underline"
                       style={{
-                        background: "rgba(var(--pc-accent-rgb), 0.10)",
-                        color: "var(--pc-accent-light)",
+                        background: "rgba(var(--color-accent-rgb), 0.10)",
+                        color: "var(--color-accent-light)",
                       }}
                       title={t("dashboard.open_config_title", { path: `agents.${entry.agent_alias}` })}
                     >
@@ -2594,7 +2556,7 @@ function MemoriesTab() {
                 />
                 <p
                   className="text-[10px] font-mono mt-1"
-                  style={{ color: "var(--pc-text-faint)" }}
+                  style={{ color: "var(--color-text-faint)" }}
                   title={entry.timestamp}
                 >
                   {formatLocalDateTime(entry.timestamp)}
@@ -2604,7 +2566,7 @@ function MemoriesTab() {
                 type="button"
                 onClick={() => setPendingDelete(entry)}
                 disabled={deleting === entry.id}
-                className="p-1.5 rounded-lg hover:bg-[var(--pc-hover)] disabled:opacity-50 flex-shrink-0"
+                className="p-1.5 rounded-lg hover:bg-[var(--color-hover)] disabled:opacity-50 flex-shrink-0"
                 title={t("dashboard.mem.delete")}
                 style={{ color: "var(--color-status-error)" }}
               >
@@ -2615,32 +2577,18 @@ function MemoriesTab() {
         </div>
       )}
 
-      {showAddForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.5)" }}
-          onClick={() => setShowAddForm(false)}
-        >
-          <div
-            className="card p-6 w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
+      {/* Add memory: right-side drawer, same pattern as Cron / Roles / Users */}
+      <DetailPanelSurface open={showAddForm}>
+        {showAddForm && (
+          <DetailPanel
+            icon={
+              <IconTile>
+                <Brain className="h-[18px] w-[18px] text-muted-foreground" />
+              </IconTile>
+            }
+            title={t("dashboard.add_memory")}
+            onClose={() => setShowAddForm(false)}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3
-                className="text-lg font-semibold"
-                style={{ color: "var(--pc-text-primary)" }}
-              >
-                {t("dashboard.add_memory")}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="p-1 rounded-lg hover:bg-[var(--pc-hover)]"
-                style={{ color: "var(--pc-text-muted)" }}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
             {formError && (
               <div
                 className="mb-4 rounded-xl border p-3 text-sm"
@@ -2657,7 +2605,7 @@ function MemoriesTab() {
               <div>
                 <label
                   className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
-                  style={{ color: "var(--pc-text-secondary)" }}
+                  style={{ color: "var(--color-text-secondary)" }}
                 >
                   {t("dashboard.mem.field_key")}{" "}
                   <span style={{ color: "var(--color-status-error)" }}>*</span>
@@ -2673,7 +2621,7 @@ function MemoriesTab() {
               <div>
                 <label
                   className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
-                  style={{ color: "var(--pc-text-secondary)" }}
+                  style={{ color: "var(--color-text-secondary)" }}
                 >
                   {t("dashboard.mem.field_content")}{" "}
                   <span style={{ color: "var(--color-status-error)" }}>*</span>
@@ -2689,7 +2637,7 @@ function MemoriesTab() {
               <div>
                 <label
                   className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
-                  style={{ color: "var(--pc-text-secondary)" }}
+                  style={{ color: "var(--color-text-secondary)" }}
                 >
                   {t("dashboard.mem.field_category")}
                 </label>
@@ -2704,25 +2652,22 @@ function MemoriesTab() {
               <div>
                 <label
                   className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
-                  style={{ color: "var(--pc-text-secondary)" }}
+                  style={{ color: "var(--color-text-secondary)" }}
                 >
                   {t("dashboard.mem.field_agent")}
                 </label>
-                <select
+                <Select
                   value={formAgent}
-                  onChange={(e) => setFormAgent(e.target.value)}
-                  className="input-electric w-full px-3 py-2.5 text-sm appearance-none cursor-pointer"
-                >
-                  <option value="">{t("dashboard.mem.install_wide")}</option>
-                  {knownAgents.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setFormAgent(v)}
+                  options={[
+                    { value: "", label: t("dashboard.mem.install_wide") },
+                    ...knownAgents.map((a) => ({ value: a, label: a })),
+                  ]}
+                  className="w-full"
+                />
                 <p
                   className="text-[11px] mt-1"
-                  style={{ color: "var(--pc-text-faint)" }}
+                  style={{ color: "var(--color-text-faint)" }}
                 >
                   {t("dashboard.mem.agent_hint")}
                 </p>
@@ -2745,9 +2690,9 @@ function MemoriesTab() {
                 {submitting ? t("dashboard.mem.saving") : t("dashboard.mem.save")}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </DetailPanel>
+        )}
+      </DetailPanelSurface>
 
       <ConfirmDialog
         open={pendingDelete !== null}
@@ -2796,7 +2741,7 @@ function MemoryContent({
     <>
       <p
         className="text-sm whitespace-pre-wrap break-words"
-        style={{ color: "var(--pc-text-secondary)" }}
+        style={{ color: "var(--color-text-secondary)" }}
       >
         {display}
       </p>
@@ -2805,7 +2750,7 @@ function MemoryContent({
           type="button"
           onClick={onToggle}
           className="text-[11px] mt-1 hover:underline"
-          style={{ color: "var(--pc-accent)" }}
+          style={{ color: "var(--color-primary)" }}
         >
           {expanded
             ? t("dashboard.mem.collapse")
@@ -3005,7 +2950,7 @@ function AgentsSection() {
           <Link
             to="/agents"
             className="text-xs flex items-center gap-1 hover:underline"
-            style={{ color: "var(--pc-text-muted)" }}
+            style={{ color: "var(--color-muted-foreground)" }}
           >
             {hiddenCount > 0
               ? `${t("dash.view_all")} (${sortedAgents!.length})`
@@ -3022,7 +2967,7 @@ function AgentsSection() {
       <header className="flex items-center gap-2">
         <h2
           className="text-sm font-semibold uppercase tracking-wider"
-          style={{ color: "var(--pc-text-secondary)" }}
+          style={{ color: "var(--color-text-secondary)" }}
         >
           {t("dash.agents_heading")}
         </h2>
@@ -3030,8 +2975,8 @@ function AgentsSection() {
           <span
             className="text-xs font-mono px-2 py-0.5 rounded-full"
             style={{
-              background: "rgba(var(--pc-accent-rgb), 0.1)",
-              color: "var(--pc-accent)",
+              background: "rgba(var(--color-accent-rgb), 0.1)",
+              color: "var(--color-primary)",
             }}
           >
             {sortedAgents.length}
@@ -3056,8 +3001,8 @@ function AgentsSection() {
         <div
           className="rounded-2xl border p-6 text-center text-sm"
           style={{
-            borderColor: "var(--pc-border)",
-            color: "var(--pc-text-muted)",
+            borderColor: "var(--color-border)",
+            color: "var(--color-muted-foreground)",
           }}
         >
           {t("dashboard.loading_agents")}
@@ -3065,11 +3010,11 @@ function AgentsSection() {
       ) : agents.length === 0 ? (
         <div
           className="rounded-2xl border-2 border-dashed p-6 text-center"
-          style={{ borderColor: "var(--pc-border)" }}
+          style={{ borderColor: "var(--color-border)" }}
         >
           <p
             className="text-sm font-medium mb-2"
-            style={{ color: "var(--pc-text-primary)" }}
+            style={{ color: "var(--color-foreground)" }}
           >
             {t("dashboard.no_agents_configured")}
           </p>
@@ -3082,7 +3027,7 @@ function AgentsSection() {
           </Link>
         </div>
       ) : (
-        <div className="rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface overflow-hidden">
+        <div className="rounded-[var(--radius-lg)] border border-border bg-card overflow-hidden">
           {visibleAgents!.map((agent) => (
             <AgentCard
               key={agent.alias}
@@ -3094,7 +3039,7 @@ function AgentsSection() {
           {hiddenCount > 0 && (
             <Link
               to="/agents"
-              className="flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium border-t border-pc-border text-pc-text-muted transition-colors hover:bg-[var(--pc-hover)] hover:text-pc-text"
+              className="flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium border-t border-border text-muted-foreground transition-colors hover:bg-[var(--color-hover)] hover:text-foreground"
             >
               {t("dash.view_all")} · {plural(hiddenCount, "dashboard.more_agents_count")}
               <ChevronRight className="h-3.5 w-3.5" />

@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { createElement } from 'react';
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
+import { MemoryRouter } from 'react-router-dom';
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -141,6 +142,18 @@ globalThis.fetch = async (input, init) => {
   if (method === 'GET' && u.pathname === '/api/agents') {
     return json({ agents });
   }
+  // The re-hosted gateway has no /api/agents listing: aliases come from the
+  // `agents` config map keys (see getAuthzAgents).
+  if (method === 'GET' && u.pathname === '/api/config/map-keys' && u.searchParams.get('path') === 'agents') {
+    return json({ path: 'agents', keys: agents });
+  }
+  if (method === 'GET' && u.pathname === '/api/config/map-keys' && u.searchParams.get('path') === 'oidc') {
+    return json({ path: 'oidc', keys: [] });
+  }
+  // External (SSO) users route absent on this gateway: the Users page hides the group.
+  if (method === 'GET' && u.pathname === '/api/authz/external') {
+    return json({ code: 'not_found' }, 404);
+  }
 
   calls.push({ method, path: u.pathname + u.search, body });
 
@@ -172,6 +185,12 @@ globalThis.fetch = async (input, init) => {
       .map(([pid]) => pid);
     return json({ id, deleted: true, affected_principals: affected });
   }
+  if (method === 'POST' && u.pathname === '/api/authz/principals') {
+    const b = body as { id: string; profiles: string[] };
+    if (principals[b.id]) return json({ code: 'conflict', message: 'already exists' }, 409);
+    principals[b.id] = { profiles: b.profiles, device_ids: [], token_hashes: [], allowed_agents: [] };
+    return json({ id: b.id, profiles: b.profiles, admin: false, device_ids: [] });
+  }
   const bindMatch = u.pathname.match(/^\/api\/authz\/principals\/([^/]+)\/profiles$/);
   if (bindMatch) {
     const id = decodeURIComponent(bindMatch[1]!);
@@ -192,6 +211,7 @@ globalThis.fetch = async (input, init) => {
 };
 
 const { default: Roles } = await import('./Roles.tsx');
+const { default: Users } = await import('./Users.tsx');
 const Select = (await import('@/components/ui/Select.tsx')).Select;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -210,10 +230,11 @@ function buttonWithText(renderer: ReactTestRenderer, text: string): ReactTestIns
   return match;
 }
 
-async function mount(): Promise<ReactTestRenderer> {
+async function mount(page: typeof Roles | typeof Users = Roles): Promise<ReactTestRenderer> {
   let renderer!: ReactTestRenderer;
   await act(async () => {
-    renderer = create(createElement(Roles));
+    // Both pages use router hooks (deep links between Roles and Users).
+    renderer = create(createElement(MemoryRouter, null, createElement(page)));
   });
   // Flush the three parallel fetches `useRoles` kicks off on mount.
   await act(async () => {
@@ -225,16 +246,50 @@ async function mount(): Promise<ReactTestRenderer> {
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
-test('renders profiles and principals, flagging an unassigned principal as PENDING', async () => {
+test('the Roles page renders profiles with their user counts and no user rows', async () => {
   resetFixtures();
   const renderer = await mount();
 
   const text = nodeText(renderer.root);
   assert.ok(text.includes('crm'), 'the crm profile id is rendered');
   assert.ok(text.includes('ops'), 'the ops profile id is rendered');
-  assert.ok(text.includes('alice'), 'the alice principal id is rendered');
-  assert.ok(text.includes('bob'), 'the bob principal id is rendered');
+  assert.ok(text.includes('1 local · 0 external'), 'ops shows the one local user (bob) bound to it');
+  assert.ok(text.includes('0 users'), 'crm (nobody bound) shows the plain zero');
+  assert.ok(!text.includes('alice'), 'users are not listed on the Roles page');
+
+  await act(async () => { renderer.unmount(); });
+});
+
+test('the Users page lists local users, flagging an unassigned one as PENDING', async () => {
+  resetFixtures();
+  const renderer = await mount(Users);
+
+  const text = nodeText(renderer.root);
+  assert.ok(text.includes('alice'), 'the alice user id is rendered');
+  assert.ok(text.includes('bob'), 'the bob user id is rendered');
   assert.ok(text.includes('PENDING'), 'alice (empty profiles) is flagged PENDING');
+  assert.ok(!text.includes('External (SSO)'), 'the SSO group is hidden when the gateway has no route');
+
+  await act(async () => { renderer.unmount(); });
+});
+
+test('creating a local user posts {id, profiles} and opens the new user', async () => {
+  resetFixtures();
+  const renderer = await mount(Users);
+
+  await act(async () => { buttonWithText(renderer, 'New user').props.onClick(); });
+  const idInput = renderer.root.findByProps({ id: 'users-local-id' });
+  await act(async () => { idInput.props.onChange({ target: { value: 'ivanov' } }); });
+  const crmLabel = renderer.root.findAllByType('label').find((l) => nodeText(l).includes('crm'));
+  assert.ok(crmLabel, 'the crm role checkbox is rendered');
+  await act(async () => { crmLabel.findByType('input').props.onChange(); });
+  const submit = renderer.root.findAllByType('button').filter((b) => nodeText(b).includes('New user')).pop()!;
+  await act(async () => { submit.props.onClick(); });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+  const createCall = calls.find((c) => c.method === 'POST' && c.path === '/api/authz/principals');
+  assert.ok(createCall, 'a POST to /api/authz/principals was made');
+  assert.deepEqual(createCall!.body, { id: 'ivanov', profiles: ['crm'] });
 
   await act(async () => { renderer.unmount(); });
 });
@@ -275,9 +330,9 @@ test('creating a profile posts allowed_agents=["*"] for the "all agents" toggle 
   await act(async () => { renderer.unmount(); });
 });
 
-test('binding a pending principal to a profile calls the bind endpoint and clears PENDING', async () => {
+test('binding a pending user to a profile calls the bind endpoint and clears PENDING', async () => {
   resetFixtures();
-  const renderer = await mount();
+  const renderer = await mount(Users);
   assert.ok(nodeText(renderer.root).includes('PENDING'));
 
   // Drive the (controlled) Select directly, the same way existing tests in
@@ -286,17 +341,19 @@ test('binding a pending principal to a profile calls the bind endpoint and clear
   // alice's <li> row specifically — bob also has an unbound profile (he's
   // only bound to "ops" of the two configured profiles) and so renders his
   // own bind picker too.
-  const aliceRow = renderer.root
-    .findAllByType('li')
-    .find((li) => nodeText(li).includes('alice'));
+  const aliceRow = renderer.root.findAllByProps({ ariaLabel: 'alice' })[0];
   assert.ok(aliceRow, "alice's principal row is rendered");
-  const aliceSelect = aliceRow.findByType(Select);
+  // Binding now lives in the subject's detail panel, not inline in the row:
+  // click the row to open the panel, then drive its Select + Bind button.
+  await act(async () => { aliceRow.props.onSelect(); });
+
+  const aliceSelect = renderer.root.findByType(Select);
   await act(async () => { aliceSelect.props.onChange('crm'); });
 
-  const aliceBindButton = aliceRow
+  const aliceBindButton = renderer.root
     .findAllByType('button')
     .find((b) => nodeText(b).includes('Bind profile'));
-  assert.ok(aliceBindButton, "alice's Bind profile button is rendered");
+  assert.ok(aliceBindButton, "the Bind profile button is rendered");
   await act(async () => { aliceBindButton.props.onClick(); });
   await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
 
@@ -324,7 +381,7 @@ test('a 403 from the admin gate surfaces the "requires admin access" message, no
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
 
   assert.ok(
-    nodeText(renderer.root).includes('requires a principal bound to an admin profile'),
+    nodeText(renderer.root).includes('requires a user bound to an admin role'),
     'the friendly admin-required message is shown instead of a raw 403/HttpError string',
   );
   assert.equal(profiles.some((p) => p.id === 'blocked'), false, 'the profile was NOT created');

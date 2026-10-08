@@ -54,3 +54,4 @@ tool_permission_grid.
 tool_picker.
 unsaved_banner.
 upgrade.
+users.

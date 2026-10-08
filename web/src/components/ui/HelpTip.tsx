@@ -11,7 +11,7 @@ export function HelpTip({ text, children }: { text?: string | null; children?: R
     <span className="relative inline-flex items-center gap-1">
       {children}
       <span
-        className="inline-flex cursor-help text-pc-text-faint hover:text-pc-text-muted"
+        className="inline-flex cursor-help text-text-faint hover:text-muted-foreground"
         tabIndex={0}
         role="button"
         aria-label={text}
@@ -25,7 +25,7 @@ export function HelpTip({ text, children }: { text?: string | null; children?: R
       {open ? (
         <span
           role="tooltip"
-          className="absolute left-0 top-full z-50 mt-1 max-w-xs whitespace-normal rounded-md border border-pc-border-strong bg-pc-elevated px-2.5 py-1.5 text-xs font-normal leading-snug text-pc-text shadow-lg"
+          className="absolute left-0 top-full z-50 mt-1 max-w-xs whitespace-normal rounded-md border border-border-strong bg-secondary px-2.5 py-1.5 text-xs font-normal leading-snug text-foreground shadow-lg"
         >
           {text}
         </span>

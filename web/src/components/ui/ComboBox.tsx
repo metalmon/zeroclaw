@@ -10,6 +10,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
+import { useDropUp } from "./useDropUp";
 import { t } from "@/lib/i18n";
 
 export interface ComboBoxProps {
@@ -52,6 +53,7 @@ export function ComboBox({
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const dropUp = useDropUp(open, listRef);
   const reactId = useId();
   const listboxId = `${id ?? reactId}-listbox`;
 
@@ -160,7 +162,7 @@ export function ComboBox({
             setOpen((o) => !o);
             inputRef.current?.focus();
           }}
-          className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-pc-text-muted hover:text-pc-text"
+          className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
         >
           <ChevronsUpDown className="h-4 w-4" />
         </button>
@@ -170,10 +172,10 @@ export function ComboBox({
           ref={listRef}
           id={listboxId}
           role="listbox"
-          className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-[var(--radius-md)] border border-pc-border bg-pc-surface p-1 shadow-[var(--pc-shadow-md)]"
+          className={`absolute z-30 ${dropUp ? "bottom-full mb-1" : "mt-1"} max-h-60 w-full overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card p-1 shadow-[var(--color-shadow-md)]`}
         >
           {filtered.length === 0 ? (
-            <li className="px-3 py-2 text-xs text-pc-text-muted">{emptyText}</li>
+            <li className="px-3 py-2 text-xs text-muted-foreground">{emptyText}</li>
           ) : (
             filtered.map((opt, i) => {
               const sel = opt === value;
@@ -190,12 +192,12 @@ export function ComboBox({
                     className={[
                       "flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-left text-sm transition-colors",
                       act
-                        ? "bg-pc-accent/10 text-pc-text"
-                        : "text-pc-text-secondary hover:bg-pc-elevated/60",
+                        ? "bg-primary/10 text-foreground"
+                        : "text-text-secondary hover:bg-secondary/60",
                     ].join(" ")}
                   >
                     <Check
-                      className={`h-3.5 w-3.5 shrink-0 ${sel ? "text-pc-accent" : "opacity-0"}`}
+                      className={`h-3.5 w-3.5 shrink-0 ${sel ? "text-primary" : "opacity-0"}`}
                     />
                     <span className="truncate">{opt}</span>
                   </button>

@@ -38,10 +38,10 @@ const OUTCOME_OPTIONS = ['', 'success', 'failure', 'unknown'];
 // Shared token classes for the tokenized filter controls — keeps the
 // inputs/selects calm and consistent without repeating the long class list.
 const CONTROL_CLASS =
-  'px-2 py-1 text-xs rounded-[var(--radius-md)] border border-pc-border ' +
-  'bg-pc-input text-pc-text placeholder:text-pc-text-faint ' +
-  'focus-visible:outline-none focus-visible:border-pc-accent ' +
-  'focus-visible:ring-1 focus-visible:ring-pc-accent';
+  'px-2 py-1 text-xs rounded-[var(--radius-md)] border border-border ' +
+  'bg-input text-foreground placeholder:text-text-faint ' +
+  'focus-visible:outline-none focus-visible:border-primary ' +
+  ' ';
 
 interface FilterState {
   q: string;
@@ -87,8 +87,8 @@ function severityClasses(severityNumber: number): { text: string; chip: string }
     };
   }
   return {
-    text: 'text-pc-text-muted',
-    chip: 'text-pc-text-muted border-pc-border bg-pc-elevated',
+    text: 'text-muted-foreground',
+    chip: 'text-muted-foreground border-border bg-secondary',
   };
 }
 
@@ -375,11 +375,11 @@ export default function Logs() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-6 py-4 border-b border-pc-border bg-pc-surface">
+      <div className="px-6 py-4 border-b border-border bg-card">
         <PageHeader
           title={
             <span className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-pc-accent" />
+              <Activity className="h-5 w-5 text-primary" />
               {t('logs.title')}
             </span>
           }
@@ -435,7 +435,7 @@ export default function Logs() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 px-6 py-3 border-b border-pc-border bg-pc-base">
+      <div className="flex flex-wrap items-center gap-3 px-6 py-3 border-b border-border bg-background">
         <input
           type="search"
           value={filter.q}
@@ -489,32 +489,32 @@ export default function Logs() {
           placeholder={t('logs.action_filter_placeholder')}
           className={`${CONTROL_CLASS} w-[160px]`}
         />
-        <label className="flex items-center gap-1.5 text-[11px] cursor-pointer text-pc-text-muted">
+        <label className="flex items-center gap-1.5 text-[11px] cursor-pointer text-muted-foreground">
           <input
             type="checkbox"
             checked={filter.hideInternal}
             onChange={(event) =>
               setFilter((prev) => ({ ...prev, hideInternal: event.target.checked }))
             }
-            style={{ accentColor: 'var(--pc-accent)' }}
+            style={{ accentColor: 'var(--color-primary)' }}
           />
           {t('logs.hide_internal')}
         </label>
-        <label className="flex items-center gap-1.5 text-[11px] cursor-pointer text-pc-text-muted">
+        <label className="flex items-center gap-1.5 text-[11px] cursor-pointer text-muted-foreground">
           <input
             type="checkbox"
             checked={filter.sinceDaemonStart}
             onChange={(event) =>
               setFilter((prev) => ({ ...prev, sinceDaemonStart: event.target.checked }))
             }
-            style={{ accentColor: 'var(--pc-accent)' }}
+            style={{ accentColor: 'var(--color-primary)' }}
           />
           {t('logs.since_daemon_start')}
         </label>
         <button
           type="button"
           onClick={() => setFiltersOpen((value) => !value)}
-          className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-[var(--radius-md)] border border-pc-border bg-pc-surface text-pc-text-muted transition-colors hover:bg-pc-elevated/60 hover:text-pc-text"
+          className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-[var(--radius-md)] border border-border bg-card text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
         >
           {filtersOpen ? (
             <ChevronUp className="h-3 w-3" />
@@ -526,23 +526,23 @@ export default function Logs() {
       </div>
 
       {filtersOpen && (
-        <div className="flex flex-wrap items-center gap-2 px-6 py-2 border-b border-pc-border bg-pc-surface">
+        <div className="flex flex-wrap items-center gap-2 px-6 py-2 border-b border-border bg-card">
           {activeFieldKeys.map((key) => (
             <span
               key={key}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[var(--radius-md)] border border-pc-border bg-pc-base text-[10px] font-mono text-pc-text"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[var(--radius-md)] border border-border bg-background text-[10px] font-mono text-foreground"
             >
-              <span className="text-pc-text-faint">{key}=</span>
+              <span className="text-text-faint">{key}=</span>
               <input
                 type="text"
                 value={filter.fieldEq[key] ?? ''}
                 onChange={(event) => setFieldEq(key, event.target.value)}
-                className="bg-transparent outline-none w-[100px] text-[10px] font-mono text-pc-text"
+                className="bg-transparent outline-none w-[100px] text-[10px] font-mono text-foreground"
               />
               <button
                 type="button"
                 onClick={() => setFieldEq(key, '')}
-                className="text-pc-text-faint hover:text-pc-text transition-colors"
+                className="text-text-faint hover:text-foreground transition-colors"
                 aria-label={t('logs.remove_filter', { value: key })}
               >
                 <X className="h-3 w-3" />
@@ -559,7 +559,7 @@ export default function Logs() {
               }}
               onBlur={() => setAddingField(false)}
               defaultValue=""
-              className="px-2 py-1 text-[10px] rounded-[var(--radius-md)] border border-pc-border bg-pc-base text-pc-text"
+              className="px-2 py-1 text-[10px] rounded-[var(--radius-md)] border border-border bg-background text-foreground"
             >
               <option value="" disabled>
                 {t('logs.pick_a_key')}
@@ -575,7 +575,7 @@ export default function Logs() {
               type="button"
               onClick={() => setAddingField(true)}
               disabled={inactiveAttributionKeys.length === 0}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[var(--radius-md)] border border-pc-border bg-pc-base text-[10px] text-pc-text-muted transition-colors hover:text-pc-text disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[var(--radius-md)] border border-border bg-background text-[10px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Plus className="h-3 w-3" /> {t('logs.add_filter')}
             </button>
@@ -584,7 +584,7 @@ export default function Logs() {
             <button
               type="button"
               onClick={() => setFilter((prev) => ({ ...prev, fieldEq: {} }))}
-              className="text-[10px] ml-1 text-pc-accent hover:underline"
+              className="text-[10px] ml-1 text-primary hover:underline"
             >
               {t('logs.clear_filters')}
             </button>
@@ -600,8 +600,8 @@ export default function Logs() {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-1 min-h-0">
         {events.length === 0 && !loading ? (
-          <div className="flex flex-col items-center justify-center h-full text-pc-text-muted">
-            <Activity className="h-10 w-10 mb-3 text-pc-text-faint" />
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <Activity className="h-10 w-10 mb-3 text-text-faint" />
             <p className="text-sm">{t('logs.no_events')}</p>
           </div>
         ) : (
@@ -646,12 +646,12 @@ function FilterableValue({
 }) {
   return (
     <span>
-      <span className="text-pc-text-faint">{attrKey}=</span>
+      <span className="text-text-faint">{attrKey}=</span>
       <button
         type="button"
         onClick={onClick}
         title={`${t('logs.filter_where_prefix')}${attrKey} = ${value}`}
-        className="rounded-[var(--radius-sm)] px-0.5 -mx-0.5 text-pc-text-muted transition-colors hover:bg-pc-accent/10 hover:text-pc-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pc-accent cursor-pointer"
+        className="rounded-[var(--radius-sm)] px-0.5 -mx-0.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none cursor-pointer"
       >
         {value}
       </button>
@@ -675,9 +675,9 @@ function LogRow({
   );
   const hasMessage = typeof event.message === 'string' && event.message.length > 0;
   return (
-    <div className="rounded-[var(--radius-md)] px-3 py-2 border border-pc-border bg-pc-code text-xs font-mono">
+    <div className="rounded-[var(--radius-md)] px-3 py-2 border border-border bg-code text-xs font-mono">
       <div className="flex items-start gap-3">
-        <span className="whitespace-nowrap mt-0.5 text-[10px] text-pc-text-faint">
+        <span className="whitespace-nowrap mt-0.5 text-[10px] text-text-faint">
           {formatTimestamp(event['@timestamp'])}
         </span>
         <span
@@ -688,13 +688,13 @@ function LogRow({
         {/* category.action — the action segment is click-to-filter, populating
             the dedicated event.action filter. Category stays plain to avoid
             implying a filter that doesn't exist as a top-level control. */}
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] border border-pc-border bg-pc-base text-pc-text-muted flex-shrink-0">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] border border-border bg-background text-muted-foreground flex-shrink-0">
           {event.event.category}.
           <button
             type="button"
             onClick={() => onFilterAction(event.event.action)}
             title={`${t('logs.filter_where_prefix')}event.action = ${event.event.action}`}
-            className="rounded-[var(--radius-sm)] px-0.5 -mx-0.5 transition-colors hover:bg-pc-accent/10 hover:text-pc-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pc-accent cursor-pointer"
+            className="rounded-[var(--radius-sm)] px-0.5 -mx-0.5 transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none cursor-pointer"
           >
             {event.event.action}
           </button>
@@ -707,7 +707,7 @@ function LogRow({
           )}
           {attributionEntries.length > 0 && (
             <div
-              className={`${hasMessage ? 'mt-1' : ''} flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-pc-text-muted`}
+              className={`${hasMessage ? 'mt-1' : ''} flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground`}
             >
               {attributionEntries.map(([key, value]) => (
                 <FilterableValue
@@ -719,7 +719,7 @@ function LogRow({
               ))}
               {typeof attribution.duration_ms === 'number' && (
                 <span>
-                  <span className="text-pc-text-faint">duration_ms=</span>
+                  <span className="text-text-faint">duration_ms=</span>
                   {attribution.duration_ms}
                 </span>
               )}
@@ -727,10 +727,10 @@ function LogRow({
           )}
           {event.attributes && Object.keys(event.attributes).length > 0 && (
             <details className="mt-1">
-              <summary className="cursor-pointer text-[10px] text-pc-text-faint">
+              <summary className="cursor-pointer text-[10px] text-text-faint">
                 {t('logs.attributes')} ({Object.keys(event.attributes).length})
               </summary>
-              <pre className="mt-1 p-2 rounded text-[10px] overflow-x-auto border border-pc-border bg-pc-base text-pc-text-muted">
+              <pre className="mt-1 p-2 rounded text-[10px] overflow-x-auto border border-border bg-background text-muted-foreground">
                 {JSON.stringify(event.attributes, null, 2)}
               </pre>
             </details>

@@ -4,6 +4,7 @@
 // that needs the catalog) stay in sync instead of hitting the network twice.
 
 import { getTools, getCliTools } from "@/lib/api";
+import { filterToolCatalog } from "@/lib/toolAllowlist";
 import {
   settleToolCatalogResult,
   type CatalogEntry,
@@ -37,7 +38,15 @@ export function loadToolCatalogResult(agent?: string): Promise<ToolCatalogLoadRe
   if (inflight) return inflight;
   const promise = Promise.allSettled([getTools(agent), getCliTools()])
     .then(([toolsResult, cliToolsResult]) => {
-      const result = settleToolCatalogResult(toolsResult, cliToolsResult);
+      const settled = settleToolCatalogResult(toolsResult, cliToolsResult);
+      // Apply the client-side tool allowlist (pilot/RU build) at the single
+      // catalog chokepoint so every consumer (ToolPicker, ToolPermissionGrid,
+      // SOP call editor, config allowed_tools/excluded_tools) sees the same
+      // trimmed set. Passthrough when VITE_VOLT_TOOLS is unset.
+      const result: ToolCatalogLoadResult = {
+        ...settled,
+        entries: filterToolCatalog(settled.entries),
+      };
       if (result.warnings.length === 0) {
         catalogCache.set(key, result.entries);
       }

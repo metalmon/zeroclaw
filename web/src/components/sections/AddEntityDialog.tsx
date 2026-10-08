@@ -15,7 +15,7 @@
 // sync with `zeroclaw_config::helpers::validate_alias_key`.
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import {
   ApiError,
   getMapKeys,
@@ -24,6 +24,7 @@ import {
 } from "../../lib/api";
 import SectionPicker from "./SectionPicker";
 import { Button } from "@/components/ui";
+import { DetailPanel } from "@/components/ui/detail-panel";
 import { sectionDesc, sectionLabel, t } from "@/lib/i18n";
 
 function suggestAlias(aliases: string[]): string {
@@ -127,29 +128,11 @@ export default function AddEntityDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={onClose}
+    <DetailPanel
+      title={`${t("add_entity.add_to_prefix")}${sectionLabel(section.key, section.label)}`}
+      onClose={onClose}
     >
-      <div
-        className="w-full max-w-lg rounded-[var(--radius-lg)] border border-pc-border bg-pc-surface p-5 shadow-xl flex flex-col gap-4 max-h-[85vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-pc-text">
-            {t("add_entity.add_to_prefix")}
-            {sectionLabel(section.key, section.label)}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("common.close")}
-            className="btn-icon flex-shrink-0"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
+      <div className="flex flex-col gap-4">
         {error && (
           <div className="rounded-[var(--radius-md)] border border-status-error/25 bg-status-error/10 p-3 text-sm text-status-error">
             {error}
@@ -177,13 +160,13 @@ export default function AddEntityDialog({
                   setType(null);
                   setError(null);
                 }}
-                className="self-start flex items-center gap-1 text-xs text-pc-text-muted hover:text-pc-text"
+                className="self-start flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 {t("add_entity.choose_different_type")} ({type})
               </button>
             )}
-            <p className="text-xs text-pc-text-secondary leading-relaxed">
+            <p className="text-xs text-text-secondary leading-relaxed">
               {t("add_entity.alias_help")}
             </p>
             <div className="flex items-center gap-2">
@@ -202,7 +185,7 @@ export default function AddEntityDialog({
                 }}
               />
               <Button
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={() => void submit()}
                 disabled={submitting}
@@ -214,6 +197,6 @@ export default function AddEntityDialog({
           </div>
         )}
       </div>
-    </div>
+    </DetailPanel>
   );
 }

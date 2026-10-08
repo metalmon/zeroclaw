@@ -17,6 +17,7 @@ import type {
 import type { components } from "./api-generated";
 import { clearToken, getToken, setToken } from "./auth";
 import { apiOrigin, basePath } from "./basePath";
+import { localizedFieldHelp, rebrandHelp } from "./fieldHelpLocalized";
 
 // ---------------------------------------------------------------------------
 // Base fetch wrapper
@@ -279,9 +280,19 @@ export async function pair(code: string): Promise<{ token: string }> {
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(
-      `Pairing failed (${response.status}): ${text || response.statusText}`,
-    );
+    // Surface the daemon's own error message (JSON `{ "error": "..." }`),
+    // not the raw body / "Pairing failed (400): {json}" wrapper — the pairing
+    // dialog localizes it. Keep the HTTP status attached for reason mapping.
+    let message = text || response.statusText;
+    try {
+      const parsed = JSON.parse(text) as { error?: string };
+      if (parsed?.error) message = String(parsed.error);
+    } catch {
+      /* not JSON — keep the raw text */
+    }
+    const err = new Error(message) as Error & { status?: number };
+    err.status = response.status;
+    throw err;
   }
 
   const data = (await response.json()) as { token: string };
@@ -305,7 +316,7 @@ export async function getAdminPairCode(): Promise<{
     }>;
   }
 
-  const response = await fetch("/admin/paircode");
+  const response = await fetch("/admin/paircode", { headers: adminTokenHeaders() });
   if (!response.ok) {
     throw new Error(`Failed to fetch pairing code (${response.status})`);
   }
@@ -313,6 +324,21 @@ export async function getAdminPairCode(): Promise<{
     pairing_code: string | null;
     pairing_required: boolean;
   }>;
+}
+
+declare global {
+  interface Window {
+    /** Set by Volt Admin after it authenticates on the gateway host over SSH;
+     *  a plain browser never has it. Read per call, never persisted. */
+    __voltAdminToken?: string;
+  }
+}
+
+/** Admin-token header for the loopback-only pair-code routes, when Volt Admin
+ *  injected one. Empty otherwise, so the 403 -> CLI-hint fallback is unchanged. */
+function adminTokenHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? window.__voltAdminToken : undefined;
+  return typeof token === 'string' && token.length > 0 ? { 'x-voltd-admin-token': token } : {};
 }
 
 /** Thrown when the localhost-only mint endpoint rejects a non-loopback caller. */
@@ -335,12 +361,16 @@ export class PairCodeForbiddenError extends Error {
  * gets a 403 — surfaced as {@link PairCodeForbiddenError} so the caller can fall
  * back to showing the equivalent CLI command instead of a raw error.
  */
-export async function generatePairCode(): Promise<{
+export async function generatePairCode(principal?: string): Promise<{
   pairing_code: string | null;
   pairing_required: boolean;
   message?: string;
 }> {
-  const response = await fetch(`${basePath}/admin/paircode/new`, { method: 'POST' });
+  const qs = principal ? `?principal=${encodeURIComponent(principal)}` : '';
+  const response = await fetch(`${basePath}/admin/paircode/new${qs}`, {
+    method: 'POST',
+    headers: adminTokenHeaders(),
+  });
   if (response.status === 403) {
     throw new PairCodeForbiddenError();
   }
@@ -1070,6 +1100,31 @@ function resolveAndUnwrap(node: unknown, root: unknown): unknown {
   return cur;
 }
 
+// Same traversal as `resolveAndUnwrap`, but also returns the name of the
+// last named schema (`#/components/schemas/<Name>`) hopped through, e.g.
+// `A2aServerConfig`. That name is the `schema` key the codegen'd
+// `fieldDescriptions` / `fieldDescriptionsRu` catalogs are keyed by, so
+// callers can look up a field's help text in those catalogs by (name, field)
+// instead of only reading the live schema's inline `description`.
+function resolveAndUnwrapNamed(
+  node: unknown,
+  root: unknown,
+): { value: unknown; schemaName: string | null } {
+  let cur = node;
+  let schemaName: string | null = null;
+  for (let i = 0; i < 8; i++) {
+    const ref = (cur as { $ref?: unknown } | null)?.$ref;
+    if (typeof ref === "string" && ref.startsWith("#/")) {
+      const parts = ref.split("/");
+      schemaName = parts[parts.length - 1] || schemaName;
+    }
+    const next = unwrapOptional(resolveRef(cur, root));
+    if (next === cur) break;
+    cur = next;
+  }
+  return { value: cur, schemaName };
+}
+
 /** One property on an `object-array` element type, derived from the
  *  JSON Schema. Used by the per-row editor to render each row as a
  *  small sub-form without hand-coding the element shape. */
@@ -1218,8 +1273,15 @@ export function descriptionForPath(
   if (!schema) return null;
   let cur: unknown = schema;
   let last: unknown = null;
+  // Name of the schema owning the final segment's field (e.g.
+  // `A2aServerConfig`) plus the field's own snake_case key, when the walk
+  // lands on a named schema's `properties` entry. `null` for map-key /
+  // additionalProperties hops, where there's no fixed catalog schema name.
+  let lastSchemaName: string | null = null;
+  let lastField: string | null = null;
   for (const seg of kebabPath.split(".")) {
-    cur = resolveAndUnwrap(cur, schema);
+    const stepped = resolveAndUnwrapNamed(cur, schema);
+    cur = stepped.value;
     if (!cur || typeof cur !== "object") return null;
     const snake = seg.replace(/-/g, "_");
     const props = (cur as { properties?: Record<string, unknown> }).properties;
@@ -1227,10 +1289,14 @@ export function descriptionForPath(
       .additionalProperties;
     if (props && Object.prototype.hasOwnProperty.call(props, snake)) {
       last = props[snake];
+      lastSchemaName = stepped.schemaName;
+      lastField = snake;
     } else if (additional && typeof additional === "object") {
       // `HashMap<String, T>` parent: current segment is a user-supplied
       // map key (e.g. provider name); dive into the value schema.
       last = additional;
+      lastSchemaName = null;
+      lastField = null;
     } else {
       return null;
     }
@@ -1239,14 +1305,25 @@ export function descriptionForPath(
   // Wrapper carries the field's own `///` doc comment; the resolved
   // type's description is a fallback for fields that ref a typed config.
   const wrapDesc = (last as { description?: unknown } | null)?.description;
-  if (typeof wrapDesc === "string" && wrapDesc.length > 0) return wrapDesc;
   const resolved = resolveAndUnwrap(last, schema) as {
     description?: unknown;
   } | null;
   const innerDesc = resolved?.description;
-  return typeof innerDesc === "string" && innerDesc.length > 0
-    ? innerDesc
-    : null;
+  const enText =
+    typeof wrapDesc === "string" && wrapDesc.length > 0
+      ? wrapDesc
+      : typeof innerDesc === "string" && innerDesc.length > 0
+        ? innerDesc
+        : null;
+  // RU-aware: when the walk landed on a named schema's field, prefer the
+  // localized catalog entry (RU with EN fallback); otherwise (map-key
+  // hops with no fixed schema name) fall back to the live schema text as
+  // before.
+  if (lastSchemaName && lastField) {
+    const localized = localizedFieldHelp(lastSchemaName, lastField);
+    if (localized) return localized;
+  }
+  return enText === null ? null : rebrandHelp(enText);
 }
 
 // ── Templates + map-key creation (issue #6175) ───────────────────────
@@ -2499,7 +2576,9 @@ export interface AuthzAgentsListResponse {
  *  (every configured alias) — distinct from the principal-scoped
  *  {@link getAgentOptions} list used elsewhere in the dashboard. */
 export function getAuthzAgents(): Promise<AuthzAgentsListResponse> {
-  return apiFetch<AuthzAgentsListResponse>("/api/agents");
+  // The re-hosted gateway has no dedicated /api/agents listing; the configured
+  // aliases are the keys of the `agents` map, which the config REST exposes.
+  return getMapKeys("agents").then(({ keys }) => ({ agents: keys }));
 }
 
 /** One `[[authz.principals]]` row, summarized for the roles admin UI. */
@@ -2571,4 +2650,98 @@ export async function loadAuthzPrincipals(): Promise<AuthzPrincipalSummary[]> {
       };
     }),
   );
+}
+
+/** One `[[authz.principals]]` row as returned by the dedicated listing
+ *  endpoint below — id, bound profile ids, the derived admin bit, and (when
+ *  present) the device ids pinned to it. */
+export interface PrincipalSummary {
+  id: string;
+  profiles: string[];
+  admin: boolean;
+  device_ids?: string[];
+}
+
+interface PrincipalsListResponse {
+  principals: PrincipalSummary[];
+}
+
+/**
+ * `GET /api/authz/principals` — ADMIN-only listing of every configured
+ * principal (id, bound profiles, derived `admin` bit, device ids). Added
+ * alongside profile CRUD (crates/zeroclaw-gateway/src/api_authz.rs,
+ * `handle_list_principals`) specifically for pickers like the pairing-code
+ * role selector, so callers don't have to fall back to
+ * {@link loadAuthzPrincipals}'s per-id config-entity walk. Requires an admin
+ * caller — a non-admin/unpaired browser gets a 403, which callers should
+ * treat as "hide the picker", not a hard failure.
+ */
+export function getPrincipals(): Promise<PrincipalSummary[]> {
+  return apiFetch<PrincipalsListResponse>("/api/authz/principals").then(
+    (data) => data.principals,
+  );
+}
+
+export interface CreateAuthzPrincipalBody {
+  id: string;
+  /** Profile ids to bind at creation; every id must exist (404 otherwise). */
+  profiles: string[];
+}
+
+/** `POST /api/authz/principals` — create a principal for pairing-code login.
+ *  409 (`HttpError`) when `id` already exists, 404 when a profile is unknown. */
+export function createAuthzPrincipal(body: CreateAuthzPrincipalBody): Promise<PrincipalSummary> {
+  return apiFetch<PrincipalSummary>("/api/authz/principals", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export interface DeleteAuthzPrincipalResponse {
+  id: string;
+  deleted: boolean;
+}
+
+/** `DELETE /api/authz/principals/{id}` — remove a principal. 409 (`HttpError`)
+ *  while devices or tokens are still bound to it; `force` (`?force=1`) drops
+ *  those bindings together with the principal. */
+export function deleteAuthzPrincipal(id: string, force = false): Promise<DeleteAuthzPrincipalResponse> {
+  return apiFetch<DeleteAuthzPrincipalResponse>(
+    `/api/authz/principals/${encodeURIComponent(id)}${force ? "?force=1" : ""}`,
+    { method: "DELETE" },
+  );
+}
+
+/** One SSO-provisioned user as the daemon remembers it: identity from the
+ *  provider plus the roles its groups currently map to (read-only here). */
+export interface ExternalSubject {
+  id: string;
+  provider: string;
+  issuer: string;
+  subject: string;
+  display_name?: string | null;
+  email?: string | null;
+  groups: string[];
+  profiles: string[];
+  admin: boolean;
+  first_seen: string;
+  last_seen: string;
+  logins: number;
+}
+
+/** `GET /api/authz/external` — every external (SSO) user. Resolves `null`
+ *  on a gateway that predates the route (404), so callers can hide the group. */
+export function getExternalSubjects(): Promise<ExternalSubject[] | null> {
+  return apiFetch<{ subjects: ExternalSubject[] }>("/api/authz/external")
+    .then((data) => data.subjects)
+    .catch((err: unknown) => {
+      if (err instanceof HttpError && err.status === 404) return null;
+      throw err;
+    });
+}
+
+/** `DELETE /api/authz/external/{id}` — forget an external user; the next
+ *  sign-in provisions a fresh record from the provider's groups. */
+export function forgetExternalSubject(id: string): Promise<void> {
+  return apiFetch<unknown>(`/api/authz/external/${encodeURIComponent(id)}`, { method: "DELETE" }).then(() => undefined);
 }

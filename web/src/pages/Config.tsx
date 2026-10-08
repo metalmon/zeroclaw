@@ -15,7 +15,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, ChevronRight, MessageSquare, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, MessageSquare, PanelLeftOpen, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import {
   ApiError,
   deleteMapKey,
@@ -45,6 +45,7 @@ import SectionPicker, {
 } from "../components/sections/SectionPicker";
 import SectionNavigator from "../components/sections/SectionNavigator";
 import AddEntityDialog from "../components/sections/AddEntityDialog";
+import { DetailPanelSurface } from "../components/ui/detail-panel";
 import SectionTabs, {
   type SectionTabSpec,
 } from "../components/sections/SectionTabs";
@@ -52,7 +53,10 @@ import CostRatesEditor, {
   type CostRatesCategory,
 } from "../components/sections/CostRatesEditor";
 import { Badge, Button, Card } from "@/components/ui";
+import { Select } from "@/components/ui/Select";
+import { Spinner } from "@/components/ui/spinner";
 import { t, plural, sectionDesc, sectionLabel, displayAlias, badgeLabel } from "@/lib/i18n";
+import { filterSections } from "@/lib/sectionFilter";
 import { formatServerError } from "@/lib/serverError";
 
 // Display order for the curated sidebar groups. Each `SectionInfo.group`
@@ -119,6 +123,32 @@ export default function Config() {
   // Bumped to make the navigator re-fetch its expanded sections' entities
   // after an add / reload (so a new alias appears without a hard refresh).
   const [navRefresh, setNavRefresh] = useState(0);
+  // Responsive section tree: on wide screens it sits inline (standard 3-column
+  // layout); on narrow screens it becomes a flyout opened from a "Sections"
+  // button, so the detail pane keeps the full width. Auto by width — no manual
+  // persisted toggle.
+  const [isNarrow, setIsNarrow] = useState(() => {
+    try {
+      return (
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 1023px)").matches
+      );
+    } catch {
+      return false;
+    }
+  });
+  const [treeOpen, setTreeOpen] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia?.("(max-width: 1023px)");
+    if (!mq) return;
+    setIsNarrow(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => {
+      setIsNarrow(e.matches);
+      if (!e.matches) setTreeOpen(false); // widened → drop the flyout state
+    };
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,11 +156,13 @@ export default function Config() {
     getSections()
       .then((resp) => {
         if (cancelled) return;
-        setSections(resp.sections);
+        // Volt build hides a few integration sections (VITE_VOLT_HIDE_SECTIONS).
+        const visible = filterSections(resp.sections);
+        setSections(visible);
         const initialKey =
-          sectionParam && resp.sections.find((s) => s.key === sectionParam)
+          sectionParam && visible.find((s) => s.key === sectionParam)
             ? sectionParam
-            : (resp.sections[0]?.key ?? null);
+            : (visible[0]?.key ?? null);
         setActiveKey(initialKey);
       })
       .catch((e) => {
@@ -205,13 +237,7 @@ export default function Config() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div
-          className="h-8 w-8 border-2 rounded-full animate-spin"
-          style={{
-            borderColor: "var(--pc-border)",
-            borderTopColor: "var(--pc-accent)",
-          }}
-        />
+        <Spinner size={32} />
       </div>
     );
   }
@@ -266,7 +292,7 @@ export default function Config() {
       ) {
         channelExtraTabs.push({
           key: "bind",
-          label: "Bind identity",
+          label: t("config.channels.tab_bind"),
           render: () => (
             <BindChannelForm
               key={`${reloadKey}-${typeParam}-${aliasParam}-bind`}
@@ -478,8 +504,9 @@ export default function Config() {
         onPickType={(typeKey) => {
           if (needsAliasTier) {
             goToType(activeSection.key, typeKey);
+            return;
           } else {
-            void (async () => {
+            return (async () => {
               try {
                 const resp = await selectSectionItem(
                   activeSection.key,
@@ -585,11 +612,11 @@ export default function Config() {
   const hasSelection = Boolean(sectionParam);
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {!lockedSection && (
-        // Master navigator: searchable section → entity tree. Selecting an
-        // entity navigates to its existing form URL so the detail pane's
-        // dispatch (unchanged) renders the right editor.
+    <div className="relative flex h-full overflow-hidden">
+      {/* Wide screens: the master tree sits inline (standard 3-column layout).
+          On narrow screens it is a flyout (rendered below) opened from a
+          "Sections" button, so the detail pane keeps the full width. */}
+      {!lockedSection && !isNarrow && (
         <SectionNavigator
           sections={sections}
           groupOrder={GROUP_ORDER}
@@ -599,48 +626,42 @@ export default function Config() {
           onSelectSection={(key) => goToSection(key)}
           onAddToSection={(s) => setAddSection(s)}
           refreshKey={navRefresh + reloadKey}
-          // Mobile: single-column. Show the navigator when nothing is
-          // selected; once an entity is open the detail pane takes over and
-          // the navigator hides (a "back to list" button returns here).
-          className={hasSelection ? "hidden md:flex" : "flex"}
+          className="flex"
         />
       )}
 
-      {addSection && (
-        <AddEntityDialog
-          section={addSection}
-          onClose={() => setAddSection(null)}
-          onCreated={(url) => {
-            setAddSection(null);
-            setNavRefresh((n) => n + 1);
-            navigate(url);
-          }}
-        />
-      )}
-
-      <main
-        className={`flex-1 overflow-y-auto p-6 ${hasSelection ? "" : "hidden md:block"}`}
-      >
+      <main className="flex-1 overflow-y-auto p-6">
+        {isNarrow && !lockedSection && (
+          // Narrow: open the section tree as a flyout over the detail pane.
+          <button
+            type="button"
+            onClick={() => setTreeOpen(true)}
+            className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-card px-3 py-1.5 text-sm text-text-secondary transition-colors hover:border-border-strong hover:text-foreground"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+            {t("section_nav.tree_label")}
+          </button>
+        )}
         {!hasSelection ? (
           // Empty state — no entity selected. Calm placeholder in the detail
           // pane; the navigator on the left is the call to action.
           <div className="flex h-full items-center justify-center">
             <div className="text-center max-w-sm">
-              <Sparkles className="h-8 w-8 mx-auto mb-3 text-pc-text-faint" />
+              <Sparkles className="h-8 w-8 mx-auto mb-3 text-text-faint" />
               {/* i18n: reuse existing keys if present; otherwise these are
                   the proposed new keys cfg.empty.title / cfg.empty.body
                   (reported back to the owner of i18n.ts). */}
-              <p className="text-sm font-medium text-pc-text-secondary">
+              <p className="text-sm font-medium text-text-secondary">
                 {t("config.empty_title")}
               </p>
-              <p className="text-xs mt-1 text-pc-text-muted">
+              <p className="text-xs mt-1 text-muted-foreground">
                 {t("config.empty_body")}
               </p>
             </div>
           </div>
         ) : (
           activeSection && (
-          <div className="flex flex-col gap-4 max-w-3xl min-h-full">
+          <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-4">
             {/* Mobile-only: return to the navigator (single-column nav↔detail). */}
             <Button
               variant="ghost"
@@ -671,18 +692,18 @@ export default function Config() {
               {crumbs.map((crumb, i) => (
                 <span key={i} className="flex items-center gap-1.5">
                   {i > 0 && (
-                    <ChevronRight className="h-4 w-4 text-pc-text-faint" />
+                    <ChevronRight className="h-4 w-4 text-text-faint" />
                   )}
                   {crumb.url && i < crumbs.length - 1 ? (
                     <button
                       type="button"
                       onClick={() => navigate(crumb.url!)}
-                      className="text-pc-text-secondary transition-colors hover:text-pc-text"
+                      className="text-text-secondary transition-colors hover:text-foreground"
                     >
                       {crumb.label}
                     </button>
                   ) : (
-                    <span className="font-semibold text-pc-text">
+                    <span className="font-semibold text-foreground">
                       {crumb.label}
                     </span>
                   )}
@@ -695,6 +716,51 @@ export default function Config() {
           )
         )}
       </main>
+
+      {/* Narrow: the section tree as a left flyout with a dismiss backdrop. */}
+      {isNarrow && treeOpen && !lockedSection && (
+        <>
+          <div
+            className="absolute inset-0 z-30 bg-black/40"
+            onClick={() => setTreeOpen(false)}
+          />
+          <SectionNavigator
+            sections={sections}
+            groupOrder={GROUP_ORDER}
+            activeSectionKey={hasSelection ? activeKey : null}
+            selectedPath={location.pathname}
+            onNavigate={(url) => {
+              navigate(url);
+              setTreeOpen(false);
+            }}
+            onSelectSection={(key) => {
+              goToSection(key);
+              setTreeOpen(false);
+            }}
+            onAddToSection={(s) => {
+              setAddSection(s);
+              setTreeOpen(false);
+            }}
+            refreshKey={navRefresh + reloadKey}
+            className="absolute inset-y-0 left-0 z-40 max-w-[320px] bg-background shadow-xl"
+          />
+        </>
+      )}
+
+      <DetailPanelSurface open={addSection !== null}>
+        {addSection && (
+          <AddEntityDialog
+            key={addSection.key}
+            section={addSection}
+            onClose={() => setAddSection(null)}
+            onCreated={(url) => {
+              setAddSection(null);
+              setNavRefresh((n) => n + 1);
+              navigate(url);
+            }}
+          />
+        )}
+      </DetailPanelSurface>
     </div>
   );
 }
@@ -707,8 +773,8 @@ export default function Config() {
 function ConfigAliasHelpBox() {
   return (
     <div
-      className="rounded-[var(--radius-md)] border border-pc-border px-3 py-2 text-xs text-pc-text-secondary"
-      style={{ background: "var(--pc-bg-surface-subtle)" }}
+      className="rounded-[var(--radius-md)] border border-border px-3 py-2 text-xs text-text-secondary"
+      style={{ background: "var(--color-surface-subtle)" }}
     >
       <p className="mb-1">
         <strong>{t("config.alias_help_term")}</strong>{" "}
@@ -822,7 +888,7 @@ function AliasListView({
       </Button>
 
       {sectionHelp && (
-        <p className="text-sm leading-relaxed text-pc-text-secondary">
+        <p className="text-sm leading-relaxed text-text-secondary">
           {sectionHelp}
         </p>
       )}
@@ -837,16 +903,10 @@ function AliasListView({
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div
-            className="h-8 w-8 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--pc-border)",
-              borderTopColor: "var(--pc-accent)",
-            }}
-          />
+          <Spinner size={32} />
         </div>
       ) : (
-        <Card padded={false} className="divide-y divide-pc-border overflow-hidden">
+        <Card padded={false} className="divide-y divide-border overflow-hidden">
           {aliases.map((alias) => (
             <AliasRow
               key={alias}
@@ -891,7 +951,7 @@ function AliasListView({
                 }}
               />
               <Button
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={() => void submit()}
                 className="flex-shrink-0"
@@ -1149,7 +1209,7 @@ function AgentPeerGroupsTab({
 
   if (loading) {
     return (
-      <p className="text-sm" style={{ color: "var(--pc-text-muted)" }}>
+      <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
         {t("config.loading_peer_groups")}
       </p>
     );
@@ -1172,28 +1232,23 @@ function AgentPeerGroupsTab({
 
       <div
         className="flex items-center gap-2 rounded-xl p-3"
-        style={{ background: "var(--pc-bg-elevated)" }}
+        style={{ background: "var(--color-secondary)" }}
       >
-        <span className="text-xs" style={{ color: "var(--pc-text-muted)" }}>
+        <span className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
           {t("config.add_agent_to")}
         </span>
-        <select
+        <Select
           value={pickerValue}
-          onChange={(e) => setPickerValue(e.target.value)}
+          onChange={(v) => setPickerValue(v)}
           disabled={adding || nonMembers.length === 0}
-          className="input-electric text-xs px-2 py-1 appearance-none cursor-pointer"
-        >
-          <option value="">
-            {nonMembers.length === 0
+          triggerClassName="px-2 py-1 text-xs"
+          placeholder={
+            nonMembers.length === 0
               ? t("config.no_other_groups")
-              : t("config.select_a_group")}
-          </option>
-          {nonMembers.map((g) => (
-            <option key={g} value={g}>
-              {g}
-            </option>
-          ))}
-        </select>
+              : t("config.select_a_group")
+          }
+          options={nonMembers.map((g) => ({ value: g, label: g }))}
+        />
         <button
           type="button"
           onClick={addToGroup}
@@ -1205,7 +1260,7 @@ function AgentPeerGroupsTab({
         <Link
           to="/config/peer_groups"
           className="text-xs ml-auto hover:underline"
-          style={{ color: "var(--pc-text-muted)" }}
+          style={{ color: "var(--color-muted-foreground)" }}
         >
           {t("config.create_new")}
         </Link>
@@ -1215,8 +1270,8 @@ function AgentPeerGroupsTab({
         <p
           className="text-sm rounded-xl p-4 text-center"
           style={{
-            color: "var(--pc-text-muted)",
-            background: "var(--pc-bg-elevated)",
+            color: "var(--color-muted-foreground)",
+            background: "var(--color-secondary)",
           }}
         >
           {agentAlias}
@@ -1227,16 +1282,16 @@ function AgentPeerGroupsTab({
           <div
             key={pg}
             className="rounded-xl border"
-            style={{ borderColor: "var(--pc-border)" }}
+            style={{ borderColor: "var(--color-border)" }}
           >
             <div
               className="flex items-center justify-between px-4 py-2 border-b"
-              style={{ borderColor: "var(--pc-border)" }}
+              style={{ borderColor: "var(--color-border)" }}
             >
               <Link
                 to={`/config/peer_groups/${encodeURIComponent(pg)}`}
                 className="text-sm font-mono hover:underline"
-                style={{ color: "var(--pc-text-primary)" }}
+                style={{ color: "var(--color-foreground)" }}
               >
                 peer_groups.{pg}
               </Link>
@@ -1376,15 +1431,15 @@ function AliasRow({
   if (mode === "confirm-delete") {
     const blocked = plan != null && !plan.allowed;
     return (
-      <div className="w-full flex flex-col gap-2 px-4 py-3 bg-pc-elevated/40">
+      <div className="w-full flex flex-col gap-2 px-4 py-3 bg-secondary/40">
         <div className="flex items-center justify-between gap-3">
-          <span className="font-medium text-pc-text text-sm">{alias}</span>
+          <span className="font-medium text-foreground text-sm">{alias}</span>
           <button type="button" onClick={() => setMode("idle")} title={t("common.cancel")} className="btn-icon flex-shrink-0">
             <X className="h-4 w-4" />
           </button>
         </div>
         {plan == null ? (
-          <span className="text-xs text-pc-text-muted">{t("config.delete_checking")}</span>
+          <span className="text-xs text-muted-foreground">{t("config.delete_checking")}</span>
         ) : blocked ? (
           <div className="text-xs text-status-error">
             {plan.blockers.length > 0 && (
@@ -1407,20 +1462,20 @@ function AliasRow({
             ) : null}
           </div>
         ) : (
-          <div className="text-xs text-pc-text-secondary space-y-1">
+          <div className="text-xs text-text-secondary space-y-1">
             {plan.scrubs.length > 0 ? (
               <div>
                 <div>{t("config.delete_scrubs")}</div>
                 <ul className="mt-0.5 space-y-0.5">
                   {plan.scrubs.map((s) => (
                     <li key={s.path}>
-                      <code className="text-pc-text-faint">{s.path}</code>
+                      <code className="text-text-faint">{s.path}</code>
                     </li>
                   ))}
                 </ul>
               </div>
             ) : !plan.cascades_owned_state ? (
-              <div className="text-pc-text-muted">{t("config.delete_no_refs")}</div>
+              <div className="text-muted-foreground">{t("config.delete_no_refs")}</div>
             ) : null}
             {plan.cascades_owned_state ? <div>{t("config.delete_owned_state")}</div> : null}
           </div>
@@ -1435,7 +1490,7 @@ function AliasRow({
             >
               {busy ? t("config.delete_deleting") : t("config.delete_confirm")}
             </button>
-            <button type="button" onClick={() => setMode("idle")} disabled={busy} className="text-xs px-2 py-1 text-pc-text-muted">
+            <button type="button" onClick={() => setMode("idle")} disabled={busy} className="text-xs px-2 py-1 text-muted-foreground">
               {t("common.cancel")}
             </button>
           </div>
@@ -1445,19 +1500,19 @@ function AliasRow({
   }
 
   return (
-    <div className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-pc-elevated/50">
+    <div className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-secondary/50">
       <button
         type="button"
         onClick={onSelect}
         className="flex-1 min-w-0 flex items-center justify-between gap-3 text-left"
       >
         <div className="min-w-0">
-          <span className="font-medium text-pc-text">{alias}</span>
-          <code className="block text-xs mt-0.5 text-pc-text-faint">
+          <span className="font-medium text-foreground">{alias}</span>
+          <code className="block text-xs mt-0.5 text-text-faint">
             {mapPath}.{alias}
           </code>
         </div>
-        <ChevronRight className="h-4 w-4 flex-shrink-0 text-pc-text-muted" />
+        <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
       </button>
       <button type="button" onClick={startRename} title={t("config.rename_alias_title")} className="btn-icon flex-shrink-0">
         <Pencil className="h-4 w-4" />
@@ -1471,7 +1526,7 @@ function AliasRow({
 
 interface SectionOverviewProps {
   section: SectionInfo;
-  onPickType: (typeKey: string) => void;
+  onPickType: (typeKey: string) => void | Promise<void>;
   onPickAlias: (typeKey: string, alias: string) => void;
   sectionUrl: string;
   reloadKey: number;
@@ -1486,6 +1541,9 @@ function SectionOverview({
   sectionUrl,
 }: SectionOverviewProps) {
   const [showPicker, setShowPicker] = useState(false);
+  // Bumped after a backend-picker choice so the picker re-fetches its badges
+  // and the "active" marker moves without a page refresh.
+  const [pickerReload, setPickerReload] = useState(0);
 
   // BackendPicker sections (Memory, Tunnel) pick ONE backend; +Add
   // and the "configured items" list don't fit single-choice semantics.
@@ -1504,7 +1562,15 @@ function SectionOverview({
         <SectionPicker
           sectionKey={section.key}
           help={sectionDesc(section.key, section.help)}
-          onPick={(item) => onPickType(item.key)}
+          reloadKey={pickerReload}
+          onPick={(item) => {
+            // The pick writes the backend server-side; once it resolves, bump
+            // the picker's reloadKey so it re-fetches and the "active" badge
+            // moves to the chosen row without a page refresh.
+            void Promise.resolve(onPickType(item.key)).then(() =>
+              setPickerReload((n) => n + 1),
+            );
+          }}
         />
         <FieldForm
           key={`${section.key}-fields`}
@@ -1544,10 +1610,10 @@ function SectionOverview({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-pc-text-secondary">{sectionDesc(section.key, section.help)}</p>
+        <p className="text-sm text-text-secondary">{sectionDesc(section.key, section.help)}</p>
         <Button
-          variant="primary"
-          size="md"
+          variant="default"
+          size="default"
           onClick={() => setShowPicker(true)}
           className="flex-shrink-0"
         >
@@ -1610,13 +1676,7 @@ function ConfiguredOnlyPicker({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div
-          className="h-8 w-8 border-2 rounded-full animate-spin"
-          style={{
-            borderColor: "var(--pc-border)",
-            borderTopColor: "var(--pc-accent)",
-          }}
-        />
+        <Spinner size={32} />
       </div>
     );
   }
@@ -1631,7 +1691,7 @@ function ConfiguredOnlyPicker({
 
   if (items.length === 0) {
     return (
-      <Card className="p-8 text-center text-sm text-pc-text-muted">
+      <Card className="p-8 text-center text-sm text-muted-foreground">
         {t("config.nothing_configured_pre")} <strong>{sectionLabel(section.key, section.label)}</strong>{" "}
         {t("config.nothing_configured_mid")}{" "}
         <strong>{t("config.add_with_plus")}</strong>{" "}
@@ -1641,19 +1701,19 @@ function ConfiguredOnlyPicker({
   }
 
   return (
-    <Card padded={false} className="divide-y divide-pc-border overflow-hidden">
+    <Card padded={false} className="divide-y divide-border overflow-hidden">
       {items.map((item) => (
         <button
           key={item.key}
           type="button"
           onClick={() => onPickType(item.key)}
-          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-pc-elevated/50"
+          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
         >
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-pc-text">
+            <div className="text-sm font-medium text-foreground">
               {item.label}
             </div>
-            <code className="block text-xs mt-0.5 text-pc-text-faint">
+            <code className="block text-xs mt-0.5 text-text-faint">
               {item.key}
             </code>
           </div>
@@ -1663,7 +1723,7 @@ function ConfiguredOnlyPicker({
                 {badgeLabel(item.badge)}
               </Badge>
             )}
-            <ChevronRight className="h-4 w-4 text-pc-text-muted" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
         </button>
       ))}

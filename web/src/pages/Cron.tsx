@@ -13,7 +13,11 @@ import {
 } from '@/lib/api';
 import { agentBoundChannels, type AgentBoundChannel } from '@/lib/agentChannels';
 import { t, fmtDate } from '@/lib/i18n';
-import { Badge, Button, Card, PageHeader } from '@/components/ui';
+import { Badge, Button, Card, PageHeader, Switch } from '@/components/ui';
+import { Select } from '@/components/ui/Select';
+import { SpinnerScreen } from '@/components/ui/spinner';
+import { DetailPanel, DetailPanelSurface } from '@/components/ui/detail-panel';
+import { IconTile } from '@/components/ui/icon-tile';
 import ToolPicker from '@/components/ToolPicker';
 import type { CronJob, CronRun } from '@/types/api';
 import {
@@ -106,8 +110,8 @@ function RunHistoryPanel({ jobId, refreshKey = 0 }: { jobId: string; refreshKey?
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 px-4 py-3 text-xs text-pc-text-muted">
-        <div className="h-4 w-4 border-2 rounded-full animate-spin border-pc-border" style={{ borderTopColor: 'var(--pc-accent)' }} />
+      <div className="flex items-center gap-2 px-4 py-3 text-xs text-muted-foreground">
+        <div className="h-4 w-4 border-2 rounded-full animate-spin border-border" style={{ borderTopColor: 'var(--color-primary)' }} />
         {t('cron.loading_run_history')}
       </div>
     );
@@ -131,7 +135,7 @@ function RunHistoryPanel({ jobId, refreshKey = 0 }: { jobId: string; refreshKey?
   if (runs.length === 0) {
     return (
       <div className="px-4 py-3 flex items-center justify-between">
-        <span className="text-xs text-pc-text-faint">{t('cron.no_runs')}</span>
+        <span className="text-xs text-text-faint">{t('cron.no_runs')}</span>
         <Button variant="ghost" size="sm" onClick={fetchRuns} aria-label={t('cron.refresh_runs')}>
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
@@ -142,7 +146,7 @@ function RunHistoryPanel({ jobId, refreshKey = 0 }: { jobId: string; refreshKey?
   return (
     <div className="px-4 py-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-pc-text-secondary">
+        <span className="text-xs font-medium text-text-secondary">
           {t('cron.recent_runs')} ({runs.length})
         </span>
         <Button variant="ghost" size="sm" onClick={fetchRuns} aria-label={t('cron.refresh_runs')}>
@@ -153,7 +157,7 @@ function RunHistoryPanel({ jobId, refreshKey = 0 }: { jobId: string; refreshKey?
         {runs.map((run) => (
           <div
             key={run.id}
-            className="rounded-[var(--radius-md)] px-3 py-2 text-xs border border-pc-border bg-pc-elevated"
+            className="rounded-[var(--radius-md)] px-3 py-2 text-xs border border-border bg-secondary"
           >
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
@@ -162,17 +166,17 @@ function RunHistoryPanel({ jobId, refreshKey = 0 }: { jobId: string; refreshKey?
                 ) : (
                   <XCircle className="h-3.5 w-3.5 text-status-error" />
                 )}
-                <span className="text-pc-text-secondary">{run.status}</span>
+                <span className="text-text-secondary">{run.status}</span>
               </div>
-              <span className="text-pc-text-muted">
+              <span className="text-muted-foreground">
                 {formatDuration(run.duration_ms)}
               </span>
             </div>
-            <div className="flex items-center gap-3 text-pc-text-muted">
+            <div className="flex items-center gap-3 text-muted-foreground">
               <span>{formatDate(run.started_at)}</span>
             </div>
             {run.output && (
-              <pre className="mt-1.5 rounded-[var(--radius-md)] p-2 text-xs overflow-x-auto max-h-24 whitespace-pre-wrap break-words font-mono bg-pc-code text-pc-text-secondary">
+              <pre className="mt-1.5 rounded-[var(--radius-md)] p-2 text-xs overflow-x-auto max-h-24 whitespace-pre-wrap break-words font-mono bg-code text-text-secondary">
                 {run.output}
               </pre>
             )}
@@ -558,19 +562,18 @@ export default function Cron() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 border-2 rounded-full animate-spin border-pc-border" style={{ borderTopColor: 'var(--pc-accent)' }} />
-      </div>
+      <SpinnerScreen />
     );
   }
 
   return (
-    <div className="flex flex-col h-full p-6 gap-6 overflow-hidden">
+    <div className="flex h-full min-h-0">
+    <div className="flex min-w-0 flex-1 flex-col h-full p-6 gap-6 overflow-hidden">
       {/* Header */}
       <PageHeader
         title={t('cron.scheduled_tasks')}
         actions={
-          <Button variant="primary" size="md" onClick={openAddModal}>
+          <Button variant="default" size="default" onClick={openAddModal}>
             <Plus className="h-4 w-4" />{t('cron.add_job')}
           </Button>
         }
@@ -580,415 +583,22 @@ export default function Cron() {
       {settings && (
         <Card className="px-4 py-3 flex items-center justify-between">
           <div>
-            <span className="text-sm font-medium text-pc-text">
+            <span className="text-sm font-medium text-foreground">
               {t('cron.catch_up_title')}
             </span>
-            <p className="text-xs mt-0.5 text-pc-text-muted">
+            <p className="text-xs mt-0.5 text-muted-foreground">
               {t('cron.catch_up_description')}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={toggleCatchUp}
+          <Switch
+            checked={settings.catch_up_on_startup}
+            onChange={toggleCatchUp}
             disabled={togglingCatchUp}
-            aria-pressed={settings.catch_up_on_startup}
-            className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-pc-base disabled:opacity-40 cursor-pointer"
-            style={settings.catch_up_on_startup
-              ? { background: 'var(--pc-accent)' }
-              : { background: 'var(--pc-text-muted)' }
-            }
-          >
-            <span
-              className={`inline-block h-4 w-4 rounded-full bg-white transition-transform duration-200 ${settings.catch_up_on_startup
-                  ? 'translate-x-6'
-                  : 'translate-x-1'
-                }`}
-            />
-          </button>
+            ariaLabel={t('cron.catch_up_title')}
+          />
         </Card>
       )}
 
-      {/* Unified Add / Edit Modal */}
-      {modalJob !== null && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'var(--pc-overlay, rgba(0,0,0,0.5))' }}>
-          <div className="bg-pc-surface border border-pc-border rounded-[var(--radius-lg)] shadow-[var(--pc-shadow-md)] p-6 w-full max-w-md mt-15 max-h-9/10 overflow-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-pc-text">
-                {isEditing ? t('cron.edit_modal_title') : t('cron.add_modal_title')}
-              </h3>
-              <Button variant="ghost" size="sm" onClick={closeModal} aria-label={t('cron.cancel')}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            {formError && (
-              <div className="mb-4 rounded-[var(--radius-md)] border border-status-error/25 bg-status-error/10 p-3 text-sm text-status-error">
-                {formError}
-              </div>
-            )}
-            <div className="space-y-4">
-              {/* Job Type Selector */}
-              <div>
-                <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                  {t('cron.job_type')}
-                </label>
-                {isEditing ? (
-                  <span
-                    className={[
-                      'inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border',
-                      formJobType === 'agent'
-                        ? 'border-pc-accent/30 bg-pc-accent/10 text-pc-accent'
-                        : 'border-pc-border text-pc-text-secondary',
-                    ].join(' ')}
-                  >
-                    {t(formJobType === 'shell' ? 'cron.job_type_shell' : 'cron.job_type_agent')}
-                  </span>
-                ) : (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormJobType('shell')}
-                      className={`flex-1 px-3 py-2.5 rounded-[var(--radius-md)] text-sm font-medium border transition-colors cursor-pointer ${formJobType === 'shell'
-                          ? 'border-pc-accent text-pc-accent bg-pc-accent/10'
-                          : 'border-pc-border text-pc-text-muted hover:bg-[var(--pc-hover)] hover:text-pc-text'
-                        }`}
-                    >
-                      {t('cron.job_type_shell')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormJobType('agent')}
-                      className={`flex-1 px-3 py-2.5 rounded-[var(--radius-md)] text-sm font-medium border transition-colors cursor-pointer ${formJobType === 'agent'
-                          ? 'border-pc-accent text-pc-accent bg-pc-accent/10'
-                          : 'border-pc-border text-pc-text-muted hover:bg-[var(--pc-hover)] hover:text-pc-text'
-                        }`}
-                    >
-                      {t('cron.job_type_agent')}
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                  {t('cron.agent_label')} {!isEditing && <span className="text-status-error">*</span>}
-                </label>
-                {isEditing ? (
-                  // patchCronJob does NOT accept `agent`, so on edit this is a
-                  // read-only display of the job's current agent — shown (not
-                  // hidden) so the operator can see which agent owns the job.
-                  <span className="inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border border-pc-border text-pc-text-secondary font-mono">
-                    agents.{formAgent || '-'}
-                  </span>
-                ) : (
-                  <>
-                    <select
-                      value={formAgent}
-                      onChange={(e) => setFormAgent(e.target.value)}
-                      className="rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 w-full px-3 py-2.5 text-sm appearance-none cursor-pointer"
-                    >
-                      {agentOptions.length === 0 ? (
-                        <option value="">{t('cron.no_configured_agents')}</option>
-                      ) : (
-                        agentOptions.map((alias) => (
-                          <option key={alias} value={alias}>
-                            agents.{alias}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                    <p className="text-xs mt-1 text-pc-text-faint">
-                      {t('cron.agent_help')}
-                    </p>
-                  </>
-                )}
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                  {t('cron.name_optional')}
-                </label>
-                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder={t('cron.name_placeholder')} className="rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 w-full px-3 py-2.5 text-sm" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                  {t('cron.schedule_required')} <span className="text-status-error">*</span>
-                </label>
-                <input type="text" value={formSchedule} onChange={(e) => setFormSchedule(e.target.value)} placeholder={t('cron.schedule_placeholder')} className="rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 w-full px-3 py-2.5 text-sm" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                  {t('cron.timezone')}
-                </label>
-                <input type="text" value={formTimezone} onChange={(e) => setFormTimezone(e.target.value)} placeholder={t('cron.timezone_placeholder')} className="rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 w-full px-3 py-2.5 text-sm font-mono" />
-              </div>
-
-              {/* Conditional fields based on job type */}
-              {formJobType === 'shell' ? (
-                <div>
-                  <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                    {t('cron.command_required')} <span className="text-status-error">*</span>
-                  </label>
-                  <textarea
-                    value={formCommand}
-                    onChange={(e) => setFormCommand(e.target.value)}
-                    placeholder={t('cron.command_placeholder')}
-                    rows={4}
-                    className="rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 w-full px-3 py-2.5 text-sm resize-y font-mono"
-                  />
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                      {t('cron.prompt_required')} <span className="text-status-error">*</span>
-                    </label>
-                    <textarea
-                      value={formPrompt}
-                      onChange={(e) => setFormPrompt(e.target.value)}
-                      placeholder={t('cron.prompt_placeholder')}
-                      rows={4}
-                      className="rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 w-full px-3 py-2.5 text-sm resize-y"
-                    />
-                  </div>
-                  {/* Model / session-target / allowed-tools. patchCronJob does
-                      NOT accept any of these, so on edit they render read-only
-                      (populated from the job) rather than being hidden — the
-                      operator can see the current config even though it's fixed
-                      after creation. */}
-                  {isEditing ? (
-                    <>
-                      <div>
-                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                          {t('cron.model_optional')}
-                        </label>
-                        <span className="inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border border-pc-border text-pc-text-secondary font-mono">
-                          {formModel.trim() || t('cron.model_default')}
-                        </span>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                          {t('cron.session_target')}
-                        </label>
-                        <span className="inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border border-pc-border text-pc-text-secondary">
-                          {t(formSessionTarget === 'main' ? 'cron.session_main' : 'cron.session_isolated')}
-                        </span>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                          {t('cron.allowed_tools_optional')}
-                        </label>
-                        <span className="inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border border-pc-border text-pc-text-secondary font-mono break-all">
-                          {formAllowedTools.trim() || t('cron.all_tools')}
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                          {t('cron.model_optional')}
-                        </label>
-                        <input
-                          type="text"
-                          value={formModel}
-                          onChange={(e) => setFormModel(e.target.value)}
-                          placeholder={t('cron.model_placeholder')}
-                          className="rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 w-full px-3 py-2.5 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                          {t('cron.session_target')}
-                        </label>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setFormSessionTarget('isolated')}
-                            className={`flex-1 px-3 py-2 rounded-[var(--radius-md)] text-xs font-medium border transition-colors cursor-pointer ${formSessionTarget === 'isolated'
-                                ? 'border-pc-accent text-pc-accent bg-pc-accent/10'
-                                : 'border-pc-border text-pc-text-muted hover:bg-[var(--pc-hover)] hover:text-pc-text'
-                              }`}
-                          >
-                            {t('cron.session_isolated')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFormSessionTarget('main')}
-                            className={`flex-1 px-3 py-2 rounded-[var(--radius-md)] text-xs font-medium border transition-colors cursor-pointer ${formSessionTarget === 'main'
-                                ? 'border-pc-accent text-pc-accent bg-pc-accent/10'
-                                : 'border-pc-border text-pc-text-muted hover:bg-[var(--pc-hover)] hover:text-pc-text'
-                              }`}
-                          >
-                            {t('cron.session_main')}
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                          {t('cron.allowed_tools_optional')}
-                        </label>
-                        {/* The form keeps `formAllowedTools` as the canonical
-                            comma-joined string so the submit path (split on
-                            ',' → parsedTools → body.allowed_tools) is
-                            unchanged. The ToolPicker just reads that string as
-                            string[] and writes the selection back joined with
-                            ', '. */}
-                        <ToolPicker
-                          id="cron-allowed-tools"
-                          agent={formAgent || undefined}
-                          value={formAllowedTools
-                            .split(',')
-                            .map((s) => s.trim())
-                            .filter(Boolean)}
-                          onChange={(next) => setFormAllowedTools(next.join(', '))}
-                        />
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-
-              {/* Uses memory toggle */}
-              <div>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formUsesMemory}
-                    onChange={(e) => setFormUsesMemory(e.target.checked)}
-                    className="accent-pc-accent"
-                  />
-                  <div>
-                    <span className="text-pc-text-secondary">{t('cron.uses_memory')}</span>
-                    <p className="text-xs text-pc-text-faint">{t('cron.uses_memory_help')}</p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Delivery section — scoped to the picked agent's channel
-                  bindings. The channel composite + identity field
-                  (matrix user_id, discord guild_ids, ...) come from the
-                  agentBoundChannels helper so the operator sees exactly
-                  which channel goes where. Dangling channel refs are
-                  accepted on add; the scheduler logs loudly when a
-                  dangling delivery fires. */}
-              {isEditing ? (
-                // patchCronJob does NOT accept `delivery`, so on edit the
-                // delivery config renders read-only (populated from the job)
-                // instead of being hidden.
-                <div className="border-t border-pc-border pt-4">
-                  <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                    {t('cron.delivery')}
-                  </label>
-                  {formDeliveryMode === 'announce' ? (
-                    <div className="space-y-1.5 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="text-pc-text-faint text-xs uppercase tracking-wider">{t('cron.delivery_mode')}</span>
-                        <span className="text-pc-text-secondary font-medium">{t('cron.delivery_announce')}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-pc-text-faint text-xs uppercase tracking-wider">{t('cron.delivery_channel')}</span>
-                        <span className="text-pc-text-secondary font-mono break-all">{formDeliveryChannel || '-'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-pc-text-faint text-xs uppercase tracking-wider">{t('cron.delivery_to')}</span>
-                        <span className="text-pc-text-secondary font-mono break-all">{formDeliveryTo || '-'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-pc-text-faint text-xs uppercase tracking-wider">{t('cron.delivery_best_effort')}</span>
-                        <span className="text-pc-text-secondary">{formDeliveryBestEffort ? t('cron.yes') : t('cron.no')}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border border-pc-border text-pc-text-secondary">
-                      {t('cron.delivery_none')}
-                    </span>
-                  )}
-                  <p className="text-xs mt-3 text-pc-text-faint">
-                    {t('cron.delivery_fixed_help')}
-                  </p>
-                </div>
-              ) : (
-                <div className="border-t border-pc-border pt-4">
-                  <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-pc-text-faint">
-                    {t('cron.delivery')}
-                  </label>
-                  <div className="flex gap-2 mb-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormDeliveryMode('none')}
-                      className={`flex-1 px-3 py-2 rounded-[var(--radius-md)] text-xs font-medium border transition-colors cursor-pointer ${formDeliveryMode === 'none'
-                          ? 'border-pc-accent text-pc-accent bg-pc-accent/10'
-                          : 'border-pc-border text-pc-text-muted hover:bg-[var(--pc-hover)] hover:text-pc-text'
-                        }`}
-                    >
-                      {t('cron.delivery_none')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormDeliveryMode('announce')}
-                      className={`flex-1 px-3 py-2 rounded-[var(--radius-md)] text-xs font-medium border transition-colors cursor-pointer ${formDeliveryMode === 'announce'
-                          ? 'border-pc-accent text-pc-accent bg-pc-accent/10'
-                          : 'border-pc-border text-pc-text-muted hover:bg-[var(--pc-hover)] hover:text-pc-text'
-                        }`}
-                    >
-                      {t('cron.delivery_announce')}
-                    </button>
-                  </div>
-                  {formDeliveryMode === 'announce' && (
-                    <div className="space-y-2">
-                      <select
-                        value={formDeliveryChannel}
-                        onChange={(e) => setFormDeliveryChannel(e.target.value)}
-                        className="rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 w-full px-3 py-2 text-sm appearance-none cursor-pointer"
-                      >
-                        <option value="">
-                          {boundChannels.length === 0
-                            ? t('cron.no_channels_bound')
-                            : t('cron.select_channel')}
-                        </option>
-                        {boundChannels.map((ch) => (
-                          <option key={ch.composite} value={ch.composite}>
-                            {ch.composite}
-                            {ch.identity ? ` — ${ch.identity}` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        value={formDeliveryTo}
-                        onChange={(e) => setFormDeliveryTo(e.target.value)}
-                        placeholder={t('cron.delivery_to_placeholder')}
-                        className="rounded-[var(--radius-md)] border border-pc-border bg-pc-input text-pc-text placeholder:text-pc-text-faint transition-colors focus:outline-none focus:border-pc-border-strong focus:ring-2 focus:ring-[var(--pc-focus)]/30 w-full px-3 py-2 text-sm font-mono"
-                      />
-                      <label className="flex items-center gap-2 text-xs text-pc-text-muted">
-                        <input
-                          type="checkbox"
-                          checked={formDeliveryBestEffort}
-                          onChange={(e) => setFormDeliveryBestEffort(e.target.checked)}
-                          className="accent-pc-accent"
-                        />
-                        {t('cron.delivery_best_effort_label')}
-                      </label>
-                      <p className="text-xs text-pc-text-faint">
-                        {t('cron.delivery_channels_from')} <code className="font-mono text-pc-text-secondary">agents.{formAgent || '<agent>'}.channels</code>.
-                        {' '}{t('cron.delivery_channels_warn')}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <Button variant="ghost" size="md" onClick={closeModal}>
-                {t('cron.cancel')}
-              </Button>
-              <Button variant="primary" size="md" onClick={handleSubmit} disabled={submitting}>
-                {submitting
-                  ? t(isEditing ? 'cron.saving' : 'cron.adding')
-                  : t(isEditing ? 'cron.save' : 'cron.add_job')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Inline trigger-error banner — keeps the cron table mounted on failed manual runs */}
       {triggerError && (
@@ -1014,14 +624,14 @@ export default function Cron() {
       {/* Jobs Table */}
       {jobs.length === 0 ? (
         <Card className="p-10 text-center">
-          <Clock className="h-10 w-10 mx-auto mb-3 text-pc-text-faint" />
-          <p className="text-sm text-pc-text-muted">{t('cron.empty')}</p>
+          <Clock className="h-10 w-10 mx-auto mb-3 text-text-faint" />
+          <p className="text-sm text-muted-foreground">{t('cron.empty')}</p>
         </Card>
       ) : (
         <Card padded={false} className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="border-b border-pc-border text-[11px] font-medium uppercase tracking-wider text-pc-text-faint">
+              <tr className="border-b border-border text-[11px] font-medium uppercase tracking-wider text-text-faint">
                 <th className="px-4 py-2.5 text-left font-medium">{t('cron.id')}</th>
                 <th className="px-4 py-2.5 text-center font-medium">{t('cron.name')}</th>
                 <th className="px-4 py-2.5 text-center font-medium">{t('cron.job_type')}</th>
@@ -1036,11 +646,11 @@ export default function Cron() {
             <tbody>
               {jobs.map((job) => (
                 <React.Fragment key={job.id}>
-                  <tr className="border-b border-pc-border/60 last:border-0">
+                  <tr className="border-b border-border/60 last:border-0">
                     <td className="px-4 py-2.5 max-w-44">
                       <div className="flex min-w-0 flex-col items-start gap-1.5">
                         <span
-                          className="min-w-0 max-w-full truncate font-mono text-xs text-pc-text-secondary"
+                          className="min-w-0 max-w-full truncate font-mono text-xs text-text-secondary"
                           title={job.id}
                         >
                           {job.id}
@@ -1065,7 +675,7 @@ export default function Cron() {
                         </Button>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 font-medium text-center text-pc-text">
+                    <td className="px-4 py-2.5 font-medium text-center text-foreground">
                       {job.name ?? '-'}
                     </td>
                     <td className="px-4 py-2.5 text-center">
@@ -1073,19 +683,19 @@ export default function Cron() {
                         {job.job_type === 'agent' ? t('cron.job_type_agent') : t('cron.job_type_shell')}
                       </Badge>
                     </td>
-                    <td className="px-4 py-2.5 font-mono text-xs max-w-50 truncate text-center text-pc-text-secondary">
+                    <td className="px-4 py-2.5 font-mono text-xs max-w-50 truncate text-center text-text-secondary">
                       {job.prompt ?? job.command}
                     </td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-center text-pc-text-muted">
+                    <td className="px-4 py-2.5 font-mono text-xs text-center text-muted-foreground">
                       {scheduleTimezone(job) ?? t('cron.runtime_local_timezone')}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-center text-pc-text-muted">
+                    <td className="px-4 py-2.5 text-xs text-center text-muted-foreground">
                       {formatDate(job.next_run)}
                     </td>
                     <td className="px-4 py-2.5 text-center">
                       <div className="flex items-center gap-1.5 justify-center">
                         {statusIcon(job.last_status)}
-                        <span className="text-xs capitalize text-pc-text-secondary">
+                        <span className="text-xs capitalize text-text-secondary">
                           {job.last_status ?? '-'}
                         </span>
                       </div>
@@ -1151,7 +761,7 @@ export default function Cron() {
                             <button
                               type="button"
                               onClick={() => setConfirmDelete(null)}
-                              className="text-xs font-medium text-pc-text-muted cursor-pointer hover:text-pc-text"
+                              className="text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                             >
                               {t('cron.no')}
                             </button>
@@ -1172,7 +782,7 @@ export default function Cron() {
                   </tr>
                   {expandedJob === job.id && (
                     <tr>
-                      <td colSpan={9} className="bg-pc-elevated border-b border-pc-border">
+                      <td colSpan={9} className="bg-secondary border-b border-border">
                         <RunHistoryPanel jobId={job.id} refreshKey={runHistoryRefresh[job.id] ?? 0} />
                       </td>
                     </tr>
@@ -1183,6 +793,381 @@ export default function Cron() {
           </table>
         </Card>
       )}
+    </div>
+      {/* Add / Edit task — right-side drawer, same pattern as Roles / Users */}
+      <DetailPanelSurface open={modalJob !== null}>
+        {modalJob !== null && (
+          <DetailPanel
+            icon={
+              <IconTile>
+                <Clock className="h-[18px] w-[18px] text-muted-foreground" />
+              </IconTile>
+            }
+            title={isEditing ? t('cron.edit_modal_title') : t('cron.add_modal_title')}
+            subtitle={isEditing ? (modalJob as CronJob).name : undefined}
+            onClose={closeModal}
+          >
+            {formError && (
+              <div className="mb-4 rounded-[var(--radius-md)] border border-status-error/25 bg-status-error/10 p-3 text-sm text-status-error">
+                {formError}
+              </div>
+            )}
+            <div className="space-y-4">
+              {/* Job Type Selector */}
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                  {t('cron.job_type')}
+                </label>
+                {isEditing ? (
+                  <span
+                    className={[
+                      'inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border',
+                      formJobType === 'agent'
+                        ? 'border-primary/30 bg-primary/10 text-primary'
+                        : 'border-border text-text-secondary',
+                    ].join(' ')}
+                  >
+                    {t(formJobType === 'shell' ? 'cron.job_type_shell' : 'cron.job_type_agent')}
+                  </span>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormJobType('shell')}
+                      className={`flex-1 px-3 py-2.5 rounded-[var(--radius-md)] text-sm font-medium border transition-colors cursor-pointer ${formJobType === 'shell'
+                          ? 'border-primary text-primary bg-primary/10'
+                          : 'border-border text-muted-foreground hover:bg-[var(--color-hover)] hover:text-foreground'
+                        }`}
+                    >
+                      {t('cron.job_type_shell')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormJobType('agent')}
+                      className={`flex-1 px-3 py-2.5 rounded-[var(--radius-md)] text-sm font-medium border transition-colors cursor-pointer ${formJobType === 'agent'
+                          ? 'border-primary text-primary bg-primary/10'
+                          : 'border-border text-muted-foreground hover:bg-[var(--color-hover)] hover:text-foreground'
+                        }`}
+                    >
+                      {t('cron.job_type_agent')}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                  {t('cron.agent_label')} {!isEditing && <span className="text-status-error">*</span>}
+                </label>
+                {isEditing ? (
+                  // patchCronJob does NOT accept `agent`, so on edit this is a
+                  // read-only display of the job's current agent — shown (not
+                  // hidden) so the operator can see which agent owns the job.
+                  <span className="inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border border-border text-text-secondary font-mono">
+                    agents.{formAgent || '-'}
+                  </span>
+                ) : (
+                  <>
+                    <Select
+                      value={formAgent}
+                      onChange={(v) => setFormAgent(v)}
+                      options={agentOptions.map((alias) => ({
+                        value: alias,
+                        label: `agents.${alias}`,
+                      }))}
+                      placeholder={t('cron.no_configured_agents')}
+                      className="w-full"
+                    />
+                    <p className="text-xs mt-1 text-text-faint">
+                      {t('cron.agent_help')}
+                    </p>
+                  </>
+                )}
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                  {t('cron.name_optional')}
+                </label>
+                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder={t('cron.name_placeholder')} className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                  {t('cron.schedule_required')} <span className="text-status-error">*</span>
+                </label>
+                <input type="text" value={formSchedule} onChange={(e) => setFormSchedule(e.target.value)} placeholder={t('cron.schedule_placeholder')} className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                  {t('cron.timezone')}
+                </label>
+                <input type="text" value={formTimezone} onChange={(e) => setFormTimezone(e.target.value)} placeholder={t('cron.timezone_placeholder')} className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm font-mono" />
+              </div>
+
+              {/* Conditional fields based on job type */}
+              {formJobType === 'shell' ? (
+                <div>
+                  <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                    {t('cron.command_required')} <span className="text-status-error">*</span>
+                  </label>
+                  <textarea
+                    value={formCommand}
+                    onChange={(e) => setFormCommand(e.target.value)}
+                    placeholder={t('cron.command_placeholder')}
+                    rows={4}
+                    className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm resize-y font-mono"
+                  />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                      {t('cron.prompt_required')} <span className="text-status-error">*</span>
+                    </label>
+                    <textarea
+                      value={formPrompt}
+                      onChange={(e) => setFormPrompt(e.target.value)}
+                      placeholder={t('cron.prompt_placeholder')}
+                      rows={4}
+                      className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm resize-y"
+                    />
+                  </div>
+                  {/* Model / session-target / allowed-tools. patchCronJob does
+                      NOT accept any of these, so on edit they render read-only
+                      (populated from the job) rather than being hidden — the
+                      operator can see the current config even though it's fixed
+                      after creation. */}
+                  {isEditing ? (
+                    <>
+                      <div>
+                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                          {t('cron.model_optional')}
+                        </label>
+                        <span className="inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border border-border text-text-secondary font-mono">
+                          {formModel.trim() || t('cron.model_default')}
+                        </span>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                          {t('cron.session_target')}
+                        </label>
+                        <span className="inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border border-border text-text-secondary">
+                          {t(formSessionTarget === 'main' ? 'cron.session_main' : 'cron.session_isolated')}
+                        </span>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                          {t('cron.allowed_tools_optional')}
+                        </label>
+                        <span className="inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border border-border text-text-secondary font-mono break-all">
+                          {formAllowedTools.trim() || t('cron.all_tools')}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                          {t('cron.model_optional')}
+                        </label>
+                        <input
+                          type="text"
+                          value={formModel}
+                          onChange={(e) => setFormModel(e.target.value)}
+                          placeholder={t('cron.model_placeholder')}
+                          className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2.5 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                          {t('cron.session_target')}
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setFormSessionTarget('isolated')}
+                            className={`flex-1 px-3 py-2 rounded-[var(--radius-md)] text-xs font-medium border transition-colors cursor-pointer ${formSessionTarget === 'isolated'
+                                ? 'border-primary text-primary bg-primary/10'
+                                : 'border-border text-muted-foreground hover:bg-[var(--color-hover)] hover:text-foreground'
+                              }`}
+                          >
+                            {t('cron.session_isolated')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormSessionTarget('main')}
+                            className={`flex-1 px-3 py-2 rounded-[var(--radius-md)] text-xs font-medium border transition-colors cursor-pointer ${formSessionTarget === 'main'
+                                ? 'border-primary text-primary bg-primary/10'
+                                : 'border-border text-muted-foreground hover:bg-[var(--color-hover)] hover:text-foreground'
+                              }`}
+                          >
+                            {t('cron.session_main')}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                          {t('cron.allowed_tools_optional')}
+                        </label>
+                        {/* The form keeps `formAllowedTools` as the canonical
+                            comma-joined string so the submit path (split on
+                            ',' → parsedTools → body.allowed_tools) is
+                            unchanged. The ToolPicker just reads that string as
+                            string[] and writes the selection back joined with
+                            ', '. */}
+                        <ToolPicker
+                          id="cron-allowed-tools"
+                          agent={formAgent || undefined}
+                          value={formAllowedTools
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean)}
+                          onChange={(next) => setFormAllowedTools(next.join(', '))}
+                        />
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* Uses memory toggle */}
+              <div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formUsesMemory}
+                    onChange={(e) => setFormUsesMemory(e.target.checked)}
+                    className="accent-primary"
+                  />
+                  <div>
+                    <span className="text-text-secondary">{t('cron.uses_memory')}</span>
+                    <p className="text-xs text-text-faint">{t('cron.uses_memory_help')}</p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Delivery section — scoped to the picked agent's channel
+                  bindings. The channel composite + identity field
+                  (matrix user_id, discord guild_ids, ...) come from the
+                  agentBoundChannels helper so the operator sees exactly
+                  which channel goes where. Dangling channel refs are
+                  accepted on add; the scheduler logs loudly when a
+                  dangling delivery fires. */}
+              {isEditing ? (
+                // patchCronJob does NOT accept `delivery`, so on edit the
+                // delivery config renders read-only (populated from the job)
+                // instead of being hidden.
+                <div className="border-t border-border pt-4">
+                  <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                    {t('cron.delivery')}
+                  </label>
+                  {formDeliveryMode === 'announce' ? (
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-text-faint text-xs uppercase tracking-wider">{t('cron.delivery_mode')}</span>
+                        <span className="text-text-secondary font-medium">{t('cron.delivery_announce')}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-text-faint text-xs uppercase tracking-wider">{t('cron.delivery_channel')}</span>
+                        <span className="text-text-secondary font-mono break-all">{formDeliveryChannel || '-'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-text-faint text-xs uppercase tracking-wider">{t('cron.delivery_to')}</span>
+                        <span className="text-text-secondary font-mono break-all">{formDeliveryTo || '-'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-text-faint text-xs uppercase tracking-wider">{t('cron.delivery_best_effort')}</span>
+                        <span className="text-text-secondary">{formDeliveryBestEffort ? t('cron.yes') : t('cron.no')}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="inline-flex items-center px-3 py-2 rounded-[var(--radius-md)] text-sm font-medium border border-border text-text-secondary">
+                      {t('cron.delivery_none')}
+                    </span>
+                  )}
+                  <p className="text-xs mt-3 text-text-faint">
+                    {t('cron.delivery_fixed_help')}
+                  </p>
+                </div>
+              ) : (
+                <div className="border-t border-border pt-4">
+                  <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wider text-text-faint">
+                    {t('cron.delivery')}
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormDeliveryMode('none')}
+                      className={`flex-1 px-3 py-2 rounded-[var(--radius-md)] text-xs font-medium border transition-colors cursor-pointer ${formDeliveryMode === 'none'
+                          ? 'border-primary text-primary bg-primary/10'
+                          : 'border-border text-muted-foreground hover:bg-[var(--color-hover)] hover:text-foreground'
+                        }`}
+                    >
+                      {t('cron.delivery_none')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormDeliveryMode('announce')}
+                      className={`flex-1 px-3 py-2 rounded-[var(--radius-md)] text-xs font-medium border transition-colors cursor-pointer ${formDeliveryMode === 'announce'
+                          ? 'border-primary text-primary bg-primary/10'
+                          : 'border-border text-muted-foreground hover:bg-[var(--color-hover)] hover:text-foreground'
+                        }`}
+                    >
+                      {t('cron.delivery_announce')}
+                    </button>
+                  </div>
+                  {formDeliveryMode === 'announce' && (
+                    <div className="space-y-2">
+                      <Select
+                        value={formDeliveryChannel}
+                        onChange={(v) => setFormDeliveryChannel(v)}
+                        options={boundChannels.map((ch) => ({
+                          value: ch.composite,
+                          label: `${ch.composite}${ch.identity ? ` — ${ch.identity}` : ''}`,
+                        }))}
+                        placeholder={
+                          boundChannels.length === 0
+                            ? t('cron.no_channels_bound')
+                            : t('cron.select_channel')
+                        }
+                        className="w-full"
+                      />
+                      <input
+                        type="text"
+                        value={formDeliveryTo}
+                        onChange={(e) => setFormDeliveryTo(e.target.value)}
+                        placeholder={t('cron.delivery_to_placeholder')}
+                        className="rounded-[var(--radius-md)] border border-border bg-input text-foreground placeholder:text-text-faint transition-colors focus:outline-none focus:border-border-strong w-full px-3 py-2 text-sm font-mono"
+                      />
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={formDeliveryBestEffort}
+                          onChange={(e) => setFormDeliveryBestEffort(e.target.checked)}
+                          className="accent-primary"
+                        />
+                        {t('cron.delivery_best_effort_label')}
+                      </label>
+                      <p className="text-xs text-text-faint">
+                        {t('cron.delivery_channels_from')} <code className="font-mono text-text-secondary">agents.{formAgent || '<agent>'}.channels</code>.
+                        {' '}{t('cron.delivery_channels_warn')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="ghost" size="default" onClick={closeModal}>
+                {t('cron.cancel')}
+              </Button>
+              <Button variant="default" size="default" onClick={handleSubmit} disabled={submitting}>
+                {submitting
+                  ? t(isEditing ? 'cron.saving' : 'cron.adding')
+                  : t(isEditing ? 'cron.save' : 'cron.add_job')}
+              </Button>
+            </div>
+          </DetailPanel>
+        )}
+      </DetailPanelSurface>
     </div>
   );
 }

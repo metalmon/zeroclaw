@@ -20,7 +20,7 @@ export interface SectionTabSpec {
 interface SectionTabsProps {
   tabs: SectionTabSpec[];
   /** Tab key to activate when the URL has no `tab` query. Defaults to
-   *  the first tab. */
+   * the first tab. */
   defaultKey?: string;
 }
 
@@ -53,7 +53,7 @@ export default function SectionTabs({ tabs, defaultKey }: SectionTabsProps) {
           text; inactive sits muted with a transparent border. The shared
           bottom hairline reads as a quiet baseline, not a heavy bar. */}
       <div
-        className="flex items-center gap-1 border-b border-pc-border -mx-2 px-2 overflow-x-auto overflow-y-hidden"
+        className="flex items-center gap-1 border-b border-border -mx-2 px-2 overflow-x-auto overflow-y-hidden"
         role="tablist"
       >
         {tabs.map((t) => {
@@ -67,11 +67,11 @@ export default function SectionTabs({ tabs, defaultKey }: SectionTabsProps) {
               onClick={() => setActive(t.key)}
               className={[
                 'px-3 py-2 text-sm border-b-2 -mb-px transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2',
-                'focus-visible:ring-[var(--pc-focus)] focus-visible:rounded-sm',
+                'focus-visible:outline-none ',
+                ' focus-visible:rounded-sm',
                 isActive
-                  ? 'border-pc-accent text-pc-text font-medium'
-                  : 'border-transparent text-pc-text-muted hover:text-pc-text-secondary',
+                  ? 'border-primary text-foreground font-medium'
+                  : 'border-transparent text-muted-foreground hover:text-text-secondary',
               ].join(' ')}
             >
               {t.label}

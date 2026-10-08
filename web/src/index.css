@@ -40,36 +40,78 @@
 }
 
 @theme {
-  /* Theme-aware colors mapped to CSS custom properties */
-  --color-pc-base: var(--pc-bg-base);
-  --color-pc-surface: var(--pc-bg-surface);
-  --color-pc-elevated: var(--pc-bg-elevated);
-  --color-pc-input: var(--pc-bg-input);
-  --color-pc-code: var(--pc-bg-code);
-  --color-pc-border: var(--pc-border);
-  --color-pc-border-strong: var(--pc-border-strong);
-  --color-pc-text: var(--pc-text-primary);
-  --color-pc-text-secondary: var(--pc-text-secondary);
-  --color-pc-text-muted: var(--pc-text-muted);
-  --color-pc-text-faint: var(--pc-text-faint);
-  --color-pc-accent: var(--pc-accent);
-  --color-pc-accent-light: var(--pc-accent-light);
-  --color-pc-accent-dim: var(--pc-accent-dim);
-  --color-pc-accent-glow: var(--pc-accent-glow);
+  /* Thunderbolt design tokens (shadcn names). Static defaults = volt-light;
+     ThemeContext overrides these per theme at runtime (see themes.json).
+     Utilities: bg-background, bg-card, text-foreground, bg-primary,
+     bg-accent, bg-sidebar-accent, border-border, text-brand, etc. */
+  /* Base palette — concrete volt-light defaults; ThemeContext overrides each of
+     these per theme at runtime (themes.json holds the same keys). */
+  --color-background: #f5f2ee;
+  --color-foreground: #262120;
+  --color-card: #faf8f5;
+  --color-secondary: #fefdfb;
+  --color-muted-foreground: #7f7870;
+  --color-border: #e5dfd5;
+  --color-border-strong: #bfb4a3;
+  --color-input: #e9e4dd;
+  /* primary = neutral warm ink (was --color-primary). NOT the beige hover. */
+  --color-primary: #393530;
+  --color-primary-foreground: #faf8f5;
+  /* brand = amber -> raspberry bolt, reserved for the primary action + mark. */
+  --color-brand: #c12d6c;
+  --color-brand-2: #ab5e17;
+  --color-sidebar: rgba(254, 253, 251, 0.95);
+  --color-code: #f0ede6;
+  --color-text-secondary: #57514b;
+  --color-text-faint: #a89f93;
+  --color-accent-light: #26221f;
+  --color-accent-dim: rgba(57, 53, 48, 0.18);
+  --color-accent-glow: rgba(57, 53, 48, 0.07);
+  --color-destructive: #ff4466;
+
+  /* Derived — reference the base tokens above so they follow every theme with
+     no per-theme entry. accent = beige hover/selected tint (distinct from primary). */
+  --color-accent: color-mix(in srgb, var(--color-background) 92%, var(--color-foreground));
+  --color-accent-foreground: var(--color-foreground);
+  --color-card-foreground: var(--color-foreground);
+  --color-popover: var(--color-card);
+  --color-popover-foreground: var(--color-foreground);
+  --color-secondary-foreground: var(--color-foreground);
+  --color-muted: var(--color-secondary);
+  --color-ring: transparent;
+  --color-brand-foreground: #faf8f5;
+  --color-sidebar-foreground: var(--color-muted-foreground);
+  --color-sidebar-accent: var(--color-accent);
+  --color-sidebar-accent-foreground: var(--color-foreground);
+  --color-sidebar-border: var(--color-border);
 
   /* Status colors (fixed across themes) */
   --color-status-success: #00e68a;
   --color-status-warning: #ffaa00;
   --color-status-error: #ff4466;
   --color-status-info: #0080ff;
+
+  /* Radius scale — Thunderbolt values (concentric). */
+  --radius: 0.625rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+
+  /* Control heights — Thunderbolt (desktop). */
+  --touch-height-xl: 3rem;
+  --touch-height-lg: 2.5rem;
+  --touch-height-default: 2.25rem;
+  --touch-height-sm: 2rem;
+
+  /* Fonts — Plantin Cyr headings, system sans body, mono. */
+  --font-heading: 'Plantin Cyr MT', Georgia, 'Times New Roman', serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
 }
 
 :root {
-  /* Status colors for reference */
-  --color-status-success: #00e68a;
-  --color-status-warning: #ffaa00;
-  --color-status-error: #ff4466;
-  --color-status-info: #0080ff;
   /* Status color alpha helpers (for backgrounds/borders) */
   --color-status-error-alpha-08: color-mix(in srgb, var(--color-status-error) 8%, transparent);
   --color-status-error-alpha-20: color-mix(in srgb, var(--color-status-error) 20%, transparent);
@@ -78,103 +120,60 @@
   --color-status-success-alpha-20: color-mix(in srgb, var(--color-status-success) 20%, transparent);
   --color-status-warning-alpha-05: color-mix(in srgb, var(--color-status-warning) 5%, transparent);
   --color-status-warning-alpha-20: color-mix(in srgb, var(--color-status-warning) 20%, transparent);
-  /* Backgrounds (Volt dark — warm graphite, no pure black; mirrors the Volt
-     desktop client. ThemeContext overrides these per theme at runtime, but the
-     defaults here are the first-paint palette before JS applies a choice.) */
-  --pc-bg-base: #1b1e1f;
-  --pc-bg-surface: #282a2b;
-  --pc-bg-elevated: #313334;
-  --pc-bg-input: #212425;
-  --pc-bg-code: #202324;
-  --pc-bg-sidebar: rgba(27, 30, 31, 0.95);
 
-  /* Derived surface tints — adapt automatically across every color theme
-     because they color-mix the per-theme surface/text/accent tokens that the
-     theme system overrides at runtime (see ThemeContext.applyVars). Defined
-     here so referenced vars are never undefined in dark or light palettes. */
-  --pc-bg-surface-subtle: color-mix(in srgb, var(--pc-bg-surface) 92%, var(--pc-text-primary) 8%);
-  --pc-bg-surface-elevated: color-mix(in srgb, var(--pc-bg-elevated) 85%, var(--pc-text-primary) 15%);
+  /* Derived surface tints — color-mix the per-theme surface/text tokens that
+     ThemeContext overrides at runtime, so they track every theme. */
+  --color-surface-subtle: color-mix(in srgb, var(--color-card) 92%, var(--color-foreground) 8%);
+  --color-surface-elevated: color-mix(in srgb, var(--color-secondary) 85%, var(--color-foreground) 15%);
 
-  /* Borders */
-  --pc-border: rgba(255, 255, 255, 0.09);
-  --pc-border-strong: rgba(255, 255, 255, 0.14);
+  /* Brand gradient (amber -> raspberry). Used for the primary action + mark. */
+  --gradient-brand: linear-gradient(90deg, var(--color-brand-2), var(--color-brand));
 
-  /* Text (warm off-white) */
-  --pc-text-primary: #f2f1ee;
-  --pc-text-secondary: #cbc6bf;
-  --pc-text-muted: #a19a91;
-  --pc-text-faint: #79726a;
+  --color-accent-rgb: 57, 53, 48;
+  --color-text-link: var(--color-accent-light);
 
-  /* Everyday accent — a NEUTRAL warm tone (Volt keeps the brand restrained):
-     active/selected/focus and links use this, not the loud brand. In dark the
-     accent is a warm off-white; --pc-accent-foreground is the legible text on
-     an accent-filled surface. */
-  --pc-accent: #e9e3d8;
-  --pc-accent-light: #f4f1ea;
-  --pc-accent-dim: rgba(233, 227, 216, 0.22);
-  --pc-accent-glow: rgba(233, 227, 216, 0.08);
-  --pc-accent-rgb: 233, 227, 216;
-  --pc-accent-foreground: #1b1e1f;
+  --color-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --color-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.22);
 
-  /* Brand — the logo's amber→raspberry bolt. Reserved for "electric" spots:
-     primary-action buttons (.btn-electric / Button variant="primary") and the
-     brand mark. Everyday chrome stays on --pc-accent above. */
-  --pc-brand: #c12d6c;
-  --pc-accent-2: #ab5e17;
-  --pc-accent-gradient: linear-gradient(90deg, #ab5e17, #c12d6c);
+  /* Detail panel (Thunderbolt): drop-shadow glow + the slide-in width floor. */
+  --shadow-glow-strong: 0 0 32px rgb(38 33 32 / 0.09);
+  --create-panel-min-width: 480px;
 
-  /* Link text — derived from the per-theme accent so it tracks every palette. */
-  --pc-text-link: var(--pc-accent-light);
+  /* Focus ring color — tracks the per-theme primary ink. */
+  --color-focus: transparent;
 
-  /* ── Operator Console scale tokens (additive) ──
-     Consistent radii + elevation for the redesign primitives. These do not
-     vary per theme; they are structural design tokens. */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --color-overlay: rgba(0, 0, 0, 0.5);
+  --color-hover: rgba(38, 33, 32, 0.05);
+  --color-hover-strong: rgba(38, 33, 32, 0.08);
+  --color-separator: rgba(38, 33, 32, 0.07);
 
-  --pc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
-  --pc-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.22);
+  --color-scrollbar-thumb: #cfc7ba;
+  --color-scrollbar-track: #ece7de;
+  --color-scrollbar-thumb-hover: #bfb4a3;
 
-  /* Focus ring color — tracks the per-theme accent for a strong, legible ring. */
-  --pc-focus: var(--pc-accent);
+  /* Chat reading serif + sizes (chat rare in an admin panel). */
+  --font-chat: 'Plantin Cyr MT', Georgia, 'Times New Roman', serif;
+  --font-size: 15px;
+  --font-size-mono: 14px;
+  --font-chat-size: calc(var(--font-size) * 1.06);
 
-  /* Hover */
-  --pc-hover: rgba(255, 255, 255, 0.05);
-  --pc-hover-strong: rgba(255, 255, 255, 0.08);
-  --pc-separator: rgba(255, 255, 255, 0.05);
-
-  /* Scrollbar */
-  --pc-scrollbar-thumb: #3a3d3e;
-  --pc-scrollbar-track: #282a2b;
-  --pc-scrollbar-thumb-hover: #525657;
-
-  /* Fonts — UI on the system sans stack (matching the Volt client, which keeps
-     everyday UI on the platform font). Runtime font choices override --pc-font-ui
-     via ThemeContext; --pc-font-chat is the bundled reading serif. */
-  --pc-font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-  --pc-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
-  --pc-font-chat: 'Plantin Cyr MT', Georgia, 'Times New Roman', serif;
-  /* Display / heading font — the same Plantin serif (Cyrillic-capable), used
-     as the editorial voice on page & section titles so the bundled face is
-     actually seen (chat is rare in an admin panel). */
-  --pc-font-heading: 'Plantin Cyr MT', Georgia, 'Times New Roman', serif;
-  --pc-font-size: 15px;
-  --pc-font-size-mono: 14px;
-  /* Chat prose reads a touch small in the serif, so it carries a small bump
-     over the body size (mirrors the client's serif bump). */
-  --pc-font-chat-size: calc(var(--pc-font-size) * 1.06);
+  /* Thunderbolt type + icon scale — referenced by ported TB components
+     (button/card/detail-panel) via var(), so their JSX works verbatim. */
+  --font-size-body: 0.875rem;
+  --font-size-sm: 0.75rem;
+  --font-size-xs: 0.625rem;
+  --icon-size-default: 1rem;
+  --icon-size-sm: 0.875rem;
 }
 
 html {
 }
 
 body {
-  background-color: var(--pc-bg-base);
-  color: var(--pc-text-primary);
-  font-family: var(--pc-font-ui);
-  font-size: var(--pc-font-size);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  font-size: var(--font-size);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   margin: 0;
@@ -186,7 +185,7 @@ body {
    levels the console uses for real titles; smaller headings (h3+) and the
    dense label chrome stay on the sans UI stack. */
 h1, h2 {
-  font-family: var(--pc-font-heading);
+  font-family: var(--font-heading);
 }
 
 #root {
@@ -196,8 +195,10 @@ h1, h2 {
 /* Focus ring — solid accent for a strong, legible, WCAG-friendly ring
    (was a low-contrast 30%-alpha color). */
 :focus-visible {
-  outline: 2px solid var(--pc-focus);
-  outline-offset: 2px;
+  /* No focus outline anywhere — a 2px-transparent outline still flashes while
+     an element with a transition animates its outline-color to transparent,
+     so remove the outline entirely rather than making it transparent. */
+  outline: none;
 }
 
 :focus:not(:focus-visible) {
@@ -207,7 +208,16 @@ h1, h2 {
 /* Scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--pc-scrollbar-thumb) var(--pc-scrollbar-track);
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+}
+
+/* Scroll without a visible scrollbar (sidebar + content columns). */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 ::-webkit-scrollbar {
@@ -220,12 +230,12 @@ h1, h2 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--pc-scrollbar-thumb);
+  background: var(--color-scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--pc-scrollbar-thumb-hover);
+  background: var(--color-scrollbar-thumb-hover);
 }
 
 textarea::-webkit-scrollbar {
@@ -238,12 +248,12 @@ textarea::-webkit-scrollbar:horizontal {
 }
 
 textarea::-webkit-scrollbar-thumb {
-  background: var(--pc-scrollbar-thumb);
+  background: var(--color-scrollbar-thumb);
   border-radius: 2px;
 }
 
 textarea::-webkit-scrollbar-thumb:hover {
-  background: var(--pc-scrollbar-thumb-hover);
+  background: var(--color-scrollbar-thumb-hover);
 }
 
 textarea {
@@ -254,7 +264,7 @@ textarea {
 }
 
 code, kbd, pre {
-  font-family: var(--pc-font-mono);
+  font-family: var(--font-mono);
 }
 
 /* ── Animations ── */
@@ -389,35 +399,35 @@ code, kbd, pre {
 
 /* Card */
 .card {
-  background: var(--pc-bg-surface);
-  border: 1px solid var(--pc-border);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
   border-radius: 1rem;
   transition: all 0.3s ease;
 }
 
 .card:hover {
-  background: var(--pc-bg-elevated);
-  border-color: var(--pc-border-strong);
+  background: var(--color-secondary);
+  border-color: var(--color-border-strong);
 }
 
 /* Glass card */
 .glass-card {
-  background: var(--pc-bg-surface);
-  border: 1px solid var(--pc-border);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
   border-radius: 1rem;
   backdrop-filter: blur(16px);
   transition: all 0.3s ease;
 }
 
 .glass-card:hover {
-  border-color: var(--pc-border-strong);
-  background: var(--pc-bg-elevated);
+  border-color: var(--color-border-strong);
+  background: var(--color-secondary);
 }
 
 /* Surface panel */
 .surface-panel {
-  background: var(--pc-bg-surface);
-  border: 1px solid var(--pc-border);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
   border-radius: 1.25rem;
   backdrop-filter: blur(16px);
 }
@@ -425,7 +435,7 @@ code, kbd, pre {
 /* Electric button (primary action) — the Volt brand gradient (amber→raspberry
    bolt). Falls back to the solid accent where the gradient token is unset. */
 .btn-electric {
-  background: var(--pc-accent-gradient, var(--pc-accent));
+  background: var(--gradient-brand, var(--color-primary));
   color: white;
   border: none;
   border-radius: 0.75rem;
@@ -437,7 +447,7 @@ code, kbd, pre {
 
 .btn-electric:hover:not(:disabled) {
   opacity: 0.9;
-  box-shadow: 0 8px 24px rgba(var(--pc-accent-rgb), 0.15);
+  box-shadow: 0 8px 24px rgba(var(--color-accent-rgb), 0.15);
 }
 
 .btn-electric:active:not(:disabled) {
@@ -451,21 +461,23 @@ code, kbd, pre {
 
 /* Electric input */
 .input-electric {
-  background: var(--pc-bg-input);
-  border: 1px solid var(--pc-border);
+  background: var(--color-input);
+  border: 1px solid var(--color-border);
   border-radius: 0.75rem;
-  color: var(--pc-text-primary);
+  color: var(--color-foreground);
   transition: all 0.3s ease;
 }
 
 .input-electric:focus {
   outline: none;
-  border-color: var(--pc-accent-dim);
-  box-shadow: 0 0 0 3px var(--pc-accent-glow);
+  box-shadow: none;
+  /* Thunderbolt-style focus: darken the border to border-strong. No glow/ring
+     "обводка", no fill swap — just the border stepping up on focus. */
+  border-color: var(--color-border-strong);
 }
 
 .input-electric::placeholder {
-  color: var(--pc-text-muted);
+  color: var(--color-muted-foreground);
 }
 
 .secret-mask {
@@ -475,7 +487,7 @@ code, kbd, pre {
 
 /* Primary action (pill) — Volt brand bolt gradient. */
 .btn-primary {
-  background: var(--pc-accent-gradient, var(--pc-accent));
+  background: var(--gradient-brand, var(--color-primary));
   color: white;
   border-radius: 1rem;
   font-weight: 600;
@@ -484,7 +496,7 @@ code, kbd, pre {
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(var(--pc-accent-rgb), 0.2);
+  box-shadow: 0 4px 12px rgba(var(--color-accent-rgb), 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -498,9 +510,9 @@ code, kbd, pre {
 
 /* Secondary button */
 .btn-secondary {
-  background: var(--pc-bg-elevated);
-  color: var(--pc-text-secondary);
-  border: 1px solid var(--pc-border);
+  background: var(--color-secondary);
+  color: var(--color-muted-foreground);
+  border: 1px solid var(--color-border);
   border-radius: 0.75rem;
   font-weight: 500;
   font-size: 0.875rem;
@@ -510,9 +522,9 @@ code, kbd, pre {
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: var(--pc-hover);
-  color: var(--pc-text-primary);
-  border-color: var(--pc-border-strong);
+  background: var(--color-hover);
+  color: var(--color-foreground);
+  border-color: var(--color-border-strong);
 }
 
 .btn-secondary:disabled {
@@ -524,7 +536,7 @@ code, kbd, pre {
 .btn-icon {
   padding: 0.5rem;
   border-radius: 0.75rem;
-  color: var(--pc-text-muted);
+  color: var(--color-muted-foreground);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -535,8 +547,8 @@ code, kbd, pre {
 }
 
 .btn-icon:hover {
-  background: var(--pc-hover);
-  color: var(--pc-text-secondary);
+  background: var(--color-hover);
+  color: var(--color-muted-foreground);
 }
 
 /* Danger button */
@@ -668,11 +680,11 @@ code, kbd, pre {
 }
 
 .table-electric thead tr {
-  border-bottom: 1px solid var(--pc-border);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .table-electric thead th {
-  color: var(--pc-text-muted);
+  color: var(--color-muted-foreground);
   font-weight: 500;
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -682,23 +694,23 @@ code, kbd, pre {
   top: 0;
   z-index: 1;
   /* Match glass-card background so rows do not bleed through on scroll */
-  background: var(--pc-bg-surface);
+  background: var(--color-card);
   backdrop-filter: blur(8px);
 }
 
 .table-electric tbody tr {
-  border-bottom: 1px solid var(--pc-separator);
+  border-bottom: 1px solid var(--color-separator);
   transition: all 0.2s ease;
 }
 
 .table-electric tbody tr:hover {
-  background: var(--pc-hover);
+  background: var(--color-hover);
 }
 
 .table-electric tbody td {
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
-  color: var(--pc-text-primary);
+  color: var(--color-foreground);
 }
 
 /* ── Markdown styles ── */
@@ -706,25 +718,25 @@ code, kbd, pre {
    Code/mono inside still resolves to the mono stack via the .markdown-body
    rules below. */
 .chat-markdown {
-  font-family: var(--pc-font-chat);
-  font-size: var(--pc-font-chat-size);
+  font-family: var(--font-chat);
+  font-size: var(--font-chat-size);
 }
 .chat-markdown code,
 .chat-markdown pre,
 .chat-markdown kbd {
-  font-family: var(--pc-font-mono);
-  font-size: var(--pc-font-size-mono);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-mono);
 }
 
 .markdown-body pre {
-  background: var(--pc-bg-code) !important;
-  border: 1px solid var(--pc-border);
+  background: var(--color-code) !important;
+  border: 1px solid var(--color-border);
   border-radius: 0.75rem;
   padding: 1rem;
   overflow-x: auto;
   margin: 0.5rem 0;
-  font-family: var(--pc-font-mono);
-  font-size: calc(var(--pc-font-size-mono) * 0.9);
+  font-family: var(--font-mono);
+  font-size: calc(var(--font-size-mono) * 0.9);
   line-height: 1.6;
   max-width: 100%;
   box-sizing: border-box;
@@ -737,11 +749,11 @@ code, kbd, pre {
 }
 
 .markdown-body code {
-  background: var(--pc-accent-glow);
+  background: var(--color-accent-glow);
   padding: 2px 6px;
   border-radius: 6px;
-  font-size: calc(var(--pc-font-size-mono) * 0.95);
-  font-family: var(--pc-font-mono);
+  font-size: calc(var(--font-size-mono) * 0.95);
+  font-family: var(--font-mono);
 }
 
 .markdown-body p { margin: 4px 0; }
@@ -752,12 +764,12 @@ code, kbd, pre {
 .markdown-body li > ul, .markdown-body li > ol { margin: 2px 0; }
 .markdown-body li > ul { list-style-type: circle; }
 .markdown-body li > ul > li > ul { list-style-type: square; }
-.markdown-body blockquote { border-left: 3px solid var(--pc-accent-dim); padding-left: 12px; margin: 8px 0; opacity: 0.8; }
+.markdown-body blockquote { border-left: 3px solid var(--color-accent-dim); padding-left: 12px; margin: 8px 0; opacity: 0.8; }
 .markdown-body h1, .markdown-body h2, .markdown-body h3 { margin: 12px 0 4px; }
-.markdown-body a { color: var(--pc-accent-light); text-decoration: underline; }
+.markdown-body a { color: var(--color-accent-light); text-decoration: underline; }
 .markdown-body table { border-collapse: collapse; margin: 8px 0; display: block; overflow-x: auto; max-width: 100%; }
-.markdown-body th, .markdown-body td { border: 1px solid var(--pc-border); padding: 6px 12px; }
-.markdown-body th { background: var(--pc-accent-glow); }
+.markdown-body th, .markdown-body td { border: 1px solid var(--color-border); padding: 6px 12px; }
+.markdown-body th { background: var(--color-accent-glow); }
 .markdown-body img { max-width: 100%; border-radius: 8px; }
 
 /* ── Chat markdown (agent bubbles) ── */
@@ -770,21 +782,21 @@ code, kbd, pre {
 .chat-markdown li { margin: 0.25em 0; }
 .chat-markdown li > ul { list-style-type: circle; }
 .chat-markdown li > ul > li > ul { list-style-type: square; }
-.chat-markdown blockquote { border-left: 3px solid var(--pc-accent-dim); padding-left: 0.75em; margin: 0.5em 0; color: var(--pc-text-muted); }
+.chat-markdown blockquote { border-left: 3px solid var(--color-accent-dim); padding-left: 0.75em; margin: 0.5em 0; color: var(--color-muted-foreground); }
 .chat-markdown h1, .chat-markdown h2, .chat-markdown h3, .chat-markdown h4 { margin: 0.75em 0 0.25em; font-weight: 600; }
 .chat-markdown h1 { font-size: 1.25em; }
 .chat-markdown h2 { font-size: 1.125em; }
 .chat-markdown h3 { font-size: 1em; }
-.chat-markdown hr { border: none; border-top: 1px solid var(--pc-border); margin: 0.75em 0; }
-.chat-markdown a { color: var(--pc-accent-light); text-decoration: underline; }
-.chat-markdown strong { font-weight: 600; color: var(--pc-text-primary); }
+.chat-markdown hr { border: none; border-top: 1px solid var(--color-border); margin: 0.75em 0; }
+.chat-markdown a { color: var(--color-accent-light); text-decoration: underline; }
+.chat-markdown strong { font-weight: 600; color: var(--color-foreground); }
 .chat-markdown em { font-style: italic; }
-.chat-markdown code { background: var(--pc-accent-glow); padding: 0.125em 0.375em; border-radius: 0.375em; font-size: 0.875em; font-family: var(--pc-font-mono); }
-.chat-markdown pre { background: var(--pc-bg-code); border: 1px solid var(--pc-border); border-radius: 0.5em; padding: 0.75em; margin: 0.5em 0; overflow-x: auto; font-family: var(--pc-font-mono); font-size: 0.85em; line-height: 1.5; }
+.chat-markdown code { background: var(--color-accent-glow); padding: 0.125em 0.375em; border-radius: 0.375em; font-size: 0.875em; font-family: var(--font-mono); }
+.chat-markdown pre { background: var(--color-code); border: 1px solid var(--color-border); border-radius: 0.5em; padding: 0.75em; margin: 0.5em 0; overflow-x: auto; font-family: var(--font-mono); font-size: 0.85em; line-height: 1.5; }
 .chat-markdown pre code { background: transparent; padding: 0; border-radius: 0; font-size: inherit; }
 .chat-markdown table { border-collapse: collapse; margin: 0.5em 0; display: block; overflow-x: auto; max-width: 100%; }
-.chat-markdown th, .chat-markdown td { border: 1px solid var(--pc-border); padding: 0.375em 0.75em; font-size: 0.875em; }
-.chat-markdown th { background: var(--pc-accent-glow); font-weight: 600; }
+.chat-markdown th, .chat-markdown td { border: 1px solid var(--color-border); padding: 0.375em 0.75em; font-size: 0.875em; }
+.chat-markdown th { background: var(--color-accent-glow); font-weight: 600; }
 .chat-markdown img { max-width: 100%; border-radius: 0.5em; }
 
 /* ── Accessibility: reduced motion ── */
@@ -822,8 +834,8 @@ code, kbd, pre {
 
 /* ── Tool call cards (AgentChat) ── */
 .tool-card {
-  border-left: 3px solid var(--pc-accent);
-  background: var(--pc-bg-surface);
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-card);
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
 }
@@ -840,7 +852,7 @@ code, kbd, pre {
   cursor: pointer;
   user-select: none;
   font-size: 0.75rem;
-  color: var(--pc-text-muted);
+  color: var(--color-muted-foreground);
   margin-top: 0.25rem;
 }
 
@@ -853,11 +865,11 @@ code, kbd, pre {
   margin-top: 0.25rem;
   padding: 0.5rem;
   border-radius: 0.375rem;
-  background: var(--pc-bg-code);
+  background: var(--color-code);
 }
 
 .tool-card__inline {
   font-size: 0.75rem;
-  color: var(--pc-text-muted);
+  color: var(--color-muted-foreground);
   margin-top: 0.25rem;
 }
