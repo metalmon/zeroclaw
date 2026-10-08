@@ -14,8 +14,8 @@ import { Badge } from '@/components/ui';
 import { CapturedCallList } from '@/components/SopCalls';
 
 function pinTypeLabel(pin: GraphPin): string {
-  if (pin.class === 'flow') return t('sops.pin_flow');
-  return pin.data_type ?? t('sops.pin_any');
+  if (pin.class === 'flow') return 'flow';
+  return pin.data_type ?? 'any';
 }
 
 export default function SopStepList({
@@ -38,7 +38,7 @@ export default function SopStepList({
           const calls = callsByStep.get(node.step);
           return (
             <div key={node.step} className="flex items-start gap-3 px-3 py-2">
-              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary text-xs font-semibold text-primary-foreground">
+              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary text-xs font-semibold text-[#0b1220]">
                 {node.step}
               </span>
               <div className="min-w-0 flex-1">
