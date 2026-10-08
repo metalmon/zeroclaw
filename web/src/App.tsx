@@ -312,12 +312,7 @@ function PairingDialog({
               borderColor: "var(--color-accent-dim)",
             }}
           >
-            <div
-              className="text-2xl font-mono font-bold tracking-widest break-all py-2"
-              style={{ color: "var(--color-foreground)" }}
-            >
-              {displayCode}
-            </div>
+            <PairingCode code={displayCode} className="py-2" />
             <p
               className="text-xs mt-2"
               style={{ color: "var(--color-muted-foreground)" }}
