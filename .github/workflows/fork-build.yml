@@ -61,7 +61,16 @@ jobs:
       - name: i18n gates (catalogs, no bare English)
         working-directory: web
         run: |
-          npm run check:i18n
+          # The catalog checker reports an untranslated key as information, not
+          # as a failure. The pilot ships Russian, so here it is a failure: the
+          # plugins page reached the operator fully English for exactly this
+          # reason - every string wrapped, not one key in the ru catalog.
+          out=$(npm run --silent check:i18n)
+          echo "$out"
+          if echo "$out" | grep -q 'untranslated:'; then
+            echo "::error::keys are missing from the ru catalog - that page ships in English"
+            exit 1
+          fi
           npm run check:no-literal-english
       # End-to-end: whatever the catalogs say, the bundle that ships must carry
       # Russian. Counts files with Cyrillic in the built dist.
