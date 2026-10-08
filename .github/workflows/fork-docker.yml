@@ -26,7 +26,9 @@ jobs:
           # Pilot channel set: telegram, matrix, email, filesystem, git, webhook, whatsapp-web.
           # WhatsApp over the Web protocol, not the Cloud API: the Cloud API needs Meta to reach
           # a public HTTPS webhook, which a closed network does not offer.
-          docker build -f Dockerfile.debian -t zeroclaw:f4-debian             --build-arg ZEROCLAW_CARGO_FLAGS="--no-default-features --features acp-bridge,agent-runtime,channel-email,channel-filesystem,channel-git,channel-matrix,channel-telegram,channel-webhook,gateway,observability-prometheus,schema-export,whatsapp-web"             .
+          # embedded-web compiles the dashboard into the binary, so no copy on disk can shadow
+          # it and the kit image needs no web_dist_dir.
+          docker build -f Dockerfile.debian -t zeroclaw:f4-debian             --build-arg ZEROCLAW_CARGO_FLAGS="--no-default-features --features acp-bridge,agent-runtime,channel-email,channel-filesystem,channel-git,channel-matrix,channel-telegram,channel-webhook,embedded-web,gateway,observability-prometheus,schema-export,whatsapp-web"             .
       - name: Save image to a loadable tar
         run: |
           docker save zeroclaw:f4-debian | gzip > zeroclaw-f4-debian.tar.gz
