@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, XCircle, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Badge, Card, PageHeader, HelpTip } from '@/components/ui';
+import { Badge, Button, Card, PageHeader, HelpTip } from '@/components/ui';
 import SopCanvas from './SopCanvas';
 import { planSopSave, sopErrorText } from './sopSavePlan';
 import MarkdownEditor from '@/components/MarkdownEditor';
@@ -343,7 +343,7 @@ function StepEditor({
     >
       <div className="mb-2 flex items-center gap-2">
         <HelpTip text={sopFieldHelp('SopStep', 'number')}>
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-primary text-xs font-semibold text-[#0b1220]">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-primary text-xs font-semibold text-primary-foreground">
             {step.number}
           </span>
         </HelpTip>
@@ -1118,7 +1118,7 @@ function StepListRow({
       }`}
     >
       <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary text-[11px] font-semibold text-[#0b1220]">
+        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary text-[11px] font-semibold text-primary-foreground">
           {step.number}
         </span>
         <span className="truncate text-sm text-foreground">{step.title || t('sops.untitled')}</span>
@@ -1373,7 +1373,7 @@ function DraftSidebar({
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="inline-flex items-center gap-1 rounded bg-primary px-2 py-1 text-sm text-[#0b1220] hover:bg-accent-light disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded bg-primary px-2 py-1 text-sm text-primary-foreground hover:bg-accent-light disabled:opacity-50"
           >
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -1636,7 +1636,7 @@ function ManualRunPanel({ name, sop }: { name: string; sop: Sop | null }) {
           type="button"
           onClick={onRun}
           disabled={running}
-          className="inline-flex items-center gap-1 rounded border border-border bg-primary px-3 py-1 text-sm font-medium text-[#0b1220] hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded border border-border bg-primary px-3 py-1 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
         >
           {running ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
           {t('sops.run')}
@@ -1678,11 +1678,11 @@ export function SopsList() {
         title={t('sops.title')}
         description={t('sops.subtitle')}
         actions={
-          <Link
-            to="/sops/new"
-            className="inline-flex items-center gap-1 rounded bg-primary px-3 py-1.5 text-sm text-[#0b1220] hover:bg-accent-light"
-          >
-            <Plus className="h-4 w-4" aria-hidden /> {t('sops.new')}
+          <Link to="/sops/new">
+            <Button variant="default">
+              <Plus className="h-4 w-4" aria-hidden />
+              {t('sops.new')}
+            </Button>
           </Link>
         }
       />

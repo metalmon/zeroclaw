@@ -38,7 +38,7 @@ export default function SopStepList({
           const calls = callsByStep.get(node.step);
           return (
             <div key={node.step} className="flex items-start gap-3 px-3 py-2">
-              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary text-xs font-semibold text-[#0b1220]">
+              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary text-xs font-semibold text-primary-foreground">
                 {node.step}
               </span>
               <div className="min-w-0 flex-1">
