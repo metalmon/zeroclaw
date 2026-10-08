@@ -848,7 +848,7 @@ function ConditionBuilder({
           {t('sops.trigger_condition')}
         </HelpTip>
       </legend>
-      <div className="grid grid-cols-[1.4fr_auto_1.4fr] items-end gap-2">
+      <div className="flex flex-col gap-2">
         {isDirect ? (
           <div className="text-xs text-text-faint">{t('sops.condition_direct_payload')}</div>
         ) : isOpen ? (
