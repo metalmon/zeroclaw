@@ -53,9 +53,15 @@ impl Tool for AskUserTool {
     }
 
     fn description(&self) -> &str {
-        "Ask the user a question and wait for their response. \
-         Sends the question to a messaging channel and blocks until the user replies \
-         or the timeout expires. Optionally provide choices for structured responses."
+        "Send a question to a MESSAGING CHANNEL and block until someone answers there \
+         or the timeout expires (default 300s). This is not how you talk to the person \
+         you are already talking to: in a live conversation ask in your reply instead, \
+         because this tool sends the question elsewhere and stalls the turn meanwhile. \
+         Use it only when the turn has no conversation to reply into (a cron job, a \
+         heartbeat, a webhook) and the work cannot continue without an answer. Name the \
+         `channel` explicitly: with none given the question goes to an arbitrary \
+         configured channel, which may be one nobody is reading. `choices` renders as a \
+         structured pick on channels that support it."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
