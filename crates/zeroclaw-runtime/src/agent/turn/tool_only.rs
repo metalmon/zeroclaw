@@ -216,6 +216,9 @@ mod tests {
             turn_id: "test-turn",
             agent_alias: None,
             parent_agent_alias: None,
+            context_limits: zeroclaw_config::schema::ResolvedContextLimits::legacy_fallback(0),
+            serving_provider_name: None,
+            serving_model: None,
         }
     }
 
