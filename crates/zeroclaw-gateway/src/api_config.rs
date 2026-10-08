@@ -708,7 +708,7 @@ fn reject_masked_secret_value(
 }
 
 /// `POST /api/channels/bind` request body. The GUI/HTTP equivalent of
-/// `zeroclaw channel bind-<type> <identity> --alias <alias>`: authorize an
+/// `voltd channel bind-<type> <identity> --alias <alias>`: authorize an
 /// operator-named identity on one channel alias without the in-chat
 /// `/bind <code>` round trip.
 #[derive(Debug, Deserialize)]

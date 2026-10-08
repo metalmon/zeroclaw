@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub enum ApprovalSource {
     /// The in-agent `sop_approve` tool (the self-satisfiable path).
     Agent,
-    /// `zeroclaw sop approve <id>` over loopback HTTP to the daemon.
+    /// `voltd sop approve <id>` over loopback HTTP to the daemon.
     Cli,
     /// Gateway WebSocket `approval_response` frame.
     Ws,

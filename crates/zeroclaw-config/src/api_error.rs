@@ -86,7 +86,7 @@ impl ConfigApiCode {
     }
 }
 
-/// Structured error returned by the new HTTP CRUD endpoints and the `zeroclaw config`
+/// Structured error returned by the new HTTP CRUD endpoints and the `voltd config`
 /// subcommands they share infrastructure with.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]

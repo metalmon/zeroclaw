@@ -237,7 +237,7 @@ impl GatewayReadinessReporter {
 }
 
 /// Start the live-pricing refresher for a standalone command that owns the
-/// runtime without a daemon (`zeroclaw gateway`, `zeroclaw channel start`).
+/// runtime without a daemon (`voltd gateway`, `voltd channel start`).
 ///
 /// The daemon does not use this: it starts the refresher on its generation's
 /// shared live configuration. A standalone command has no such handle, so
@@ -255,7 +255,7 @@ pub fn spawn_pricing_refresher(config: &Config) {
 /// the gateway reports the address it actually bound.
 ///
 /// The process that owns the gateway (the daemon, or the standalone
-/// `zeroclaw gateway` command) owns the hook, not the gateway listener. The
+/// `voltd gateway` command) owns the hook, not the gateway listener. The
 /// hook fires at most once per reporter, and each gateway start gets a fresh
 /// reporter, so every start fires it exactly once even if readiness is
 /// reported again. `host` is the configured bind host; the port is the one the
@@ -569,7 +569,7 @@ pub enum GatewayBindMode {
     /// Address is free (or an ephemeral port): start and supervise our own gateway.
     StartFresh,
     /// A ZeroClaw gateway already holds the address (e.g. a standalone
-    /// `zeroclaw gateway start`): fail fast rather than start a second gateway
+    /// `voltd gateway start`): fail fast rather than start a second gateway
     /// on the same port.
     GatewayAlreadyRunning,
     /// Address is held by some other process: fail fast rather than degrade into
@@ -1028,7 +1028,7 @@ pub async fn run_with_authority(
         };
 
         // Open the ACP session DB at boot so the file exists from the
-        // moment the daemon is up, not when (if ever) `zeroclaw acp`
+        // moment the daemon is up, not when (if ever) `voltd acp`
         // runs. Best-effort: on failure, log and continue with `None`.
         let acp_session_store: Option<
             std::sync::Arc<zeroclaw_infra::acp_session_store::AcpSessionStore>,

@@ -3,7 +3,7 @@
 //!
 //! Phase 1 (read-only): `GET /api/version/check` reports whether a newer
 //! release exists, plus release notes, by shelling out to
-//! `zeroclaw update --check --json` — keeping a single source of truth for
+//! `voltd update --check --json` — keeping a single source of truth for
 //! update logic. Results are cached for an hour to stay well under GitHub's
 //! unauthenticated rate limit.
 //!
@@ -28,7 +28,7 @@ use zeroclaw_runtime::i18n::get_required_cli_string;
 
 /// How long a successful version check is reused before re-querying GitHub.
 const CHECK_CACHE_TTL: Duration = Duration::from_secs(3600);
-/// Upper bound on the `zeroclaw update --check` subprocess.
+/// Upper bound on the `voltd update --check` subprocess.
 const CHECK_TIMEOUT: Duration = Duration::from_secs(15);
 
 fn lock_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -157,7 +157,7 @@ fn detect_restart_uncached() -> RestartInfo {
 
 // ── Version check ────────────────────────────────────────────────
 
-/// Parsed output of `zeroclaw update --check --json`. Field names must match
+/// Parsed output of `voltd update --check --json`. Field names must match
 /// the JSON emitted in `src/main.rs`.
 #[derive(Debug, Clone, Deserialize)]
 struct CliCheck {
@@ -390,7 +390,7 @@ fn json_error(code: StatusCode, msg: &str) -> axum::response::Response {
         .into_response()
 }
 
-/// POST /api/version/upgrade — apply an upgrade via `zeroclaw update`.
+/// POST /api/version/upgrade — apply an upgrade via `voltd update`.
 ///
 /// Returns 202 with a `handoff_id`; the work runs on a detached task and the
 /// client polls `GET /api/version/upgrade/status`.
@@ -635,7 +635,7 @@ enum RestartAction {
     /// process with no supervisor).
     ///
     /// `standalone_shutdown_tx` is `Some` only when the gateway runs without
-    /// a daemon wrapper (`zeroclaw gateway start`). In that mode no one is
+    /// a daemon wrapper (`voltd gateway start`). In that mode no one is
     /// listening for SIGTERM/`shutdown_notify`, so we send the gateway's own
     /// shutdown watch directly — that lets `run_gateway()` return cleanly so
     /// `respawn_if_requested()` runs in `main`. When the daemon wraps the
@@ -646,7 +646,7 @@ enum RestartAction {
     },
 }
 
-/// Drive `zeroclaw update`, then either mark done or (Phase 3) restart.
+/// Drive `voltd update`, then either mark done or (Phase 3) restart.
 async fn run_upgrade(
     progress: Arc<Mutex<UpgradeProgress>>,
     version: Option<String>,
@@ -767,7 +767,7 @@ async fn run_upgrade(
             set_state(&progress, UpgradeState::Restarting);
             tokio::time::sleep(RESTART_GRACE).await;
             match standalone_shutdown_tx {
-                // Standalone gateway (`zeroclaw gateway start`): no daemon
+                // Standalone gateway (`voltd gateway start`): no daemon
                 // wait loop is listening for SIGTERM/`shutdown_notify`, so the
                 // process would just die before `respawn_if_requested()` ran
                 // in `main`. Drive the gateway's own shutdown watch so
@@ -940,7 +940,7 @@ mod tests {
     }
 
     /// Regression for the standalone-gateway respawn path:
-    /// `zeroclaw gateway start` runs without a daemon wrapper, so nothing is
+    /// `voltd gateway start` runs without a daemon wrapper, so nothing is
     /// listening for SIGTERM/`shutdown_notify`. Driving the gateway's own
     /// `shutdown_tx` watch is what makes `run_gateway()` return so
     /// `respawn_if_requested()` runs in `main`.

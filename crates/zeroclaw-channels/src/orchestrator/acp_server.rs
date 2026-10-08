@@ -155,7 +155,7 @@ pub struct AcpServer {
     /// Shared canvas store from the gateway / daemon supervisor.  When set,
     /// agents created by this server write canvas frames to the same store
     /// that `/ws/canvas/:id` WebSocket subscribers read from.  `None` in
-    /// standalone `zeroclaw acp` mode where no gateway is running.
+    /// standalone `voltd acp` mode where no gateway is running.
     canvas_store: Option<CanvasStore>,
     /// Shared SOP engine from the daemon. `None` in standalone mode — agents
     /// build their own engine from config.
@@ -172,7 +172,7 @@ pub struct AcpServer {
     /// (`/acp`'s pairing-over-ACP gate, see `zeroclaw-gateway`'s
     /// `acp::handle_socket`). Defaults to
     /// [`zeroclaw_api::principal::Principal::shared_operator`] — unmodified
-    /// standalone/stdio ACP (`zeroclaw acp`, no gateway) never calls
+    /// standalone/stdio ACP (`voltd acp`, no gateway) never calls
     /// [`Self::with_principal`], so it keeps today's NULL-owner behavior
     /// unchanged.
     principal: zeroclaw_api::principal::Principal,
@@ -4621,7 +4621,7 @@ mod tests {
 
     /// Front-door proof for the CLI stdio surface. The tests above call
     /// `handle_session_new` directly; this one drives the real stdio serve loop
-    /// (`serve_reader`, the exact framing loop `run()` uses for `zeroclaw acp`)
+    /// (`serve_reader`, the exact framing loop `run()` uses for `voltd acp`)
     /// through an in-memory pipe, feeding newline-delimited JSON-RPC just as an
     /// editor/IDE ACP client would over the process's stdin. An omitted-`cwd`
     /// `session/new` must return the per-agent workspace — the behavior this PR
@@ -5643,7 +5643,7 @@ mod tests {
 
     /// Default (no `with_principal`/`with_grants` call) is the
     /// shared-operator / all-access posture — unmodified standalone/stdio
-    /// ACP (`zeroclaw acp`, no gateway) must be unaffected by this gate.
+    /// ACP (`voltd acp`, no gateway) must be unaffected by this gate.
     #[tokio::test]
     async fn session_new_default_principal_is_shared_operator_with_full_access() {
         let cwd = tempfile::tempdir().unwrap();

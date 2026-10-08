@@ -166,7 +166,7 @@ impl ModelProvider for TelnyxModelProvider {
                 "telnyx: API key not configured"
             );
             anyhow::Error::msg(
-                "Telnyx API key not set. Set TELNYX_API_KEY environment variable or run `zeroclaw quickstart --model-provider telnyx --api-key <key>`.",
+                "Telnyx API key not set. Set TELNYX_API_KEY environment variable or run `voltd quickstart --model-provider telnyx --api-key <key>`.",
             )
         })?;
 
@@ -239,7 +239,7 @@ impl ModelProvider for TelnyxModelProvider {
                 "telnyx: API key not configured"
             );
             anyhow::Error::msg(
-                "Telnyx API key not set. Set TELNYX_API_KEY environment variable or run `zeroclaw quickstart --model-provider telnyx --api-key <key>`.",
+                "Telnyx API key not set. Set TELNYX_API_KEY environment variable or run `voltd quickstart --model-provider telnyx --api-key <key>`.",
             )
         })?;
 

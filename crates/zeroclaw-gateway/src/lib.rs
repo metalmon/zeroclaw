@@ -780,7 +780,7 @@ pub struct AppState {
     pub shutdown_tx: tokio::sync::watch::Sender<bool>,
     /// Reload signal sender owned by the daemon. /admin/reload writes `true`
     /// here; the daemon's wait loop reacts and re-instantiates every
-    /// subsystem in place. `None` when running standalone (`zeroclaw gateway start`)
+    /// subsystem in place. `None` when running standalone (`voltd gateway start`)
     /// — reload then degrades to a 503 with a clear message.
     pub reload_tx: Option<zeroclaw_runtime::daemon::GatewayReloadControls>,
     /// Registry of dynamically connected nodes
@@ -1490,7 +1490,7 @@ pub async fn run_gateway_with_plugin_webhooks(
 
     // The live-pricing refresher and the gateway-start hook belong to the
     // process that owns this listener (the daemon, or the standalone
-    // `zeroclaw gateway` command), not to the listener: the refresher must run
+    // `voltd gateway` command), not to the listener: the refresher must run
     // with the gateway disabled, and the hook fires from the readiness report.
     // The gateway does own the live config handle its config API writes in
     // place, so it points the refresher at that handle. An operator's change
@@ -5448,7 +5448,7 @@ async fn handle_admin_paircode_new(
 /// the same host relays remote callers from loopback, with or without
 /// forwarding headers, and whoever reads a first-run code can pair as the
 /// shared operator. The code reaches operators only through the startup
-/// banner in the gateway log and `zeroclaw gateway get-paircode`, which
+/// banner in the gateway log and `voltd gateway get-paircode`, which
 /// presents the owner-only admin token. `pairing_code` stays in the response,
 /// always `null`, so existing dashboard clients fall back to manual entry.
 async fn handle_pair_code(State(state): State<AppState>) -> impl IntoResponse {

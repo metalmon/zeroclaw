@@ -1056,7 +1056,7 @@ impl LogLevel {
     }
 }
 
-/// Subcommands for `zeroclaw eval`.
+/// Subcommands for `voltd eval`.
 #[cfg(feature = "agent-runtime")]
 #[derive(Subcommand, Debug)]
 enum EvalCommands {
@@ -1101,7 +1101,7 @@ enum Commands {
         agent: Option<String>,
     },
 
-    /// Deprecated. Use `zeroclaw quickstart`. Any flags error.
+    /// Deprecated. Use `voltd quickstart`. Any flags error.
     Onboard {
         /// Configure a specific section only. Omit to run the full flow.
         #[command(subcommand)]
@@ -1231,9 +1231,9 @@ responses as notifications.
 Methods: initialize, session/new, session/prompt, session/stop.
 
 Examples:
-  zeroclaw acp                        # start ACP server
-  zeroclaw acp --agent fable         # default new sessions to agent fable
-  zeroclaw acp --max-sessions 5       # limit concurrent sessions")]
+  voltd acp                       # start ACP server
+  voltd acp --agent fable         # default new sessions to agent fable
+  voltd acp --max-sessions 5      # limit concurrent sessions")]
     Acp {
         /// Process-scoped default agent for alias-less session/new requests
         #[arg(long)]
@@ -1327,7 +1327,7 @@ Examples:
         #[command(subcommand)]
         estop_command: Option<EstopSubcommands>,
 
-        /// Level used when engaging estop from `zeroclaw estop`.
+        /// Level used when engaging estop from `voltd estop`.
         #[arg(long, value_enum)]
         level: Option<EstopLevelArg>,
 
@@ -1435,9 +1435,9 @@ rejected. Used by the dashboard's skill-bundle directory picker and by \
 operators who want to inspect what's installed.
 
 Examples:
-  zeroclaw browse                  # list shared/ root
-  zeroclaw browse skills           # list shared/skills/
-  zeroclaw browse skills/coding    # list shared/skills/coding/")]
+  voltd browse                  # list shared/ root
+  voltd browse skills           # list shared/skills/
+  voltd browse skills/coding    # list shared/skills/coding/")]
     Browse {
         /// Path relative to `<install>/shared/`. Empty = root.
         #[arg(default_value = "")]
@@ -1479,9 +1479,9 @@ Enumerate connected USB devices, identify known development boards \
 probe-rs / ST-Link.
 
 Examples:
-  zeroclaw hardware discover
-  zeroclaw hardware introspect /dev/ttyACM0
-  zeroclaw hardware info --chip STM32F401RETx")]
+  voltd hardware discover
+  voltd hardware introspect /dev/ttyACM0
+  voltd hardware info --chip STM32F401RETx")]
     Hardware {
         #[command(subcommand)]
         hardware_command: zeroclaw::HardwareCommands,
@@ -1497,11 +1497,11 @@ to the agent (GPIO, sensors, actuators). Supported boards: \
 nucleo-f401re, rpi-gpio, esp32, arduino-uno.
 
 Examples:
-  zeroclaw peripheral list
-  zeroclaw peripheral add nucleo-f401re /dev/ttyACM0
-  zeroclaw peripheral add rpi-gpio native
-  zeroclaw peripheral flash --port /dev/cu.usbmodem12345
-  zeroclaw peripheral flash-nucleo")]
+  voltd peripheral list
+  voltd peripheral add nucleo-f401re /dev/ttyACM0
+  voltd peripheral add rpi-gpio native
+  voltd peripheral flash --port /dev/cu.usbmodem12345
+  voltd peripheral flash-nucleo")]
     Peripheral {
         #[command(subcommand)]
         peripheral_command: zeroclaw::PeripheralCommands,
@@ -1517,11 +1517,11 @@ Supports filtering by category and session, pagination, and \
 batch clearing with confirmation.
 
 Examples:
-  zeroclaw memory stats
-  zeroclaw memory list
-  zeroclaw memory list --category core --limit 10
-  zeroclaw memory get KEY
-  zeroclaw memory clear --category conversation --yes")]
+  voltd memory stats
+  voltd memory list
+  voltd memory list --category core --limit 10
+  voltd memory get KEY
+  voltd memory clear --category conversation --yes")]
     Memory {
         #[command(subcommand)]
         memory_command: MemoryCommands,
@@ -1601,8 +1601,8 @@ By default, runs the full test suite including network checks \
 checks for faster offline validation.
 
 Examples:
-  zeroclaw self-test             # full suite
-  zeroclaw self-test --quick     # quick checks only (no network)")]
+  voltd self-test             # full suite
+  voltd self-test --quick     # quick checks only (no network)")]
     SelfTest {
         /// Run quick checks only (no network)
         #[arg(long)]
@@ -1621,8 +1621,8 @@ expectations. No network calls, fully deterministic. Exits non-zero if any case 
 so it can gate CI.
 
 Examples:
-  zeroclaw eval run                                  # replay ./evals/regression
-  zeroclaw eval run --suite evals/regression --format json")]
+  voltd eval run                                  # replay ./evals/regression
+  voltd eval run --suite evals/regression --format json")]
     Eval {
         #[command(subcommand)]
         eval_command: EvalCommands,
@@ -1670,15 +1670,15 @@ Use --install to open the download page for your platform. It does not \
 install anything itself.
 
 Examples:
-  zeroclaw desktop              # launch the companion app
-  zeroclaw desktop --install    # open the download page")]
+  voltd desktop              # launch the companion app
+  voltd desktop --install    # open the download page")]
     Desktop {
         /// Open the companion app's download page
         #[arg(long)]
         install: bool,
     },
 
-    /// Deprecated: use `zeroclaw config` instead
+    /// Deprecated: use `voltd config` instead
     #[command(hide = true)]
     Props {
         #[command(subcommand)]
@@ -1703,9 +1703,9 @@ Pass a single locale. By default every catalogue is fetched; restrict with \
 --catalog (comma-separated): cli, tools, zerocode.
 
 Examples:
-  zeroclaw locales fetch ja
-  zeroclaw locales fetch fr --catalog cli,tools
-  zeroclaw locales fetch zh-CN --catalog zerocode")]
+  voltd locales fetch ja
+  voltd locales fetch fr --catalog cli,tools
+  voltd locales fetch zh-CN --catalog zerocode")]
     Locales {
         #[command(subcommand)]
         locales_command: LocalesCommands,
@@ -1748,7 +1748,7 @@ fn quickstart_runtime_profile_for_provider(
         .to_string()
 }
 
-/// `zeroclaw quickstart` CLI entry — checklist UX, not a wizard.
+/// `voltd quickstart` CLI entry — checklist UX, not a wizard.
 ///
 /// Mirrors the TUI Quickstart pane's structure: a single screen
 /// listing all six selectors with `[ ]` / `[✓]` status and a one-line
@@ -4688,7 +4688,7 @@ and POSTs the proof to the control plane. On success, writes [relay] so the daem
 registers against the relay on next start.
 
 Examples:
-  zeroclaw relay claim clm_XXXX --control https://control.zerorelay.net")]
+  voltd relay claim clm_XXXX --control https://control.zerorelay.net")]
     Claim {
         /// One-time claim token issued by your ZeroRelay account.
         token: String,
@@ -6027,7 +6027,7 @@ fn resolve_executable(command: &str) -> Option<PathBuf> {
     }
     // A relative value containing a path separator (e.g. `./zeroclaw-helper`) would be
     // resolved by `which` against the current working directory, letting a desktop entry
-    // launch a binary from wherever `zeroclaw desktop` happened to run. Per the Desktop
+    // launch a binary from wherever `voltd desktop` happened to run. Per the Desktop
     // Entry spec `Exec` must be an absolute path or a bare executable name resolved on
     // `PATH`, so reject any relative value that carries a separator.
     if command.contains('/') {
@@ -6837,7 +6837,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                 Box::new(zeroclaw_channels::cli::CliChannel::new("cli"))
             }));
 
-            // Wire peripheral tools (gpio_read/gpio_write etc.) for `zeroclaw agent`.
+            // Wire peripheral tools (gpio_read/gpio_write etc.) for `voltd agent`.
             // Mirrors the registration done for the daemon command.
             #[cfg(feature = "hardware")]
             zeroclaw_runtime::agent::loop_::register_peripheral_tools_fn(Box::new(|config| {
@@ -7163,7 +7163,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                     Box::pin(run_gateway_if_enabled(&host, port, config, None)).await
                 }
                 None => {
-                    // Bare `zeroclaw gateway` has no flag, so degraded security
+                    // Bare `voltd gateway` has no flag, so degraded security
                     // is never auto-allowed here — fail closed.
                     let _nag = gate_security_posture(&config, false)?;
                     let port = config.gateway.port;
@@ -9188,7 +9188,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                             "Download it at"
                         )
                     );
-                    println!("  Or run: zeroclaw desktop --install"); // i18n-exempt: literal command
+                    println!("  Or run: voltd desktop --install"); // i18n-exempt: literal command
                     println!();
                     println!(
                         "{}",
@@ -11569,7 +11569,7 @@ async fn run_inline_provider_auth(auth: InlineProviderAuth, config: &mut Config)
             },
             t(
                 "cli-quickstart-auth-codex-skip-hint",
-                "  Finish later with: zeroclaw auth login --model-provider openai-codex",
+                "  Finish later with: voltd auth login --model-provider openai-codex",
             ),
         ),
         InlineProviderAuth::AnthropicSetupToken { alias } => (
@@ -12063,7 +12063,7 @@ async fn handle_auth_command(auth_command: AuthCommands, config: &Config) -> Res
                 }
                 auth::RefreshStatus::NoProfile => {
                     bail!(
-                        "No auth profile found. Run `zeroclaw auth login --model-provider <provider>` first.",
+                        "No auth profile found. Run `voltd auth login --model-provider <provider>` first.",
                     )
                 }
             }
@@ -19012,7 +19012,7 @@ type = "string"
 
         // Follow the printed instructions verbatim: (1) rename the legacy row to
         // the canonical instance key, then (2) apply the grant command's value
-        // through the real config setter — the same path `zeroclaw config set`
+        // through the real config setter — the same path `voltd config set`
         // takes. `config set` REPLACES the list, so the row's grant after this is
         // exactly the command's value.
         config.plugins.entries[0].name = instance_key.clone();
@@ -19038,7 +19038,7 @@ type = "string"
         );
     }
 
-    /// The quoted value of the `zeroclaw config set` command printed on `line`.
+    /// The quoted value of the `voltd config set` command printed on `line`.
     /// A verdict line also carries the runtime's reason, which quotes the
     /// offending entry, so the value is read after the command, not from the
     /// first quote on the line.
@@ -19636,7 +19636,7 @@ type = "string"
     /// otherwise the operator has nowhere to author the grant.
     ///
     /// The second half pins *why* the row is required: without one, the dotted
-    /// path does not resolve, so `zeroclaw config set
+    /// path does not resolve, so `voltd config set
     /// plugins.entries.<key>.egress_hosts` cannot create the grant either.
     #[tokio::test]
     #[cfg(feature = "plugins-wasm")]

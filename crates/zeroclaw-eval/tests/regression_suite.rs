@@ -11,7 +11,7 @@ use zeroclaw_eval::{LlmTrace, Mode, RecordedCall, RunRecord, run_case, run_suite
 
 /// Resolve the gated suite from the shipped config default rather than a second
 /// hardcoded literal, so the directory this gate certifies cannot drift away
-/// from the directory `zeroclaw eval run` uses by default.
+/// from the directory `voltd eval run` uses by default.
 fn regression_dir() -> PathBuf {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     repo_root.join(EvalHarnessConfig::default().suite_dir)

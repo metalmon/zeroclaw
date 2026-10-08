@@ -591,7 +591,7 @@ Examples:
     },
 }
 
-/// Skill bundle subcommands (`zeroclaw skills bundle <op>`)
+/// Skill bundle subcommands (`voltd skills bundle <op>`)
 #[derive(Subcommand, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SkillBundleCommands {
     /// List configured skill bundles and their resolved directories
@@ -979,7 +979,7 @@ pub enum MemoryCommands {
     },
     /// Rebuild backend indexes: FTS tables + any missing embedding vectors.
     ///
-    /// Run after `zeroclaw migrate openclaw` or other bulk writes that
+    /// Run after `voltd migrate openclaw` or other bulk writes that
     /// land rows with `embedding = NULL`. Safe to re-run; only touches
     /// entries whose vector is missing. No-op for backends without a
     /// vector index.
@@ -1008,7 +1008,7 @@ Scans connected USB devices by VID/PID and matches them against \
 known development boards (STM32 Nucleo, Arduino, ESP32).
 
 Examples:
-  zeroclaw hardware discover")]
+  voltd hardware discover")]
     Discover,
     /// Introspect a device by path (e.g. /dev/ttyACM0)
     // i18n-exempt: clap derive help — framework requires a compile-time literal
@@ -1019,8 +1019,8 @@ Opens the specified device path and queries for board information, \
 firmware version, and supported capabilities.
 
 Examples:
-  zeroclaw hardware introspect /dev/ttyACM0
-  zeroclaw hardware introspect COM3")]
+  voltd hardware introspect /dev/ttyACM0
+  voltd hardware introspect COM3")]
     Introspect {
         /// Serial or device path
         path: String,
@@ -1034,8 +1034,8 @@ Queries the target MCU directly through the debug probe without \
 requiring any firmware on the target board.
 
 Examples:
-  zeroclaw hardware info
-  zeroclaw hardware info --chip STM32F401RETx")]
+  voltd hardware info
+  voltd hardware info --chip STM32F401RETx")]
     Info {
         /// Chip name (e.g. STM32F401RETx). Default: STM32F401RETx for Nucleo-F401RE
         #[arg(long, default_value = "STM32F401RETx")]
@@ -1060,9 +1060,9 @@ single-board computers like Raspberry Pi.
 Supported boards: nucleo-f401re, rpi-gpio, esp32, arduino-uno.
 
 Examples:
-  zeroclaw peripheral add nucleo-f401re /dev/ttyACM0
-  zeroclaw peripheral add rpi-gpio native
-  zeroclaw peripheral add esp32 /dev/ttyUSB0")]
+  voltd peripheral add nucleo-f401re /dev/ttyACM0
+  voltd peripheral add rpi-gpio native
+  voltd peripheral add esp32 /dev/ttyUSB0")]
     Add {
         /// Board type (nucleo-f401re, rpi-gpio, esp32)
         board: String,
@@ -1078,9 +1078,9 @@ Generates the .ino sketch, installs arduino-cli if it is not \
 already available, compiles, and uploads the firmware.
 
 Examples:
-  zeroclaw peripheral flash
-  zeroclaw peripheral flash --port /dev/cu.usbmodem12345
-  zeroclaw peripheral flash -p COM3")]
+  voltd peripheral flash
+  voltd peripheral flash --port /dev/cu.usbmodem12345
+  voltd peripheral flash -p COM3")]
     Flash {
         /// Serial port (e.g. /dev/cu.usbmodem12345). If omitted, uses first arduino-uno from config.
         #[arg(short, long)]

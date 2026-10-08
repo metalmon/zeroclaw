@@ -46,7 +46,7 @@ pub const MAX_CONTROL_FRAME: usize = 64 * 1024;
 ///
 /// This is a SECURITY bound, not a formatting detail. The daemon signs the
 /// challenge with the same Ed25519 key it uses for other proofs (notably the
-/// `zeroclaw relay claim` ownership proof), so a registration signer that will
+/// `voltd relay claim` ownership proof), so a registration signer that will
 /// sign arbitrary relay-supplied bytes is a signing oracle: a hostile relay
 /// could send a complete tagged claim message as the "nonce" and collect a
 /// valid signature over it, since it already learns the public key from
