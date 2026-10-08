@@ -171,7 +171,7 @@ export default function Plugins() {
                 "inline-flex h-7 cursor-pointer items-center rounded-[var(--radius-md)] border px-3 text-[13px] font-medium transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]",
                 active
-                  ? "border-transparent bg-primary text-[#0b1220]"
+                  ? "border-transparent bg-primary text-primary-foreground"
                   : "border-border bg-transparent text-text-secondary hover:border-border-strong hover:bg-[var(--color-hover)] hover:text-foreground",
               ].join(" ")}
             >
