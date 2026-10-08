@@ -55,7 +55,6 @@ function ContextBar({ contextMaxTokens, contextModelWindow, contextInputTokens }
   if (!state) return null;
 
   const label = `${t('agent.context_usage')}: ${fmtTokens(state.used).padStart(7)} / ${fmtTokens(state.denominator).padStart(7)}  [${state.cells}]  ${state.percent.toFixed(0)}%`;
-  const label = `ctx: ${fmtTokens(used).padStart(7)} / ${fmtTokens(max).padStart(7)} [${bar}] ${pct.toFixed(0)}%`;
 
   return (
     <div className="px-4 py-1.5 border-b text-[11px] font-mono flex items-center gap-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-card)' }}>

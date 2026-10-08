@@ -156,60 +156,81 @@ export default function Pairing() {
             }
           />
 
-      {principals.length > 0 && (
-        <Card className="flex flex-wrap items-center gap-3 p-4">
-          <label htmlFor="pairing-role-select" className="text-sm font-medium text-text-secondary">
-            {t('pairing.role_label')}
-          </label>
-          <Select
-            id="pairing-role-select"
-            aria-label={t('pairing.role_label')}
-            className="max-w-xs"
-            value={selectedPrincipal}
-            onChange={setSelectedPrincipal}
-            options={[
-              { value: NO_ROLE, label: t('pairing.role_none') },
-              ...principals.map((p) => ({
-                value: p.id,
-                label: p.admin ? `${p.id} ${t('pairing.role_admin_marker')}` : p.id,
-              })),
-            ]}
-          />
-        </Card>
-      )}
-
-      {error && (
-        <Card className="flex items-start gap-2 text-sm border-status-error/25 bg-status-error/10 text-status-error">
-          <span className="flex-1">{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="flex-shrink-0 text-status-error/70 hover:text-status-error transition-colors"
-            aria-label={t('pairing.dismiss')}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </Card>
-      )}
-
-      {pairingCode && (
-        <Card className="p-6 text-center">
-          <p className="text-xs uppercase tracking-wider mb-2 text-muted-foreground">
-            {t('pairing.pairing_code')}
-          </p>
-          <div className="text-2xl font-mono font-bold tracking-widest break-all py-4 text-foreground">
-            {pairingCode}
-          </div>
-          <p className="text-xs text-muted-foreground">{t('pairing.code_hint')}</p>
-          {taggedFor && (
-            <p className="mt-2 text-xs text-text-secondary">{t('pairing.tagged_for', { value: taggedFor })}</p>
+          {principals.length > 0 && (
+            <Card className="flex flex-wrap items-center gap-3 p-4">
+              <label htmlFor="pairing-role-select" className="text-sm font-medium text-text-secondary">
+                {t('pairing.role_label')}
+              </label>
+              <Select
+                id="pairing-role-select"
+                aria-label={t('pairing.role_label')}
+                className="max-w-xs"
+                value={selectedPrincipal}
+                onChange={setSelectedPrincipal}
+                options={[
+                  { value: NO_ROLE, label: t('pairing.role_none') },
+                  ...principals.map((p) => ({
+                    value: p.id,
+                    label: p.admin ? `${p.id} ${t('pairing.role_admin_marker')}` : p.id,
+                  })),
+                ]}
+              />
+            </Card>
           )}
-        </Card>
-      )}
 
-      <Card padded={false} className="overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
-          <h3 className="text-sm font-semibold text-foreground">
+          {error && (
+            <Card
+              padded={false}
+              className="flex items-start gap-2 p-4 text-sm border-status-error/25 bg-status-error/10 text-status-error"
+            >
+              <span className="flex-1">{error}</span>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="flex-shrink-0 text-status-error/70 transition-colors hover:text-status-error"
+                aria-label={t('pairing.dismiss')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Card>
+          )}
+
+          {cliFallback && (
+            <Card
+              padded={false}
+              className="flex items-start gap-2 p-4 text-sm border-status-warning/25 bg-status-warning/10"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-text-secondary">{t('pairing.cli_fallback_localhost')}</p>
+                <code className="mt-2 block break-all rounded-[var(--radius-md)] bg-code px-3 py-2 font-mono text-xs text-foreground">
+                  voltd gateway get-paircode --new
+                </code>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCliFallback(false)}
+                className="flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                aria-label={t('pairing.dismiss')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Card>
+          )}
+
+          {pairingCode && (
+            <Card className="p-6 text-center">
+              <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
+                {t('pairing.pairing_code')}
+              </p>
+              <PairingCode code={pairingCode} className="py-4" />
+              <p className="text-xs text-muted-foreground">{t('pairing.code_hint')}</p>
+              {taggedFor && (
+                <p className="mt-2 text-xs text-text-secondary">{t('pairing.tagged_for', { value: taggedFor })}</p>
+              )}
+            </Card>
+          )}
+
+          <SettingsSectionLabel>
             {t('pairing.paired_devices')}
             {unauthorized ? '' : ` · ${devices.length}`}
           </SettingsSectionLabel>

@@ -396,8 +396,6 @@ export function UpgradeDialog({
                 )}
                 {isNewer && allowSelfUpgrade && !autoRestartAvailable && view === 'info' && (
                   <div className="text-xs text-muted-foreground">
-                {isNewer && allowSelfUpgrade && !canAutoRestart && view === 'info' && (
-                  <div className="text-xs text-muted-foreground">
                     {t('upgrade.manual_note')}
                     {restartHint && (
                       <code className="ml-1 font-mono text-foreground">{restartHint}</code>
