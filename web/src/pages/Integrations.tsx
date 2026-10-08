@@ -8,7 +8,6 @@ import { isProviderAllowed } from '@/lib/providerAllowlist';
 import { t } from '@/lib/i18n';
 import { Badge, Card, EmptyState, PageHeader } from '@/components/ui';
 import type { BadgeTone } from '@/components/ui';
-import { configHref } from '@/pages/integrations.logic';
 import {
   SettingsPageShell,
   SettingsListBody,
@@ -167,82 +166,52 @@ export default function Integrations() {
           })}
         </div>
 
-      {/* Grouped Integration Cards */}
-      {Object.keys(grouped).length === 0 ? (
-        <Card className="p-10 text-center">
-          <Puzzle className="h-10 w-10 mx-auto mb-3 text-text-faint" />
-          <p className="text-sm text-muted-foreground">{t('integrations.empty')}</p>
-        </Card>
-      ) : (
-        Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
-          <div key={category}>
-            <h3 className="text-[11px] font-medium uppercase tracking-wider mb-3 text-text-faint">
-              {labelFor(category)}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {items.map((integration) => {
-                const badge = statusBadge(integration.status);
-                const BadgeIcon = badge.icon;
-                const href = configHref(integration.name, integration.category, integration.key);
-                const ctaLabel =
-                  integration.status === 'Active'
-                    ? t('integrations.configure')
-                    : t('integrations.set_up');
-                const body = (
-                  <>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h4 className="text-sm font-medium truncate text-foreground">
-                          {integration.name}
-                        </h4>
-                        <p className="text-sm mt-1 line-clamp-2 text-muted-foreground">
-                          {integration.description}
-                        </p>
-                      </div>
-                      <Badge tone={badge.tone} className="flex-shrink-0">
-                        <BadgeIcon className="h-3 w-3" />
-                        {badge.label}
-                      </Badge>
-                    </div>
-                    {href && (
-                      <div className="flex items-center gap-1 text-[13px] font-medium text-primary">
-                        {ctaLabel}
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                      </div>
-                    )}
-                  </>
-                );
-                // Configurable integrations are launcher buttons; the rest
-                // (Platform/OS facts) render as inert status tiles.
-                return href ? (
-                  <button
-                    key={integration.name}
-                    type="button"
-                    onClick={() => navigate(href)}
-                    aria-label={`${ctaLabel}: ${integration.name}`}
-                    className={[
-                      'group p-5 w-full text-left flex flex-col gap-3 cursor-pointer',
-                      'bg-card border border-border rounded-[var(--radius-lg)]',
-                      'transition-colors hover:bg-[var(--color-hover)] hover:border-border-strong',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]',
-                      'focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                    ].join(' ')}
-                  >
-                    {body}
-                  </button>
-                ) : (
-                  <div
-                    key={integration.name}
-                    className="p-5 w-full text-left flex flex-col gap-3 bg-card border border-border rounded-[var(--radius-lg)]"
-                  >
-                    {body}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))
-      )}
+        {Object.keys(grouped).length === 0 ? (
+          <EmptyState icon={<Puzzle className="h-6 w-6" />} title={t('integrations.empty')} />
+        ) : (
+          Object.entries(grouped)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([category, items]) => (
+              <div key={category}>
+                <SettingsSectionLabel>{labelFor(category)}</SettingsSectionLabel>
+                <SettingsListBody className="mt-2">
+                  {items.map((integration) => {
+                    const badge = statusBadge(integration.status);
+                    const BadgeIcon = badge.icon;
+                    const href = configHref(integration.name, integration.category);
+                    return (
+                      <SettingsSelectableRow
+                        key={integration.name}
+                        ariaLabel={integration.name}
+                        onSelect={href ? () => navigate(href) : undefined}
+                        leading={
+                          <IconTile>
+                            <Puzzle className="h-[18px] w-[18px] text-muted-foreground" />
+                          </IconTile>
+                        }
+                        title={
+                          <span className="flex items-center gap-2">
+                            <span>{integration.name}</span>
+                            <Badge tone={badge.tone}>
+                              <BadgeIcon className="h-3 w-3" />
+                              {badge.label}
+                            </Badge>
+                          </span>
+                        }
+                        subtitle={integration.description}
+                        trailingIcon={
+                          href ? (
+                            <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                          ) : undefined
+                        }
+                      />
+                    );
+                  })}
+                </SettingsListBody>
+              </div>
+            ))
+        )}
+      </SettingsPageShell>
     </div>
   );
 }

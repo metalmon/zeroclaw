@@ -29,7 +29,6 @@ import {
   buildToolAccessPatch,
   type ToolAccess,
 } from './Tools.logic';
-import { SpinnerScreen } from '@/components/ui/spinner';
 
 // ── Risk-profile tool access ────────────────────────────────────────────
 // Per-profile allow/exclude state for the tool-access matrix in each expanded
@@ -40,9 +39,6 @@ import { SpinnerScreen } from '@/components/ui/spinner';
 //     `<server>__<tool>` MCP-shaped name is auto-admitted without being
 //     listed (the runtime's `__` exception for nonempty allowlists)
 //   • excluded_tools               → denylist, wins over allow
-// • allowed_tools EMPTY → unrestricted (every tool allowed)
-// • allowed_tools [list] → only those tools allowed
-// • excluded_tools → denylist, wins over allow
 // So we never silently convert an unrestricted profile into an allowlist:
 // BLOCK adds to excluded_tools (no side effects on other tools); ALLOW clears
 // the exclusion and adds the tool only when an explicit gate is active.
