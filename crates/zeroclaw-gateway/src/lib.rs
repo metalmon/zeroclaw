@@ -1012,12 +1012,12 @@ fn config_admin_router(inbound_auth: &Arc<principal_gate::GatewayInboundAuth>) -
 #[allow(clippy::too_many_lines)]
 // One parameter per daemon-owned dependency; a bundling struct would only
 // move the list. Matches the existing allowance on the runtime spawn paths.
-#[allow(clippy::too_many_arguments)]
 /// How long a shutting-down gateway waits for live connections before it drops
 /// them and releases the port. Short on purpose: a reload is the common case,
 /// and a client reconnects on its own.
 const GATEWAY_SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run_gateway(
     host: &str,
     port: u16,
