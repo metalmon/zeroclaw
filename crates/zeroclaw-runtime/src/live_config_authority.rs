@@ -88,15 +88,43 @@ impl LiveConfigAuthority {
         }
     }
 
+    /// How long a closed generation may hold the daemon before the drain gives
+    /// up. Without a deadline a single turn that never finishes keeps the
+    /// daemon in its fail-closed state for good: every component is already
+    /// down, the listener socket stays bound, and the service still reports
+    /// itself as running - a reload wedged exactly this way on 2026-10-08. Five
+    /// minutes matches the panel's own wait, so the operator sees "not back
+    /// yet" at the moment the daemon starts getting itself restarted.
+    const DRAIN_DEADLINE: std::time::Duration = std::time::Duration::from_secs(300);
+
+    /// Say plainly that the drain gave up, and on whose work.
+    fn record_drain_deadline(&self) {
+        ::zeroclaw_log::record!(
+            ERROR,
+            ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Note)
+                .with_category(::zeroclaw_log::EventCategory::Agent)
+                .with_outcome(::zeroclaw_log::EventOutcome::Failure)
+                .with_attrs(::serde_json::json!({
+                    "pending_aliases": self.agent_lifecycle.pending_work_aliases(),
+                    "active_config_writes": self.agent_lifecycle.active_config_write_count(),
+                    "deadline_seconds": Self::DRAIN_DEADLINE.as_secs(),
+                })),
+            "admitted agent work outlived the drain deadline; the daemon cannot              continue in this generation"
+        );
+    }
+
     /// Close lifecycle admission for this daemon generation.
     pub fn close_agent_lifecycle(&self) {
         self.agent_lifecycle.close_generation();
     }
 
     /// Drain a closed generation and release its process ownership.
-    pub async fn drain_agent_lifecycle(&self) {
+    ///
+    /// Returns `false` when [`Self::DRAIN_DEADLINE`] passed with work still admitted.
+    pub async fn drain_agent_lifecycle(&self) -> bool {
         self.close_agent_lifecycle();
         const DIAGNOSTIC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+        let started = tokio::time::Instant::now();
         loop {
             if tokio::time::timeout(
                 DIAGNOSTIC_INTERVAL,
@@ -105,7 +133,11 @@ impl LiveConfigAuthority {
             .await
             .is_ok()
             {
-                return;
+                return true;
+            }
+            if started.elapsed() >= Self::DRAIN_DEADLINE {
+                self.record_drain_deadline();
+                return false;
             }
             let aliases = self.agent_lifecycle.pending_work_aliases();
             let active_config_writes = self.agent_lifecycle.active_config_write_count();
@@ -128,9 +160,12 @@ impl LiveConfigAuthority {
     /// daemon reload can transfer the guard into the next generation without
     /// an unlocked read/reacquire interval. Pair with
     /// [`Self::take_process_ownership`] once the drain completes.
-    pub async fn drain_agent_lifecycle_retaining_ownership(&self) {
+    ///
+    /// Returns `false` when [`Self::DRAIN_DEADLINE`] passed with work still admitted.
+    pub async fn drain_agent_lifecycle_retaining_ownership(&self) -> bool {
         self.close_agent_lifecycle();
         const DIAGNOSTIC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+        let started = tokio::time::Instant::now();
         loop {
             if tokio::time::timeout(
                 DIAGNOSTIC_INTERVAL,
@@ -140,7 +175,11 @@ impl LiveConfigAuthority {
             .await
             .is_ok()
             {
-                return;
+                return true;
+            }
+            if started.elapsed() >= Self::DRAIN_DEADLINE {
+                self.record_drain_deadline();
+                return false;
             }
             let aliases = self.agent_lifecycle.pending_work_aliases();
             let active_config_writes = self.agent_lifecycle.active_config_write_count();
@@ -1311,6 +1350,24 @@ mod tests {
         assert_eq!(
             lifecycle.pending_work_aliases(),
             ["alpha".to_string(), "beta".to_string(), "zeta".to_string()]
+        );
+    }
+
+    /// Work that never finishes must not hold the daemon for good: the drain
+    /// gives up at the deadline and says so, and the caller turns that into a
+    /// restart. The wedge this guards against left the listener bound and the
+    /// service reporting itself healthy while nothing answered.
+    #[tokio::test(start_paused = true)]
+    async fn drain_gives_up_when_admitted_work_outlives_the_deadline() {
+        let authority = LiveConfigAuthority::new(Config::default());
+        let lifecycle = authority.agent_lifecycle();
+        let _turn = lifecycle.reserve_turn("stuck").unwrap();
+
+        let drained = authority.drain_agent_lifecycle().await;
+
+        assert!(
+            !drained,
+            "a turn that never completes must end the drain at the deadline, not hold the daemon"
         );
     }
 

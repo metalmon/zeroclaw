@@ -1444,12 +1444,25 @@ pub async fn run_with_authority(
     // generation: drain with the guard retained and hand it back to the
     // caller. Shutdown and errors release ownership here, as before.
     let transferred_ownership = if matches!(&exit_result, Ok(DaemonExit::Reload)) {
-        live_config_authority
+        if live_config_authority
             .drain_agent_lifecycle_retaining_ownership()
-            .await;
-        live_config_authority.take_process_ownership()
+            .await
+        {
+            live_config_authority.take_process_ownership()
+        } else {
+            // Admitted work never finished. Starting the next generation on top
+            // of it is exactly what the fail-closed guard exists to prevent, and
+            // waiting longer is what wedged the daemon in the first place: every
+            // component already down, the listener still bound, the service
+            // still "running". Leave instead, so the supervisor - docker's
+            // restart policy in the pilot, the service manager on a host -
+            // brings the daemon back clean.
+            return Err(anyhow::anyhow!(
+                "reload drain gave up with agent work still admitted; exiting so the supervisor restarts the daemon"
+            ));
+        }
     } else {
-        live_config_authority.drain_agent_lifecycle().await;
+        let _ = live_config_authority.drain_agent_lifecycle().await;
         None
     };
 
