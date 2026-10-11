@@ -2527,11 +2527,8 @@ mod homebrew_tests {
 
         let opt_parent = prefix.join("opt");
         std::fs::create_dir_all(&opt_parent).expect("create opt dir");
-        std::os::unix::fs::symlink(
-            prefix.join("Cellar/voltd/1.2.3"),
-            opt_parent.join("voltd"),
-        )
-        .expect("create opt symlink");
+        std::os::unix::fs::symlink(prefix.join("Cellar/voltd/1.2.3"), opt_parent.join("voltd"))
+            .expect("create opt symlink");
 
         let expected_prefix = prefix
             .canonicalize()
@@ -3774,10 +3771,7 @@ mod bounded_service_log_tests {
             openrc_log_path(false),
             Path::new("/var/log/voltd/access.log")
         );
-        assert_eq!(
-            openrc_log_path(true),
-            Path::new("/var/log/voltd/error.log")
-        );
+        assert_eq!(openrc_log_path(true), Path::new("/var/log/voltd/error.log"));
     }
 
     #[test]
@@ -4584,8 +4578,7 @@ mod service_helper_tests {
     #[cfg(unix)]
     #[test]
     fn openrc_writability_probe_prefers_runuser_when_available() {
-        let (program, args) =
-            build_openrc_writability_probe_command(Path::new("/etc/voltd"), true);
+        let (program, args) = build_openrc_writability_probe_command(Path::new("/etc/voltd"), true);
         assert_eq!(program, "runuser");
         assert_eq!(
             args,

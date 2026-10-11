@@ -311,10 +311,7 @@ impl RpiSystemContext {
         let _ = writeln!(s, "- Hostname: {}", self.hostname);
         let _ = writeln!(s, "- IP: {} (at last boot)", self.ip_address);
         let _ = writeln!(s, "- RAM: {}MB total", self.total_ram_mb);
-        let _ = writeln!(
-            s,
-            "- Runtime: Volt native (rppal — no serial, no mpremote)"
-        );
+        let _ = writeln!(s, "- Runtime: Volt native (rppal — no serial, no mpremote)");
         if let Some(ref iface) = self.wifi_interface {
             let _ = writeln!(s, "- WiFi interface: {}", iface);
         }

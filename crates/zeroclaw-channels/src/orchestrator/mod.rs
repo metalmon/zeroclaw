@@ -49197,10 +49197,7 @@ This is an example JSON object for profile settings."#;
             SYSTEMD_STATUS_ARGS,
             ["--user", "is-active", "voltd.service"]
         );
-        assert_eq!(
-            SYSTEMD_RESTART_ARGS,
-            ["--user", "restart", "voltd.service"]
-        );
+        assert_eq!(SYSTEMD_RESTART_ARGS, ["--user", "restart", "voltd.service"]);
     }
 
     #[test]
