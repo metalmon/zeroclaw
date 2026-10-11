@@ -33,7 +33,7 @@ pub(crate) const INDEX_HTML: &str = r##"<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ZeroClaw Relay - browser enrollment</title>
+<title>Volt Relay - browser enrollment</title>
 <style>
   :root { color-scheme: light dark; }
   body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0 auto; max-width: 44rem; padding: 2rem 1.25rem 4rem; line-height: 1.5; }
@@ -56,8 +56,8 @@ pub(crate) const INDEX_HTML: &str = r##"<!doctype html>
 </style>
 </head>
 <body>
-<h1>ZeroClaw browser enrollment</h1>
-<p class="sub">Pair this browser with a ZeroClaw agent reached through this relay.</p>
+<h1>Volt browser enrollment</h1>
+<p class="sub">Pair this browser with a Volt agent reached through this relay.</p>
 
 <section class="trust">
   <h2>What you are trusting</h2>

@@ -305,7 +305,7 @@ impl DatasheetManager {
         verify_display_path(&directory_identity(&directory)?, &canonical_root)?;
         for component in self.datasheet_relative.components() {
             let std::path::Component::Normal(name) = component else {
-                anyhow::bail!("datasheet cache path must stay beneath the ZeroClaw root");
+                anyhow::bail!("datasheet cache path must stay beneath the Volt root");
             };
             let relative = Path::new(name);
             directory = match directory.open_dir_nofollow(relative) {

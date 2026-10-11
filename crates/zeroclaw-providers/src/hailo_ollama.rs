@@ -396,7 +396,7 @@ impl HailoOllamaModelProvider {
             QuarantineReason::WorkerTerminated => "an in-flight request worker failure",
         };
         Err(anyhow::Error::new(NonRetryableProviderError::new(format!(
-            "Hailo-Ollama provider is quarantined after {detail}; restart ZeroClaw after \
+            "Hailo-Ollama provider is quarantined after {detail}; restart Volt after \
              confirming the backend is idle"
         ))))
     }
