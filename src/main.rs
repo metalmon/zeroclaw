@@ -6780,7 +6780,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                 return Ok(());
             }
             #[cfg(not(feature = "schema-export"))]
-            anyhow::bail!("zeroclaw was built without the 'schema-export' feature");
+            anyhow::bail!("voltd was built without the 'schema-export' feature");
         }
         _ => {}
     }
@@ -9916,7 +9916,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                 #[cfg(not(feature = "schema-export"))]
                 {
                     let _ = path;
-                    anyhow::bail!("zeroclaw was built without the 'schema-export' feature")
+                    anyhow::bail!("voltd was built without the 'schema-export' feature")
                 }
             }
             ConfigCommands::List { filter, secrets } => {
@@ -10998,7 +10998,7 @@ Add pricing to the active provider profile or supply a catalog entry."
             } => {
                 if plugin_registry::looks_like_url(&source) {
                     bail!(
-                        "`zeroclaw plugin install <url>` is not supported; use `--registry <url>` with a plugin name, or install a local plugin path"
+                        "`voltd plugin install <url>` is not supported; use `--registry <url>` with a plugin name, or install a local plugin path"
                     );
                 }
                 let mut host = plugin_host_with_configured_security(&config)?;

@@ -50,7 +50,7 @@ crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Run: voltd config se
 crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Run: voltd config set channels.git.default.private-key-path <path>"
 crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Fetches live conditions from wttr.in, no API key required."
 crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Run: voltd cron list"
-crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Schedule tasks in ~/.zeroclaw/workspace/cron/"
+crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Schedule tasks in ~/.voltd/workspace/cron/"
 crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Uses headless browser automation."
 crates/zeroclaw-providers/src/auth/gemini_oauth.rs	eprintln	1	"Could not bind to localhost:1456: {e}"
 crates/zeroclaw-providers/src/auth/gemini_oauth.rs	eprintln	1	"Falling back to manual input."

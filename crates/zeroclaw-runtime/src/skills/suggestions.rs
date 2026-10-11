@@ -765,7 +765,7 @@ aliases = ["team calendar"]
         assert!(suggestion.contains("team-calendar"));
         assert!(suggestion.contains("team calendar"));
         assert!(suggestion.contains(
-            "zeroclaw plugin install team-calendar@0.2.0 --registry https://example.invalid/registry.json"
+            "voltd plugin install team-calendar@0.2.0 --registry https://example.invalid/registry.json"
         ));
     }
 
