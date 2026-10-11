@@ -199,7 +199,7 @@ pub fn show_integration_info(config: &Config, name: &str) -> Result<()> {
                 "  {}:",
                 get_required_cli_string("cli-integrations-builtin-heading")
             );
-            println!("    Schedule tasks in ~/.zeroclaw/workspace/cron/");
+            println!("    Schedule tasks in ~/.voltd/workspace/cron/");
             println!("    Run: voltd cron list");
         }
         "Weather" => {

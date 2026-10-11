@@ -69,7 +69,7 @@ use crate::instance::{PluginInstanceId, PluginInstanceScope};
 /// It names the policy and nothing else: no host, no address, no matched or
 /// unmatched pattern. A guest must not be able to use denial messages to map the
 /// host's internal network.
-pub const DENIED_MESSAGE: &str = "zeroclaw plugin egress policy: destination not permitted";
+pub const DENIED_MESSAGE: &str = "voltd plugin egress policy: destination not permitted";
 
 fn denied() -> ErrorCode {
     ErrorCode::InternalError(Some(DENIED_MESSAGE.to_string()))

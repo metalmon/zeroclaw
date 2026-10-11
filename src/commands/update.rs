@@ -589,7 +589,7 @@ fn main_binary_name() -> &'static str {
 }
 
 /// Names of top-level *file* artifacts (not directories) the release archive is
-/// allowed to install next to the running binary, beyond the main `zeroclaw`
+/// allowed to install next to the running binary, beyond the main `voltd`
 /// executable itself. Anything else in the archive's top level is warned about
 /// and skipped — symmetric with how unknown top-level *directories* are
 /// handled, and defense-in-depth for the browser-triggered self-upgrade path:
@@ -720,8 +720,8 @@ async fn validate_binary(path: &Path) -> Result<()> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    if !stdout.contains("zeroclaw") {
-        bail!("downloaded binary does not appear to be zeroclaw");
+    if !stdout.contains("voltd") {
+        bail!("downloaded binary does not appear to be voltd");
     }
 
     Ok(())

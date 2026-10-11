@@ -73,7 +73,7 @@ crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Fetches live conditi
 crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Run: voltd config set channels.<name>.<field>=<value>"
 crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Run: voltd cron list"
 crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" (see docs/book/src/channels/overview.md for the per-channel field list)"
-crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Schedule tasks in ~/.zeroclaw/workspace/cron/"
+crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Schedule tasks in ~/.voltd/workspace/cron/"
 crates/zeroclaw-runtime/src/integrations/mod.rs	println	1	" Uses headless browser automation."
 crates/zeroclaw-providers/src/auth/gemini_oauth.rs	eprintln	1	"Could not bind to localhost:1456: {e}"
 crates/zeroclaw-providers/src/auth/gemini_oauth.rs	eprintln	1	"Falling back to manual input."
