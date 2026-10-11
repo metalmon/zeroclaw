@@ -207,3 +207,14 @@ cli-gateway-banner-route-ws-nodes = {"  "}GET  { $prefix }/ws/nodes  — WebSock
 cli-gateway-banner-route-health = {"  "}GET  { $prefix }/health    — проверка состояния
 cli-gateway-banner-route-metrics = {"  "}GET  { $prefix }/metrics   — метрики Prometheus
 cli-gateway-banner-stop = {"  "}Нажмите Ctrl+C для остановки.
+
+# Лицензионный гейт Volt (пилотная default-off фича volt-lease)
+cli-license-gate-refused = Проверка лицензии не пройдена, запуск отменён: { $err }
+cli-license-unsupported = Лицензионный гейт требует unix-сборки
+cli-license-refresh-exiting = Нет валидного lease { $secs } секунд; завершаем работу
+cli-license-status-ok = Лицензия активна: { $license-id }, загрузка агента { $boot }, истекает через { $secs } с
+cli-license-status-failed = Проверка лицензии не пройдена: { $err }
+cli-license-installed = Файл лицензии установлен в { $path }; агент подхватит его при следующем обновлении lease
+cli-license-about = Управление лицензией Volt (статус и установка)
+cli-license-status-about = Показать статус лицензии через агента
+cli-license-install-about = Установить файл лицензии, который подхватит агент
