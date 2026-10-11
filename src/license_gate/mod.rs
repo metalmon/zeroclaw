@@ -202,6 +202,53 @@ pub fn socket_path() -> Option<PathBuf> {
     }
 }
 
+/// Background refresh for long-running commands (Daemon/Gateway): keep the
+/// lease warm; if no valid lease for LEASE_GRACE_SECS, exit so the supervisor
+/// restarts the service instead of running unlicensed.
+pub fn spawn_refresh_loop() {
+    tokio::spawn(async move {
+        let mut announced = false;
+        let mut last_ok = std::time::Instant::now();
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(LEASE_REFRESH_SECS)).await;
+            let healthy = async {
+                let key_b64 = LEASE_PUBLIC_KEY_B64?;
+                let key = parse_public_key(key_b64).ok()?;
+                let socket = socket_path()?;
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .ok()?
+                    .as_secs();
+                let envelope = request_lease(&socket).await.ok()?;
+                verify_lease_envelope(&envelope, &key, now).ok()
+            }
+            .await;
+            match healthy {
+                Some(_) => {
+                    last_ok = std::time::Instant::now();
+                    announced = false;
+                }
+                None if !announced => {
+                    let unlicensed_for = last_ok.elapsed().as_secs();
+                    if unlicensed_for >= LEASE_GRACE_SECS {
+                        announced = true;
+                        eprintln!(
+                            "{}",
+                            crate::ta(
+                                "cli-license-refresh-exiting",
+                                &[("secs", &LEASE_GRACE_SECS.to_string())],
+                                "No valid lease for {$secs} seconds; exiting"
+                            )
+                        );
+                        std::process::exit(1);
+                    }
+                }
+                None => {}
+            }
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

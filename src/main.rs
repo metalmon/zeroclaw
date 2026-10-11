@@ -6317,6 +6317,13 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
         );
         std::process::exit(1);
     }
+    #[cfg(all(unix, feature = "volt-lease"))]
+    if matches!(
+        &cli.command,
+        Commands::Daemon { .. } | Commands::Gateway { .. }
+    ) {
+        crate::license_gate::spawn_refresh_loop();
+    }
 
     let default_floor = match &cli.command {
         Commands::Daemon {
