@@ -1553,3 +1553,14 @@ cli-gateway-banner-route-ws-nodes = {"  "}GET  { $prefix }/ws/nodes  — WebSock
 cli-gateway-banner-route-health = {"  "}GET  { $prefix }/health    — health check
 cli-gateway-banner-route-metrics = {"  "}GET  { $prefix }/metrics   — Prometheus metrics
 cli-gateway-banner-stop = {"  "}Press Ctrl+C to stop.
+
+# Volt license gate (pilot default-off volt-lease feature)
+cli-license-gate-refused = License check failed, refusing to start: { $err }
+cli-license-unsupported = License gating requires a unix build
+cli-license-refresh-exiting = No valid lease for { $secs } seconds; exiting
+cli-license-status-ok = License active: { $license-id }, agent boot { $boot }, expires in { $secs }s
+cli-license-status-failed = License check failed: { $err }
+cli-license-installed = License file installed to { $path }; the agent picks it up on the next lease refresh
+cli-license-about = Manage the Volt license (status and install)
+cli-license-status-about = Show license status via the agent
+cli-license-install-about = Install a license file for the agent to pick up
