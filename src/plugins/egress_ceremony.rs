@@ -2,7 +2,7 @@
 //!
 //! The manifest **declares**; the operator's config **grants**. Installation is
 //! the one moment where those two can be reconciled without an operator typing
-//! anything, so `zeroclaw plugin install` seeds a *newly created*
+//! anything, so `voltd plugin install` seeds a *newly created*
 //! `[[plugins.entries]]` row from the declaration and prints what it granted.
 //!
 //! Everything after that is a diff, never a write: a package upgrade whose
@@ -54,7 +54,7 @@ pub fn egress_hosts_path(instance_key: &str) -> String {
 ///
 /// The directory carries the same treatment. `--config-dir` (and the
 /// `ZEROCLAW_CONFIG_DIR` it sets) is process-local, so a command copied out of
-/// `zeroclaw --config-dir /srv/a plugin list` and pasted into the operator's
+/// `voltd --config-dir /srv/a plugin list` and pasted into the operator's
 /// shell would otherwise load the ambient default configuration. The canonical
 /// row key names the package, capability and binding but not the profile, so
 /// that command would replace *another* profile's allowlist with a list
@@ -137,24 +137,24 @@ pub fn egress_create_command_for(
     )
 }
 
-/// `zeroclaw --config-dir '<dir>'`: the invocation prefix every printed
+/// `voltd --config-dir '<dir>'`: the invocation prefix every printed
 /// operator command starts with, so it acts on the configuration the operator
 /// inspected rather than whichever one their shell resolves by default,
 /// rendered for an explicit shell dialect.
 #[must_use]
 pub fn zeroclaw_invocation_for(dialect: ShellDialect, config_dir: &std::path::Path) -> String {
     format!(
-        "zeroclaw --config-dir {}",
+        "voltd --config-dir {}",
         dialect.quote_literal(&config_dir.to_string_lossy())
     )
 }
 
 /// The quoting dialect of the shell an operator pastes a printed command into.
 ///
-/// The commands this module renders are copied out of `zeroclaw plugin install`
-/// and `zeroclaw plugin list` output and pasted into the operator's interactive
+/// The commands this module renders are copied out of `voltd plugin install`
+/// and `voltd plugin list` output and pasted into the operator's interactive
 /// shell, so a value is quoted for *that* shell, not for the shell the runtime
-/// uses to execute tools. ZeroClaw cannot see which shell its output lands in.
+/// uses to execute tools. Volt cannot see which shell its output lands in.
 /// On Linux and macOS every supported shell shares the POSIX single-quote
 /// form. On Windows the operator may be in either of two shells, `cmd.exe`
 /// (the default the native runtime documents) or PowerShell (the default
@@ -787,7 +787,7 @@ mod tests {
         );
         assert_eq!(
             command,
-            "zeroclaw --config-dir '/tmp/it'\\''s here/profile a' config set \
+            "voltd --config-dir '/tmp/it'\\''s here/profile a' config set \
              plugins.entries.zpi1_k.egress_hosts 'api.example.com'"
         );
         assert!(
@@ -843,7 +843,7 @@ mod tests {
         let command =
             super::egress_set_command_for(super::ShellDialect::PowerShell, dir, "zpi1_k", &hosts);
         let expected = concat!(
-            r"zeroclaw --config-dir 'C:\Users\op erator\it''s\.zeroclaw' ",
+            r"voltd --config-dir 'C:\Users\op erator\it''s\.zeroclaw' ",
             "config set plugins.entries.zpi1_k.egress_hosts ",
             "'$(id).example.com,`id`.example.com,$env:username.example.com,",
             "*.cdn.example.com,it''s.example.com'"
@@ -869,7 +869,7 @@ mod tests {
         assert_eq!(
             command,
             concat!(
-                r#"zeroclaw --config-dir "C:\Users\op erator\.zeroclaw" "#,
+                r#"voltd --config-dir "C:\Users\op erator\.zeroclaw" "#,
                 r#"config set plugins.entries.zpi1_k.egress_hosts "api.example.com,*.cdn.example.com""#
             )
         );
@@ -948,9 +948,9 @@ mod tests {
         }
     }
 
-    /// The Windows shells, driven for real. `zeroclaw` is swapped for a native
+    /// The Windows shells, driven for real. `voltd` is swapped for a native
     /// argv echo: `powershell -File echo.ps1`, whose arguments arrive through
-    /// the same C-runtime command-line parsing a native `zeroclaw.exe` would
+    /// the same C-runtime command-line parsing a native `voltd.exe` would
     /// see, so what the script prints is what `config set` would receive.
     #[cfg(windows)]
     mod windows_shells {
@@ -983,10 +983,10 @@ mod tests {
             }
         }
 
-        /// The printed line with `zeroclaw` replaced by the argv echo.
+        /// The printed line with `voltd` replaced by the argv echo.
         fn line_with_echo(echo: &ArgvEcho, command: &str) -> String {
             command
-                .strip_prefix("zeroclaw ")
+                .strip_prefix("voltd ")
                 .map(|rest| format!("{} {rest}", echo.invocation))
                 .expect("the command starts with the binary name")
         }
@@ -1120,7 +1120,7 @@ mod tests {
 
     /// The printed command is pasted into the operator's shell, so the proof
     /// has to be the shell's own argument parsing, not a substring check: a
-    /// POSIX `sh` tokenises the command with `zeroclaw` swapped for `printf`,
+    /// POSIX `sh` tokenises the command with `voltd` swapped for `printf`,
     /// and every declared host, including ones that carry command-substitution
     /// syntax, a glob and a quote, must arrive as one literal argument.
     #[cfg(unix)]
@@ -1137,7 +1137,7 @@ mod tests {
         let dir = std::path::Path::new("/srv/it's here/profile a");
         let command = super::egress_set_command(dir, "zpi1_k", &hosts);
         let script = command
-            .strip_prefix("zeroclaw ")
+            .strip_prefix("voltd ")
             .map(|rest| format!("printf '%s\\n' {rest}"))
             .expect("the command starts with the binary name");
         let output = std::process::Command::new("sh")
@@ -1407,7 +1407,7 @@ mod tests {
         );
         assert!(posix.starts_with("printf '%s\\n' '[{"), "{posix}");
         assert!(
-            posix.ends_with("| zeroclaw --config-dir '/srv/zeroclaw/profile-a' config patch -"),
+            posix.ends_with("| voltd --config-dir '/srv/zeroclaw/profile-a' config patch -"),
             "{posix}"
         );
         let windows = super::egress_create_command_for(

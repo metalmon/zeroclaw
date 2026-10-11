@@ -631,7 +631,7 @@ pub enum SkillBundleCommands {
 /// Migration subcommands
 #[derive(Subcommand, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MigrateCommands {
-    /// Import memory from an `OpenClaw` workspace into this `ZeroClaw` workspace
+    /// Import memory from an `OpenClaw` workspace into this `Volt` workspace
     Openclaw {
         /// Optional path to `OpenClaw` workspace (defaults to ~/.openclaw/workspace)
         #[arg(long)]
@@ -1069,7 +1069,7 @@ Examples:
         /// Path for serial transport (/dev/ttyACM0) or "native" for local GPIO
         path: String,
     },
-    /// Flash ZeroClaw firmware to Arduino (creates .ino, installs arduino-cli if needed, uploads)
+    /// Flash Volt firmware to Arduino (creates .ino, installs arduino-cli if needed, uploads)
     // i18n-exempt: clap derive help — framework requires a compile-time literal
     #[command(long_about = "\
 Flash Volt firmware to an Arduino board.
@@ -1092,7 +1092,7 @@ Examples:
         #[arg(long)]
         host: Option<String>,
     },
-    /// Flash ZeroClaw firmware to Nucleo-F401RE (builds + probe-rs run)
+    /// Flash Volt firmware to Nucleo-F401RE (builds + probe-rs run)
     FlashNucleo,
 }
 
