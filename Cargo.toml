@@ -219,6 +219,7 @@ non_row_features = [
     "landlock",
     "metrics",
     "embedded-web",
+    "volt-lease",
 ]
 # Features intentionally added to the lean Cargo defaults for standard
 # distribution artifacts. This list is the complete positive policy beyond
@@ -368,6 +369,14 @@ probe = ["dep:zeroclaw-hardware", "zeroclaw-hardware/probe"]
 webauthn = ["zeroclaw-runtime/webauthn", "zeroclaw-gateway?/webauthn"]
 embedded-web = ["zeroclaw-gateway/embedded-web"]
 
+# Volt licensing seam (pilot). Default-off and non-user-selectable: the gate
+# code is compiled only by the fork's deploy/branch CI (ZC_FEATURES). Listed in
+# [package.metadata.zeroclaw] non_row_features so installer rows and the
+# `Selection::All` kitchen-sink never include it. The gate verifies short-lived
+# signed leases from a local unix-socket agent; no secrets ship with the code
+# (the lease PUBLIC key is baked at build time via option_env!).
+volt-lease = ["dep:base64", "dep:ring"]
+
 # Backward-compatible aliases
 fantoccini = ["browser-native"]
 landlock = ["sandbox-landlock"]
@@ -465,6 +474,8 @@ hmac = "0.12"
 parking_lot = "0.12"
 regex = "1.10"
 uuid = { version = "1.22", default-features = false, features = ["v4", "std"] }
+# Test-only lease signing (production verify uses `ring`).
+ed25519-dalek = "2"
 
 [[test]]
 name = "component"
