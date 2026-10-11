@@ -155,6 +155,7 @@ pub fn is_exempt(command: &crate::Commands) -> bool {
     use crate::{Commands, ServiceCommands};
     match command {
         Commands::Doctor { .. } | Commands::Status { .. } => true,
+        Commands::License { .. } => true,
         Commands::Service {
             service_command, ..
         } => matches!(
@@ -200,6 +201,67 @@ pub fn socket_path() -> Option<PathBuf> {
         Ok(v) if !v.trim().is_empty() => Some(PathBuf::from(v)),
         _ => None,
     }
+}
+
+/// `voltd license status`: ask the agent for a live lease and report.
+pub async fn license_status() -> Result<()> {
+    let key_b64 = LEASE_PUBLIC_KEY_B64.context(
+        "volt-lease build is missing VOLTD_LEASE_PUBLIC_KEY (bake the lease public key at build)",
+    )?;
+    let key = parse_public_key(key_b64)
+        .map_err(|_| anyhow::anyhow!("VOLTD_LEASE_PUBLIC_KEY is not a valid Ed25519 public key"))?;
+    let socket = socket_path().context("env VOLTD_LEASE_SOCKET is not set")?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs();
+    let result = request_lease(&socket)
+        .await
+        .and_then(|envelope| verify_lease_envelope(&envelope, &key, now));
+    match result {
+        Ok(lease) => {
+            println!(
+                "{}",
+                crate::ta(
+                    "cli-license-status-ok",
+                    &[
+                        ("license-id", &lease.license_id),
+                        ("boot", &lease.agent_boot),
+                        ("secs", &lease.exp.saturating_sub(now).to_string()),
+                    ],
+                    "License active: {$license-id}, agent boot {$boot}, expires in {$secs}s"
+                )
+            );
+            Ok(())
+        }
+        Err(err) => bail!(
+            "{}",
+            crate::ta(
+                "cli-license-status-failed",
+                &[("err", &format!("{err:?}"))],
+                "License check failed: {$err}"
+            )
+        ),
+    }
+}
+
+/// `voltd license install <file>`: copy the vendor-signed file to the path the
+/// agent rereads on every lease issue (env VOLTD_LICENSE_FILE).
+pub fn license_install(file: &Path) -> Result<()> {
+    let dest = match std::env::var(LICENSE_FILE_ENV) {
+        Ok(v) if !v.trim().is_empty() => PathBuf::from(v),
+        _ => bail!("env {LICENSE_FILE_ENV} is not set"),
+    };
+    let bytes = std::fs::read(file).with_context(|| format!("reading {}", file.display()))?;
+    std::fs::write(&dest, bytes).with_context(|| format!("writing {}", dest.display()))?;
+    println!(
+        "{}",
+        crate::ta(
+            "cli-license-installed",
+            &[("path", &dest.display().to_string())],
+            "License file installed to {$path}; the agent picks it up on the next lease refresh"
+        )
+    );
+    Ok(())
 }
 
 /// Background refresh for long-running commands (Daemon/Gateway): keep the
