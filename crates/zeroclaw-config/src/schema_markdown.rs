@@ -485,9 +485,7 @@ pub fn generate(root: &Value) -> String {
 
     let mut out = String::new();
     out.push_str("# Config Reference\n\n");
-    out.push_str(
-        "Volt is configured via a TOML file. All fields are optional unless noted.\n\n",
-    );
+    out.push_str("Volt is configured via a TOML file. All fields are optional unless noted.\n\n");
 
     let Some(props) = root.get("properties").and_then(Value::as_object) else {
         return out;
