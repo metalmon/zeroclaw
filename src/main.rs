@@ -1079,6 +1079,20 @@ enum EvalCommands {
     },
 }
 
+/// License management subcommands (pilot volt-lease feature). Bin-local: only
+/// the `voltd` binary consumes them; no other crate needs the type.
+#[cfg(feature = "volt-lease")]
+#[derive(Subcommand, Debug)]
+enum LicenseCommands {
+    /// Show license status via the agent
+    Status,
+    /// Install a license file for the agent to pick up
+    Install {
+        /// Path to the license file signed by the vendor
+        file: PathBuf,
+    },
+}
+
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Quickstart — create one working agent end-to-end. Replaces the
@@ -1309,6 +1323,13 @@ Examples:
         /// Output format: "exit-code" exits 0 if healthy, 1 otherwise (for Docker HEALTHCHECK)
         #[arg(long)]
         format: Option<String>,
+    },
+
+    /// Manage the Volt license (status and install)
+    #[cfg(feature = "volt-lease")]
+    License {
+        #[command(subcommand)]
+        license_command: LicenseCommands,
     },
 
     /// Inspect the active security posture derived from local config and host detection
@@ -7340,6 +7361,16 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
         | Commands::MarkdownHelp
         | Commands::MarkdownSchema => {
             anyhow::bail!("pre-runtime command was not handled before runtime dispatch")
+        }
+
+        #[cfg(all(unix, feature = "volt-lease"))]
+        Commands::License { license_command } => match license_command {
+            LicenseCommands::Status => crate::license_gate::license_status().await?,
+            LicenseCommands::Install { file } => crate::license_gate::license_install(&file)?,
+        },
+        #[cfg(all(not(unix), feature = "volt-lease"))]
+        Commands::License { .. } => {
+            anyhow::bail!("License gating requires a unix build");
         }
 
         Commands::Quickstart {
