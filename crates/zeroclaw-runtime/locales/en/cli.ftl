@@ -1435,3 +1435,14 @@ cron-agent-job-failed = The scheduled task could not be completed. Please try ag
 rpc-config-set-many-empty = config/set-many requires at least one entry in `sets`
 rpc-config-set-many-limit = config/set-many accepts at most { $limit } entries in `sets`; got { $count }
 rpc-config-set-many-entry-rejected = config/set-many entry { $index } (`{ $prop }`) rejected; nothing was saved: { $reason }
+
+# Volt license gate (pilot default-off volt-lease feature)
+cli-license-gate-refused = License check failed, refusing to start: { $err }
+cli-license-unsupported = License gating requires a unix build
+cli-license-refresh-exiting = No valid lease for { $secs } seconds; exiting
+cli-license-status-ok = License active: { $license-id }, agent boot { $boot }, expires in { $secs }s
+cli-license-status-failed = License check failed: { $err }
+cli-license-installed = License file installed to { $path }; the agent picks it up on the next lease refresh
+cli-license-about = Manage the Volt license (status and install)
+cli-license-status-about = Show license status via the agent
+cli-license-install-about = Install a license file for the agent to pick up
