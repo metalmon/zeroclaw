@@ -103,7 +103,7 @@ pub async fn flash_uf2(mount_point: &Path, firmware_dir: &Path) -> Result<()> {
         bail!(
             "UF2 at {} does not look like a valid UF2 file (magic mismatch). \
              Download from https://micropython.org/download/RPI_PICO/ and delete \
-             the existing file so ZeroClaw can re-extract it.",
+             the existing file so Volt can re-extract it.",
             uf2_src.display()
         );
     }
@@ -248,7 +248,7 @@ pub async fn flash_uf2(mount_point: &Path, firmware_dir: &Path) -> Result<()> {
 
     // ── All attempts failed — give the user a clear manual command ────────────
     bail!(
-        "All copy methods failed. Run this command manually, then restart ZeroClaw:\n\
+        "All copy methods failed. Run this command manually, then restart Volt:\n\
          \n  sudo cp {src_str} {dst_str}\n"
     )
 }

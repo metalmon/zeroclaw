@@ -773,7 +773,7 @@ async fn the_frontdoor_serves_the_page_and_not_the_deleted_tls_routes() {
 
     let (status, body) = frontdoor_request(relay, "GET", "/", None).await;
     assert_eq!(status, 200);
-    assert!(body.contains("ZeroClaw browser enrollment"), "got: {body}");
+    assert!(body.contains("Volt browser enrollment"), "got: {body}");
     assert!(body.contains("/app.js"));
 
     let (status, body) = frontdoor_request(relay, "GET", "/app.js", None).await;
@@ -814,7 +814,7 @@ async fn a_disabled_frontdoor_serves_nothing() {
     let (status, body) = frontdoor_request(addr, "GET", "/", None).await;
     assert_eq!(status, 404);
     assert!(body.contains("zeroclaw.relay.v1"), "got: {body}");
-    assert!(!body.contains("ZeroClaw browser enrollment"));
+    assert!(!body.contains("Volt browser enrollment"));
 
     let (status, _) = frontdoor_request(
         addr,

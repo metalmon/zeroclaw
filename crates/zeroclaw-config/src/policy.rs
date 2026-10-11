@@ -4390,7 +4390,7 @@ impl SecurityPolicy {
 
     pub fn runtime_config_violation_message(&self, resolved: &Path) -> String {
         format!(
-            "Refusing to modify ZeroClaw runtime config/state file: {}. Use dedicated config tools or edit it manually outside the agent loop.",
+            "Refusing to modify Volt runtime config/state file: {}. Use dedicated config tools or edit it manually outside the agent loop.",
             resolved.display()
         )
     }

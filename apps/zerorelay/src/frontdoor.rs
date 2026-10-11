@@ -106,7 +106,7 @@ where
     }
 
     if !frontdoor_enabled {
-        let body = "this is a ZeroClaw relay endpoint; it speaks only the \
+        let body = "this is a Volt relay endpoint; it speaks only the \
                     zeroclaw.relay.v1 WebSocket protocol. Enroll with zerocode, or \
                     opt in via [frontdoor] enabled = true (see relay.example.toml \
                     for the trust implications).\n";
@@ -745,7 +745,7 @@ mod tests {
         );
         assert!(lower.contains("connection: close"), "must close: {text}");
         assert!(
-            !text.contains("ZeroClaw browser enrollment"),
+            !text.contains("Volt browser enrollment"),
             "the smuggled request must never be answered: {text}"
         );
         assert_eq!(
@@ -795,7 +795,7 @@ mod tests {
         // The smuggled body must never have been routed: the enrollment page is
         // what `GET /` would have returned.
         assert!(
-            !text.contains("ZeroClaw browser enrollment"),
+            !text.contains("Volt browser enrollment"),
             "desync: the smuggled body was answered as a request: {text}"
         );
         // Both REAL requests were answered, so the body was drained and the
@@ -918,7 +918,7 @@ mod tests {
         let text = String::from_utf8_lossy(&buf);
         assert!(text.starts_with("HTTP/1.1 404 Not Found"), "got: {text}");
         assert!(text.contains("zeroclaw.relay.v1"), "got: {text}");
-        assert!(!text.contains("ZeroClaw Relay"), "must not serve the page");
+        assert!(!text.contains("Volt Relay"), "must not serve the page");
         assert!(matches!(task.await.unwrap(), Ok(Accepted::Rejected)));
     }
 
@@ -995,7 +995,7 @@ mod tests {
             "the page must be served: {text}"
         );
         assert!(
-            text.contains("ZeroClaw browser enrollment"),
+            text.contains("Volt browser enrollment"),
             "not the enrollment page"
         );
         assert!(

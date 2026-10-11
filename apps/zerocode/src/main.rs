@@ -101,7 +101,7 @@ impl ShutdownSignals {
 #[derive(Parser)]
 #[command(
     name = "zerocode",
-    about = "Interactive TUI config manager for ZeroClaw",
+    about = "Interactive TUI config manager for Volt",
     version,
     long_version = concat!(
         env!("CARGO_PKG_VERSION"),
