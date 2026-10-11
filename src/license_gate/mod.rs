@@ -4,6 +4,7 @@
 
 use std::path::{Path, PathBuf};
 
+use anyhow::{Context, Result, bail};
 use base64::Engine;
 use serde::Deserialize;
 
@@ -143,6 +144,53 @@ async fn request_lease_once(socket: &Path) -> std::result::Result<String, LeaseE
                 .unwrap_or("unknown")
                 .to_string(),
         }),
+    }
+}
+
+/// Commands that must run without a lease: diagnostics, the Docker
+/// healthcheck, and internal service runners invoked by the OS service
+/// manager rather than the user. (The `license` subcommand joins this list
+/// when it is introduced.)
+pub fn is_exempt(command: &crate::Commands) -> bool {
+    use crate::{Commands, ServiceCommands};
+    match command {
+        Commands::Doctor { .. } | Commands::Status { .. } => true,
+        Commands::Service {
+            service_command, ..
+        } => matches!(
+            service_command,
+            ServiceCommands::RunLaunchdDaemon
+                | ServiceCommands::RunDesktopDaemon { .. }
+                | ServiceCommands::RunWindowsDaemon
+                | ServiceCommands::RunOpenrcLogWriter { .. }
+        ),
+        _ => false,
+    }
+}
+
+/// Startup gate: obtain and verify one lease or refuse to run.
+pub async fn gate() -> Result<LeasePayload> {
+    let key_b64 = LEASE_PUBLIC_KEY_B64.context(
+        "volt-lease build is missing VOLTD_LEASE_PUBLIC_KEY (bake the lease public key at build)",
+    )?;
+    let key = parse_public_key(key_b64)
+        .map_err(|_| anyhow::anyhow!("VOLTD_LEASE_PUBLIC_KEY is not a valid Ed25519 public key"))?;
+    let socket = socket_path().context("env VOLTD_LEASE_SOCKET is not set")?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs();
+    let envelope = match request_lease(&socket).await {
+        Ok(envelope) => envelope,
+        Err(LeaseError::AgentError { err }) => bail!("license agent refused: {err}"),
+        Err(LeaseError::Unreachable { socket, err }) => {
+            bail!("cannot reach license agent at {socket}: {err}")
+        }
+        Err(other) => bail!("license agent request failed: {other:?}"),
+    };
+    match verify_lease_envelope(&envelope, &key, now) {
+        Ok(payload) => Ok(payload),
+        Err(LeaseError::Expired { exp, .. }) => bail!("lease expired at {exp}"),
+        Err(_) => bail!("license agent returned an invalid lease"),
     }
 }
 
