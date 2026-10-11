@@ -33,7 +33,14 @@ env:
   # Keep in sync with dev-local/rebuild-main.ps1 build footer.
   # plugins-wasm dropped by default: the deploy box runs no wasm plugins
   # ([plugins]/[channels.plugin.*] absent), so the feature is dead weight.
-  ZC_FEATURES: agent-runtime,gateway,embedded-web,acp-bridge,channel-email,channel-filesystem,channel-git,channel-matrix,channel-telegram,channel-webhook,whatsapp-web
+  ZC_FEATURES: agent-runtime,gateway,embedded-web,acp-bridge,channel-email,channel-filesystem,channel-git,channel-matrix,channel-telegram,channel-webhook,whatsapp-web,volt-lease
+  # Lease public key (Ed25519, base64url no-pad) baked into voltd at build time
+  # via option_env! under the volt-lease feature. PUBLIC by design - the
+  # matching private key lives only in the closed volt-license repo / pilot
+  # image build. TODO(plan C): replace with the production lease pair when the
+  # pilot image is assembled; this throwaway pair exists so the deploy binary
+  # compiles and the gate fails closed against the real agent.
+  VOLTD_LEASE_PUBLIC_KEY: efC2FTc5eYzjr7ndEieuYxpeW6Aoj2rf-KUW5Lxw6xk
 
 jobs:
   web:
