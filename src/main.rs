@@ -6787,6 +6787,39 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
         _ => {}
     }
 
+    // Volt lease gate (pilot, default-off feature): without a valid lease the
+    // process refuses to start. Exempt: doctor, status (Docker healthcheck),
+    // internal service runners, and (once introduced) the license subcommands.
+    // Pre-runtime commands never get here; completions/markdown-* returned above.
+    #[cfg(all(unix, feature = "volt-lease"))]
+    if !crate::license_gate::is_exempt(&cli.command) {
+        if let Err(err) = crate::license_gate::gate().await {
+            eprintln!(
+                "{}",
+                ta(
+                    "cli-license-gate-refused",
+                    &[("err", &format!("{err:#}"))],
+                    "License check failed, refusing to start: {$err}"
+                )
+            );
+            std::process::exit(1);
+        }
+    }
+    #[cfg(all(not(unix), feature = "volt-lease"))]
+    {
+        // Fail closed: the gate is unix-only (agent socket); a non-unix build
+        // with the feature on must not silently skip licensing.
+        eprintln!(
+            "{}",
+            ta(
+                "cli-license-unsupported",
+                &[],
+                "License gating requires a unix build"
+            )
+        );
+        std::process::exit(1);
+    }
+
     let default_floor = match &cli.command {
         Commands::Daemon {
             ephemeral: true, ..
