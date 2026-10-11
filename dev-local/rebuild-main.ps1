@@ -329,4 +329,4 @@ if ($Push) {
 
 Write-Host ""
 Write-Host "Done. Build with:" -ForegroundColor Green
-Write-Host "  cargo build --release --no-default-features --features agent-runtime,gateway,embedded-web,acp-bridge,channel-telegram"
+Write-Host "  cargo build --release --no-default-features --features agent-runtime,gateway,embedded-web,acp-bridge,channel-email,channel-filesystem,channel-git,channel-matrix,channel-telegram,channel-webhook,whatsapp-web"
