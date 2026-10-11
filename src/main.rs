@@ -922,6 +922,8 @@ mod i18n;
 mod identity;
 #[cfg(feature = "agent-runtime")]
 mod integrations;
+#[cfg(all(unix, feature = "volt-lease"))]
+mod license_gate;
 #[cfg(feature = "agent-runtime")]
 mod memory;
 #[cfg(feature = "agent-runtime")]
