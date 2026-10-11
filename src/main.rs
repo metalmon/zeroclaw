@@ -1631,7 +1631,7 @@ Examples:
     /// Generate shell completion script to stdout
     // i18n-exempt: clap derive help — framework requires a compile-time literal
     #[command(long_about = "\
-Generate shell completion scripts for `zeroclaw`.
+Generate shell completion scripts for `voltd`.
 
 The script is printed to stdout so it can be sourced directly:
 
@@ -3497,7 +3497,7 @@ fn first_line(text: &str) -> &str {
     text.lines().next().unwrap_or(text).trim()
 }
 
-/// Render the body of `zeroclaw plugin list`.
+/// Render the body of `voltd plugin list`.
 ///
 /// Each entry carries its load verdict only when `--verify` ran, so the default
 /// listing stays a directory read and costs no compilation.
@@ -3554,7 +3554,7 @@ fn plugin_list_lines(
     lines
 }
 
-/// Render `zeroclaw plugin info`. The load verdict is always the last line:
+/// Render `voltd plugin info`. The load verdict is always the last line:
 /// "does this plugin work here" is the question the command exists to answer,
 /// and the manifest alone cannot answer it.
 #[cfg(feature = "plugins-wasm")]
@@ -4530,7 +4530,7 @@ async fn publish_and_seed_plugin(
         Err(rollback_err) => Err(seed_err.context(format!(
             "the plugin package '{name}' could not be seeded and rolling it back \
              ALSO failed ({rollback_err}); the package is still installed — remove \
-             it with `zeroclaw plugin remove {name}` before retrying"
+             it with `voltd plugin remove {name}` before retrying"
         ))),
     }
 }
@@ -7695,7 +7695,7 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
                     .is_some_and(|home| exe.starts_with(&home));
                 if under_home {
                     let install_hint = if cfg!(windows) {
-                        "Consider installing to a system-wide location (e.g. C:\\Program Files\\ZeroClaw) for service use."
+                        "Consider installing to a system-wide location (e.g. C:\\Program Files\\Volt) for service use."
                     } else if cfg!(target_os = "macos") {
                         "Consider installing to /usr/local/bin or /opt/homebrew/bin for system-wide service."
                     } else {
@@ -10933,7 +10933,7 @@ Add pricing to the active provider profile or supply a catalog entry."
                             "cli-plugin-legacy-detected",
                             &[("path", &legacy.display().to_string()), ("target", &target)],
                             "Note: plugins in a legacy location are not loaded by the agent — \
-                             run `zeroclaw plugin migrate` to move them.",
+                             run `voltd plugin migrate` to move them.",
                         )
                     );
                 }
@@ -20764,7 +20764,7 @@ hosts = ["api.example.com", "api2.example.com"]
         let rendered = format!("{err:#}");
         let rename_at = rendered.find("rename").expect("the rename step returns");
         let grant_at = rendered
-            .find("zeroclaw --config-dir")
+            .find("voltd --config-dir")
             .expect("the grant step returns, addressing this configuration");
         assert!(
             rename_at < grant_at,
