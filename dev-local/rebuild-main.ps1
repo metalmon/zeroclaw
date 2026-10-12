@@ -291,6 +291,33 @@ $fixups = @(
         From = 'anyhow::anyhow!("no MCP servers for scope `{alias}`")'
         To   = 'anyhow::Error::msg(format!("no MCP servers for scope `{alias}`"))'
     }
+    # PRODUCTION-CODE drift, not test drift: master changed
+    # `format_mcp_tool_result_for_model` to return the rendered markers beside the
+    # text, and feat/mcp-tasks-host (whose base predates that) still calls it as if
+    # it returned a String. The branch cannot carry the fix - against its own base
+    # the new shape does not exist - so it lands here until that branch is rebased
+    # onto master. The markers are re-inlined into the text because an injected
+    # task turn has no attachment carrier to hand them to.
+    @{
+        File = "crates/zeroclaw-runtime/src/mcp_tasks/inject.rs"
+        From = "use zeroclaw_tools::embedded_resource::format_mcp_tool_result_for_model;`n"
+        To   = "use zeroclaw_api::media::{MarkerKind, RenderedMarker};`nuse zeroclaw_tools::embedded_resource::format_mcp_tool_result_for_model;`n"
+    }
+    @{
+        File = "crates/zeroclaw-runtime/src/mcp_tasks/inject.rs"
+        From = "pub(crate) fn render_task_result(`n"
+        To   = "/// Re-inline the markers ``format_mcp_tool_result_for_model`` now returns`n/// separately. The inline tool path hands them to the ``ToolResult`` carrier, but`n/// an injected task turn is plain text with no carrier, so without this the`n/// materialized files would sit on disk invisible to the model - the opposite of`n/// what this module's doc comment above promises.`nfn with_markers(text: String, markers: &[RenderedMarker]) -> String {`n    let mut out = text;`n    for marker in markers {`n        let line = match marker.kind {`n            MarkerKind::Image => format!(`"[IMAGE:{}]`", marker.target),`n            MarkerKind::Audio => format!(`"[AUDIO:{}]`", marker.target),`n            MarkerKind::Video => format!(`"[VIDEO:{}]`", marker.target),`n            MarkerKind::Document => {`n                let name = std::path::Path::new(&marker.target)`n                    .file_name()`n                    .map(|n| n.to_string_lossy().into_owned())`n                    .unwrap_or_else(|| `"file`".to_string());`n                format!(`"[Document: {name}] {}`", marker.target)`n            }`n        };`n        out.push('\n');`n        out.push_str(&line);`n    }`n    out`n}`n`npub(crate) fn render_task_result(`n"
+    }
+    @{
+        File = "crates/zeroclaw-runtime/src/mcp_tasks/inject.rs"
+        From = "                format_mcp_tool_result_for_model(r.clone(), workspace_dir)`n                    .unwrap_or_else(|_| serde_json::to_string_pretty(r).unwrap_or_default())`n"
+        To   = "                format_mcp_tool_result_for_model(r.clone(), workspace_dir)`n                    .map(|(text, markers)| with_markers(text, &markers))`n                    .unwrap_or_else(|_| serde_json::to_string_pretty(r).unwrap_or_default())`n"
+    }
+    @{
+        File = "crates/zeroclaw-runtime/src/mcp_tasks/mod.rs"
+        From = "                let text = format_mcp_tool_result_for_model(v.clone(), &workspace_dir)`n                    .unwrap_or_else(|_| serde_json::to_string_pretty(&v).unwrap_or_default());`n"
+        To   = "                let text = format_mcp_tool_result_for_model(v.clone(), &workspace_dir)`n                    .map(|(text, markers)| super::inject::with_markers(text, &markers))`n                    .unwrap_or_else(|_| serde_json::to_string_pretty(&v).unwrap_or_default());`n"
+    }
 )
 $patched = $false
 foreach ($fx in $fixups) {
