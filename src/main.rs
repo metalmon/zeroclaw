@@ -7365,8 +7365,8 @@ async fn async_main_inner(command: clap::Command) -> Result<()> {
 
         #[cfg(all(unix, feature = "volt-lease"))]
         Commands::License { license_command } => match license_command {
-            LicenseCommands::Status => crate::license_gate::license_status().await?,
-            LicenseCommands::Install { file } => crate::license_gate::license_install(&file)?,
+            LicenseCommands::Status => crate::license_gate::license_status().await,
+            LicenseCommands::Install { file } => crate::license_gate::license_install(&file),
         },
         #[cfg(all(not(unix), feature = "volt-lease"))]
         Commands::License { .. } => {
