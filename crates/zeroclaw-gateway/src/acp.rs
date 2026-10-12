@@ -101,9 +101,16 @@ pub async fn handle_ws_acp(
         // Pre-auth: no principal to resolve yet, no 401 — the connection
         // itself is allowed; only its method set is restricted, enforced in
         // `handle_socket`. `client_id` buckets `PairingGuard`'s brute-force
-        // lockout the same way the REST `/pair` front door keys it: by peer
-        // identity.
-        let client_id = peer_addr.to_string();
+        // lockout, so it must be the peer IP and nothing more: keyed by
+        // `peer_addr.to_string()` the ephemeral port rode along, and a caller
+        // got a fresh bucket for every reconnect. Derived through the same
+        // helper as the REST `/pair` front door, so a forwarded header is
+        // trusted only behind a configured proxy.
+        let client_id = crate::client_key_from_request(
+            Some(peer_addr),
+            &headers,
+            state.trust_forwarded_headers,
+        );
         return ws
             .on_upgrade(move |socket| {
                 handle_socket(socket, state, params.agent, client_id, ConnAuth::PreAuth)
@@ -130,7 +137,8 @@ pub async fn handle_ws_acp(
         }
     };
 
-    let client_id = peer_addr.to_string();
+    let client_id =
+        crate::client_key_from_request(Some(peer_addr), &headers, state.trust_forwarded_headers);
     ws.on_upgrade(move |socket| {
         handle_socket(
             socket,
@@ -484,6 +492,40 @@ async fn run_pre_auth(
             .and_then(Value::as_str)
             .unwrap_or("");
 
+        // Brute-force protection, mirroring the REST `/pair` handler: the
+        // coarse per-key request cap plus the shared auth limiter. A pre-auth
+        // socket can send frames as fast as it likes, so without these the
+        // guard's own lockout was the only thing standing between a caller and
+        // an unbounded code-guessing loop.
+        if !state.rate_limiter.allow_pair(client_id) {
+            if !send_pre_auth_error_with_reason(
+                sender,
+                id,
+                error_codes::AUTH_REQUIRED,
+                "too many pairing requests; retry later",
+                Some("pair_rate_limited"),
+            )
+            .await
+            {
+                return None;
+            }
+            continue;
+        }
+        if let Err(e) = state.auth_limiter.check_rate_limit(client_id) {
+            if !send_pre_auth_error_with_reason(
+                sender,
+                id,
+                error_codes::AUTH_REQUIRED,
+                &format!("too many auth attempts; retry in {}s", e.retry_after_secs),
+                Some("pair_rate_limited"),
+            )
+            .await
+            {
+                return None;
+            }
+            continue;
+        }
+
         match state.pairing.try_pair(code, client_id).await {
             Ok(Some(token)) => {
                 let authz_enforced = state.config.read().authz.is_enforced();
@@ -823,13 +865,15 @@ mod tests {
         cfg.gateway.paired_tokens = vec!["zc_paired_but_unbound".to_string()];
         // Authz IS enforced (one principal configured), but it is bound to a
         // DIFFERENT token than the one this connection presents.
-        cfg.authz.principals.push(zeroclaw_config::authz::PrincipalRecord {
-            id: "someone-else".to_string(),
-            token_hashes: vec![zeroclaw_config::pairing::PairingGuard::token_hash(
-                "zc_some_other_token",
-            )],
-            profiles: vec![],
-        });
+        cfg.authz
+            .principals
+            .push(zeroclaw_config::authz::PrincipalRecord {
+                id: "someone-else".to_string(),
+                token_hashes: vec![zeroclaw_config::pairing::PairingGuard::token_hash(
+                    "zc_some_other_token",
+                )],
+                profiles: vec![],
+            });
         std::fs::create_dir_all(&cfg.data_dir).unwrap();
 
         let probe = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
