@@ -2444,6 +2444,7 @@ impl Agent {
     /// Build a daemon-backed ACP/WS Agent whose model route generation is pinned
     /// until reconnect while independently live tool/history policy continues
     /// to follow the shared config.
+    #[allow(clippy::too_many_arguments)]
     pub async fn from_pinned_live_config_with_session_cwd_and_mcp_backchannel(
         live_config: zeroclaw_config::live::LiveConfigHandle,
         agent_alias: &str,
@@ -17775,6 +17776,7 @@ model_provider = "custom.only"
             None,
             None,
             None,
+            &[],
             None,
             None,
         )
@@ -17838,6 +17840,7 @@ model_provider = "custom.only"
             None,
             None,
             None,
+            &[],
             None,
             None,
         )

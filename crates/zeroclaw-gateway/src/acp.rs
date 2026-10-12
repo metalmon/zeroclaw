@@ -2057,6 +2057,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
         ));
 
         let addr = format!("127.0.0.1:{port}");
@@ -2181,6 +2183,8 @@ mod tests {
             cfg,
             None,
             Some(reload_controls),
+            None,
+            None,
             None,
             None,
             None,
