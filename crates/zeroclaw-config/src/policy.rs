@@ -1560,6 +1560,21 @@ fn git_command_is_write(args: &[String]) -> bool {
                 return true;
             }
         }
+        // `git reflog expire` and `git reflog delete` drop reflog entries, so
+        // they rewrite repository state even though a plain `git reflog` is a
+        // read. Fail closed: only the reading actions, and a bare `git reflog`,
+        // stay on the read side.
+        "reflog" => {
+            if git_first_non_option_before_pathspec(args, subcommand_idx + 1).is_some_and(
+                |action| {
+                    !(git_arg_eq(action, "show")
+                        || git_arg_eq(action, "exists")
+                        || git_arg_eq(action, "list"))
+                },
+            ) {
+                return true;
+            }
+        }
         "format-patch" => return true,
         _ => {}
     }
@@ -3678,6 +3693,13 @@ impl SecurityPolicy {
                 {
                     return false;
                 }
+                // A verb on the read list can still be driven to write: the
+                // mutating actions of `reflog`, and the output-file options of
+                // `diff`/`log`/`show`/`whatchanged`, all live under an allowed
+                // verb. The write classifier knows them, so ask it too.
+                if self.git_read_only && git_command_is_write(args) {
+                    return false;
+                }
                 !args_cased.iter().any(|arg| arg.starts_with("-c"))
                     && !git_delegates_to_external_command(args_cased)
                     && !args.iter().any(|arg| {
@@ -5687,10 +5709,24 @@ mod tests {
             "git -C /repo checkout main",
             "git stash",    // not a known read => write => blocked
             "git -C /repo", // no subcommand => blocked
+            // A read verb driven to write: reflog's mutating actions, and the
+            // output-file options that make a diff/log/show write a file.
+            "git reflog expire --expire=now --all",
+            "git reflog delete HEAD@{0}",
+            "git -C /repo reflog expire --rewrite",
+            "git diff --output=/tmp/patch",
+            "git log --output /tmp/log -1",
         ] {
             assert!(
                 !p.is_command_allowed(cmd),
                 "git_read_only must hard-block: {cmd}"
+            );
+        }
+        // The reading reflog actions stay allowed.
+        for cmd in ["git reflog", "git reflog show", "git reflog exists HEAD"] {
+            assert!(
+                p.is_command_allowed(cmd),
+                "git_read_only must keep allowing: {cmd}"
             );
         }
     }
