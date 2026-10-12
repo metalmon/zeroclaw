@@ -305,8 +305,8 @@ $fixups = @(
     }
     @{
         File = "crates/zeroclaw-runtime/src/mcp_tasks/inject.rs"
-        From = "pub(crate) fn render_task_result(`n"
-        To   = "/// Re-inline the markers ``format_mcp_tool_result_for_model`` now returns`n/// separately. The inline tool path hands them to the ``ToolResult`` carrier, but`n/// an injected task turn is plain text with no carrier, so without this the`n/// materialized files would sit on disk invisible to the model - the opposite of`n/// what this module's doc comment above promises.`npub(crate) fn with_markers(text: String, markers: &[RenderedMarker]) -> String {`n    let mut out = text;`n    for marker in markers {`n        let line = match marker.kind {`n            MarkerKind::Image => format!(`"[IMAGE:{}]`", marker.target),`n            MarkerKind::Audio => format!(`"[AUDIO:{}]`", marker.target),`n            MarkerKind::Video => format!(`"[VIDEO:{}]`", marker.target),`n            MarkerKind::Document => {`n                let name = std::path::Path::new(&marker.target)`n                    .file_name()`n                    .map(|n| n.to_string_lossy().into_owned())`n                    .unwrap_or_else(|| `"file`".to_string());`n                format!(`"[Document: {name}] {}`", marker.target)`n            }`n        };`n        out.push('\n');`n        out.push_str(&line);`n    }`n    out`n}`n`npub(crate) fn render_task_result(`n"
+        From = "/// Scrub server-origin text and wrap it as untrusted-external, mirroring`n"
+        To   = "/// Re-inline the markers ``format_mcp_tool_result_for_model`` now returns`n/// separately. The inline tool path hands them to the ``ToolResult`` carrier, but`n/// an injected task turn is plain text with no carrier, so without this the`n/// materialized files would sit on disk invisible to the model - the opposite of`n/// what this module's doc comment above promises.`npub(crate) fn with_markers(text: String, markers: &[RenderedMarker]) -> String {`n    let mut out = text;`n    for marker in markers {`n        let line = match marker.kind {`n            MarkerKind::Image => format!(`"[IMAGE:{}]`", marker.target),`n            MarkerKind::Audio => format!(`"[AUDIO:{}]`", marker.target),`n            MarkerKind::Video => format!(`"[VIDEO:{}]`", marker.target),`n            MarkerKind::Document => {`n                let name = std::path::Path::new(&marker.target)`n                    .file_name()`n                    .map(|n| n.to_string_lossy().into_owned())`n                    .unwrap_or_else(|| `"file`".to_string());`n                format!(`"[Document: {name}] {}`", marker.target)`n            }`n        };`n        out.push('\n');`n        out.push_str(&line);`n    }`n    out`n}`n`n/// Scrub server-origin text and wrap it as untrusted-external, mirroring`n"
     }
     @{
         File = "crates/zeroclaw-runtime/src/mcp_tasks/inject.rs"
@@ -344,15 +344,6 @@ $patched = $false
 foreach ($fx in $fixups) {
     $path = Resolve-Path -LiteralPath $fx.File
     $orig = [System.IO.File]::ReadAllText($path)
-    # Idempotence: a rebuild starts from a fresh tree, but -SkipPicks runs on a
-    # tree that may already carry the fixups, and `cargo fmt` below reflows the
-    # inserted text so the From anchor reappears intact. Without this guard a
-    # second run inserted the same attribute again (seen: three copies).
-    # The signature is the longest line To adds and From does not have, which is
-    # the inserted content itself and survives formatting as its own line.
-    $added = ($fx.To -split "`r?`n") | Where-Object { $_.Trim() -and ($fx.From -notlike "*$_*") }
-    $signature = ($added | Sort-Object { $_.Length } -Descending | Select-Object -First 1)
-    if ($signature -and $orig.Contains($signature.Trim())) { continue }
     $new  = $orig.Replace($fx.From, $fx.To)
     # Multi-line From/To are written with "`n"; a CRLF working tree
     # (core.autocrlf=true on Windows) needs the CRLF spelling instead.
@@ -407,6 +398,37 @@ if ((Test-Path $allow) -and $LASTEXITCODE -eq 0) {
         git add -- $allow
         $patched = $true
         Write-Host "==> post-assembly fixup applied: $allow (brand rows)" -ForegroundColor Yellow
+    }
+}
+
+# A rebuild starts from a fresh tree, but -SkipPicks runs on a tree that may
+# already carry the fixups, and `cargo fmt` below reflows an inserted attribute
+# onto its own line - which restores the anchor the fixup matches on, so the
+# next pass inserts it again (seen: three copies). Rather than guess whether an
+# entry has already been applied, drop the duplicate afterwards: two identical
+# attributes in a row are always wrong, whoever wrote them.
+$dedup = $fixups | ForEach-Object { $_.File } | Sort-Object -Unique
+foreach ($file in $dedup) {
+    if (-not (Test-Path -LiteralPath $file)) { continue }
+    $path = (Resolve-Path -LiteralPath $file).Path
+    $text = [System.IO.File]::ReadAllText($path)
+    $fileEol = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $lines = $text -split "`r?`n"
+    $kept = New-Object System.Collections.Generic.List[string]
+    $dropped = 0
+    foreach ($line in $lines) {
+        $t = $line.Trim()
+        if ($kept.Count -gt 0 -and $t -and ($t.StartsWith("#[") -or $t.StartsWith("#![")) -and $kept[$kept.Count - 1].Trim() -eq $t) {
+            $dropped++
+            continue
+        }
+        $kept.Add($line)
+    }
+    if ($dropped -gt 0) {
+        [System.IO.File]::WriteAllText($path, ($kept -join $fileEol))
+        git add -- $file
+        $patched = $true
+        Write-Host "==> dropped $dropped duplicate attribute line(s) in $file" -ForegroundColor Yellow
     }
 }
 
