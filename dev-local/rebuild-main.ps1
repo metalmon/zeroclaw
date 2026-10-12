@@ -309,6 +309,50 @@ foreach ($fx in $fixups) {
         Write-Host "==> post-assembly fixup applied: $($fx.File)" -ForegroundColor Yellow
     }
 }
+# --- Post-assembly brand reconciliation of the Fluent legacy allowlist ---
+# The allowlist quotes the exact strings the code prints, and the rebrand branch
+# renames its rows in the same commits that rename the literals. In the assembled
+# tree those rows can still arrive from master, because upstream edits the same
+# lines: the gate then compares `zeroclaw ...` rows against `voltd ...` code and
+# fails. Only the quoted literal is rebranded (never the crate path in the first
+# field), and the result is kept ONLY when the owning branch carries that exact
+# row - so this can neither invent a row nor rename one the branch left alone.
+$allow = "tests/architecture/cli_fluent_legacy_allowlist.tsv"
+$allowOwner = "fork/voltd-rebrand"
+git rev-parse --verify --quiet "${allowOwner}:${allow}" > $null 2>&1
+if ((Test-Path $allow) -and $LASTEXITCODE -eq 0) {
+    # .NET resolves a relative path against the PROCESS cwd, not the shell
+    # location, so hand it an absolute one - as the fixup loop above does.
+    $allowPath = (Resolve-Path -LiteralPath $allow).Path
+    $allowRaw = [System.IO.File]::ReadAllText($allowPath)
+    $allowEol = if ($allowRaw.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $rows = $allowRaw -split "`r?`n"
+    $ownerRows = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($r in ((git show "${allowOwner}:${allow}") -split "`r?`n")) {
+        [void]$ownerRows.Add($r.TrimEnd())
+    }
+    $touched = $false
+    for ($i = 0; $i -lt $rows.Count; $i++) {
+        if ($rows[$i].StartsWith("#")) { continue }
+        $parts = $rows[$i] -split "`t"
+        if ($parts.Count -lt 4) { continue }
+        $lit = ($parts[3..($parts.Count - 1)] -join "`t")
+        if ($lit -notmatch "zeroclaw|ZeroClaw") { continue }
+        $renamed = $lit.Replace("zeroclaw", "voltd").Replace("ZeroClaw", "Volt")
+        $candidate = (@($parts[0], $parts[1], $parts[2], $renamed) -join "`t")
+        if ($ownerRows.Contains($candidate.TrimEnd())) {
+            $rows[$i] = $candidate
+            $touched = $true
+        }
+    }
+    if ($touched) {
+        [System.IO.File]::WriteAllText($allowPath, ($rows -join $allowEol))
+        git add -- $allow
+        $patched = $true
+        Write-Host "==> post-assembly fixup applied: $allow (brand rows)" -ForegroundColor Yellow
+    }
+}
+
 if ($patched) {
     # The literal replacements can exceed rustfmt's line width; format so the
     # `Format` CI gate stays green. main was fmt-clean pre-replace, so this only
