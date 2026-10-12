@@ -318,11 +318,41 @@ $fixups = @(
         From = "                let text = format_mcp_tool_result_for_model(v.clone(), &workspace_dir)`n                    .unwrap_or_else(|_| serde_json::to_string_pretty(&v).unwrap_or_default());`n"
         To   = "                let text = format_mcp_tool_result_for_model(v.clone(), &workspace_dir)`n                    .map(|(text, markers)| inject::with_markers(text, &markers))`n                    .unwrap_or_else(|_| serde_json::to_string_pretty(&v).unwrap_or_default());`n"
     }
+    # PRODUCTION-CODE drift (see the mcp_tasks entries above for the rule): the
+    # canvas dispatch in acp_server.rs predates master's streamed-turn result
+    # types, so its two arms still yield (String, Vec<ConversationMessage>) while
+    # the sibling arm - and every line below the match - now works with
+    # StreamedTurnSuccess/StreamedTurnError. The route fields a canvas turn cannot
+    # know (provider, model, limits) stay empty rather than invented.
+    @{
+        File = "crates/zeroclaw-channels/src/orchestrator/acp_server.rs"
+        From = "use zeroclaw_runtime::agent::agent::{Agent, TurnEvent};`n"
+        To   = "use zeroclaw_runtime::agent::agent::{`n    Agent, StreamedTurnError, StreamedTurnSuccess, TurnEvent,`n};`n"
+    }
+    @{
+        File = "crates/zeroclaw-channels/src/orchestrator/acp_server.rs"
+        From = "                                            .await`n                                            .map(|outcome| {`n                                                let text = outcome`n                                                    .outcome`n                                                    .as_ref()`n                                                    .map(|o| o.output.clone())`n                                                    .unwrap_or_default();`n                                                (text, Vec::new())`n                                            })`n"
+        To   = "                                            .await`n                                            .map(|outcome| {`n                                                let text = outcome`n                                                    .outcome`n                                                    .as_ref()`n                                                    .map(|o| o.output.clone())`n                                                    .unwrap_or_default();`n                                                // No model served a tool-only turn, so the`n                                                // route fields stay empty rather than`n                                                // naming a provider that was never asked.`n                                                StreamedTurnSuccess {`n                                                    response: text,`n                                                    new_messages: Vec::new(),`n                                                    provider_name: String::new(),`n                                                    model: String::new(),`n                                                    final_context_limits: None,`n                                                    safeguard_fallback: None,`n                                                }`n                                            })`n                                            .map_err(|error| StreamedTurnError {`n                                                error,`n                                                committed_response: String::new(),`n                                                new_messages: Vec::new(),`n                                            })`n"
+    }
+    @{
+        File = "crates/zeroclaw-channels/src/orchestrator/acp_server.rs"
+        From = "                                            .run_canvas_combined_turn(`n                                                call,`n                                                &combined_input,`n                                                event_tx,`n                                                Some(cancel_token),`n                                            )`n                                            .await`n"
+        To   = "                                            .run_canvas_combined_turn(`n                                                call,`n                                                &combined_input,`n                                                event_tx,`n                                                Some(cancel_token),`n                                            )`n                                            .await`n                                            .map(|(response, new_messages)| StreamedTurnSuccess {`n                                                response,`n                                                new_messages,`n                                                provider_name: String::new(),`n                                                model: String::new(),`n                                                final_context_limits: None,`n                                                safeguard_fallback: None,`n                                            })`n                                            .map_err(|error| StreamedTurnError {`n                                                error,`n                                                committed_response: String::new(),`n                                                new_messages: Vec::new(),`n                                            })`n"
+    }
 )
 $patched = $false
 foreach ($fx in $fixups) {
     $path = Resolve-Path -LiteralPath $fx.File
     $orig = [System.IO.File]::ReadAllText($path)
+    # Idempotence: a rebuild starts from a fresh tree, but -SkipPicks runs on a
+    # tree that may already carry the fixups, and `cargo fmt` below reflows the
+    # inserted text so the From anchor reappears intact. Without this guard a
+    # second run inserted the same attribute again (seen: three copies).
+    # The signature is the longest line To adds and From does not have, which is
+    # the inserted content itself and survives formatting as its own line.
+    $added = ($fx.To -split "`r?`n") | Where-Object { $_.Trim() -and ($fx.From -notlike "*$_*") }
+    $signature = ($added | Sort-Object { $_.Length } -Descending | Select-Object -First 1)
+    if ($signature -and $orig.Contains($signature.Trim())) { continue }
     $new  = $orig.Replace($fx.From, $fx.To)
     # Multi-line From/To are written with "`n"; a CRLF working tree
     # (core.autocrlf=true on Windows) needs the CRLF spelling instead.
