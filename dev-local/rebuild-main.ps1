@@ -353,7 +353,7 @@ $fixups = @(
     @{
         File = "crates/zeroclaw-gateway/src/api_authz.rs"
         From = "    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;`n"
-        To   = "    let guard = zeroclaw_config::write_lock::shared_config_write_lock()`n        .lock_owned()`n        .await;`n"
+        To   = "    // Master serializes a config write through the authority's commit, which`n    // owns the write lock AND the revision lease; the bare lock this used to`n    // take no longer satisfies ``commit()`` below.`n    let guard = match state.begin_config_commit().await {`n        Ok(commit) => commit,`n        Err(e) => {`n            return error_response(ConfigApiError::new(`n                ConfigApiCode::ReloadFailed,`n                format!(`"config commit refused without any change: {e}`"),`n            ));`n        }`n    };`n"
     }
     @{
         File = "crates/zeroclaw-gateway/src/lib.rs"
