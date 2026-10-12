@@ -8,7 +8,14 @@ on:
       branch:
         description: Branch or ref to build
         required: true
-        default: feat/fork-device-id
+        default: main
+      lease_public_key:
+        description: >-
+          Public half of the lease pair. Set it to build the LICENSED pilot
+          image (volt:pilot-base, refuses to start without the license agent);
+          leave empty for the ordinary deploy-box image.
+        required: false
+        default: ""
 
 jobs:
   image:
@@ -21,20 +28,38 @@ jobs:
           ref: ${{ github.event.inputs.branch }}
           fetch-depth: 1
       - uses: docker/setup-buildx-action@v3
-      - name: Build zeroclaw:f4-debian
+      - name: Build the image
+        id: build
+        env:
+          LEASE_PUBLIC_KEY: ${{ github.event.inputs.lease_public_key }}
         run: |
           # Pilot channel set: telegram, matrix, email, filesystem, git, webhook, whatsapp-web.
           # WhatsApp over the Web protocol, not the Cloud API: the Cloud API needs Meta to reach
           # a public HTTPS webhook, which a closed network does not offer.
           # embedded-web compiles the dashboard into the binary, so no copy on disk can shadow
           # it and the kit image needs no web_dist_dir.
-          docker build -f Dockerfile.debian -t zeroclaw:f4-debian             --build-arg ZEROCLAW_CARGO_FLAGS="--no-default-features --features acp-bridge,agent-runtime,channel-email,channel-filesystem,channel-git,channel-matrix,channel-telegram,channel-webhook,embedded-web,gateway,observability-prometheus,schema-export,whatsapp-web"             .
-      - name: Save image to a loadable tar
-        run: |
-          docker save zeroclaw:f4-debian | gzip > zeroclaw-f4-debian.tar.gz
-          ls -lh zeroclaw-f4-debian.tar.gz
+          FEATURES="acp-bridge,agent-runtime,channel-email,channel-filesystem,channel-git,channel-matrix,channel-telegram,channel-webhook,embedded-web,gateway,observability-prometheus,schema-export,whatsapp-web"
+          KEY_ARG=()
+          if [ -n "$LEASE_PUBLIC_KEY" ]; then
+            # Licensed build: the lease gate is compiled in and the verifying key
+            # is baked, so this binary will not start without the license agent
+            # beside it. It therefore carries its OWN tag - deploying it to our
+            # own box, where no agent runs, would only wedge the daemon.
+            IMAGE=volt:pilot-base
+            FEATURES="$FEATURES,volt-lease"
+            KEY_ARG=(--build-arg "VOLTD_LEASE_PUBLIC_KEY=$LEASE_PUBLIC_KEY")
+          else
+            IMAGE=zeroclaw:f4-debian
+          fi
+          BUILD_ARGS=(-f Dockerfile.debian -t "$IMAGE")
+          BUILD_ARGS+=(--build-arg "ZEROCLAW_CARGO_FLAGS=--no-default-features --features $FEATURES")
+          docker build "${BUILD_ARGS[@]}" "${KEY_ARG[@]}" .
+          TAR="$(printf '%s' "$IMAGE" | tr ':/' '--').tar.gz"
+          docker save "$IMAGE" | gzip > "$TAR"
+          ls -lh "$TAR"
+          echo "tar=$TAR" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: zeroclaw-f4-debian-image
-          path: zeroclaw-f4-debian.tar.gz
+          name: ${{ steps.build.outputs.tar }}
+          path: ${{ steps.build.outputs.tar }}
           retention-days: 7
