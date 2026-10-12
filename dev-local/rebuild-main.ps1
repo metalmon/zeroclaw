@@ -316,7 +316,7 @@ $fixups = @(
     @{
         File = "crates/zeroclaw-runtime/src/mcp_tasks/mod.rs"
         From = "                let text = format_mcp_tool_result_for_model(v.clone(), &workspace_dir)`n                    .unwrap_or_else(|_| serde_json::to_string_pretty(&v).unwrap_or_default());`n"
-        To   = "                let text = format_mcp_tool_result_for_model(v.clone(), &workspace_dir)`n                    .map(|(text, markers)| super::inject::with_markers(text, &markers))`n                    .unwrap_or_else(|_| serde_json::to_string_pretty(&v).unwrap_or_default());`n"
+        To   = "                let text = format_mcp_tool_result_for_model(v.clone(), &workspace_dir)`n                    .map(|(text, markers)| inject::with_markers(text, &markers))`n                    .unwrap_or_else(|_| serde_json::to_string_pretty(&v).unwrap_or_default());`n"
     }
 )
 $patched = $false
