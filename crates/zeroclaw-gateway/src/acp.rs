@@ -952,13 +952,7 @@ async fn run_pre_auth(
                 // device survives a daemon restart (the paired set is
                 // otherwise in-memory only). Logged, not fatal: the token is
                 // live in-process either way, and this socket proceeds on it.
-                if let Err(e) = super::persist_pairing_tokens(
-                    state.config.clone(),
-                    &state.pairing,
-                    state.config_write_lock.clone(),
-                )
-                .await
-                {
+                if let Err(e) = super::persist_pairing_tokens(state).await {
                     ::zeroclaw_log::record!(
                         ERROR,
                         ::zeroclaw_log::Event::new(module_path!(), ::zeroclaw_log::Action::Fail)
