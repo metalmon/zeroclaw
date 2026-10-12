@@ -9,6 +9,7 @@
 use std::path::Path;
 
 use zeroclaw_api::ingress::TurnOrigin;
+use zeroclaw_api::media::{MarkerKind, RenderedMarker};
 use zeroclaw_config::schema::Config;
 use zeroclaw_tools::embedded_resource::format_mcp_tool_result_for_model;
 use zeroclaw_tools::mcp_protocol::{GetTaskResult, TaskStatus};
@@ -29,6 +30,32 @@ fn attr_escape(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+/// Re-inline the markers `format_mcp_tool_result_for_model` returns beside the
+/// text. The inline tool path hands them to the `ToolResult` carrier, but an
+/// injected task turn is plain text with no carrier, so without this the
+/// materialized files would sit on disk invisible to the model - the opposite of
+/// what this module's contract promises.
+pub(crate) fn with_markers(text: String, markers: &[RenderedMarker]) -> String {
+    let mut out = text;
+    for marker in markers {
+        let line = match marker.kind {
+            MarkerKind::Image => format!("[IMAGE:{}]", marker.target),
+            MarkerKind::Audio => format!("[AUDIO:{}]", marker.target),
+            MarkerKind::Video => format!("[VIDEO:{}]", marker.target),
+            MarkerKind::Document => {
+                let name = std::path::Path::new(&marker.target)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| "file".to_string());
+                format!("[Document: {name}] {}", marker.target)
+            }
+        };
+        out.push('\n');
+        out.push_str(&line);
+    }
+    out
 }
 
 /// Scrub server-origin text and wrap it as untrusted-external, mirroring
@@ -62,6 +89,7 @@ pub(crate) fn render_task_result(
                 // Materialize base64 payloads to disk; on any formatting error
                 // fall back to the pretty JSON so the result is never dropped.
                 format_mcp_tool_result_for_model(r.clone(), workspace_dir)
+                    .map(|(text, markers)| with_markers(text, &markers))
                     .unwrap_or_else(|_| serde_json::to_string_pretty(r).unwrap_or_default())
             })
             .unwrap_or_else(|| "(completed, no result payload)".into()),

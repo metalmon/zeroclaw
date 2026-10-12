@@ -357,6 +357,7 @@ impl McpTaskSupervisor {
                 // the model's context and trips a `context_window` failure.
                 let workspace_dir = self.config.agent_workspace_dir(alias);
                 let text = format_mcp_tool_result_for_model(v.clone(), &workspace_dir)
+                    .map(|(text, markers)| inject::with_markers(text, &markers))
                     .unwrap_or_else(|_| serde_json::to_string_pretty(&v).unwrap_or_default());
                 Ok(TaskDispatch::Inline(text))
             }
