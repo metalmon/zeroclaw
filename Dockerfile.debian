@@ -60,6 +60,13 @@ ARG ZEROCLAW_CARGO_FLAGS="--no-default-features --features acp-bridge,agent-runt
 ARG ZEROCLAW_BUILD_ID=""
 ENV ZEROCLAW_BUILD_ID=${ZEROCLAW_BUILD_ID}
 
+# Public half of the lease signing pair, read by the `volt-lease` gate through
+# `option_env!` - so it has to be in the environment of `cargo build`, not of
+# the running container. Empty unless the feature is in the flags above: a
+# build without it is the ordinary unlicensed image.
+ARG VOLTD_LEASE_PUBLIC_KEY=""
+ENV VOLTD_LEASE_PUBLIC_KEY=${VOLTD_LEASE_PUBLIC_KEY}
+
 # Install build dependencies
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
