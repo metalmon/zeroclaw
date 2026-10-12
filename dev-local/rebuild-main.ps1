@@ -339,6 +339,27 @@ $fixups = @(
         From = "                                            .run_canvas_combined_turn(`n                                                call,`n                                                &combined_input,`n                                                event_tx,`n                                                Some(cancel_token),`n                                            )`n                                            .await`n"
         To   = "                                            .run_canvas_combined_turn(`n                                                call,`n                                                &combined_input,`n                                                event_tx,`n                                                Some(cancel_token),`n                                            )`n                                            .await`n                                            .map(|(response, new_messages)| StreamedTurnSuccess {`n                                                response,`n                                                new_messages,`n                                                provider_name: String::new(),`n                                                model: String::new(),`n                                                final_context_limits: None,`n                                                safeguard_fallback: None,`n                                            })`n                                            .map_err(|error| StreamedTurnError {`n                                                error,`n                                                committed_response: String::new(),`n                                                new_messages: Vec::new(),`n                                            })`n"
     }
+    # PRODUCTION-CODE drift: master took `config_write_lock` off AppState - the
+    # config authority owns it now, and it is the process-wide shared lock - while
+    # the fork's authz REST handlers, the ACP pairing persist call and one test
+    # literal still reach for the field. Taking the shared lock directly is the
+    # same lock the authority holds, so the serialization these handlers relied on
+    # is unchanged.
+    @{
+        File = "crates/zeroclaw-gateway/src/acp.rs"
+        From = "                if let Err(e) = super::persist_pairing_tokens(`n                    state.config.clone(),`n                    &state.pairing,`n                    state.config_write_lock.clone(),`n                )`n                .await`n"
+        To   = "                if let Err(e) = super::persist_pairing_tokens(state).await`n"
+    }
+    @{
+        File = "crates/zeroclaw-gateway/src/api_authz.rs"
+        From = "    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;`n"
+        To   = "    let guard = zeroclaw_config::write_lock::shared_config_write_lock()`n        .lock_owned()`n        .await;`n"
+    }
+    @{
+        File = "crates/zeroclaw-gateway/src/lib.rs"
+        From = "            config: Arc::new(RwLock::new(config)),`n            config_write_lock: Arc::new(tokio::sync::Mutex::new(())),`n"
+        To   = "            config: Arc::new(RwLock::new(config)),`n"
+    }
 )
 $patched = $false
 foreach ($fx in $fixups) {
