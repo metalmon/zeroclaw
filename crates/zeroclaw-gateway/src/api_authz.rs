@@ -339,7 +339,18 @@ async fn upsert_profile(
         return error_response(e);
     }
 
-    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;
+    // Master serializes a config write through the authority's commit, which
+    // owns the write lock and the revision lease together; the bare field this
+    // used to clone is gone.
+    let guard = match state.begin_config_commit().await {
+        Ok(commit) => commit,
+        Err(e) => {
+            return error_response(ConfigApiError::new(
+                ConfigApiCode::ReloadFailed,
+                format!("config commit refused without any change: {e}"),
+            ));
+        }
+    };
     let before = state.config.read().clone();
     let mut working = before.clone();
     let path = format!("permission_profiles.{}", body.id);
@@ -435,7 +446,18 @@ pub async fn handle_delete_profile(
         return e.into_response();
     }
 
-    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;
+    // Master serializes a config write through the authority's commit, which
+    // owns the write lock and the revision lease together; the bare field this
+    // used to clone is gone.
+    let guard = match state.begin_config_commit().await {
+        Ok(commit) => commit,
+        Err(e) => {
+            return error_response(ConfigApiError::new(
+                ConfigApiCode::ReloadFailed,
+                format!("config commit refused without any change: {e}"),
+            ));
+        }
+    };
     let before = state.config.read().clone();
     let mut working = before.clone();
     let path = format!("permission_profiles.{}", q.id);
@@ -528,7 +550,18 @@ async fn write_principal_profiles(
     required_profile: Option<&str>,
     profiles: impl FnOnce(Vec<String>) -> Vec<String>,
 ) -> Result<Vec<String>, Response> {
-    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;
+    // Master serializes a config write through the authority's commit, which
+    // owns the write lock and the revision lease together; the bare field this
+    // used to clone is gone.
+    let guard = match state.begin_config_commit().await {
+        Ok(commit) => commit,
+        Err(e) => {
+            return Err(error_response(ConfigApiError::new(
+                ConfigApiCode::ReloadFailed,
+                format!("config commit refused without any change: {e}"),
+            )));
+        }
+    };
     let before = state.config.read().clone();
     let mut working = before.clone();
     let Some(current) = working
@@ -672,7 +705,18 @@ pub async fn handle_create_principal(
         return error_response(e);
     }
 
-    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;
+    // Master serializes a config write through the authority's commit, which
+    // owns the write lock and the revision lease together; the bare field this
+    // used to clone is gone.
+    let guard = match state.begin_config_commit().await {
+        Ok(commit) => commit,
+        Err(e) => {
+            return error_response(ConfigApiError::new(
+                ConfigApiCode::ReloadFailed,
+                format!("config commit refused without any change: {e}"),
+            ));
+        }
+    };
     let before = state.config.read().clone();
     let mut working = before.clone();
     let path = format!("authz.principals.{}", body.id);
@@ -772,7 +816,18 @@ pub async fn handle_delete_principal(
         return e.into_response();
     }
 
-    let guard = Arc::clone(&state.config_write_lock).lock_owned().await;
+    // Master serializes a config write through the authority's commit, which
+    // owns the write lock and the revision lease together; the bare field this
+    // used to clone is gone.
+    let guard = match state.begin_config_commit().await {
+        Ok(commit) => commit,
+        Err(e) => {
+            return error_response(ConfigApiError::new(
+                ConfigApiCode::ReloadFailed,
+                format!("config commit refused without any change: {e}"),
+            ));
+        }
+    };
     let before = state.config.read().clone();
     let mut working = before.clone();
     let path = format!("authz.principals.{principal_id}");
