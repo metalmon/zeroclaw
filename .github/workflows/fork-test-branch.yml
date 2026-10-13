@@ -11,7 +11,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
-  ZC_FEATURES: agent-runtime,gateway,acp-bridge,channel-telegram,plugins-wasm,volt-lease
+  ZC_FEATURES: agent-runtime,gateway,acp-bridge,channel-telegram,plugins-wasm,channel-speech-to-speech
 
 jobs:
   test:
