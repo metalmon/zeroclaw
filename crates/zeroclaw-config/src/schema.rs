@@ -846,20 +846,22 @@ impl WireApi {
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ToolResultImagePolicy {
-    /// Preserve tool-result image markers as structured `image_url` parts,
-    /// kept inside the `role = "tool"` message. Many OpenAI-compatible endpoints
+    /// Send declared tool-result images as structured `image_url` parts, kept
+    /// inside the `role = "tool"` message. Several OpenAI-compatible endpoints
     /// reject image parts in a tool result (HTTP 400), so this is opt-in.
     ImageUrl,
     /// Drop declared tool-result images and leave a fixed notice for the model.
     Omit,
-    /// Preserve tool-result images but move each `image_url` part out of the
-    /// `role = "tool"` message into a following `role = "user"` message (merged
-    /// into an adjacent user message when present). OpenAI-compatible endpoints
-    /// reject image parts in a tool result but accept them in a user message, so
+    /// Keep declared tool-result images but move each `image_url` part out of
+    /// the `role = "tool"` message into a following `role = "user"` message
+    /// (merged into an adjacent user message when present). Endpoints that
+    /// reject image parts in a tool result accept them in a user message, so
     /// this delivers the image to the model without the tool-result 400 and
-    /// without discarding it the way `omit` does. This is the default: it is
-    /// safe on every vision-capable provider (a user-message image is accepted
-    /// wherever a tool-message image is) and needs no per-provider config.
+    /// without discarding it the way `omit` does. The default, verified against
+    /// opencode zen (mimo-v2.5) and llama.cpp. Relocation does place a user
+    /// message directly after a tool message; if a backend's chat template
+    /// rejects that order, set `image_url` to keep the image in the tool
+    /// message, or `omit` to drop it.
     #[default]
     Relocate,
 }
