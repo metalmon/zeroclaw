@@ -1039,6 +1039,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'reload_btn.timeout_prefix': "Daemon did not respond within ",
     'reload_btn.timeout_suffix': "s. Check the gateway logs (it may still be starting, or it may have crashed).",
     'reload_btn.waiting': "Waiting for daemon…",
+    'reload_btn.waiting_hint': "The daemon is finishing agent work it had already admitted before it brings the new generation up; with a slow model this can take up to five minutes. It comes back on its own, and restarts itself if that work never finishes - restarting the container here only cuts the wait short. The daemon log names what is holding it.",
     'reload_btn.waiting_slow': "Daemon is still starting…",
     'section_nav.add_to_prefix': "Add to ",
     'section_nav.empty': "Nothing configured yet",

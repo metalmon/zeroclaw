@@ -29,7 +29,15 @@ interface ReloadDaemonButtonProps {
   onReloaded?: () => void;
   /** How long the wait stays silent before it says the daemon is slow. */
   timeoutMs?: number;
-  /** When to give up entirely and report a failure. */
+  /**
+   * When to give up entirely and report a failure.
+   *
+   * Must outlive the daemon's own drain deadline (300s): a reload waits for
+   * admitted agent work, and when that budget expires the daemon leaves so its
+   * supervisor starts a clean one. Giving up at the same 300s reported a
+   * failure exactly as the daemon began coming back, which is what sent
+   * operators to restart the container by hand.
+   */
   hardCapMs?: number;
   /** Icon-only rendering for the global header (label shown as a tooltip). */
   compact?: boolean;
@@ -46,7 +54,7 @@ type State =
 export default function ReloadDaemonButton({
   onReloaded,
   timeoutMs = 30_000,
-  hardCapMs = 300_000,
+  hardCapMs = 420_000,
   compact = false,
 }: ReloadDaemonButtonProps) {
   const [state, setState] = useState<State>({ kind: 'idle' });
@@ -148,6 +156,25 @@ export default function ReloadDaemonButton({
                 ? t('reload_btn.back')
                 : t('reload_btn.reload_daemon'))}
       </button>
+
+      {state.kind === 'waiting' && state.slow && (
+        // A reload that takes this long is almost always waiting on agent work
+        // the retiring generation already admitted (a model request, a tool
+        // call). The gateway listener is already down by then, so the panel
+        // cannot ask the daemon what it is doing - say what is happening
+        // instead of showing a spinner that looks like a hang, and say what
+        // not to do: restarting the container here only cuts the drain short.
+        <div
+          className="rounded-xl border p-3 text-sm mt-2"
+          style={{
+            background: 'rgba(234, 179, 8, 0.08)',
+            borderColor: 'rgba(234, 179, 8, 0.2)',
+            color: 'var(--color-text-secondary)',
+          }}
+        >
+          {t('reload_btn.waiting_hint')}
+        </div>
+      )}
 
       {state.kind === 'error' && (
         <div
