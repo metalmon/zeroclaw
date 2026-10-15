@@ -58,6 +58,8 @@ jobs:
           # Default features only: --all-features would pull cpal/alsa-sys (voice-wake),
           # which needs system audio libs absent on the runner. Default includes
           # channel-telegram, so the telegram + orchestrator tests still run.
+          cargo test --locked -p gemini-live
+          cargo test --locked -p zeroclaw-channels --features channel-speech-to-speech --lib speech_to_speech
           cargo test --locked -p zeroclaw-channels --lib
           # The MCP task-supervisor/poller/injector unit tests live in
           # zeroclaw-runtime; the workspace Check compiles them but never runs
