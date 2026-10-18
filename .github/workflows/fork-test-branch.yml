@@ -49,7 +49,6 @@ jobs:
           # zeroclaw-providers full lib suite: OpenAI-compatible message assembly
           # (tool-result image relocation) AND provider routing/options tests —
           # the latter caught a default-coupled failure a scoped run had missed.
-          cargo test --locked -p zeroclaw-providers --lib
           # zeroclaw-tools unit tests (e.g. embedded_resource MCP image/audio
           # materialization) are compiled by the workspace Check but never run.
           # Scoped to embedded_resource: the claude_code_runner tests need tmux,
@@ -66,3 +65,4 @@ jobs:
           # them, so execute the mcp_tasks module tests explicitly. The
           # per-scope connection-pool tests (mcp_pool) run the same way.
           cargo test --locked -p zeroclaw-runtime --lib -- mcp_tasks mcp_pool
+          cargo test --locked -p zeroclaw-providers --lib
