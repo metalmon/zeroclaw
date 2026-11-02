@@ -105,6 +105,11 @@ jobs:
         # is null for a crate that may be published and a list (empty for
         # `publish = false`) for one that may not.
         run: |
+          # `cargo package` refuses a dirty tree, and the dirt is ours: the
+          # web/dist placeholder this job creates for the gateway build script.
+          # Remove it rather than passing --allow-dirty, so anything else a
+          # step leaves behind still fails here instead of reaching a package.
+          rm -f web/dist/.gitkeep
           crates=$(cargo metadata --locked --format-version 1 --no-deps \
             | jq -r '.packages[] | select(.publish == null) | .name')
           echo "$crates" | tr '\n' ' '
