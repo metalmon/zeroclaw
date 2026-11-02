@@ -1,0 +1,94 @@
+name: Fork Test Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch or ref to test
+        required: true
+        default: fix/acp-session-cwd-fallback
+      features:
+        description: >-
+          Feature set for the lib tests. The default includes `volt-lease`,
+          which only exists on the fork's own branches: a branch based on
+          upstream master (anything we open a PR from) has to drop it, or
+          cargo refuses the whole run with "does not contain this feature".
+        required: false
+        default: agent-runtime,gateway,acp-bridge,channel-telegram,plugins-wasm,volt-lease
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  ZC_FEATURES: ${{ github.event.inputs.features || 'agent-runtime,gateway,acp-bridge,channel-telegram,plugins-wasm,volt-lease' }}
+
+jobs:
+  test:
+    name: Test (linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.98.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install system dependencies
+        run: bash scripts/ci/apt_install.sh libudev-dev ripgrep
+      - name: Ensure web/dist placeholder exists
+        run: mkdir -p web/dist && touch web/dist/.gitkeep
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Check (default features, all targets)
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo check --locked --workspace --exclude zeroclaw-desktop --all-targets
+      - name: Clippy (Lint)
+        run: bash scripts/ci/run_clippy.sh --scope workspace --summary-title "Lint diagnostics" --log-name cargo-clippy.log
+      - name: Tests (fork feature set, lib)
+        run: cargo test --no-default-features --features "$ZC_FEATURES" --lib
+      - name: Tests (member crates, lib)
+        # The root-crate lib run above does NOT exercise member-crate unit tests.
+        # Run the security-policy crate explicitly so policy.rs changes are tested.
+        run: |
+          cargo test --locked -p zeroclaw-config --all-features --lib
+          # zeroclaw-providers full lib suite: OpenAI-compatible message assembly
+          # (tool-result image relocation) AND provider routing/options tests —
+          # the latter caught a default-coupled failure a scoped run had missed.
+          #
+          # One upstream test is excluded, not skipped quietly: on this runner
+          # `native_tool_round_flags_reach_stream_and_chat_wires_without_changing_defaults`
+          # fails every run (twice in a row on two different runners, 2026-11-02)
+          # with a connect error against its own 127.0.0.1 mock — it stands up
+          # 18 one-shot servers in a loop. Upstream's CI is green on it, so the
+          # cause is our environment, and leaving it in means `-e` aborts this
+          # step before the crates we actually came to test. Drop the exclusion
+          # once the runner difference is understood.
+          cargo test --locked -p zeroclaw-providers --lib -- \
+            --skip native_tool_round_flags_reach_stream_and_chat_wires_without_changing_defaults
+          # zeroclaw-tools unit tests (e.g. embedded_resource MCP image/audio
+          # materialization) are compiled by the workspace Check but never run.
+          # Scoped to embedded_resource: the claude_code_runner tests need tmux,
+          # which the runner does not install.
+          cargo test --locked -p zeroclaw-tools --lib -- embedded_resource
+          # Default features only: --all-features would pull cpal/alsa-sys (voice-wake),
+          # which needs system audio libs absent on the runner. Default includes
+          # channel-telegram, so the telegram + orchestrator tests still run.
+          cargo test --locked -p zeroclaw-channels --lib
+          # `channel-speech-to-speech` is NOT in the defaults, so the run above
+          # compiles none of that module and silently reports every one of its
+          # tests as passing by not existing. One more run with the feature on
+          # is what makes the voice channel's tests count. Its only extra
+          # dependency is the gemini-live crate — no system libraries.
+          cargo test --locked -p zeroclaw-channels --features channel-speech-to-speech --lib -- speech_to_speech
+          # The session driver of the voice branch: reconnect, resumption and
+          # the control-receipt lifetime live here, and the workspace Check
+          # compiles these tests without ever running them.
+          cargo test --locked -p gemini-live --lib
+          # The MCP task-supervisor/poller/injector unit tests live in
+          # zeroclaw-runtime; the workspace Check compiles them but never runs
+          # them, so execute the mcp_tasks module tests explicitly. The
+          # per-scope connection-pool tests (mcp_pool) run the same way.
+          cargo test --locked -p zeroclaw-runtime --lib -- mcp_tasks mcp_pool
