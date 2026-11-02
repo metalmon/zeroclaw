@@ -92,3 +92,22 @@ jobs:
           # them, so execute the mcp_tasks module tests explicitly. The
           # per-scope connection-pool tests (mcp_pool) run the same way.
           cargo test --locked -p zeroclaw-runtime --lib -- mcp_tasks mcp_pool
+      - name: Packaging (publishable crates)
+        # Nothing else here packages a crate: a build, a test and a clippy run
+        # all accept a dependency declared with a bare `path`, while `cargo
+        # package` refuses one with no version requirement - optional or not,
+        # feature on or off. That is how a new in-tree dependency breaks the
+        # workspace release weeks after it merges, with nothing on the pull
+        # request to show it. Upstream packages only when a version changes, so
+        # this is ours to check.
+        #
+        # The list comes from the manifests, not from a copy here: `publish`
+        # is null for a crate that may be published and a list (empty for
+        # `publish = false`) for one that may not.
+        run: |
+          crates=$(cargo metadata --locked --format-version 1 --no-deps \
+            | jq -r '.packages[] | select(.publish == null) | .name')
+          echo "$crates" | tr '\n' ' '
+          for crate in $crates; do
+            cargo package --locked --no-verify -p "$crate" > /dev/null
+          done
