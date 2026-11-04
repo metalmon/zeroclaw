@@ -33,7 +33,7 @@ env:
   # Keep in sync with dev-local/rebuild-main.ps1 build footer.
   # plugins-wasm dropped by default: the deploy box runs no wasm plugins
   # ([plugins]/[channels.plugin.*] absent), so the feature is dead weight.
-  # volt-lease stays OUT: these are our own deploy-box binaries - there is no
+  # volt-license stays OUT: these are our own deploy-box binaries - there is no
   # license agent next to them, so the gate would fail-closed them. The pilot
   # client image bakes the feature locally (plan C); compile validation of the
   # gate is fork-test-branch.yml's job.

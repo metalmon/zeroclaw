@@ -9,7 +9,7 @@ on:
         description: Branch or ref to build
         required: true
         default: main
-      lease_public_key:
+      license_public_key:
         description: >-
           Public half of the lease pair. Set it to build the LICENSED pilot
           image (volt:pilot-base, refuses to start without the license agent);
@@ -31,7 +31,7 @@ jobs:
       - name: Build the image
         id: build
         env:
-          LEASE_PUBLIC_KEY: ${{ github.event.inputs.lease_public_key }}
+          LICENSE_PUBLIC_KEY: ${{ github.event.inputs.license_public_key }}
         run: |
           # Pilot channel set: telegram, matrix, email, filesystem, git, webhook, whatsapp-web.
           # WhatsApp over the Web protocol, not the Cloud API: the Cloud API needs Meta to reach
@@ -40,14 +40,14 @@ jobs:
           # it and the kit image needs no web_dist_dir.
           FEATURES="acp-bridge,agent-runtime,channel-email,channel-filesystem,channel-git,channel-matrix,channel-telegram,channel-webhook,embedded-web,gateway,observability-prometheus,schema-export,whatsapp-web"
           KEY_ARG=()
-          if [ -n "$LEASE_PUBLIC_KEY" ]; then
+          if [ -n "$LICENSE_PUBLIC_KEY" ]; then
             # Licensed build: the lease gate is compiled in and the verifying key
             # is baked, so this binary will not start without the license agent
             # beside it. It therefore carries its OWN tag - deploying it to our
             # own box, where no agent runs, would only wedge the daemon.
             IMAGE=volt:pilot-base
-            FEATURES="$FEATURES,volt-lease"
-            KEY_ARG=(--build-arg "VOLTD_LEASE_PUBLIC_KEY=$LEASE_PUBLIC_KEY")
+            FEATURES="$FEATURES,volt-license"
+            KEY_ARG=(--build-arg "VOLTD_LICENSE_PUBLIC_KEY=$LICENSE_PUBLIC_KEY")
           else
             IMAGE=zeroclaw:f4-debian
           fi

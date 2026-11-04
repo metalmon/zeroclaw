@@ -9,17 +9,17 @@ on:
         default: fix/acp-session-cwd-fallback
       features:
         description: >-
-          Feature set for the lib tests. The default includes `volt-lease`,
+          Feature set for the lib tests. The default includes `volt-license`,
           which only exists on the fork's own branches: a branch based on
           upstream master (anything we open a PR from) has to drop it, or
           cargo refuses the whole run with "does not contain this feature".
         required: false
-        default: agent-runtime,gateway,acp-bridge,channel-telegram,plugins-wasm,volt-lease
+        default: agent-runtime,gateway,acp-bridge,channel-telegram,plugins-wasm,volt-license
 
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
-  ZC_FEATURES: ${{ github.event.inputs.features || 'agent-runtime,gateway,acp-bridge,channel-telegram,plugins-wasm,volt-lease' }}
+  ZC_FEATURES: ${{ github.event.inputs.features || 'agent-runtime,gateway,acp-bridge,channel-telegram,plugins-wasm,volt-license' }}
 
 jobs:
   test:
