@@ -81,17 +81,21 @@ jobs:
           # compiles none of that module and silently reports every one of its
           # tests as passing by not existing. One more run with the feature on
           # is what makes the voice channel's tests count. Its only extra
-          # dependency is the gemini-live crate — no system libraries.
+          # dependency is the zeroclaw-gemini-live crate — no system libraries.
           cargo test --locked -p zeroclaw-channels --features channel-speech-to-speech --lib -- speech_to_speech
           # The session driver of the voice branch: reconnect, resumption and
           # the control-receipt lifetime live here, and the workspace Check
           # compiles these tests without ever running them.
-          cargo test --locked -p gemini-live --lib
+          cargo test --locked -p zeroclaw-gemini-live --lib
           # The MCP task-supervisor/poller/injector unit tests live in
           # zeroclaw-runtime; the workspace Check compiles them but never runs
           # them, so execute the mcp_tasks module tests explicitly. The
           # per-scope connection-pool tests (mcp_pool) run the same way.
           cargo test --locked -p zeroclaw-runtime --lib -- mcp_tasks mcp_pool
+          # The publish-contract gates read manifests only, and the workspace
+          # Check compiles this target without running it. A branch that adds a
+          # crate or an in-tree dependency is exactly what they guard.
+          cargo test --locked --test architecture publish_contract
       - name: Publishable crates keep registry-resolvable dependencies
         # A build, a test and a clippy run all accept an in-tree dependency
         # declared with a bare `path`; `cargo package` is the only thing that
